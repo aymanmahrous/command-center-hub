@@ -22,12 +22,15 @@ Controlled AI Inbox on branch `feat/controlled-ai-inbox`.
 
 ## Pending / blocked
 
-- GitHub pull request, protected CI, and merge are pending.
-- No permission blocker is currently known.
+- Pull request #9 is open: https://github.com/aymanmahrous/command-center-hub/pull/9
+- GitHub Actions `verify`, Vercel, and Vercel Preview Comments passed for commit `820092f`.
+- Branch protection requires an approving review. GitHub rejected approval by the connected `aymanmahrous` identity because authors cannot approve their own pull requests.
+- Repository auto-merge is disabled, so the merge cannot be queued without changing repository settings.
+- No protection bypass or admin merge was attempted.
 
 ## NEXT_REQUIRED_ACTION
 
-Commit and push `feat/controlled-ai-inbox`, open its pull request, wait for required CI and branch protection, and merge only after all checks pass. Then begin the next requested Command Center module on a fresh branch from updated `main`.
+Obtain one valid approving review for PR #9, confirm required checks remain successful, and merge without bypassing branch protection. Then begin the next requested Command Center module on a fresh branch from updated `main`.
 
 ## Prohibited actions
 

@@ -23,7 +23,8 @@
 - `npm run typecheck`: passed.
 - `npm test`: passed, 13/13 tests.
 - `npm run build`: passed with Vite production output.
-- Protected GitHub CI: pending pull request.
+- Protected GitHub CI: passed on PR #9 for commit `820092f`.
+- Merge: blocked only by the required approving review; self-approval was rejected and repository auto-merge is disabled.
 
 ## Rollback
 
@@ -31,4 +32,4 @@ Revert the AI Inbox feature merge commit or redeploy the previous successful Com
 
 ## Next required action
 
-Open the AI Inbox pull request, wait for required CI and protection checks, then merge before starting the next module.
+Obtain the required approving review on PR #9, confirm CI remains successful, then merge before starting the next module.
