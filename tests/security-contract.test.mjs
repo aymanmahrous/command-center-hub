@@ -56,3 +56,11 @@ test("booking status is constrained to the server-supported allowlist", () => {
   for (const status of ["pending", "contacted", "confirmed", "declined", "cancelled"]) assert.match(app, new RegExp(`"${status}"`));
   assert.doesNotMatch(app, /service_role/i);
 });
+
+test("deployment configuration fails closed and never embeds a live Supabase project", () => {
+  assert.match(app, /VITE_SUPABASE_URL \?\? ""/);
+  assert.match(app, /VITE_SUPABASE_ANON_KEY \?\? ""/);
+  assert.match(app, /CONFIGURATION_REQUIRED/);
+  assert.doesNotMatch(app, /nmzxrjdxvmmzzmajrskm/);
+  assert.doesNotMatch(app, /sb_publishable_/);
+});
