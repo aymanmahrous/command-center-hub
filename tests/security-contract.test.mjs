@@ -131,6 +131,22 @@ test("Media Library validates ownership-shaped records and remains private read-
   assert.match(app, /sourceFilter/);
 });
 
+test("Analytics uses the approved aggregate RPC and has no direct metric queries", () => {
+  assert.match(app, /get_staff_growth_analytics/);
+  assert.match(app, /active === "analytics" \? <AnalyticsView/);
+  assert.doesNotMatch(app, /\/rest\/v1\/(content_metrics|leads|booking_requests|content_items)/i);
+  assert.doesNotMatch(app, /update_staff_growth_analytics|create_staff_growth_analytics/);
+});
+
+test("Analytics validates every metric and preserves the attribution limitation", () => {
+  for (const field of ["views", "dms", "qualifiedLeads", "bookingRequests", "publishedItems", "contentItems", "attributionReady", "note"]) assert.match(app, new RegExp(field));
+  assert.match(app, /Attribution غير مكتمل/);
+  assert.match(app, /لا تُفسر كتحويلات منسوبة/);
+  assert.match(app, /إجمالي مستقل، غير منسوب/);
+  assert.match(app, /safeRatio/);
+  assert.match(app, /Math\.min\(publishedShare \* 100, 100\)/);
+});
+
 test("deployment configuration fails closed and never embeds a live Supabase project", () => {
   assert.match(app, /VITE_SUPABASE_URL \?\? ""/);
   assert.match(app, /VITE_SUPABASE_ANON_KEY \?\? ""/);
