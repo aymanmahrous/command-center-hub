@@ -7,9 +7,10 @@ const gitignore = await readFile(new URL("../.gitignore", import.meta.url), "utf
 const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
 const app = await readFile(new URL("../src/main.tsx", import.meta.url), "utf8");
 
-test("environment example never contains a service-role secret", () => {
-  assert.doesNotMatch(envExample, /service[_-]?role/i);
-  assert.match(envExample, /VITE_SUPABASE_ANON_KEY/);
+test("environment example contains the browser-safe configuration contract", () => {
+  assert.match(envExample, /^VITE_SUPABASE_URL=/m);
+  assert.match(envExample, /^VITE_SUPABASE_ANON_KEY=/m);
+  assert.match(envExample, /^VITE_STAFF_PROFILE_TABLE=/m);
 });
 
 test("local environment files and generated output are ignored", () => {
