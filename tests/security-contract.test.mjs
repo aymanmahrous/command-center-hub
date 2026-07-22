@@ -57,6 +57,25 @@ test("booking status is constrained to the server-supported allowlist", () => {
   assert.doesNotMatch(app, /service_role/i);
 });
 
+test("AI Inbox reads messages and changes mode only through approved RPCs", () => {
+  assert.match(app, /get_staff_conversation_messages/);
+  assert.match(app, /set_staff_conversation_mode/);
+  assert.match(app, /p_conversation_id/);
+  assert.match(app, /p_mode/);
+  assert.doesNotMatch(app, /\/rest\/v1\/(conversations|messages)[^\n]*(PATCH|PUT|DELETE)/i);
+});
+
+test("AI Inbox mode writes are role-gated, confirmed, and duplicate-safe", () => {
+  assert.match(app, /\["super_admin", "admin", "reception", "coach"\]\.includes\(session\.role\)/);
+  assert.match(app, /if \(!canWrite \|\| busyId \|\| conversation\.mode === next\) return/);
+  assert.match(app, /تأكيد تغيير وضع محادثة/);
+  assert.match(app, /Audit Log/);
+});
+
+test("AI Inbox supports the complete server mode allowlist", () => {
+  for (const mode of ["ai_active", "human_required", "human_takeover", "paused"]) assert.match(app, new RegExp(`"${mode}"`));
+});
+
 test("deployment configuration fails closed and never embeds a live Supabase project", () => {
   assert.match(app, /VITE_SUPABASE_URL \?\? ""/);
   assert.match(app, /VITE_SUPABASE_ANON_KEY \?\? ""/);
