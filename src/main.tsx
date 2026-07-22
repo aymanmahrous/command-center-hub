@@ -108,29 +108,63 @@ const BackgroundJobSchema = z.object({
 const OperationsQueueSchema = z.object({
   followUps: z.array(FollowUpJobSchema), backgroundJobs: z.array(BackgroundJobSchema), generatedAt: z.string(),
 }).passthrough();
+const StoredSessionSchema = z.object({ accessToken: z.string().min(1) }).passthrough();
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
-const SUPABASE_ANON_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY ?? "").trim();
+const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
 const STAFF_TABLE = (import.meta.env.VITE_STAFF_PROFILE_TABLE ?? "staff_profiles").trim();
+
+function legacyKeyRole(key: string) {
+  try {
+    const encodedPayload = key.split(".")[1];
+    if (!encodedPayload) return null;
+    const normalized = encodedPayload.replaceAll("-", "+").replaceAll("_", "/").padEnd(Math.ceil(encodedPayload.length / 4) * 4, "=");
+    return z.object({ role: z.string() }).parse(JSON.parse(atob(normalized))).role;
+  } catch { return null; }
+}
+
+function browserSafeApiKey(key: string) {
+  if (/^sb_publishable_[A-Za-z0-9_-]{20,}$/.test(key)) return true;
+  if (key.startsWith("sb_secret_")) return false;
+  return legacyKeyRole(key) === "anon";
+}
 
 function configurationReady() {
   try {
     const url = new URL(SUPABASE_URL);
-    return url.protocol === "https:" && url.hostname.endsWith(".supabase.co") && SUPABASE_ANON_KEY.length > 20 && STAFF_TABLE.length > 0;
+    return url.protocol === "https:" && url.hostname.endsWith(".supabase.co") && browserSafeApiKey(SUPABASE_PUBLIC_KEY) && STAFF_TABLE.length > 0;
   } catch { return false; }
 }
-function rpcHeaders(session: Session) { return { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${session.accessToken}`, "Content-Type": "application/json", Accept: "application/json" }; }
+function rpcHeaders(session: Session) { return { apikey: SUPABASE_PUBLIC_KEY, Authorization: `Bearer ${session.accessToken}`, "Content-Type": "application/json", Accept: "application/json" }; }
+
+async function loadStaffProfile(accessToken: string, userId: string, signal?: AbortSignal) {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${encodeURIComponent(STAFF_TABLE)}?id=eq.${encodeURIComponent(userId)}&select=display_name,role,active&limit=1`, {
+    headers: { apikey: SUPABASE_PUBLIC_KEY, Authorization: `Bearer ${accessToken}`, Accept: "application/json" }, cache: "no-store", signal,
+  });
+  if (response.status === 401) throw new Error("SESSION_EXPIRED");
+  if (!response.ok) throw new Error("PROFILE_CHECK_FAILED");
+  const rows = z.array(ProfileSchema).parse(await response.json());
+  if (rows.length !== 1) throw new Error("STAFF_ACCESS_DENIED");
+  return { accessToken, displayName: rows[0].display_name, role: rows[0].role } satisfies Session;
+}
 
 async function signIn(email: string, password: string): Promise<Session> {
   if (!configurationReady()) throw new Error("CONFIGURATION_REQUIRED");
-  const authResponse = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, { method: "POST", headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY }, body: JSON.stringify({ email, password }) });
+  const authResponse = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, { method: "POST", headers: { "Content-Type": "application/json", apikey: SUPABASE_PUBLIC_KEY }, body: JSON.stringify({ email, password }) });
+  if (authResponse.status === 429) throw new Error("TOO_MANY_ATTEMPTS");
   if (!authResponse.ok) throw new Error("INVALID_LOGIN");
   const auth = z.object({ access_token: z.string(), user: z.object({ id: z.string().uuid() }) }).parse(await authResponse.json());
-  const profileResponse = await fetch(`${SUPABASE_URL}/rest/v1/${encodeURIComponent(STAFF_TABLE)}?id=eq.${encodeURIComponent(auth.user.id)}&select=display_name,role,active&limit=1`, { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${auth.access_token}`, Accept: "application/json" } });
-  if (!profileResponse.ok) throw new Error("PROFILE_CHECK_FAILED");
-  const rows = z.array(ProfileSchema).parse(await profileResponse.json());
-  if (rows.length !== 1) throw new Error("STAFF_ACCESS_DENIED");
-  return { accessToken: auth.access_token, displayName: rows[0].display_name, role: rows[0].role };
+  return loadStaffProfile(auth.access_token, auth.user.id);
+}
+
+async function restoreSession(accessToken: string, signal: AbortSignal): Promise<Session> {
+  if (!configurationReady()) throw new Error("CONFIGURATION_REQUIRED");
+  const authResponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: { apikey: SUPABASE_PUBLIC_KEY, Authorization: `Bearer ${accessToken}`, Accept: "application/json" }, cache: "no-store", signal,
+  });
+  if (!authResponse.ok) throw new Error("SESSION_EXPIRED");
+  const user = z.object({ id: z.string().uuid() }).parse(await authResponse.json());
+  return loadStaffProfile(accessToken, user.id, signal);
 }
 
 async function callRpc(session: Session, rpcName: string, body: Record<string, unknown> = {}, signal?: AbortSignal): Promise<JsonValue> {
@@ -186,7 +220,7 @@ async function transitionContentItem(session: Session, contentItemId: string, ac
 
 function Login({ onAuthenticated }: { onAuthenticated: (session: Session) => void }) {
   const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
-  async function submit(event: FormEvent) { event.preventDefault(); setBusy(true); setError(""); try { const session = await signIn(email.trim(), password); sessionStorage.setItem("relaxfix-command-session", JSON.stringify(session)); onAuthenticated(session); } catch (cause) { const code = cause instanceof Error ? cause.message : "LOGIN_FAILED"; setError(code === "CONFIGURATION_REQUIRED" ? "إعدادات الاتصال غير مكتملة. التطبيق مغلق بأمان." : "تعذر تسجيل الدخول أو أن الحساب غير مخول."); } finally { setBusy(false); } }
+  async function submit(event: FormEvent) { event.preventDefault(); setBusy(true); setError(""); try { const session = await signIn(email.trim(), password); sessionStorage.setItem("relaxfix-command-session", JSON.stringify({ accessToken: session.accessToken })); onAuthenticated(session); } catch (cause) { const code = cause instanceof Error ? cause.message : "LOGIN_FAILED"; setError(code === "CONFIGURATION_REQUIRED" ? "إعدادات الاتصال غير مكتملة أو المفتاح غير آمن. التطبيق مغلق بأمان." : code === "TOO_MANY_ATTEMPTS" ? "محاولات تسجيل الدخول كثيرة. انتظر قليلًا ثم أعد المحاولة." : "تعذر تسجيل الدخول أو أن الحساب غير مخول."); } finally { setBusy(false); } }
   return <main className="login-page"><section className="login-card" aria-busy={busy}><div className="brand-mark"><ShieldAlert size={28} /></div><p className="eyebrow">RELAX FIX UAE</p><h1>Command Center Hub</h1><p className="muted">منصة العمليات الداخلية. الدخول للموظفين النشطين فقط.</p><form onSubmit={submit}><label>البريد الإلكتروني<input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} /></label><label>كلمة المرور<input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></label>{error && <div className="error-box" role="alert">{error}</div>}<button disabled={busy}>{busy ? "جاري التحقق..." : "تسجيل الدخول"}</button></form><p className="security-note">لا يتم تخزين كلمة المرور. الجلسة تبقى في هذه النافذة فقط.</p></section></main>;
 }
 
@@ -536,7 +570,7 @@ function AnalyticsView({ value }: { value: JsonValue }) {
     <div className="analytics-groups">
       <section><header><div><p>إشارات الجمهور</p><h3>الوصول والتفاعل</h3></div><BarChart3 size={24} /></header><div className="analytics-metrics"><article><span>المشاهدات</span><strong>{analyticsNumber.format(analytics.views)}</strong><small>آخر لقطة قياس لكل محتوى</small></article><article><span>الرسائل الخاصة</span><strong>{analyticsNumber.format(analytics.dms)}</strong><small>{dmRate == null ? "لا توجد مشاهدات لحساب النسبة" : `${analyticsPercent.format(dmRate)} من إجمالي المشاهدات — نسبة وصفية`}</small></article></div></section>
       <section><header><div><p>مسار العملاء</p><h3>حجم العمل التشغيلي</h3></div><ContactRound size={24} /></header><div className="analytics-metrics"><article><span>عملاء مؤهلون</span><strong>{analyticsNumber.format(analytics.qualifiedLeads)}</strong><small>مراحل qualified وما بعدها</small></article><article><span>طلبات الحجز</span><strong>{analyticsNumber.format(analytics.bookingRequests)}</strong><small>إجمالي مستقل، غير منسوب للعملاء المؤهلين</small></article></div></section>
-      <section><header><div><p>صحة المحتوى</p><h3>التغطية المنشورة</h3></div><Bot size={24} /></header><div className="analytics-metrics"><article><span>إجمالي المحتوى</span><strong>{analyticsNumber.format(analytics.contentItems)}</strong><small>كل حالات المحتوى</small></article><article><span>المحتوى المنشور</span><strong>{analyticsNumber.format(analytics.publishedItems)}</strong><small>{publishedShare == null ? "لا يوجد محتوى لحساب النسبة" : `${analyticsPercent.format(publishedShare)} من إجمالي المحتوى`}</small></article></div>{publishedShare != null && <div className="analytics-progress" aria-label={`نسبة المحتوى المنشور ${analyticsPercent.format(publishedShare)}`}><span style={{ width: `${Math.min(publishedShare * 100, 100)}%` }} /></div>}</section>
+      <section><header><div><p>صحة المحتوى</p><h3>التغطية المنشورة</h3></div><Bot size={24} /></header><div className="analytics-metrics"><article><span>إجمالي المحتوى</span><strong>{analyticsNumber.format(analytics.contentItems)}</strong><small>كل حالات المحتوى</small></article><article><span>المحتوى المنشور</span><strong>{analyticsNumber.format(analytics.publishedItems)}</strong><small>{publishedShare == null ? "لا يوجد محتوى لحساب النسبة" : `${analyticsPercent.format(publishedShare)} من إجمالي المحتوى`}</small></article></div>{publishedShare != null && <progress className="analytics-progress" value={Math.min(publishedShare, 1)} max={1} aria-label={`نسبة المحتوى المنشور ${analyticsPercent.format(publishedShare)}`}>{analyticsPercent.format(publishedShare)}</progress>}</section>
     </div>
     <div className="analytics-methodology"><strong>ملاحظة المنهجية</strong><p>{analytics.note}</p><small>لا تُستخدم هذه اللوحة لإثبات السببية أو العائد على الاستثمار حتى تكتمل روابط Attribution في مصدر البيانات.</small></div>
   </>;
@@ -722,5 +756,28 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   return <div className="app-shell"><a className="skip-link" href="#main-workspace">تجاوز إلى المحتوى الرئيسي</a><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><nav aria-label="وحدات Command Center">{sections.map(([id, label, Icon]) => <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => setActive(id)}><Icon size={18} aria-hidden="true" />{label}</button>)}</nav><button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />تسجيل الخروج</button></aside><main className="workspace" id="main-workspace" tabIndex={-1}><p className="eyebrow">INTERNAL OPERATIONS · {modeLabel}</p><h1>{current[1]}</h1><section className="panel" aria-busy={status === "loading"}><div className="panel-heading"><div><h2>بيانات تشغيل حقيقية</h2><p>Supabase RPC محمي بهوية الموظف وصلاحيات قاعدة البيانات.</p></div><button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>تحديث</button></div>{status === "loading" && <p className="muted" role="status">جاري التحميل الآمن...</p>}{status === "error" && <div className="error-box" role="alert">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <MediaLibraryView value={data} /> : active === "analytics" ? <AnalyticsView value={data} /> : active === "integrations" ? <IntegrationsView value={data} /> : <DataView value={data} />)}</section></main></div>;
 }
 
-function App() { const [session, setSession] = useState<Session | null>(null); useEffect(() => { try { const raw = sessionStorage.getItem("relaxfix-command-session"); if (raw) setSession(z.object({ accessToken: z.string(), displayName: z.string(), role: ProfileSchema.shape.role }).parse(JSON.parse(raw))); } catch { sessionStorage.removeItem("relaxfix-command-session"); } }, []); if (!session) return <Login onAuthenticated={setSession} />; return <Dashboard session={session} onLogout={() => { sessionStorage.removeItem("relaxfix-command-session"); setSession(null); }} />; }
+function App() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [restoring, setRestoring] = useState(true);
+  useEffect(() => {
+    const controller = new AbortController();
+    try {
+      const raw = sessionStorage.getItem("relaxfix-command-session");
+      if (!raw) { setRestoring(false); return () => controller.abort(); }
+      const stored = StoredSessionSchema.parse(JSON.parse(raw));
+      restoreSession(stored.accessToken, controller.signal).then((restored) => {
+        if (controller.signal.aborted) return;
+        sessionStorage.setItem("relaxfix-command-session", JSON.stringify({ accessToken: restored.accessToken }));
+        setSession(restored);
+      }).catch((cause) => {
+        if (cause instanceof DOMException && cause.name === "AbortError") return;
+        sessionStorage.removeItem("relaxfix-command-session");
+      }).finally(() => { if (!controller.signal.aborted) setRestoring(false); });
+    } catch { sessionStorage.removeItem("relaxfix-command-session"); setRestoring(false); }
+    return () => controller.abort();
+  }, []);
+  if (restoring) return <main className="login-page"><p className="muted" role="status">جاري التحقق من الجلسة والموظف النشط...</p></main>;
+  if (!session) return <Login onAuthenticated={setSession} />;
+  return <Dashboard session={session} onLogout={() => { sessionStorage.removeItem("relaxfix-command-session"); setSession(null); }} />;
+}
 createRoot(document.getElementById("root")!).render(<React.StrictMode><App /></React.StrictMode>);
