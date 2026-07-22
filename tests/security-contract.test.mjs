@@ -9,6 +9,7 @@ const app = await readFile(new URL("../src/main.tsx", import.meta.url), "utf8");
 
 test("environment example contains the browser-safe configuration contract", () => {
   assert.match(envExample, /^VITE_SUPABASE_URL=/m);
+  assert.match(envExample, /^VITE_SUPABASE_PUBLISHABLE_KEY=/m);
   assert.match(envExample, /^VITE_SUPABASE_ANON_KEY=/m);
   assert.match(envExample, /^VITE_STAFF_PROFILE_TABLE=/m);
 });
@@ -29,7 +30,8 @@ test("staff authorization requires an active profile", () => {
 });
 
 test("staff profile lookup matches the production primary-key contract", () => {
-  assert.match(app, /\?id=eq\.\$\{encodeURIComponent\(auth\.user\.id\)\}/);
+  assert.match(app, /\?id=eq\.\$\{encodeURIComponent\(userId\)\}/);
+  assert.match(app, /loadStaffProfile\(auth\.access_token, auth\.user\.id\)/);
   assert.doesNotMatch(app, /\?user_id=eq\./);
   assert.match(envExample, /primary key `id`/);
 });
@@ -37,6 +39,8 @@ test("staff profile lookup matches the production primary-key contract", () => {
 test("password is not persisted", () => {
   assert.doesNotMatch(app, /setItem\([^\n]*password/i);
   assert.match(app, /sessionStorage/);
+  assert.match(app, /JSON\.stringify\(\{ accessToken: session\.accessToken \}\)/);
+  assert.doesNotMatch(app, /JSON\.stringify\(session\)/);
 });
 
 test("booking writes use the approved RPC and never direct table mutation", () => {
@@ -144,7 +148,8 @@ test("Analytics validates every metric and preserves the attribution limitation"
   assert.match(app, /لا تُفسر كتحويلات منسوبة/);
   assert.match(app, /إجمالي مستقل، غير منسوب/);
   assert.match(app, /safeRatio/);
-  assert.match(app, /Math\.min\(publishedShare \* 100, 100\)/);
+  assert.match(app, /Math\.min\(publishedShare, 1\)/);
+  assert.doesNotMatch(app, /style=\{\{/);
 });
 
 test("Integrations uses only the approved operations queue RPC and remains read-only", () => {
@@ -166,10 +171,34 @@ test("Integrations validates queue records and states operational limits honestl
 
 test("deployment configuration fails closed and never embeds a live Supabase project", () => {
   assert.match(app, /VITE_SUPABASE_URL \?\? ""/);
-  assert.match(app, /VITE_SUPABASE_ANON_KEY \?\? ""/);
+  assert.match(app, /VITE_SUPABASE_PUBLISHABLE_KEY \|\| import\.meta\.env\.VITE_SUPABASE_ANON_KEY/);
   assert.match(app, /CONFIGURATION_REQUIRED/);
   assert.doesNotMatch(app, /nmzxrjdxvmmzzmajrskm/);
-  assert.doesNotMatch(app, /sb_publishable_/);
+  assert.doesNotMatch(app, /sb_publishable_[A-Za-z0-9_-]{30,}/);
+});
+
+test("browser API key validation rejects elevated or malformed credentials", () => {
+  assert.match(app, /function browserSafeApiKey/);
+  assert.match(app, /\^sb_publishable_/);
+  assert.match(app, /key\.startsWith\("sb_secret_"\)/);
+  assert.match(app, /legacyKeyRole\(key\) === "anon"/);
+  assert.match(app, /browserSafeApiKey\(SUPABASE_PUBLIC_KEY\)/);
+  assert.doesNotMatch(app, /SUPABASE_PUBLIC_KEY\.length > 20/);
+});
+
+test("restored sessions revalidate the JWT and active staff profile", () => {
+  assert.match(app, /\/auth\/v1\/user/);
+  assert.match(app, /async function restoreSession/);
+  assert.match(app, /return loadStaffProfile\(accessToken, user\.id, signal\)/);
+  assert.match(app, /active: z\.literal\(true\)/);
+  assert.match(app, /cache: "no-store"/);
+  assert.match(app, /جاري التحقق من الجلسة والموظف النشط/);
+});
+
+test("authentication rate limits fail safely without account disclosure", () => {
+  assert.match(app, /authResponse\.status === 429/);
+  assert.match(app, /TOO_MANY_ATTEMPTS/);
+  assert.match(app, /محاولات تسجيل الدخول كثيرة/);
 });
 
 test("System Polish cancels stale reads and handles session expiry consistently", () => {

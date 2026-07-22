@@ -2,7 +2,7 @@
 
 ## Current stage
 
-Final Audit on branch `audit/final-audit` after the protected merges of AI Inbox PR #9, Bookings PR #10, Content Studio PR #11, Media Library PR #12, Analytics PR #13, Integrations PR #14, and System Polish PR #15.
+Final Security Review on branch `security/final-security-review` after the protected merges of AI Inbox PR #9, Bookings PR #10, Content Studio PR #11, Media Library PR #12, Analytics PR #13, Integrations PR #14, System Polish PR #15, and Final Audit PR #16.
 
 ## Implemented
 
@@ -25,6 +25,9 @@ Final Audit on branch `audit/final-audit` after the protected merges of AI Inbox
 - Integrations remains read-only and does not expose retry, cancel, provider-test, credential, webhook, or direct-table actions.
 - System Polish cancels stale reads, aligns CRM session expiry and global write locking, validates local dates safely, and improves keyboard/loading semantics without changing RPC behavior.
 - Final Audit adds reproducible dependency locking, moves build tooling out of runtime dependencies, and makes CI use a locked, script-free Node 22 install.
+- Final Security Review rejects browser-unsafe API keys, supports the preferred publishable-key environment alias, and safely retains only an `anon`-role legacy fallback.
+- Stored sessions now keep only the access token and revalidate the Supabase user plus active staff profile before protected UI is rendered.
+- Authentication/profile validation disables browser caching, exposes a bounded rate-limit message, and replaces the remaining dynamic inline style with semantic progress markup.
 
 ## Verified evidence
 
@@ -44,15 +47,17 @@ Final Audit on branch `audit/final-audit` after the protected merges of AI Inbox
 - System Polish PR #15 merged after an independent approval and successful required checks on 2026-07-22.
 - Final Audit dependency checks passed: clean `npm ci`, zero full/runtime vulnerabilities, and no unused TypeScript symbols.
 - Final Audit local verification passed: TypeScript, 28/28 tests, production build, locked-install checks, and prohibited-path review.
+- Final Audit PR #16 merged after an independent approval and successful required checks on 2026-07-22.
+- Final Security Review local verification passed: TypeScript, 31/31 tests, production build, strict unused-symbol check, zero dependency vulnerabilities, React review, and prohibited-path review.
 
 ## Pending / blocked
 
-- Open a dedicated Final Audit pull request and wait for protected CI and independent approval.
+- Open a dedicated Final Security Review pull request and wait for protected CI and independent approval.
 - No permission or implementation blocker is currently known.
 
 ## NEXT_REQUIRED_ACTION
 
-Complete Final Audit verification, open its pull request, merge only after CI and protection requirements pass, then begin Final Security Review from updated `main`.
+Open the Final Security Review pull request, merge only after CI and protection requirements pass, then begin Performance Review from updated `main`.
 
 ## Prohibited actions
 
