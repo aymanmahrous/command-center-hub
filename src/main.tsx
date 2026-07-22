@@ -38,13 +38,18 @@ const BookingSchema = z.object({
 }).passthrough();
 const BookingUpdateSchema = z.object({ success: z.boolean(), code: z.string().optional(), bookingRequestId: z.string().uuid().optional(), status: z.enum(["pending", "contacted", "confirmed", "declined", "cancelled"]).optional() });
 
-const DEFAULT_SUPABASE_URL = "https://nmzxrjdxvmmzzmajrskm.supabase.co";
-const DEFAULT_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_qXOPVaD5_f60qf1UbYrm2A_sH9c0lW5";
-const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? DEFAULT_SUPABASE_URL).replace(/\/$/, "");
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? DEFAULT_SUPABASE_PUBLISHABLE_KEY;
-const STAFF_TABLE = import.meta.env.VITE_STAFF_PROFILE_TABLE ?? "staff_profiles";
+const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
+const SUPABASE_ANON_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY ?? "").trim();
+const STAFF_TABLE = (import.meta.env.VITE_STAFF_PROFILE_TABLE ?? "staff_profiles").trim();
 
-function configurationReady() { return SUPABASE_URL.startsWith("https://") && SUPABASE_ANON_KEY.length > 20; }
+function configurationReady() {
+  try {
+    const url = new URL(SUPABASE_URL);
+    return url.protocol === "https:" && url.hostname.endsWith(".supabase.co") && SUPABASE_ANON_KEY.length > 20 && STAFF_TABLE.length > 0;
+  } catch {
+    return false;
+  }
+}
 function rpcHeaders(session: Session) { return { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${session.accessToken}`, "Content-Type": "application/json", Accept: "application/json" }; }
 
 async function signIn(email: string, password: string): Promise<Session> {
