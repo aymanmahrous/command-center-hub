@@ -2,7 +2,7 @@
 
 ## Current stage
 
-Final Security Review on branch `security/final-security-review` after the protected merges of AI Inbox PR #9, Bookings PR #10, Content Studio PR #11, Media Library PR #12, Analytics PR #13, Integrations PR #14, System Polish PR #15, and Final Audit PR #16.
+Performance Review on branch `performance/final-performance-review` after the protected merges of AI Inbox PR #9, Bookings PR #10, Content Studio PR #11, Media Library PR #12, Analytics PR #13, Integrations PR #14, System Polish PR #15, Final Audit PR #16, and Final Security Review PR #17.
 
 ## Implemented
 
@@ -28,6 +28,8 @@ Final Security Review on branch `security/final-security-review` after the prote
 - Final Security Review rejects browser-unsafe API keys, supports the preferred publishable-key environment alias, and safely retains only an `anon`-role legacy fallback.
 - Stored sessions now keep only the access token and revalidate the Supabase user plus active staff profile before protected UI is rendered.
 - Authentication/profile validation disables browser caching, exposes a bounded rate-limit message, and replaces the remaining dynamic inline style with semantic progress markup.
+- Performance Review measures the initial production entry and makes every production build enforce raw and gzip JavaScript/CSS budgets.
+- The performance gate is fixture-tested to pass bounded assets and fail an oversized entry without adding a runtime dependency or changing application behavior.
 
 ## Verified evidence
 
@@ -49,15 +51,17 @@ Final Security Review on branch `security/final-security-review` after the prote
 - Final Audit local verification passed: TypeScript, 28/28 tests, production build, locked-install checks, and prohibited-path review.
 - Final Audit PR #16 merged after an independent approval and successful required checks on 2026-07-22.
 - Final Security Review local verification passed: TypeScript, 31/31 tests, production build, strict unused-symbol check, zero dependency vulnerabilities, React review, and prohibited-path review.
+- Final Security Review PR #17 merged after an independent approval and successful required checks on 2026-07-22.
+- Performance Review local verification passed: TypeScript, 33/33 tests, production build, and initial budgets at 302,436 bytes JavaScript / 20,716 bytes CSS raw.
 
 ## Pending / blocked
 
-- Open a dedicated Final Security Review pull request and wait for protected CI and independent approval.
+- Open a dedicated Performance Review pull request and wait for protected CI and independent approval.
 - No permission or implementation blocker is currently known.
 
 ## NEXT_REQUIRED_ACTION
 
-Open the Final Security Review pull request, merge only after CI and protection requirements pass, then begin Performance Review from updated `main`.
+Open the Performance Review pull request, merge only after CI and protection requirements pass, then begin Documentation Review from updated `main`.
 
 ## Prohibited actions
 
