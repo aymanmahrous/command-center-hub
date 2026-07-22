@@ -52,6 +52,20 @@ test("booking writes are role-gated and require explicit confirmation", () => {
   assert.match(app, /Audit Log/);
 });
 
+test("booking operations prevent duplicate writes and handle expired sessions", () => {
+  assert.match(app, /if \(!canWrite \|\| busyId \|\| booking\.status === next\) return/);
+  assert.match(app, /disabled=\{!canWrite \|\| busyId !== null\}/);
+  assert.match(app, /code === "SESSION_EXPIRED"/);
+  assert.match(app, /onSessionExpired/);
+});
+
+test("booking operations expose full read-only context and client-side filters", () => {
+  for (const field of ["other_location", "swam_before", "fear_of_water", "updated_at"]) assert.match(app, new RegExp(field));
+  assert.match(app, /booking-search/);
+  assert.match(app, /statusFilter/);
+  assert.match(app, /filteredBookings/);
+});
+
 test("booking status is constrained to the server-supported allowlist", () => {
   for (const status of ["pending", "contacted", "confirmed", "declined", "cancelled"]) assert.match(app, new RegExp(`"${status}"`));
   assert.doesNotMatch(app, /service_role/i);
