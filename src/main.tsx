@@ -18,9 +18,26 @@ const sections = [
 
 type SectionId = (typeof sections)[number][0];
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
-type Session = { accessToken: string; displayName: string; role: "super_admin" | "admin" | "reception" | "coach" | "content_manager" };
+type Role = "super_admin" | "admin" | "reception" | "coach" | "content_manager";
+type Session = { accessToken: string; displayName: string; role: Role };
+type BookingStatus = "pending" | "contacted" | "confirmed" | "declined" | "cancelled";
 
 const ProfileSchema = z.object({ display_name: z.string().min(1), role: z.enum(["super_admin", "admin", "reception", "coach", "content_manager"]), active: z.literal(true) });
+const BookingSchema = z.object({
+  id: z.string().uuid(),
+  full_name: z.string(),
+  phone: z.string().nullable().optional(),
+  normalized_phone: z.string().nullable().optional(),
+  category: z.string().nullable().optional(),
+  location: z.string().nullable().optional(),
+  training_type: z.string().nullable().optional(),
+  requested_date: z.string().nullable().optional(),
+  requested_time: z.string().nullable().optional(),
+  status: z.enum(["pending", "contacted", "confirmed", "declined", "cancelled"]),
+  created_at: z.string(),
+}).passthrough();
+const BookingUpdateSchema = z.object({ success: z.boolean(), code: z.string().optional(), bookingRequestId: z.string().uuid().optional(), status: z.enum(["pending", "contacted", "confirmed", "declined", "cancelled"]).optional() });
+
 const DEFAULT_SUPABASE_URL = "https://nmzxrjdxvmmzzmajrskm.supabase.co";
 const DEFAULT_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_qXOPVaD5_f60qf1UbYrm2A_sH9c0lW5";
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? DEFAULT_SUPABASE_URL).replace(/\/$/, "");
@@ -28,6 +45,7 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? DEFAULT_SUPA
 const STAFF_TABLE = import.meta.env.VITE_STAFF_PROFILE_TABLE ?? "staff_profiles";
 
 function configurationReady() { return SUPABASE_URL.startsWith("https://") && SUPABASE_ANON_KEY.length > 20; }
+function rpcHeaders(session: Session) { return { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${session.accessToken}`, "Content-Type": "application/json", Accept: "application/json" }; }
 
 async function signIn(email: string, password: string): Promise<Session> {
   if (!configurationReady()) throw new Error("CONFIGURATION_REQUIRED");
@@ -41,11 +59,18 @@ async function signIn(email: string, password: string): Promise<Session> {
   return { accessToken: auth.access_token, displayName: rows[0].display_name, role: rows[0].role };
 }
 
-async function callReadOnlyRpc(session: Session, rpcName: string): Promise<JsonValue> {
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${encodeURIComponent(rpcName)}`, { method: "POST", headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${session.accessToken}`, "Content-Type": "application/json", Accept: "application/json" }, body: "{}" });
+async function callRpc(session: Session, rpcName: string, body: Record<string, unknown> = {}): Promise<JsonValue> {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${encodeURIComponent(rpcName)}`, { method: "POST", headers: rpcHeaders(session), body: JSON.stringify(body) });
   if (response.status === 401) throw new Error("SESSION_EXPIRED");
+  if (response.status === 403) throw new Error("STAFF_ACCESS_DENIED");
   if (!response.ok) throw new Error(`RPC_FAILED_${response.status}`);
   return (await response.json()) as JsonValue;
+}
+
+async function updateBookingStatus(session: Session, bookingId: string, status: BookingStatus) {
+  const result = BookingUpdateSchema.parse(await callRpc(session, "update_booking_request_status", { p_booking_request_id: bookingId, p_status: status }));
+  if (!result.success) throw new Error(result.code ?? "UPDATE_REJECTED");
+  return result;
 }
 
 function Login({ onAuthenticated }: { onAuthenticated: (session: Session) => void }) {
@@ -60,11 +85,30 @@ function DataView({ value }: { value: JsonValue }) {
   return <span>{String(value ?? "—")}</span>;
 }
 
+function BookingView({ value, session, onChanged }: { value: JsonValue; session: Session; onChanged: () => void }) {
+  const parsed = z.array(BookingSchema).safeParse(value);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [notice, setNotice] = useState("");
+  const canWrite = ["super_admin", "admin", "reception"].includes(session.role);
+  if (!parsed.success) return <div className="error-box">صيغة بيانات الحجوزات غير متوافقة؛ لم يتم تنفيذ أي كتابة.</div>;
+  if (parsed.data.length === 0) return <p className="muted">لا توجد طلبات حجز حاليًا.</p>;
+  async function changeStatus(id: string, current: BookingStatus, next: BookingStatus, name: string) {
+    if (!canWrite || current === next) return;
+    if (!window.confirm(`تأكيد تغيير حالة طلب ${name} من ${current} إلى ${next}؟ سيتم تسجيل العملية في Audit Log.`)) return;
+    setBusyId(id); setNotice("");
+    try { await updateBookingStatus(session, id, next); setNotice("تم تحديث الحالة وتسجيل العملية بنجاح."); onChanged(); }
+    catch (cause) { const code = cause instanceof Error ? cause.message : "UPDATE_FAILED"; setNotice(code === "STAFF_ACCESS_DENIED" ? "ليست لديك صلاحية تنفيذ هذا التغيير." : "تعذر التحديث بأمان؛ لم يتم اعتماد أي تغيير غير مؤكد."); }
+    finally { setBusyId(null); }
+  }
+  return <><div className="write-banner"><strong>كتابة مضبوطة</strong><span>تحديث حالة الحجز فقط · RBAC + Server validation + Audit Log</span></div>{notice && <div className="notice-box">{notice}</div>}<div className="data-grid">{parsed.data.map((booking) => <article className="data-card booking-card" key={booking.id}><h3>{booking.full_name}</h3><p>{booking.normalized_phone ?? booking.phone ?? "بدون هاتف"}</p><p>{[booking.category, booking.training_type, booking.location].filter(Boolean).join(" · ") || "تفاصيل غير مكتملة"}</p><p>{[booking.requested_date, booking.requested_time].filter(Boolean).join(" · ") || "موعد غير محدد"}</p><label>الحالة<select value={booking.status} disabled={!canWrite || busyId === booking.id} onChange={(event) => void changeStatus(booking.id, booking.status, event.target.value as BookingStatus, booking.full_name)}>{(["pending", "contacted", "confirmed", "declined", "cancelled"] as const).map((status) => <option key={status} value={status}>{status}</option>)}</select></label>{!canWrite && <small>دورك يملك صلاحية القراءة فقط.</small>}</article>)}</div></>;
+}
+
 function Dashboard({ session, onLogout }: { session: Session; onLogout: () => void }) {
   const [active, setActive] = useState<SectionId>("dashboard"); const [reloadKey, setReloadKey] = useState(0); const [data, setData] = useState<JsonValue>(null); const [status, setStatus] = useState<"loading" | "ready" | "error">("loading"); const [error, setError] = useState("");
   const current = useMemo(() => sections.find(([id]) => id === active)!, [active]);
-  useEffect(() => { let cancelled = false; setStatus("loading"); setError(""); callReadOnlyRpc(session, current[3]).then((result) => { if (!cancelled) { setData(result); setStatus("ready"); } }).catch((cause) => { if (cancelled) return; const message = cause instanceof Error ? cause.message : "LOAD_FAILED"; if (message === "SESSION_EXPIRED") onLogout(); else { setError("تعذر تحميل هذه الوحدة بأمان. لم يتم تنفيذ أي كتابة."); setStatus("error"); } }); return () => { cancelled = true; }; }, [current, onLogout, reloadKey, session]);
-  return <div className="app-shell"><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><nav>{sections.map(([id, label, Icon]) => <button key={id} className={active === id ? "active" : ""} onClick={() => setActive(id)}><Icon size={18} />{label}</button>)}</nav><button className="logout" onClick={onLogout}><LogOut size={18} />تسجيل الخروج</button></aside><main className="workspace"><p className="eyebrow">INTERNAL OPERATIONS · READ ONLY</p><h1>{current[1]}</h1><section className="panel"><div className="panel-heading"><div><h2>بيانات تشغيل حقيقية</h2><p>مصدر البيانات: Supabase RPC محمي بهوية الموظف وصلاحيات قاعدة البيانات.</p></div><button className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>تحديث</button></div>{status === "loading" && <p className="muted">جاري التحميل الآمن...</p>}{status === "error" && <div className="error-box">{error}</div>}{status === "ready" && <DataView value={data} />}</section></main></div>;
+  useEffect(() => { let cancelled = false; setStatus("loading"); setError(""); callRpc(session, current[3]).then((result) => { if (!cancelled) { setData(result); setStatus("ready"); } }).catch((cause) => { if (cancelled) return; const message = cause instanceof Error ? cause.message : "LOAD_FAILED"; if (message === "SESSION_EXPIRED") onLogout(); else { setError("تعذر تحميل هذه الوحدة بأمان."); setStatus("error"); } }); return () => { cancelled = true; }; }, [current, onLogout, reloadKey, session]);
+  const modeLabel = active === "planner" ? "CONTROLLED WRITE" : "READ ONLY";
+  return <div className="app-shell"><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><nav>{sections.map(([id, label, Icon]) => <button key={id} className={active === id ? "active" : ""} onClick={() => setActive(id)}><Icon size={18} />{label}</button>)}</nav><button className="logout" onClick={onLogout}><LogOut size={18} />تسجيل الخروج</button></aside><main className="workspace"><p className="eyebrow">INTERNAL OPERATIONS · {modeLabel}</p><h1>{current[1]}</h1><section className="panel"><div className="panel-heading"><div><h2>بيانات تشغيل حقيقية</h2><p>Supabase RPC محمي بهوية الموظف وصلاحيات قاعدة البيانات.</p></div><button className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>تحديث</button></div>{status === "loading" && <p className="muted">جاري التحميل الآمن...</p>}{status === "error" && <div className="error-box">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} /> : <DataView value={data} />)}</section></main></div>;
 }
 
 function App() { const [session, setSession] = useState<Session | null>(null); useEffect(() => { try { const raw = sessionStorage.getItem("relaxfix-command-session"); if (raw) setSession(z.object({ accessToken: z.string(), displayName: z.string(), role: ProfileSchema.shape.role }).parse(JSON.parse(raw))); } catch { sessionStorage.removeItem("relaxfix-command-session"); } }, []); if (!session) return <Login onAuthenticated={setSession} />; return <Dashboard session={session} onLogout={() => { sessionStorage.removeItem("relaxfix-command-session"); setSession(null); }} />; }
