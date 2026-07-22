@@ -28,6 +28,12 @@ test("staff authorization requires an active profile", () => {
   assert.match(app, /STAFF_ACCESS_DENIED/);
 });
 
+test("staff profile lookup matches the production primary-key contract", () => {
+  assert.match(app, /\?id=eq\.\$\{encodeURIComponent\(auth\.user\.id\)\}/);
+  assert.doesNotMatch(app, /\?user_id=eq\./);
+  assert.match(envExample, /primary key `id`/);
+});
+
 test("password is not persisted", () => {
   assert.doesNotMatch(app, /setItem\([^\n]*password/i);
   assert.match(app, /sessionStorage/);
