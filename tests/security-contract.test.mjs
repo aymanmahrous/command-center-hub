@@ -113,6 +113,24 @@ test("Content Studio honors server status and action allowlists", () => {
   assert.match(app, /APPROVAL_REQUIRED/);
 });
 
+test("Media Library uses the staff RPC and exposes no storage or table mutation", () => {
+  assert.match(app, /get_staff_media_assets/);
+  assert.match(app, /active === "media" \? <MediaLibraryView/);
+  assert.doesNotMatch(app, /\/storage\/v1\//i);
+  assert.doesNotMatch(app, /create_staff_media_asset_record|create_staff_video_generation_job|update_staff_video_generation_job/);
+  assert.doesNotMatch(app, /\/rest\/v1\/media_assets[^\n]*(PATCH|PUT|DELETE|POST)/i);
+});
+
+test("Media Library validates ownership-shaped records and remains private read-only", () => {
+  for (const field of ["createdBy", "contentItemId", "assetType", "source", "storagePath", "providerJobId", "metadata", "createdAt"]) assert.match(app, new RegExp(field));
+  for (const type of ["image", "video", "logo", "other"]) assert.match(app, new RegExp(`"${type}"`));
+  for (const source of ["upload", "ai_generated", "external"]) assert.match(app, new RegExp(`"${source}"`));
+  assert.match(app, /مكتبة وسائط خاصة للقراءة فقط/);
+  assert.match(app, /معاينة خاصة غير مكشوفة/);
+  assert.match(app, /typeFilter/);
+  assert.match(app, /sourceFilter/);
+});
+
 test("deployment configuration fails closed and never embeds a live Supabase project", () => {
   assert.match(app, /VITE_SUPABASE_URL \?\? ""/);
   assert.match(app, /VITE_SUPABASE_ANON_KEY \?\? ""/);
