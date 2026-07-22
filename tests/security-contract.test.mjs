@@ -90,6 +90,29 @@ test("AI Inbox supports the complete server mode allowlist", () => {
   for (const mode of ["ai_active", "human_required", "human_takeover", "paused"]) assert.match(app, new RegExp(`"${mode}"`));
 });
 
+test("Content Studio reads and writes only through approved RPCs", () => {
+  for (const rpc of ["get_staff_content_items", "update_staff_content_item", "transition_staff_content_item"]) assert.match(app, new RegExp(rpc));
+  for (const parameter of ["p_content_item_id", "p_topic", "p_hook", "p_caption", "p_cta", "p_hashtags", "p_visual_prompt", "p_action", "p_scheduled_for"]) assert.match(app, new RegExp(parameter));
+  assert.doesNotMatch(app, /\/rest\/v1\/(content_items|background_jobs|audit_logs)[^\n]*(PATCH|PUT|DELETE|POST)/i);
+});
+
+test("Content Studio mutations are role-gated, confirmed, audited, and duplicate-safe", () => {
+  assert.match(app, /\["super_admin", "admin", "content_manager"\]\.includes\(session\.role\)/);
+  assert.match(app, /if \(!canWrite \|\| busyId\) return/);
+  assert.match(app, /disabled=\{!canWrite \|\| busyId !== null/);
+  assert.match(app, /تأكيد حفظ تعديلات/);
+  assert.match(app, /تأكيد «\$\{contentActionLabels\[action\]\}»/);
+  assert.match(app, /Audit Log/);
+  assert.match(app, /SESSION_EXPIRED/);
+});
+
+test("Content Studio honors server status and action allowlists", () => {
+  for (const status of ["idea", "draft", "generated", "needs_review", "approved", "scheduled", "published", "failed"]) assert.match(app, new RegExp(`"${status}"`));
+  for (const action of ["approve", "return_to_review", "schedule", "unschedule"]) assert.match(app, new RegExp(`"${action}"`));
+  assert.match(app, /PUBLISHED_CONTENT_IMMUTABLE/);
+  assert.match(app, /APPROVAL_REQUIRED/);
+});
+
 test("deployment configuration fails closed and never embeds a live Supabase project", () => {
   assert.match(app, /VITE_SUPABASE_URL \?\? ""/);
   assert.match(app, /VITE_SUPABASE_ANON_KEY \?\? ""/);
