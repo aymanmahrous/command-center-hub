@@ -3,65 +3,71 @@
 ## Status
 
 - Target repository: `aymanmahrous/command-center-hub` (private)
-- Working branch: `migration/standalone-command-center`
 - Public production repository: `aymanmahrous/swim-fluent-uae`
 - Public production deployment: unchanged
-- Database migrations: not executed
+- Standalone deployment: `command-center-hub-lilac.vercel.app`
+- Database migrations in this repository: not executed
 - External messages or publishing: not executed
 
-## Completed and fixed
+## Completed
 
-1. A standalone Vite + React + TypeScript application baseline was created.
-2. The application is independent of the public website router and public pages.
-3. All internal sections are represented in the standalone navigation:
+1. A standalone Vite + React + TypeScript application is deployed independently from the public website.
+2. Supabase Auth uses a browser-safe publishable key.
+3. Authorization requires one active `staff_profiles` row whose primary key `id` equals `auth.uid()`.
+4. Operational sections read through staff-only Supabase RPC functions:
    - Command Center
    - AI Inbox
    - CRM
-   - Automations
+   - Automations status
    - AI Content Studio
-   - 30-Day Planner
+   - 30-Day Planner / bookings
    - Media Library
    - Analytics
-   - Integrations
-4. Authentication uses Supabase password authentication with the public anon key.
-5. Authorization requires exactly one active staff profile with an approved role.
-6. The password is never persisted; only the access token and validated display metadata are held in `sessionStorage`.
-7. Missing or invalid environment configuration fails closed.
-8. The current baseline is read-only and performs no mutation, migration, seed, cron, worker, publishing, email, WhatsApp, or external notification.
-9. Search indexing is blocked in HTML and deployment headers.
-10. Security headers and a restrictive CSP are declared in `vercel.json`.
-11. Secrets and generated output are excluded through `.gitignore`.
-12. CI verifies TypeScript, security-contract tests, and the production build.
+   - Integrations / operations queue
+5. Passwords are never persisted. The validated session is held only in `sessionStorage`.
+6. CI verifies TypeScript, security-contract tests, and the production build.
+7. Search indexing is blocked and deployment security headers are declared.
+
+## Controlled write boundary
+
+The first permitted write is booking-request status transition through the existing database function:
+
+`update_booking_request_status(p_booking_request_id uuid, p_status text)`
+
+Safety controls:
+
+- UI write roles: `super_admin`, `admin`, `reception`.
+- Database function independently rechecks the same active-staff roles.
+- Allowed statuses: `pending`, `contacted`, `confirmed`, `declined`, `cancelled`.
+- The browser never performs a direct table update.
+- Every successful change inserts `booking_request_status_updated` into `audit_logs`.
+- The user must explicitly confirm before the request is sent.
+- A failed or rejected request is not represented as successful.
+- No email, WhatsApp, publishing, cron, worker, or background job is triggered by this operation.
+
+All other sections remain read-only.
 
 ## Environment contract
 
-Only these browser-safe variables are accepted:
+Only browser-safe variables may be used:
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
 - `VITE_STAFF_PROFILE_TABLE`
 
-Never place a Supabase service-role key or any server secret in a `VITE_*` variable.
+Never place a service-role key, database password, or server secret in a `VITE_*` variable.
 
-## Required Supabase contract
+## Required staff profile contract
 
-The configured staff profile table must be protected by Row Level Security and expose only the authenticated user's own row. Required fields:
-
-- `user_id` UUID
+- `id` UUID primary key matching `auth.uid()`
 - `display_name` text
-- `role`: one of `super_admin`, `admin`, `reception`, `coach`, `content_manager`
+- `role`: `super_admin`, `admin`, `reception`, `coach`, or `content_manager`
 - `active` boolean
-
-## Current safe boundary
-
-The baseline intentionally stops before operational data adapters and write actions. This is a security boundary, not an incomplete hidden write path. Subsequent feature transfers must be introduced one module at a time with:
-
-1. documented table/API contract,
-2. least-privilege RLS verification,
-3. read-only test first,
-4. explicit approval before enabling any write,
-5. rollback note and handoff update.
 
 ## Rollback
 
-No merge or deployment is required to roll back this work. Close the pull request or delete the working branch. The public production website remains unaffected.
+Application rollback: redeploy the previous successful Vercel deployment or revert the booking-write merge commit.
+
+Data rollback for a mistaken booking transition: an authorized staff member selects the previous valid status through the same audited RPC. The original and corrective actions remain visible in `audit_logs`.
+
+The public production website remains unaffected by application rollback.
