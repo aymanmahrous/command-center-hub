@@ -2,7 +2,7 @@
 
 ## Current stage
 
-Controlled AI Inbox on branch `feat/controlled-ai-inbox`.
+Bookings operations on branch `feat/bookings-operations-view` after the protected merge of AI Inbox PR #9.
 
 ## Implemented
 
@@ -12,6 +12,8 @@ Controlled AI Inbox on branch `feat/controlled-ai-inbox`.
 - Complete mode support: `ai_active`, `human_required`, `human_takeover`, and `paused`.
 - In-flight locking, safe error states, session-expiry handling, and responsive UI.
 - Security-contract coverage for RPC-only writes, RBAC, confirmation, duplicate prevention, and the mode allowlist.
+- Bookings operational summary, search, status filters, full existing request context, and safe session-expiry handling.
+- Bookings status writes remain exclusively on `update_booking_request_status` with confirmation and a single in-flight lock.
 
 ## Verified evidence
 
@@ -19,18 +21,18 @@ Controlled AI Inbox on branch `feat/controlled-ai-inbox`.
 - `npm test`: passed 13/13 on 2026-07-22.
 - `npm run build`: passed on 2026-07-22.
 - No migration, RLS/policy, cron, worker, public-site, direct-table-write, or service-role change exists in the branch.
+- AI Inbox PR #9 merged after an independent approval and successful required checks on 2026-07-22.
+- Bookings local verification passed: TypeScript, 15/15 tests, production build, and diff check.
 
 ## Pending / blocked
 
-- Pull request #9 is open: https://github.com/aymanmahrous/command-center-hub/pull/9
-- GitHub Actions `verify`, Vercel, and Vercel Preview Comments passed for commit `820092f`.
-- Branch protection requires an approving review. GitHub rejected approval by the connected `aymanmahrous` identity because authors cannot approve their own pull requests.
-- Repository auto-merge is disabled, so the merge cannot be queued without changing repository settings.
-- No protection bypass or admin merge was attempted.
+- Review the final Bookings diff for scope and regression risk.
+- Open a dedicated Bookings pull request and wait for protected CI and independent approval.
+- No permission or implementation blocker is currently known.
 
 ## NEXT_REQUIRED_ACTION
 
-Obtain one valid approving review for PR #9, confirm required checks remain successful, and merge without bypassing branch protection. Then begin the next requested Command Center module on a fresh branch from updated `main`.
+Complete Bookings verification, open its pull request, merge only after CI and protection requirements pass, then begin Content Studio from updated `main`.
 
 ## Prohibited actions
 

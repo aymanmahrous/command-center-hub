@@ -4,6 +4,7 @@ import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, LayoutDashboard, Lib
 import { z } from "zod";
 import "./styles.css";
 import "./ai-inbox.css";
+import "./bookings.css";
 
 const sections = [
   ["dashboard", "Command Center", LayoutDashboard, "get_staff_command_center"],
@@ -28,9 +29,10 @@ type ConversationMode = "ai_active" | "human_required" | "human_takeover" | "pau
 const ProfileSchema = z.object({ display_name: z.string().min(1), role: z.enum(["super_admin", "admin", "reception", "coach", "content_manager"]), active: z.literal(true) });
 const BookingSchema = z.object({
   id: z.string().uuid(), full_name: z.string(), phone: z.string().nullable().optional(), normalized_phone: z.string().nullable().optional(),
-  category: z.string().nullable().optional(), location: z.string().nullable().optional(), training_type: z.string().nullable().optional(),
+  gender: z.string().nullable().optional(), category: z.string().nullable().optional(), location: z.string().nullable().optional(), other_location: z.string().nullable().optional(),
+  swam_before: z.boolean().nullable().optional(), fear_of_water: z.boolean().nullable().optional(), training_type: z.string().nullable().optional(),
   requested_date: z.string().nullable().optional(), requested_time: z.string().nullable().optional(),
-  status: z.enum(["pending", "contacted", "confirmed", "declined", "cancelled"]), created_at: z.string(),
+  status: z.enum(["pending", "contacted", "confirmed", "declined", "cancelled"]), created_at: z.string(), updated_at: z.string().nullable().optional(),
 }).passthrough();
 const LeadSchema = z.object({
   id: z.string().uuid(), name: z.string(), phone: z.string().nullable().optional(), channel: z.string().nullable().optional(),
@@ -253,21 +255,97 @@ function CRMView({ value, session, onChanged }: { value: JsonValue; session: Ses
   })}</div></>;
 }
 
-function BookingView({ value, session, onChanged }: { value: JsonValue; session: Session; onChanged: () => void }) {
-  const parsed = z.array(BookingSchema).safeParse(value);
-  const [busyId, setBusyId] = useState<string | null>(null); const [notice, setNotice] = useState("");
+const bookingStatusLabels: Record<BookingStatus, string> = {
+  pending: "قيد الانتظار",
+  contacted: "تم التواصل",
+  confirmed: "مؤكد",
+  declined: "مرفوض",
+  cancelled: "ملغي",
+};
+
+function formatBookingDateTime(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("ar-AE");
+}
+
+function BookingView({ value, session, onChanged, onSessionExpired }: { value: JsonValue; session: Session; onChanged: () => void; onSessionExpired: () => void }) {
+  const parsed = useMemo(() => z.array(BookingSchema).safeParse(value), [value]);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [notice, setNotice] = useState("");
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<BookingStatus | "all">("all");
   const canWrite = ["super_admin", "admin", "reception"].includes(session.role);
+  const bookings = parsed.success ? parsed.data : [];
+  const counts = useMemo(() => {
+    const initial: Record<BookingStatus, number> = { pending: 0, contacted: 0, confirmed: 0, declined: 0, cancelled: 0 };
+    for (const booking of bookings) initial[booking.status] += 1;
+    return initial;
+  }, [bookings]);
+  const filteredBookings = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase("ar");
+    return bookings.filter((booking) => {
+      if (statusFilter !== "all" && booking.status !== statusFilter) return false;
+      if (!normalizedQuery) return true;
+      return [booking.full_name, booking.phone, booking.normalized_phone, booking.category, booking.training_type, booking.location, booking.other_location]
+        .filter((item): item is string => Boolean(item))
+        .some((item) => item.toLocaleLowerCase("ar").includes(normalizedQuery));
+    });
+  }, [bookings, query, statusFilter]);
+
   if (!parsed.success) return <div className="error-box">صيغة بيانات الحجوزات غير متوافقة؛ لم يتم تنفيذ أي كتابة.</div>;
-  if (parsed.data.length === 0) return <p className="muted">لا توجد طلبات حجز حاليًا.</p>;
-  async function changeStatus(id: string, current: BookingStatus, next: BookingStatus, name: string) {
-    if (!canWrite || current === next) return;
-    if (!window.confirm(`تأكيد تغيير حالة طلب ${name} من ${current} إلى ${next}؟ سيتم تسجيل العملية في Audit Log.`)) return;
-    setBusyId(id); setNotice("");
-    try { await updateBookingStatus(session, id, next); setNotice("تم تحديث الحالة وتسجيل العملية بنجاح."); onChanged(); }
-    catch (cause) { const code = cause instanceof Error ? cause.message : "UPDATE_FAILED"; setNotice(code === "STAFF_ACCESS_DENIED" ? "ليست لديك صلاحية تنفيذ هذا التغيير." : "تعذر التحديث بأمان؛ لم يتم اعتماد أي تغيير غير مؤكد."); }
-    finally { setBusyId(null); }
+
+  async function changeStatus(booking: z.infer<typeof BookingSchema>, next: BookingStatus) {
+    if (!canWrite || busyId || booking.status === next) return;
+    if (!window.confirm(`تأكيد تغيير حالة طلب ${booking.full_name} من «${bookingStatusLabels[booking.status]}» إلى «${bookingStatusLabels[next]}»؟ سيتم تسجيل العملية في Audit Log.`)) return;
+    setBusyId(booking.id); setNotice("");
+    try {
+      await updateBookingStatus(session, booking.id, next);
+      setNotice("تم تحديث الحالة وتسجيل العملية بنجاح.");
+      onChanged();
+    } catch (cause) {
+      const code = cause instanceof Error ? cause.message : "UPDATE_FAILED";
+      if (code === "SESSION_EXPIRED") { onSessionExpired(); return; }
+      const messagesByCode: Record<string, string> = {
+        STAFF_ACCESS_DENIED: "ليست لديك صلاحية تنفيذ هذا التغيير.",
+        INVALID_STATUS: "حالة الحجز المطلوبة غير مسموحة.",
+        NOT_FOUND: "طلب الحجز لم يعد موجودًا.",
+      };
+      setNotice(messagesByCode[code] ?? "تعذر التحديث بأمان؛ لم يتم اعتماد أي تغيير غير مؤكد.");
+    } finally { setBusyId(null); }
   }
-  return <><div className="write-banner"><strong>كتابة مضبوطة</strong><span>تحديث حالة الحجز فقط · RBAC + Server validation + Audit Log</span></div>{notice && <div className="notice-box">{notice}</div>}<div className="data-grid">{parsed.data.map((booking) => <article className="data-card booking-card" key={booking.id}><h3>{booking.full_name}</h3><p>{booking.normalized_phone ?? booking.phone ?? "بدون هاتف"}</p><p>{[booking.category, booking.training_type, booking.location].filter(Boolean).join(" · ") || "تفاصيل غير مكتملة"}</p><p>{[booking.requested_date, booking.requested_time].filter(Boolean).join(" · ") || "موعد غير محدد"}</p><label>الحالة<select value={booking.status} disabled={!canWrite || busyId === booking.id} onChange={(event) => void changeStatus(booking.id, booking.status, event.target.value as BookingStatus, booking.full_name)}>{(["pending", "contacted", "confirmed", "declined", "cancelled"] as const).map((status) => <option key={status} value={status}>{status}</option>)}</select></label>{!canWrite && <small>دورك يملك صلاحية القراءة فقط.</small>}</article>)}</div></>;
+
+  return <>
+    <div className="write-banner"><strong>تشغيل الحجوزات</strong><span>الكتابة الوحيدة: تحديث الحالة عبر RPC · RBAC + تأكيد + Audit Log</span></div>
+    {notice && <div className="notice-box" aria-live="polite">{notice}</div>}
+    <div className="booking-summary" aria-label="ملخص حالات الحجوزات">
+      <button type="button" className={statusFilter === "all" ? "active" : ""} onClick={() => setStatusFilter("all")}><span>الإجمالي</span><strong>{bookings.length}</strong></button>
+      {(Object.keys(bookingStatusLabels) as BookingStatus[]).map((status) => <button type="button" key={status} className={statusFilter === status ? "active" : ""} onClick={() => setStatusFilter(status)}><span>{bookingStatusLabels[status]}</span><strong>{counts[status]}</strong></button>)}
+    </div>
+    <div className="booking-toolbar">
+      <label htmlFor="booking-search">بحث في الحجوزات<input id="booking-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="الاسم، الهاتف، الفئة، الموقع..." /></label>
+      <span>{filteredBookings.length} من {bookings.length}</span>
+    </div>
+    {bookings.length === 0 && <p className="muted">لا توجد طلبات حجز حاليًا.</p>}
+    {bookings.length > 0 && filteredBookings.length === 0 && <p className="muted">لا توجد نتائج مطابقة للبحث أو الفلتر.</p>}
+    <div className="booking-list">{filteredBookings.map((booking) => {
+      const phone = booking.normalized_phone ?? booking.phone;
+      const location = booking.location === "Other" ? booking.other_location : booking.location;
+      return <article className="booking-operation-card" key={booking.id}>
+        <header><div><h3>{booking.full_name}</h3><p>{phone ? <a href={`tel:${phone}`}>{phone}</a> : "بدون هاتف"}</p></div><span className={`booking-status status-${booking.status}`}>{bookingStatusLabels[booking.status]}</span></header>
+        <dl>
+          <div><dt>الموعد المطلوب</dt><dd>{[booking.requested_date, booking.requested_time?.slice(0, 5)].filter(Boolean).join(" · ") || "غير محدد"}</dd></div>
+          <div><dt>الخدمة</dt><dd>{[booking.category, booking.training_type].filter(Boolean).join(" · ") || "غير محددة"}</dd></div>
+          <div><dt>الموقع</dt><dd>{location || "غير محدد"}</dd></div>
+          <div><dt>الملف</dt><dd>{[booking.gender, booking.swam_before == null ? null : booking.swam_before ? "سبق له السباحة" : "لم يسبح سابقًا"].filter(Boolean).join(" · ") || "غير مكتمل"}</dd></div>
+          <div><dt>تاريخ الطلب</dt><dd>{formatBookingDateTime(booking.created_at)}</dd></div>
+        </dl>
+        {booking.fear_of_water && <div className="booking-risk">تنبيه: العميل أشار إلى وجود خوف من الماء.</div>}
+        <label htmlFor={`booking-status-${booking.id}`}>تحديث الحالة<select id={`booking-status-${booking.id}`} value={booking.status} disabled={!canWrite || busyId !== null} onChange={(event) => void changeStatus(booking, event.target.value as BookingStatus)}>{(Object.keys(bookingStatusLabels) as BookingStatus[]).map((status) => <option key={status} value={status}>{bookingStatusLabels[status]}</option>)}</select></label>
+        {busyId === booking.id && <small>جاري حفظ التغيير المراجع...</small>}
+        {!canWrite && <small>دورك يملك صلاحية القراءة فقط.</small>}
+      </article>;
+    })}</div>
+  </>;
 }
 
 function Dashboard({ session, onLogout }: { session: Session; onLogout: () => void }) {
@@ -275,7 +353,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   const current = useMemo(() => sections.find(([id]) => id === active)!, [active]);
   useEffect(() => { let cancelled = false; setStatus("loading"); setError(""); callRpc(session, current[3]).then((result) => { if (!cancelled) { setData(result); setStatus("ready"); } }).catch((cause) => { if (cancelled) return; const message = cause instanceof Error ? cause.message : "LOAD_FAILED"; if (message === "SESSION_EXPIRED") onLogout(); else { setError("تعذر تحميل هذه الوحدة بأمان."); setStatus("error"); } }); return () => { cancelled = true; }; }, [current, onLogout, reloadKey, session]);
   const modeLabel = active === "planner" || active === "crm" || active === "inbox" ? "CONTROLLED WRITE" : "READ ONLY";
-  return <div className="app-shell"><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><nav>{sections.map(([id, label, Icon]) => <button key={id} className={active === id ? "active" : ""} onClick={() => setActive(id)}><Icon size={18} />{label}</button>)}</nav><button className="logout" onClick={onLogout}><LogOut size={18} />تسجيل الخروج</button></aside><main className="workspace"><p className="eyebrow">INTERNAL OPERATIONS · {modeLabel}</p><h1>{current[1]}</h1><section className="panel"><div className="panel-heading"><div><h2>بيانات تشغيل حقيقية</h2><p>Supabase RPC محمي بهوية الموظف وصلاحيات قاعدة البيانات.</p></div><button className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>تحديث</button></div>{status === "loading" && <p className="muted">جاري التحميل الآمن...</p>}{status === "error" && <div className="error-box">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : <DataView value={data} />)}</section></main></div>;
+  return <div className="app-shell"><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><nav>{sections.map(([id, label, Icon]) => <button key={id} className={active === id ? "active" : ""} onClick={() => setActive(id)}><Icon size={18} />{label}</button>)}</nav><button className="logout" onClick={onLogout}><LogOut size={18} />تسجيل الخروج</button></aside><main className="workspace"><p className="eyebrow">INTERNAL OPERATIONS · {modeLabel}</p><h1>{current[1]}</h1><section className="panel"><div className="panel-heading"><div><h2>بيانات تشغيل حقيقية</h2><p>Supabase RPC محمي بهوية الموظف وصلاحيات قاعدة البيانات.</p></div><button className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>تحديث</button></div>{status === "loading" && <p className="muted">جاري التحميل الآمن...</p>}{status === "error" && <div className="error-box">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : <DataView value={data} />)}</section></main></div>;
 }
 
 function App() { const [session, setSession] = useState<Session | null>(null); useEffect(() => { try { const raw = sessionStorage.getItem("relaxfix-command-session"); if (raw) setSession(z.object({ accessToken: z.string(), displayName: z.string(), role: ProfileSchema.shape.role }).parse(JSON.parse(raw))); } catch { sessionStorage.removeItem("relaxfix-command-session"); } }, []); if (!session) return <Login onAuthenticated={setSession} />; return <Dashboard session={session} onLogout={() => { sessionStorage.removeItem("relaxfix-command-session"); setSession(null); }} />; }
