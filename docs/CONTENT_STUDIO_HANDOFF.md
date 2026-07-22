@@ -30,4 +30,3 @@
 - No migration, RLS/policy, cron, worker, service-role credential, direct table write, secret, webhook, public-site change, or Production database write is included.
 - No real content was scheduled or published during development or verification.
 - This stage does not activate the later Content Publishing System track.
-
