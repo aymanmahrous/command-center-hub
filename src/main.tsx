@@ -9,6 +9,7 @@ import "./content-studio.css";
 import "./media-library.css";
 import "./analytics.css";
 import "./integrations.css";
+import "./system-polish.css";
 
 const sections = [
   ["dashboard", "Command Center", LayoutDashboard, "get_staff_command_center"],
@@ -132,8 +133,8 @@ async function signIn(email: string, password: string): Promise<Session> {
   return { accessToken: auth.access_token, displayName: rows[0].display_name, role: rows[0].role };
 }
 
-async function callRpc(session: Session, rpcName: string, body: Record<string, unknown> = {}): Promise<JsonValue> {
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${encodeURIComponent(rpcName)}`, { method: "POST", headers: rpcHeaders(session), body: JSON.stringify(body) });
+async function callRpc(session: Session, rpcName: string, body: Record<string, unknown> = {}, signal?: AbortSignal): Promise<JsonValue> {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${encodeURIComponent(rpcName)}`, { method: "POST", headers: rpcHeaders(session), body: JSON.stringify(body), signal });
   if (response.status === 401) throw new Error("SESSION_EXPIRED");
   if (response.status === 403) throw new Error("STAFF_ACCESS_DENIED");
   if (!response.ok) throw new Error(`RPC_FAILED_${response.status}`);
@@ -154,8 +155,8 @@ async function updateLeadWorkflow(session: Session, leadId: string, stage: LeadS
   return result;
 }
 
-async function getConversationMessages(session: Session, conversationId: string) {
-  return z.array(MessageSchema).parse(await callRpc(session, "get_staff_conversation_messages", { p_conversation_id: conversationId }));
+async function getConversationMessages(session: Session, conversationId: string, signal?: AbortSignal) {
+  return z.array(MessageSchema).parse(await callRpc(session, "get_staff_conversation_messages", { p_conversation_id: conversationId }, signal));
 }
 
 async function setConversationMode(session: Session, conversationId: string, mode: ConversationMode) {
@@ -186,7 +187,7 @@ async function transitionContentItem(session: Session, contentItemId: string, ac
 function Login({ onAuthenticated }: { onAuthenticated: (session: Session) => void }) {
   const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
   async function submit(event: FormEvent) { event.preventDefault(); setBusy(true); setError(""); try { const session = await signIn(email.trim(), password); sessionStorage.setItem("relaxfix-command-session", JSON.stringify(session)); onAuthenticated(session); } catch (cause) { const code = cause instanceof Error ? cause.message : "LOGIN_FAILED"; setError(code === "CONFIGURATION_REQUIRED" ? "إعدادات الاتصال غير مكتملة. التطبيق مغلق بأمان." : "تعذر تسجيل الدخول أو أن الحساب غير مخول."); } finally { setBusy(false); } }
-  return <main className="login-page"><section className="login-card"><div className="brand-mark"><ShieldAlert size={28} /></div><p className="eyebrow">RELAX FIX UAE</p><h1>Command Center Hub</h1><p className="muted">منصة العمليات الداخلية. الدخول للموظفين النشطين فقط.</p><form onSubmit={submit}><label>البريد الإلكتروني<input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} /></label><label>كلمة المرور<input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></label>{error && <div className="error-box">{error}</div>}<button disabled={busy}>{busy ? "جاري التحقق..." : "تسجيل الدخول"}</button></form><p className="security-note">لا يتم تخزين كلمة المرور. الجلسة تبقى في هذه النافذة فقط.</p></section></main>;
+  return <main className="login-page"><section className="login-card" aria-busy={busy}><div className="brand-mark"><ShieldAlert size={28} /></div><p className="eyebrow">RELAX FIX UAE</p><h1>Command Center Hub</h1><p className="muted">منصة العمليات الداخلية. الدخول للموظفين النشطين فقط.</p><form onSubmit={submit}><label>البريد الإلكتروني<input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} /></label><label>كلمة المرور<input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></label>{error && <div className="error-box" role="alert">{error}</div>}<button disabled={busy}>{busy ? "جاري التحقق..." : "تسجيل الدخول"}</button></form><p className="security-note">لا يتم تخزين كلمة المرور. الجلسة تبقى في هذه النافذة فقط.</p></section></main>;
 }
 
 function DataView({ value }: { value: JsonValue }) {
@@ -220,18 +221,18 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
   }, [conversations, parsed.success, selectedId]);
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     if (!selectedId) { setMessages([]); setMessageStatus("idle"); return; }
     setMessageStatus("loading"); setMessages([]);
-    getConversationMessages(session, selectedId).then((result) => {
-      if (!cancelled) { setMessages(result); setMessageStatus("ready"); }
+    getConversationMessages(session, selectedId, controller.signal).then((result) => {
+      setMessages(result); setMessageStatus("ready");
     }).catch((cause) => {
-      if (cancelled) return;
+      if (cause instanceof DOMException && cause.name === "AbortError") return;
       const code = cause instanceof Error ? cause.message : "LOAD_FAILED";
       if (code === "SESSION_EXPIRED") onSessionExpired();
       else setMessageStatus("error");
     });
-    return () => { cancelled = true; };
+    return () => controller.abort();
   }, [onSessionExpired, selectedId, session]);
 
   if (!parsed.success) return <div className="error-box">صيغة بيانات AI Inbox غير متوافقة؛ لم يتم تنفيذ أي كتابة.</div>;
@@ -259,7 +260,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
 
   return <>
     <div className="write-banner"><strong>تحكم مضبوظ في المحادثات</strong><span>RPC فقط · RBAC + تأكيد + منع التكرار + Audit Log</span></div>
-    {notice && <div className="notice-box">{notice}</div>}
+    {notice && <div className="notice-box" aria-live="polite">{notice}</div>}
     <div className="inbox-layout">
       <div className="conversation-list" aria-label="قائمة المحادثات">
         {conversations.map((conversation) => <button type="button" key={conversation.id} className={selectedId === conversation.id ? "selected" : ""} onClick={() => { setSelectedId(conversation.id); setNotice(""); }}>
@@ -289,7 +290,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
   </>;
 }
 
-function CRMView({ value, session, onChanged }: { value: JsonValue; session: Session; onChanged: () => void }) {
+function CRMView({ value, session, onChanged, onSessionExpired }: { value: JsonValue; session: Session; onChanged: () => void; onSessionExpired: () => void }) {
   const parsed = z.array(LeadSchema).safeParse(value);
   const [busyId, setBusyId] = useState<string | null>(null); const [notice, setNotice] = useState("");
   const canWrite = ["super_admin", "admin", "reception", "coach"].includes(session.role);
@@ -299,19 +300,23 @@ function CRMView({ value, session, onChanged }: { value: JsonValue; session: Ses
     if (!canWrite || busyId) return;
     const data = new FormData(form); const stage = String(data.get("stage")) as LeadStage;
     const humanRequired = data.get("humanRequired") === "on"; const doNotContact = data.get("doNotContact") === "on";
-    const localFollowUp = String(data.get("nextFollowUpAt") ?? "").trim(); const nextFollowUpAt = localFollowUp ? new Date(localFollowUp).toISOString() : null;
+    const localFollowUp = String(data.get("nextFollowUpAt") ?? "").trim();
+    const followUpDate = localFollowUp ? new Date(localFollowUp) : null;
+    if (followUpDate && Number.isNaN(followUpDate.getTime())) { setNotice("موعد المتابعة غير صالح؛ لم يتم تنفيذ أي تغيير."); return; }
+    const nextFollowUpAt = followUpDate?.toISOString() ?? null;
     if (!window.confirm(`تأكيد تحديث مسار ${lead.name}؟ سيتم تطبيق قواعد المتابعة وتسجيل العملية في Audit Log.`)) return;
     setBusyId(lead.id); setNotice("");
     try { await updateLeadWorkflow(session, lead.id, stage, humanRequired, doNotContact, nextFollowUpAt); setNotice("تم تحديث مسار العميل وتسجيل العملية بنجاح."); onChanged(); }
     catch (cause) {
       const code = cause instanceof Error ? cause.message : "UPDATE_FAILED";
+      if (code === "SESSION_EXPIRED") { onSessionExpired(); return; }
       const messages: Record<string, string> = { INVALID_FOLLOW_UP_TIME: "موعد المتابعة يجب أن يكون في المستقبل.", FOLLOW_UP_TOO_FAR: "موعد المتابعة يتجاوز الحد المسموح.", FOLLOW_UP_LIMIT_REACHED: "تم بلوغ الحد الأقصى لمحاولات المتابعة.", STAFF_ACCESS_DENIED: "ليست لديك صلاحية تنفيذ هذا التغيير." };
       setNotice(messages[code] ?? "تعذر التحديث بأمان؛ لم يتم اعتماد أي تغيير غير مؤكد.");
     } finally { setBusyId(null); }
   }
-  return <><div className="write-banner"><strong>كتابة مضبوطة</strong><span>CRM workflow فقط · RBAC + locking + validation + Audit Log</span></div>{notice && <div className="notice-box">{notice}</div>}<div className="data-grid">{parsed.data.map((lead) => {
-    const followUpLocal = lead.nextFollowUpAt ? new Date(lead.nextFollowUpAt).toISOString().slice(0, 16) : "";
-    return <article className="data-card booking-card" key={lead.id}><h3>{lead.name}</h3><p>{lead.phone ?? "بدون هاتف"} · {lead.channel ?? "قناة غير معروفة"}</p><p>{lead.intent ?? "غير مصنف"} · Score: {lead.score ?? "—"}</p><form onSubmit={(event) => { event.preventDefault(); void save(lead, event.currentTarget); }}><label>المرحلة<select name="stage" defaultValue={lead.stage} disabled={!canWrite || busyId === lead.id}>{(["new", "contacted", "qualified", "booking_intent", "booked", "follow_up", "lost", "customer"] as const).map((stage) => <option key={stage} value={stage}>{stage}</option>)}</select></label><label>موعد المتابعة<input name="nextFollowUpAt" type="datetime-local" defaultValue={followUpLocal} disabled={!canWrite || busyId === lead.id} /></label><label><input name="humanRequired" type="checkbox" defaultChecked={lead.humanRequired} disabled={!canWrite || busyId === lead.id} /> يتطلب تدخلًا بشريًا</label><label><input name="doNotContact" type="checkbox" defaultChecked={lead.doNotContact} disabled={!canWrite || busyId === lead.id} /> عدم التواصل</label><button disabled={!canWrite || busyId === lead.id}>{busyId === lead.id ? "جاري الحفظ..." : "حفظ التغييرات"}</button></form>{!canWrite && <small>دورك يملك صلاحية القراءة فقط.</small>}</article>;
+  return <><div className="write-banner"><strong>كتابة مضبوطة</strong><span>CRM workflow فقط · RBAC + locking + validation + Audit Log</span></div>{notice && <div className="notice-box" aria-live="polite">{notice}</div>}<div className="data-grid">{parsed.data.map((lead) => {
+    const followUpLocal = formatLocalDateTimeInput(lead.nextFollowUpAt ?? null);
+    return <article className="data-card booking-card" key={lead.id}><h3>{lead.name}</h3><p>{lead.phone ?? "بدون هاتف"} · {lead.channel ?? "قناة غير معروفة"}</p><p>{lead.intent ?? "غير مصنف"} · Score: {lead.score ?? "—"}</p><form aria-busy={busyId === lead.id} onSubmit={(event) => { event.preventDefault(); void save(lead, event.currentTarget); }}><label>المرحلة<select name="stage" defaultValue={lead.stage} disabled={!canWrite || busyId !== null}>{(["new", "contacted", "qualified", "booking_intent", "booked", "follow_up", "lost", "customer"] as const).map((stage) => <option key={stage} value={stage}>{stage}</option>)}</select></label><label>موعد المتابعة<input name="nextFollowUpAt" type="datetime-local" defaultValue={followUpLocal} disabled={!canWrite || busyId !== null} /></label><label><input name="humanRequired" type="checkbox" defaultChecked={lead.humanRequired} disabled={!canWrite || busyId !== null} /> يتطلب تدخلًا بشريًا</label><label><input name="doNotContact" type="checkbox" defaultChecked={lead.doNotContact} disabled={!canWrite || busyId !== null} /> عدم التواصل</label><button disabled={!canWrite || busyId !== null}>{busyId === lead.id ? "جاري الحفظ..." : "حفظ التغييرات"}</button></form>{!canWrite && <small>دورك يملك صلاحية القراءة فقط.</small>}</article>;
   })}</div></>;
 }
 
@@ -711,9 +716,10 @@ function BookingView({ value, session, onChanged, onSessionExpired }: { value: J
 function Dashboard({ session, onLogout }: { session: Session; onLogout: () => void }) {
   const [active, setActive] = useState<SectionId>("dashboard"); const [reloadKey, setReloadKey] = useState(0); const [data, setData] = useState<JsonValue>(null); const [status, setStatus] = useState<"loading" | "ready" | "error">("loading"); const [error, setError] = useState("");
   const current = useMemo(() => sections.find(([id]) => id === active)!, [active]);
-  useEffect(() => { let cancelled = false; setStatus("loading"); setError(""); callRpc(session, current[3]).then((result) => { if (!cancelled) { setData(result); setStatus("ready"); } }).catch((cause) => { if (cancelled) return; const message = cause instanceof Error ? cause.message : "LOAD_FAILED"; if (message === "SESSION_EXPIRED") onLogout(); else { setError("تعذر تحميل هذه الوحدة بأمان."); setStatus("error"); } }); return () => { cancelled = true; }; }, [current, onLogout, reloadKey, session]);
+  useEffect(() => { document.title = `${current[1]} · Command Center`; }, [current]);
+  useEffect(() => { const controller = new AbortController(); setStatus("loading"); setError(""); callRpc(session, current[3], {}, controller.signal).then((result) => { setData(result); setStatus("ready"); }).catch((cause) => { if (cause instanceof DOMException && cause.name === "AbortError") return; const message = cause instanceof Error ? cause.message : "LOAD_FAILED"; if (message === "SESSION_EXPIRED") onLogout(); else { setError("تعذر تحميل هذه الوحدة بأمان."); setStatus("error"); } }); return () => controller.abort(); }, [current, onLogout, reloadKey, session]);
   const modeLabel = active === "planner" || active === "crm" || active === "inbox" || active === "content" ? "CONTROLLED WRITE" : "READ ONLY";
-  return <div className="app-shell"><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><nav>{sections.map(([id, label, Icon]) => <button key={id} className={active === id ? "active" : ""} onClick={() => setActive(id)}><Icon size={18} />{label}</button>)}</nav><button className="logout" onClick={onLogout}><LogOut size={18} />تسجيل الخروج</button></aside><main className="workspace"><p className="eyebrow">INTERNAL OPERATIONS · {modeLabel}</p><h1>{current[1]}</h1><section className="panel"><div className="panel-heading"><div><h2>بيانات تشغيل حقيقية</h2><p>Supabase RPC محمي بهوية الموظف وصلاحيات قاعدة البيانات.</p></div><button className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>تحديث</button></div>{status === "loading" && <p className="muted">جاري التحميل الآمن...</p>}{status === "error" && <div className="error-box">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <MediaLibraryView value={data} /> : active === "analytics" ? <AnalyticsView value={data} /> : active === "integrations" ? <IntegrationsView value={data} /> : <DataView value={data} />)}</section></main></div>;
+  return <div className="app-shell"><a className="skip-link" href="#main-workspace">تجاوز إلى المحتوى الرئيسي</a><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><nav aria-label="وحدات Command Center">{sections.map(([id, label, Icon]) => <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => setActive(id)}><Icon size={18} aria-hidden="true" />{label}</button>)}</nav><button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />تسجيل الخروج</button></aside><main className="workspace" id="main-workspace" tabIndex={-1}><p className="eyebrow">INTERNAL OPERATIONS · {modeLabel}</p><h1>{current[1]}</h1><section className="panel" aria-busy={status === "loading"}><div className="panel-heading"><div><h2>بيانات تشغيل حقيقية</h2><p>Supabase RPC محمي بهوية الموظف وصلاحيات قاعدة البيانات.</p></div><button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>تحديث</button></div>{status === "loading" && <p className="muted" role="status">جاري التحميل الآمن...</p>}{status === "error" && <div className="error-box" role="alert">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <MediaLibraryView value={data} /> : active === "analytics" ? <AnalyticsView value={data} /> : active === "integrations" ? <IntegrationsView value={data} /> : <DataView value={data} />)}</section></main></div>;
 }
 
 function App() { const [session, setSession] = useState<Session | null>(null); useEffect(() => { try { const raw = sessionStorage.getItem("relaxfix-command-session"); if (raw) setSession(z.object({ accessToken: z.string(), displayName: z.string(), role: ProfileSchema.shape.role }).parse(JSON.parse(raw))); } catch { sessionStorage.removeItem("relaxfix-command-session"); } }, []); if (!session) return <Login onAuthenticated={setSession} />; return <Dashboard session={session} onLogout={() => { sessionStorage.removeItem("relaxfix-command-session"); setSession(null); }} />; }

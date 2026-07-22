@@ -1,0 +1,23 @@
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+a:focus-visible {
+  outline: 3px solid #22d3ee;
+  outline-offset: 3px;
+}
+
+.skip-link {
+  position: fixed;
+  z-index: 100;
+  inset-block-start: 12px;
+  inset-inline-start: 12px;
+  transform: translateY(-150%);
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #fff;
+  color: #0f172a;
+  font-weight: 900;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .2);
+}
+
+.skip-link:focus { transform: translateY(0); }

@@ -2,7 +2,7 @@
 
 ## Current stage
 
-Integrations operations on branch `feat/integrations-operations` after the protected merges of AI Inbox PR #9, Bookings PR #10, Content Studio PR #11, Media Library PR #12, and Analytics PR #13.
+System Polish on branch `feat/system-polish` after the protected merges of AI Inbox PR #9, Bookings PR #10, Content Studio PR #11, Media Library PR #12, Analytics PR #13, and Integrations PR #14.
 
 ## Implemented
 
@@ -23,6 +23,7 @@ Integrations operations on branch `feat/integrations-operations` after the prote
 - Analytics keeps the backend `attributionReady` limitation visible and does not claim campaign conversion, causality, or ROI without attribution links.
 - Integrations validates and presents the existing operations queue through `get_staff_operations_queue` with status/search filters, overdue detection, bounded errors, and explicit source limitations.
 - Integrations remains read-only and does not expose retry, cancel, provider-test, credential, webhook, or direct-table actions.
+- System Polish cancels stale reads, aligns CRM session expiry and global write locking, validates local dates safely, and improves keyboard/loading semantics without changing RPC behavior.
 
 ## Verified evidence
 
@@ -37,15 +38,17 @@ Integrations operations on branch `feat/integrations-operations` after the prote
 - Analytics PR #13 merged after an independent approval and successful required checks on 2026-07-22.
 - Integrations local verification passed: TypeScript, 24/24 tests, and production build.
 - The Integrations job status allowlist matches the source database enum and the final diff contains no prohibited path or direct-write change.
+- Integrations PR #14 merged after an independent approval and successful required checks on 2026-07-22.
+- System Polish local verification passed: TypeScript, 26/26 tests, production build, React review, and prohibited-path review.
 
 ## Pending / blocked
 
-- Open a dedicated Integrations pull request and wait for protected CI and independent approval.
+- Open a dedicated System Polish pull request and wait for protected CI and independent approval.
 - No permission or implementation blocker is currently known.
 
 ## NEXT_REQUIRED_ACTION
 
-Complete Integrations verification, open its pull request, merge only after CI and protection requirements pass, then begin System Polish from updated `main`.
+Complete System Polish verification, open its pull request, merge only after CI and protection requirements pass, then begin Final Audit from updated `main`.
 
 ## Prohibited actions
 

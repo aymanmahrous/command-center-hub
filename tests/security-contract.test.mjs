@@ -171,3 +171,22 @@ test("deployment configuration fails closed and never embeds a live Supabase pro
   assert.doesNotMatch(app, /nmzxrjdxvmmzzmajrskm/);
   assert.doesNotMatch(app, /sb_publishable_/);
 });
+
+test("System Polish cancels stale reads and handles session expiry consistently", () => {
+  assert.match(app, /signal\?: AbortSignal/);
+  assert.match(app, /const controller = new AbortController\(\)/);
+  assert.match(app, /return \(\) => controller\.abort\(\)/);
+  assert.match(app, /cause instanceof DOMException && cause\.name === "AbortError"/);
+  assert.match(app, /function CRMView\(\{ value, session, onChanged, onSessionExpired \}/);
+  assert.match(app, /if \(code === "SESSION_EXPIRED"\) \{ onSessionExpired\(\); return; \}/);
+});
+
+test("System Polish makes controlled interactions accessible and globally locked", () => {
+  assert.match(app, /className="skip-link"/);
+  assert.match(app, /aria-label="وحدات Command Center"/);
+  assert.match(app, /aria-current=\{active === id \? "page" : undefined\}/);
+  assert.match(app, /aria-busy=\{status === "loading"\}/);
+  assert.match(app, /role="status"/);
+  assert.match(app, /disabled=\{!canWrite \|\| busyId !== null\}/);
+  assert.match(app, /Number\.isNaN\(followUpDate\.getTime\(\)\)/);
+});
