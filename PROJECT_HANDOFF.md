@@ -2,7 +2,7 @@
 
 ## Current stage
 
-Analytics operations on branch `feat/analytics-operations` after the protected merges of AI Inbox PR #9, Bookings PR #10, Content Studio PR #11, and Media Library PR #12.
+Integrations operations on branch `feat/integrations-operations` after the protected merges of AI Inbox PR #9, Bookings PR #10, Content Studio PR #11, Media Library PR #12, and Analytics PR #13.
 
 ## Implemented
 
@@ -21,6 +21,8 @@ Analytics operations on branch `feat/analytics-operations` after the protected m
 - Media Library remains strictly read-only and does not expose private Storage URLs or any upload, generation, update, or deletion path.
 - Real aggregate growth metrics are presented through `get_staff_growth_analytics` with response validation and zero-safe descriptive ratios.
 - Analytics keeps the backend `attributionReady` limitation visible and does not claim campaign conversion, causality, or ROI without attribution links.
+- Integrations validates and presents the existing operations queue through `get_staff_operations_queue` with status/search filters, overdue detection, bounded errors, and explicit source limitations.
+- Integrations remains read-only and does not expose retry, cancel, provider-test, credential, webhook, or direct-table actions.
 
 ## Verified evidence
 
@@ -32,17 +34,18 @@ Analytics operations on branch `feat/analytics-operations` after the protected m
 - Bookings PR #10 merged after an independent approval and successful required checks on 2026-07-22.
 - Content Studio PR #11 merged after an independent approval and successful required checks on 2026-07-22.
 - Media Library PR #12 merged after an independent approval and successful required checks on 2026-07-22.
-- Analytics local verification passed: TypeScript, 22/22 tests, and production build.
+- Analytics PR #13 merged after an independent approval and successful required checks on 2026-07-22.
+- Integrations local verification passed: TypeScript, 24/24 tests, and production build.
+- The Integrations job status allowlist matches the source database enum and the final diff contains no prohibited path or direct-write change.
 
 ## Pending / blocked
 
-- Review the final Analytics diff for scope and regression risk.
-- Open a dedicated Analytics pull request and wait for protected CI and independent approval.
+- Open a dedicated Integrations pull request and wait for protected CI and independent approval.
 - No permission or implementation blocker is currently known.
 
 ## NEXT_REQUIRED_ACTION
 
-Complete Analytics verification, open its pull request, merge only after CI and protection requirements pass, then begin Integrations from updated `main`.
+Complete Integrations verification, open its pull request, merge only after CI and protection requirements pass, then begin System Polish from updated `main`.
 
 ## Prohibited actions
 
