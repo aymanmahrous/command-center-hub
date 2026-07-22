@@ -34,7 +34,7 @@ async function signIn(email: string, password: string): Promise<Session> {
   const authResponse = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, { method: "POST", headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY }, body: JSON.stringify({ email, password }) });
   if (!authResponse.ok) throw new Error("INVALID_LOGIN");
   const auth = z.object({ access_token: z.string(), user: z.object({ id: z.string().uuid() }) }).parse(await authResponse.json());
-  const profileResponse = await fetch(`${SUPABASE_URL}/rest/v1/${encodeURIComponent(STAFF_TABLE)}?user_id=eq.${encodeURIComponent(auth.user.id)}&select=display_name,role,active&limit=1`, { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${auth.access_token}`, Accept: "application/json" } });
+  const profileResponse = await fetch(`${SUPABASE_URL}/rest/v1/${encodeURIComponent(STAFF_TABLE)}?id=eq.${encodeURIComponent(auth.user.id)}&select=display_name,role,active&limit=1`, { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${auth.access_token}`, Accept: "application/json" } });
   if (!profileResponse.ok) throw new Error("PROFILE_CHECK_FAILED");
   const rows = z.array(ProfileSchema).parse(await profileResponse.json());
   if (rows.length !== 1) throw new Error("STAFF_ACCESS_DENIED");
