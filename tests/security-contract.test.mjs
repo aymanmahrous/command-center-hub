@@ -38,3 +38,21 @@ test("password is not persisted", () => {
   assert.doesNotMatch(app, /setItem\([^\n]*password/i);
   assert.match(app, /sessionStorage/);
 });
+
+test("booking writes use the approved RPC and never direct table mutation", () => {
+  assert.match(app, /update_booking_request_status/);
+  assert.match(app, /p_booking_request_id/);
+  assert.match(app, /p_status/);
+  assert.doesNotMatch(app, /\/rest\/v1\/booking_requests[^\n]*(PATCH|PUT|DELETE)/i);
+});
+
+test("booking writes are role-gated and require explicit confirmation", () => {
+  assert.match(app, /\["super_admin", "admin", "reception"\]\.includes\(session\.role\)/);
+  assert.match(app, /window\.confirm/);
+  assert.match(app, /Audit Log/);
+});
+
+test("booking status is constrained to the server-supported allowlist", () => {
+  for (const status of ["pending", "contacted", "confirmed", "declined", "cancelled"]) assert.match(app, new RegExp(`"${status}"`));
+  assert.doesNotMatch(app, /service_role/i);
+});
