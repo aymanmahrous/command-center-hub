@@ -2,7 +2,7 @@
 
 ## Current stage
 
-System Polish on branch `feat/system-polish` after the protected merges of AI Inbox PR #9, Bookings PR #10, Content Studio PR #11, Media Library PR #12, Analytics PR #13, and Integrations PR #14.
+Final Audit on branch `audit/final-audit` after the protected merges of AI Inbox PR #9, Bookings PR #10, Content Studio PR #11, Media Library PR #12, Analytics PR #13, Integrations PR #14, and System Polish PR #15.
 
 ## Implemented
 
@@ -24,6 +24,7 @@ System Polish on branch `feat/system-polish` after the protected merges of AI In
 - Integrations validates and presents the existing operations queue through `get_staff_operations_queue` with status/search filters, overdue detection, bounded errors, and explicit source limitations.
 - Integrations remains read-only and does not expose retry, cancel, provider-test, credential, webhook, or direct-table actions.
 - System Polish cancels stale reads, aligns CRM session expiry and global write locking, validates local dates safely, and improves keyboard/loading semantics without changing RPC behavior.
+- Final Audit adds reproducible dependency locking, moves build tooling out of runtime dependencies, and makes CI use a locked, script-free Node 22 install.
 
 ## Verified evidence
 
@@ -40,15 +41,18 @@ System Polish on branch `feat/system-polish` after the protected merges of AI In
 - The Integrations job status allowlist matches the source database enum and the final diff contains no prohibited path or direct-write change.
 - Integrations PR #14 merged after an independent approval and successful required checks on 2026-07-22.
 - System Polish local verification passed: TypeScript, 26/26 tests, production build, React review, and prohibited-path review.
+- System Polish PR #15 merged after an independent approval and successful required checks on 2026-07-22.
+- Final Audit dependency checks passed: clean `npm ci`, zero full/runtime vulnerabilities, and no unused TypeScript symbols.
+- Final Audit local verification passed: TypeScript, 28/28 tests, production build, locked-install checks, and prohibited-path review.
 
 ## Pending / blocked
 
-- Open a dedicated System Polish pull request and wait for protected CI and independent approval.
+- Open a dedicated Final Audit pull request and wait for protected CI and independent approval.
 - No permission or implementation blocker is currently known.
 
 ## NEXT_REQUIRED_ACTION
 
-Complete System Polish verification, open its pull request, merge only after CI and protection requirements pass, then begin Final Audit from updated `main`.
+Complete Final Audit verification, open its pull request, merge only after CI and protection requirements pass, then begin Final Security Review from updated `main`.
 
 ## Prohibited actions
 
