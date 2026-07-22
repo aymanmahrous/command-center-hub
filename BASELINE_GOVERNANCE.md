@@ -1,5 +1,7 @@
 # Baseline Governance
 
+> Historical provenance record: this document describes the repository's initial empty-baseline gate. Source transfer and implementation were completed through later protected pull requests. Use `PROJECT_HANDOFF.md` for current status and authorization boundaries.
+
 ## Canonical ownership
 
 - Repository: `aymanmahrous/command-center-hub`

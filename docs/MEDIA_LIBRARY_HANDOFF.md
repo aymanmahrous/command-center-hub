@@ -1,5 +1,7 @@
 # Media Library Operations Handoff
 
+Document status: historical stage evidence. PR #12 was merged after successful protected CI and independent approval on 2026-07-22.
+
 ## Scope
 
 - Reads the current employee's real media assets through the existing `get_staff_media_assets` RPC.

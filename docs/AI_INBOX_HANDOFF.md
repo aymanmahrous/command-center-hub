@@ -1,5 +1,7 @@
 # Controlled AI Inbox Handoff
 
+Document status: historical stage evidence. PR #9 was merged after successful protected CI and independent approval on 2026-07-22.
+
 ## Scope completed
 
 - AI Inbox renders real conversations from `get_staff_inbox`.
@@ -23,8 +25,8 @@
 - `npm run typecheck`: passed.
 - `npm test`: passed, 13/13 tests.
 - `npm run build`: passed with Vite production output.
-- Protected GitHub CI: passed on PR #9 for commit `820092f`.
-- Merge: blocked only by the required approving review; self-approval was rejected and repository auto-merge is disabled.
+- Protected GitHub CI and independent review: passed on PR #9 for commit `820092f`.
+- Merge: completed through the protected pull-request workflow.
 
 ## Rollback
 
@@ -32,4 +34,4 @@ Revert the AI Inbox feature merge commit or redeploy the previous successful Com
 
 ## Next required action
 
-Obtain the required approving review on PR #9, confirm CI remains successful, then merge before starting the next module.
+Completed. Current project sequencing is maintained only in `PROJECT_HANDOFF.md`.

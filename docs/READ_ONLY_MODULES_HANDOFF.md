@@ -1,5 +1,7 @@
 # Read-only Operations Modules Handoff
 
+Document status: historical initial-read baseline. Later protected stages added only the controlled RPC mutations listed in `README.md`; this document is not the current mutation inventory.
+
 ## Scope completed
 
 The standalone Command Center now loads authenticated operational data through existing Supabase RPC contracts for:

@@ -1,5 +1,7 @@
 # Integrations Operations Handoff
 
+Document status: historical stage evidence. PR #14 was merged after successful protected CI and independent approval on 2026-07-22.
+
 ## Scope
 
 - Replaced the generic Integrations JSON rendering with a dedicated operational health view.
