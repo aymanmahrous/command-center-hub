@@ -1,0 +1,91 @@
+.content-toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(180px, 240px) auto;
+  gap: 14px;
+  align-items: end;
+  margin: 18px 0;
+}
+
+.content-toolbar label,
+.content-card label {
+  display: grid;
+  gap: 7px;
+  color: #cbd5e1;
+  font-size: 0.84rem;
+}
+
+.content-toolbar input,
+.content-toolbar select,
+.content-card input,
+.content-card textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  background: #0f172a;
+  color: #f8fafc;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.content-card textarea { resize: vertical; }
+.content-toolbar > span { padding-bottom: 10px; color: #94a3b8; }
+.content-list { display: grid; gap: 18px; }
+
+.content-card {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid #263449;
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.96), rgba(20, 30, 48, 0.92));
+}
+
+.content-card > header,
+.content-card > footer,
+.content-actions,
+.content-actions > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.content-card h3 { margin: 4px 0 0; }
+.content-card header div > span,
+.content-card footer { color: #94a3b8; font-size: 0.82rem; }
+.content-card form { display: grid; gap: 13px; }
+.content-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
+
+.content-status {
+  border: 1px solid #475569;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  color: #e2e8f0;
+}
+
+.content-status.status-approved { border-color: #10b981; color: #6ee7b7; }
+.content-status.status-scheduled { border-color: #38bdf8; color: #7dd3fc; }
+.content-status.status-published { border-color: #a78bfa; color: #c4b5fd; }
+.content-status.status-failed { border-color: #f87171; color: #fca5a5; }
+.content-status.status-needs_review { border-color: #f59e0b; color: #fcd34d; }
+
+.content-actions {
+  border-top: 1px solid #263449;
+  border-bottom: 1px solid #263449;
+  padding: 14px 0;
+}
+
+.content-actions label { min-width: min(100%, 250px); }
+.content-actions button.secondary { background: transparent; border: 1px solid #475569; color: #e2e8f0; }
+.content-card button:disabled, .content-card input:disabled, .content-card textarea:disabled { opacity: 0.55; cursor: not-allowed; }
+
+@media (max-width: 760px) {
+  .content-toolbar, .content-fields { grid-template-columns: 1fr; }
+  .content-toolbar > span { padding-bottom: 0; }
+  .content-actions { align-items: stretch; }
+  .content-actions > div { width: 100%; }
+  .content-actions button { flex: 1 1 140px; }
+}

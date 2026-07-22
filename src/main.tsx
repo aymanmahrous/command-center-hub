@@ -5,6 +5,7 @@ import { z } from "zod";
 import "./styles.css";
 import "./ai-inbox.css";
 import "./bookings.css";
+import "./content-studio.css";
 
 const sections = [
   ["dashboard", "Command Center", LayoutDashboard, "get_staff_command_center"],
@@ -25,6 +26,8 @@ type Session = { accessToken: string; displayName: string; role: Role };
 type BookingStatus = "pending" | "contacted" | "confirmed" | "declined" | "cancelled";
 type LeadStage = "new" | "contacted" | "qualified" | "booking_intent" | "booked" | "follow_up" | "lost" | "customer";
 type ConversationMode = "ai_active" | "human_required" | "human_takeover" | "paused";
+type ContentStatus = "idea" | "draft" | "generated" | "needs_review" | "approved" | "scheduled" | "published" | "failed";
+type ContentAction = "approve" | "return_to_review" | "schedule" | "unschedule";
 
 const ProfileSchema = z.object({ display_name: z.string().min(1), role: z.enum(["super_admin", "admin", "reception", "coach", "content_manager"]), active: z.literal(true) });
 const BookingSchema = z.object({
@@ -63,6 +66,17 @@ const MessageSchema = z.object({
 const ConversationModeUpdateSchema = z.object({
   success: z.boolean(), code: z.string().optional(), conversationId: z.string().uuid().optional(),
   mode: z.enum(["ai_active", "human_required", "human_takeover", "paused"]).optional(),
+});
+const ContentItemSchema = z.object({
+  id: z.string().uuid(), scheduledFor: z.string().nullable(), platform: z.string(), contentType: z.string(),
+  topic: z.string(), hook: z.string(), caption: z.string(), cta: z.string(), hashtags: z.array(z.string()),
+  visualPrompt: z.string(), status: z.enum(["idea", "draft", "generated", "needs_review", "approved", "scheduled", "published", "failed"]),
+  providerExternalId: z.string().nullable(), publishedAt: z.string().nullable(), createdAt: z.string(), updatedAt: z.string(),
+}).passthrough();
+const ContentMutationSchema = z.object({
+  success: z.boolean(), code: z.string().optional(), contentItemId: z.string().uuid().optional(),
+  status: z.enum(["idea", "draft", "generated", "needs_review", "approved", "scheduled", "published", "failed"]).optional(),
+  scheduledFor: z.string().nullable().optional(), updatedAt: z.string().optional(),
 });
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
@@ -118,6 +132,23 @@ async function getConversationMessages(session: Session, conversationId: string)
 async function setConversationMode(session: Session, conversationId: string, mode: ConversationMode) {
   const result = ConversationModeUpdateSchema.parse(await callRpc(session, "set_staff_conversation_mode", {
     p_conversation_id: conversationId, p_mode: mode,
+  }));
+  if (!result.success) throw new Error(result.code ?? "UPDATE_REJECTED");
+  return result;
+}
+
+async function updateContentItem(session: Session, contentItemId: string, fields: { topic: string; hook: string; caption: string; cta: string; hashtags: string[]; visualPrompt: string }) {
+  const result = ContentMutationSchema.parse(await callRpc(session, "update_staff_content_item", {
+    p_content_item_id: contentItemId, p_topic: fields.topic, p_hook: fields.hook, p_caption: fields.caption,
+    p_cta: fields.cta, p_hashtags: fields.hashtags, p_visual_prompt: fields.visualPrompt,
+  }));
+  if (!result.success) throw new Error(result.code ?? "UPDATE_REJECTED");
+  return result;
+}
+
+async function transitionContentItem(session: Session, contentItemId: string, action: ContentAction, scheduledFor: string | null = null) {
+  const result = ContentMutationSchema.parse(await callRpc(session, "transition_staff_content_item", {
+    p_content_item_id: contentItemId, p_action: action, p_scheduled_for: scheduledFor,
   }));
   if (!result.success) throw new Error(result.code ?? "UPDATE_REJECTED");
   return result;
@@ -255,6 +286,128 @@ function CRMView({ value, session, onChanged }: { value: JsonValue; session: Ses
   })}</div></>;
 }
 
+const contentStatusLabels: Record<ContentStatus, string> = {
+  idea: "فكرة", draft: "مسودة", generated: "مولّد", needs_review: "بانتظار المراجعة",
+  approved: "معتمد", scheduled: "مجدول", published: "منشور", failed: "فشل",
+};
+
+const contentActionLabels: Record<ContentAction, string> = {
+  approve: "اعتماد المحتوى", return_to_review: "إعادة للمراجعة", schedule: "جدولة", unschedule: "إلغاء الجدولة",
+};
+
+function contentErrorMessage(code: string) {
+  const messages: Record<string, string> = {
+    STAFF_ACCESS_DENIED: "ليست لديك صلاحية تنفيذ هذا التغيير.", NOT_FOUND: "عنصر المحتوى لم يعد موجودًا.",
+    PUBLISHED_CONTENT_IMMUTABLE: "المحتوى المنشور غير قابل للتحرير.", INVALID_CAPTION: "النص مطلوب ويجب ألا يتجاوز 5000 حرف.",
+    CONTENT_FIELD_TOO_LONG: "أحد الحقول يتجاوز الحد المسموح.", TOO_MANY_HASHTAGS: "الحد الأقصى 30 وسمًا.",
+    INVALID_HASHTAG: "أحد الوسوم غير صالح أو يتجاوز 100 حرف.", INVALID_TRANSITION: "هذا الانتقال غير مسموح للحالة الحالية.",
+    APPROVAL_REQUIRED: "يجب اعتماد المحتوى قبل الجدولة.", INVALID_SCHEDULE_TIME: "وقت الجدولة يجب أن يكون في المستقبل.",
+    SCHEDULE_TOO_FAR: "لا يمكن الجدولة لأكثر من 366 يومًا.", INVALID_ACTION: "الإجراء المطلوب غير مسموح.",
+  };
+  return messages[code] ?? "تعذر تنفيذ التغيير بأمان؛ لم يتم اعتماد أي تغيير غير مؤكد.";
+}
+
+function ContentStudioView({ value, session, onChanged, onSessionExpired }: { value: JsonValue; session: Session; onChanged: () => void; onSessionExpired: () => void }) {
+  const parsed = useMemo(() => z.array(ContentItemSchema).safeParse(value), [value]);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [notice, setNotice] = useState("");
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<ContentStatus | "all">("all");
+  const canWrite = ["super_admin", "admin", "content_manager"].includes(session.role);
+  const items = parsed.success ? parsed.data : [];
+  const filteredItems = useMemo(() => {
+    const normalized = query.trim().toLocaleLowerCase("ar");
+    return items.filter((item) => {
+      if (statusFilter !== "all" && item.status !== statusFilter) return false;
+      if (!normalized) return true;
+      return [item.topic, item.hook, item.caption, item.cta, item.platform, item.contentType, ...item.hashtags]
+        .some((field) => field.toLocaleLowerCase("ar").includes(normalized));
+    });
+  }, [items, query, statusFilter]);
+
+  if (!parsed.success) return <div className="error-box">صيغة بيانات Content Studio غير متوافقة؛ لم يتم تنفيذ أي كتابة.</div>;
+
+  async function runMutation(itemId: string, operation: () => Promise<unknown>, successMessage: string) {
+    if (!canWrite || busyId) return;
+    setBusyId(itemId); setNotice("");
+    try { await operation(); setNotice(successMessage); onChanged(); }
+    catch (cause) {
+      const code = cause instanceof Error ? cause.message : "UPDATE_FAILED";
+      if (code === "SESSION_EXPIRED") { onSessionExpired(); return; }
+      setNotice(contentErrorMessage(code));
+    } finally { setBusyId(null); }
+  }
+
+  async function save(item: z.infer<typeof ContentItemSchema>, form: HTMLFormElement) {
+    if (!canWrite || busyId || item.status === "published") return;
+    const data = new FormData(form);
+    const fields = {
+      topic: String(data.get("topic") ?? "").trim(), hook: String(data.get("hook") ?? "").trim(),
+      caption: String(data.get("caption") ?? "").trim(), cta: String(data.get("cta") ?? "").trim(),
+      hashtags: [...new Set(String(data.get("hashtags") ?? "").split(/[,\n]/).map((tag) => tag.trim()).filter(Boolean))],
+      visualPrompt: String(data.get("visualPrompt") ?? "").trim(),
+    };
+    const unchanged = fields.topic === item.topic && fields.hook === item.hook && fields.caption === item.caption && fields.cta === item.cta
+      && fields.visualPrompt === item.visualPrompt && JSON.stringify(fields.hashtags) === JSON.stringify(item.hashtags);
+    if (unchanged) { setNotice("لا توجد تغييرات جديدة للحفظ."); return; }
+    if (fields.caption.length < 2 || fields.caption.length > 5000 || fields.hashtags.length > 30) { setNotice("تحقق من طول النص وعدد الوسوم قبل الحفظ."); return; }
+    const scheduleWarning = item.status === "scheduled" ? " سيؤدي التحرير إلى إلغاء الجدولة وإعادة العنصر للمراجعة." : " سيعود العنصر إلى المراجعة.";
+    if (!window.confirm(`تأكيد حفظ تعديلات «${item.topic || "محتوى بدون عنوان"}»؟${scheduleWarning} سيتم تسجيل العملية في Audit Log.`)) return;
+    await runMutation(item.id, () => updateContentItem(session, item.id, fields), "تم حفظ المحتوى وإعادته للمراجعة مع تسجيل العملية.");
+  }
+
+  async function transition(item: z.infer<typeof ContentItemSchema>, action: ContentAction, form: HTMLFormElement) {
+    if (!canWrite || busyId) return;
+    let scheduledFor: string | null = null;
+    if (action === "schedule") {
+      const localValue = String(new FormData(form).get("scheduledFor") ?? "").trim();
+      if (!localValue) { setNotice("حدد وقتًا مستقبليًا للجدولة."); return; }
+      const date = new Date(localValue);
+      if (Number.isNaN(date.getTime()) || date.getTime() <= Date.now()) { setNotice("وقت الجدولة يجب أن يكون في المستقبل."); return; }
+      scheduledFor = date.toISOString();
+    }
+    if ((action === "approve" && item.status === "approved") || (action === "return_to_review" && item.status === "needs_review")) return;
+    if (!window.confirm(`تأكيد «${contentActionLabels[action]}» للعنصر «${item.topic || "محتوى بدون عنوان"}»؟ سيتم تسجيل العملية في Audit Log.`)) return;
+    await runMutation(item.id, () => transitionContentItem(session, item.id, action, scheduledFor), `تم تنفيذ «${contentActionLabels[action]}» وتسجيل العملية بنجاح.`);
+  }
+
+  return <>
+    <div className="write-banner"><strong>Content Studio مضبوط</strong><span>RPC فقط · اعتماد بشري · قفل ضد التكرار · Audit Log</span></div>
+    {notice && <div className="notice-box" aria-live="polite">{notice}</div>}
+    <div className="content-toolbar">
+      <label>بحث<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="الموضوع، النص، المنصة..." /></label>
+      <label>الحالة<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as ContentStatus | "all")}><option value="all">جميع الحالات</option>{(Object.keys(contentStatusLabels) as ContentStatus[]).map((status) => <option key={status} value={status}>{contentStatusLabels[status]}</option>)}</select></label>
+      <span>{filteredItems.length} من {items.length}</span>
+    </div>
+    {items.length === 0 && <p className="muted">لا توجد عناصر محتوى حاليًا.</p>}
+    {items.length > 0 && filteredItems.length === 0 && <p className="muted">لا توجد نتائج مطابقة.</p>}
+    <div className="content-list">{filteredItems.map((item) => {
+      const scheduledLocal = formatLocalDateTimeInput(item.scheduledFor);
+      const locked = busyId !== null || !canWrite || item.status === "published";
+      return <article className="content-card" key={item.id}>
+        <header><div><span>{item.platform} · {item.contentType}</span><h3>{item.topic || "محتوى بدون عنوان"}</h3></div><span className={`content-status status-${item.status}`}>{contentStatusLabels[item.status]}</span></header>
+        <form onSubmit={(event) => { event.preventDefault(); void save(item, event.currentTarget); }}>
+          <div className="content-fields"><label>الموضوع<input name="topic" defaultValue={item.topic} maxLength={300} disabled={locked} /></label><label>Hook<input name="hook" defaultValue={item.hook} maxLength={500} disabled={locked} /></label></div>
+          <label>النص<textarea name="caption" defaultValue={item.caption} minLength={2} maxLength={5000} rows={6} required disabled={locked} /></label>
+          <div className="content-fields"><label>CTA<input name="cta" defaultValue={item.cta} maxLength={500} disabled={locked} /></label><label>الوسوم مفصولة بفاصلة<input name="hashtags" defaultValue={item.hashtags.join(", ")} disabled={locked} /></label></div>
+          <label>وصف الوسائط<textarea name="visualPrompt" defaultValue={item.visualPrompt} maxLength={2000} rows={3} disabled={locked} /></label>
+          <button type="submit" disabled={locked}>{busyId === item.id ? "جاري الحفظ..." : "حفظ وإعادة للمراجعة"}</button>
+        </form>
+        <form className="content-actions" onSubmit={(event) => event.preventDefault()}>
+          <label>وقت الجدولة<input name="scheduledFor" type="datetime-local" defaultValue={scheduledLocal} disabled={!canWrite || busyId !== null || !["approved", "scheduled"].includes(item.status)} /></label>
+          <div>
+            {["draft", "generated", "needs_review"].includes(item.status) && <button type="button" disabled={!canWrite || busyId !== null} onClick={(event) => void transition(item, "approve", event.currentTarget.form!)}>اعتماد</button>}
+            {["draft", "generated", "approved", "scheduled", "failed"].includes(item.status) && <button type="button" className="secondary" disabled={!canWrite || busyId !== null} onClick={(event) => void transition(item, "return_to_review", event.currentTarget.form!)}>إعادة للمراجعة</button>}
+            {["approved", "scheduled"].includes(item.status) && <button type="button" disabled={!canWrite || busyId !== null} onClick={(event) => void transition(item, "schedule", event.currentTarget.form!)}>{item.status === "scheduled" ? "إعادة الجدولة" : "جدولة"}</button>}
+            {item.status === "scheduled" && <button type="button" className="secondary" disabled={!canWrite || busyId !== null} onClick={(event) => void transition(item, "unschedule", event.currentTarget.form!)}>إلغاء الجدولة</button>}
+          </div>
+        </form>
+        <footer><span>آخر تحديث: {formatBookingDateTime(item.updatedAt)}</span>{item.publishedAt && <span>نشر: {formatBookingDateTime(item.publishedAt)}</span>}{!canWrite && <span>دورك للقراءة فقط.</span>}{item.status === "published" && <span>المحتوى المنشور محمي من التحرير.</span>}</footer>
+      </article>;
+    })}</div>
+  </>;
+}
+
 const bookingStatusLabels: Record<BookingStatus, string> = {
   pending: "قيد الانتظار",
   contacted: "تم التواصل",
@@ -266,6 +419,14 @@ const bookingStatusLabels: Record<BookingStatus, string> = {
 function formatBookingDateTime(value: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString("ar-AE");
+}
+
+function formatLocalDateTimeInput(value: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const offset = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 }
 
 function BookingView({ value, session, onChanged, onSessionExpired }: { value: JsonValue; session: Session; onChanged: () => void; onSessionExpired: () => void }) {
@@ -352,8 +513,8 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   const [active, setActive] = useState<SectionId>("dashboard"); const [reloadKey, setReloadKey] = useState(0); const [data, setData] = useState<JsonValue>(null); const [status, setStatus] = useState<"loading" | "ready" | "error">("loading"); const [error, setError] = useState("");
   const current = useMemo(() => sections.find(([id]) => id === active)!, [active]);
   useEffect(() => { let cancelled = false; setStatus("loading"); setError(""); callRpc(session, current[3]).then((result) => { if (!cancelled) { setData(result); setStatus("ready"); } }).catch((cause) => { if (cancelled) return; const message = cause instanceof Error ? cause.message : "LOAD_FAILED"; if (message === "SESSION_EXPIRED") onLogout(); else { setError("تعذر تحميل هذه الوحدة بأمان."); setStatus("error"); } }); return () => { cancelled = true; }; }, [current, onLogout, reloadKey, session]);
-  const modeLabel = active === "planner" || active === "crm" || active === "inbox" ? "CONTROLLED WRITE" : "READ ONLY";
-  return <div className="app-shell"><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><nav>{sections.map(([id, label, Icon]) => <button key={id} className={active === id ? "active" : ""} onClick={() => setActive(id)}><Icon size={18} />{label}</button>)}</nav><button className="logout" onClick={onLogout}><LogOut size={18} />تسجيل الخروج</button></aside><main className="workspace"><p className="eyebrow">INTERNAL OPERATIONS · {modeLabel}</p><h1>{current[1]}</h1><section className="panel"><div className="panel-heading"><div><h2>بيانات تشغيل حقيقية</h2><p>Supabase RPC محمي بهوية الموظف وصلاحيات قاعدة البيانات.</p></div><button className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>تحديث</button></div>{status === "loading" && <p className="muted">جاري التحميل الآمن...</p>}{status === "error" && <div className="error-box">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : <DataView value={data} />)}</section></main></div>;
+  const modeLabel = active === "planner" || active === "crm" || active === "inbox" || active === "content" ? "CONTROLLED WRITE" : "READ ONLY";
+  return <div className="app-shell"><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><nav>{sections.map(([id, label, Icon]) => <button key={id} className={active === id ? "active" : ""} onClick={() => setActive(id)}><Icon size={18} />{label}</button>)}</nav><button className="logout" onClick={onLogout}><LogOut size={18} />تسجيل الخروج</button></aside><main className="workspace"><p className="eyebrow">INTERNAL OPERATIONS · {modeLabel}</p><h1>{current[1]}</h1><section className="panel"><div className="panel-heading"><div><h2>بيانات تشغيل حقيقية</h2><p>Supabase RPC محمي بهوية الموظف وصلاحيات قاعدة البيانات.</p></div><button className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>تحديث</button></div>{status === "loading" && <p className="muted">جاري التحميل الآمن...</p>}{status === "error" && <div className="error-box">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : <DataView value={data} />)}</section></main></div>;
 }
 
 function App() { const [session, setSession] = useState<Session | null>(null); useEffect(() => { try { const raw = sessionStorage.getItem("relaxfix-command-session"); if (raw) setSession(z.object({ accessToken: z.string(), displayName: z.string(), role: ProfileSchema.shape.role }).parse(JSON.parse(raw))); } catch { sessionStorage.removeItem("relaxfix-command-session"); } }, []); if (!session) return <Login onAuthenticated={setSession} />; return <Dashboard session={session} onLogout={() => { sessionStorage.removeItem("relaxfix-command-session"); setSession(null); }} />; }
