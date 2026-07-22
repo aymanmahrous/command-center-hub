@@ -57,6 +57,19 @@ test("booking status is constrained to the server-supported allowlist", () => {
   assert.doesNotMatch(app, /service_role/i);
 });
 
+test("CRM writes use only the audited workflow RPC", () => {
+  assert.match(app, /update_staff_lead_workflow/);
+  for (const parameter of ["p_lead_id", "p_stage", "p_human_required", "p_do_not_contact", "p_next_follow_up_at"]) assert.match(app, new RegExp(parameter));
+  assert.doesNotMatch(app, /\/rest\/v1\/(leads|conversations|follow_up_jobs)[^\n]*(PATCH|PUT|DELETE|POST)/i);
+});
+
+test("CRM writes are role-gated, confirmed, and server constrained", () => {
+  assert.match(app, /CRM كتابة مضبوطة/);
+  assert.match(app, /تأكيد تحديث مسار/);
+  assert.match(app, /FOLLOW_UP_LIMIT_REACHED/);
+  for (const stage of ["new", "contacted", "qualified", "booking_intent", "booked", "follow_up", "lost", "customer"]) assert.match(app, new RegExp(`"${stage}"`));
+});
+
 test("deployment configuration fails closed and never embeds a live Supabase project", () => {
   assert.match(app, /VITE_SUPABASE_URL \?\? ""/);
   assert.match(app, /VITE_SUPABASE_ANON_KEY \?\? ""/);
