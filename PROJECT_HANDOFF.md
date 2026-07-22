@@ -2,7 +2,7 @@
 
 ## Current stage
 
-Media Library operations on branch `feat/media-library-operations` after the protected merges of AI Inbox PR #9, Bookings PR #10, and Content Studio PR #11.
+Analytics operations on branch `feat/analytics-operations` after the protected merges of AI Inbox PR #9, Bookings PR #10, Content Studio PR #11, and Media Library PR #12.
 
 ## Implemented
 
@@ -19,6 +19,8 @@ Media Library operations on branch `feat/media-library-operations` after the pro
 - Content mutations use server-aligned RBAC, explicit confirmation, a global in-flight lock, safe session-expiry handling, and the RPC-provided Audit Log.
 - Real employee-owned media assets are presented through `get_staff_media_assets` with counts, search, type/source filters, content linkage, provider context, prompts, and bounded metadata.
 - Media Library remains strictly read-only and does not expose private Storage URLs or any upload, generation, update, or deletion path.
+- Real aggregate growth metrics are presented through `get_staff_growth_analytics` with response validation and zero-safe descriptive ratios.
+- Analytics keeps the backend `attributionReady` limitation visible and does not claim campaign conversion, causality, or ROI without attribution links.
 
 ## Verified evidence
 
@@ -29,17 +31,18 @@ Media Library operations on branch `feat/media-library-operations` after the pro
 - AI Inbox PR #9 merged after an independent approval and successful required checks on 2026-07-22.
 - Bookings PR #10 merged after an independent approval and successful required checks on 2026-07-22.
 - Content Studio PR #11 merged after an independent approval and successful required checks on 2026-07-22.
-- Media Library local verification passed: TypeScript, 20/20 tests, and production build.
+- Media Library PR #12 merged after an independent approval and successful required checks on 2026-07-22.
+- Analytics local verification passed: TypeScript, 22/22 tests, and production build.
 
 ## Pending / blocked
 
-- Review the final Media Library diff for scope and regression risk.
-- Open a dedicated Media Library pull request and wait for protected CI and independent approval.
+- Review the final Analytics diff for scope and regression risk.
+- Open a dedicated Analytics pull request and wait for protected CI and independent approval.
 - No permission or implementation blocker is currently known.
 
 ## NEXT_REQUIRED_ACTION
 
-Complete Media Library verification, open its pull request, merge only after CI and protection requirements pass, then begin Analytics from updated `main`.
+Complete Analytics verification, open its pull request, merge only after CI and protection requirements pass, then begin Integrations from updated `main`.
 
 ## Prohibited actions
 

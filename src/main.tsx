@@ -7,6 +7,7 @@ import "./ai-inbox.css";
 import "./bookings.css";
 import "./content-studio.css";
 import "./media-library.css";
+import "./analytics.css";
 
 const sections = [
   ["dashboard", "Command Center", LayoutDashboard, "get_staff_command_center"],
@@ -86,6 +87,11 @@ const MediaAssetSchema = z.object({
   assetType: z.enum(["image", "video", "logo", "other"]), source: z.enum(["upload", "ai_generated", "external"]),
   storagePath: z.string().nullable(), provider: z.string().nullable(), providerJobId: z.string().nullable(),
   prompt: z.string().nullable(), metadata: z.record(z.unknown()), createdAt: z.string(),
+}).passthrough();
+const AnalyticsSchema = z.object({
+  views: z.number().int().nonnegative(), dms: z.number().int().nonnegative(), qualifiedLeads: z.number().int().nonnegative(),
+  bookingRequests: z.number().int().nonnegative(), publishedItems: z.number().int().nonnegative(), contentItems: z.number().int().nonnegative(),
+  attributionReady: z.boolean(), note: z.string(),
 }).passthrough();
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
@@ -489,6 +495,34 @@ function MediaLibraryView({ value }: { value: JsonValue }) {
   </>;
 }
 
+const analyticsNumber = new Intl.NumberFormat("ar-AE", { maximumFractionDigits: 0 });
+const analyticsPercent = new Intl.NumberFormat("ar-AE", { style: "percent", maximumFractionDigits: 1 });
+
+function safeRatio(numerator: number, denominator: number) {
+  return denominator > 0 ? numerator / denominator : null;
+}
+
+function AnalyticsView({ value }: { value: JsonValue }) {
+  const parsed = AnalyticsSchema.safeParse(value);
+  if (!parsed.success) return <div className="error-box">صيغة بيانات Analytics غير متوافقة؛ لن يتم عرض مؤشرات قد تكون مضللة.</div>;
+  const analytics = parsed.data;
+  const publishedShare = safeRatio(analytics.publishedItems, analytics.contentItems);
+  const dmRate = safeRatio(analytics.dms, analytics.views);
+
+  return <>
+    <div className={`analytics-trust ${analytics.attributionReady ? "ready" : "limited"}`}>
+      <div><strong>{analytics.attributionReady ? "Attribution متاح" : "Attribution غير مكتمل"}</strong><p>{analytics.attributionReady ? "يمكن ربط النتائج بالمصادر وفق العقد الحالي." : "المؤشرات إجماليات تشغيلية مستقلة؛ لا تُفسر كتحويلات منسوبة لحملة أو منشور."}</p></div>
+      <span>{analytics.attributionReady ? "موثوق للربط" : "إجماليات فقط"}</span>
+    </div>
+    <div className="analytics-groups">
+      <section><header><div><p>إشارات الجمهور</p><h3>الوصول والتفاعل</h3></div><BarChart3 size={24} /></header><div className="analytics-metrics"><article><span>المشاهدات</span><strong>{analyticsNumber.format(analytics.views)}</strong><small>آخر لقطة قياس لكل محتوى</small></article><article><span>الرسائل الخاصة</span><strong>{analyticsNumber.format(analytics.dms)}</strong><small>{dmRate == null ? "لا توجد مشاهدات لحساب النسبة" : `${analyticsPercent.format(dmRate)} من إجمالي المشاهدات — نسبة وصفية`}</small></article></div></section>
+      <section><header><div><p>مسار العملاء</p><h3>حجم العمل التشغيلي</h3></div><ContactRound size={24} /></header><div className="analytics-metrics"><article><span>عملاء مؤهلون</span><strong>{analyticsNumber.format(analytics.qualifiedLeads)}</strong><small>مراحل qualified وما بعدها</small></article><article><span>طلبات الحجز</span><strong>{analyticsNumber.format(analytics.bookingRequests)}</strong><small>إجمالي مستقل، غير منسوب للعملاء المؤهلين</small></article></div></section>
+      <section><header><div><p>صحة المحتوى</p><h3>التغطية المنشورة</h3></div><Bot size={24} /></header><div className="analytics-metrics"><article><span>إجمالي المحتوى</span><strong>{analyticsNumber.format(analytics.contentItems)}</strong><small>كل حالات المحتوى</small></article><article><span>المحتوى المنشور</span><strong>{analyticsNumber.format(analytics.publishedItems)}</strong><small>{publishedShare == null ? "لا يوجد محتوى لحساب النسبة" : `${analyticsPercent.format(publishedShare)} من إجمالي المحتوى`}</small></article></div>{publishedShare != null && <div className="analytics-progress" aria-label={`نسبة المحتوى المنشور ${analyticsPercent.format(publishedShare)}`}><span style={{ width: `${Math.min(publishedShare * 100, 100)}%` }} /></div>}</section>
+    </div>
+    <div className="analytics-methodology"><strong>ملاحظة المنهجية</strong><p>{analytics.note}</p><small>لا تُستخدم هذه اللوحة لإثبات السببية أو العائد على الاستثمار حتى تكتمل روابط Attribution في مصدر البيانات.</small></div>
+  </>;
+}
+
 const bookingStatusLabels: Record<BookingStatus, string> = {
   pending: "قيد الانتظار",
   contacted: "تم التواصل",
@@ -595,7 +629,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   const current = useMemo(() => sections.find(([id]) => id === active)!, [active]);
   useEffect(() => { let cancelled = false; setStatus("loading"); setError(""); callRpc(session, current[3]).then((result) => { if (!cancelled) { setData(result); setStatus("ready"); } }).catch((cause) => { if (cancelled) return; const message = cause instanceof Error ? cause.message : "LOAD_FAILED"; if (message === "SESSION_EXPIRED") onLogout(); else { setError("تعذر تحميل هذه الوحدة بأمان."); setStatus("error"); } }); return () => { cancelled = true; }; }, [current, onLogout, reloadKey, session]);
   const modeLabel = active === "planner" || active === "crm" || active === "inbox" || active === "content" ? "CONTROLLED WRITE" : "READ ONLY";
-  return <div className="app-shell"><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><nav>{sections.map(([id, label, Icon]) => <button key={id} className={active === id ? "active" : ""} onClick={() => setActive(id)}><Icon size={18} />{label}</button>)}</nav><button className="logout" onClick={onLogout}><LogOut size={18} />تسجيل الخروج</button></aside><main className="workspace"><p className="eyebrow">INTERNAL OPERATIONS · {modeLabel}</p><h1>{current[1]}</h1><section className="panel"><div className="panel-heading"><div><h2>بيانات تشغيل حقيقية</h2><p>Supabase RPC محمي بهوية الموظف وصلاحيات قاعدة البيانات.</p></div><button className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>تحديث</button></div>{status === "loading" && <p className="muted">جاري التحميل الآمن...</p>}{status === "error" && <div className="error-box">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <MediaLibraryView value={data} /> : <DataView value={data} />)}</section></main></div>;
+  return <div className="app-shell"><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><nav>{sections.map(([id, label, Icon]) => <button key={id} className={active === id ? "active" : ""} onClick={() => setActive(id)}><Icon size={18} />{label}</button>)}</nav><button className="logout" onClick={onLogout}><LogOut size={18} />تسجيل الخروج</button></aside><main className="workspace"><p className="eyebrow">INTERNAL OPERATIONS · {modeLabel}</p><h1>{current[1]}</h1><section className="panel"><div className="panel-heading"><div><h2>بيانات تشغيل حقيقية</h2><p>Supabase RPC محمي بهوية الموظف وصلاحيات قاعدة البيانات.</p></div><button className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>تحديث</button></div>{status === "loading" && <p className="muted">جاري التحميل الآمن...</p>}{status === "error" && <div className="error-box">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <MediaLibraryView value={data} /> : active === "analytics" ? <AnalyticsView value={data} /> : <DataView value={data} />)}</section></main></div>;
 }
 
 function App() { const [session, setSession] = useState<Session | null>(null); useEffect(() => { try { const raw = sessionStorage.getItem("relaxfix-command-session"); if (raw) setSession(z.object({ accessToken: z.string(), displayName: z.string(), role: ProfileSchema.shape.role }).parse(JSON.parse(raw))); } catch { sessionStorage.removeItem("relaxfix-command-session"); } }, []); if (!session) return <Login onAuthenticated={setSession} />; return <Dashboard session={session} onLogout={() => { sessionStorage.removeItem("relaxfix-command-session"); setSession(null); }} />; }
