@@ -8,6 +8,7 @@ import "./bookings.css";
 import "./content-studio.css";
 import "./media-library.css";
 import "./analytics.css";
+import "./integrations.css";
 
 const sections = [
   ["dashboard", "Command Center", LayoutDashboard, "get_staff_command_center"],
@@ -32,6 +33,7 @@ type ContentStatus = "idea" | "draft" | "generated" | "needs_review" | "approved
 type ContentAction = "approve" | "return_to_review" | "schedule" | "unschedule";
 type MediaAssetType = "image" | "video" | "logo" | "other";
 type MediaSource = "upload" | "ai_generated" | "external";
+type JobStatus = "queued" | "processing" | "completed" | "failed" | "retrying" | "dead";
 
 const ProfileSchema = z.object({ display_name: z.string().min(1), role: z.enum(["super_admin", "admin", "reception", "coach", "content_manager"]), active: z.literal(true) });
 const BookingSchema = z.object({
@@ -92,6 +94,18 @@ const AnalyticsSchema = z.object({
   views: z.number().int().nonnegative(), dms: z.number().int().nonnegative(), qualifiedLeads: z.number().int().nonnegative(),
   bookingRequests: z.number().int().nonnegative(), publishedItems: z.number().int().nonnegative(), contentItems: z.number().int().nonnegative(),
   attributionReady: z.boolean(), note: z.string(),
+}).passthrough();
+const FollowUpJobSchema = z.object({
+  id: z.string().uuid(), leadId: z.string().uuid(), leadName: z.string(), conversationId: z.string().uuid().nullable(),
+  attemptNumber: z.number().int().nonnegative(), scheduledFor: z.string(), status: z.enum(["queued", "processing", "completed", "failed", "retrying", "dead"]),
+  stoppedReason: z.string().nullable(), createdAt: z.string(),
+}).passthrough();
+const BackgroundJobSchema = z.object({
+  id: z.string().uuid(), jobType: z.string(), status: z.enum(["queued", "processing", "completed", "failed", "retrying", "dead"]),
+  attemptCount: z.number().int().nonnegative(), nextRetryAt: z.string().nullable(), lastError: z.string().nullable(), createdAt: z.string(), updatedAt: z.string(),
+}).passthrough();
+const OperationsQueueSchema = z.object({
+  followUps: z.array(FollowUpJobSchema), backgroundJobs: z.array(BackgroundJobSchema), generatedAt: z.string(),
 }).passthrough();
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
@@ -523,6 +537,76 @@ function AnalyticsView({ value }: { value: JsonValue }) {
   </>;
 }
 
+const jobStatusLabels: Record<JobStatus, string> = {
+  queued: "في الانتظار",
+  processing: "قيد التنفيذ",
+  completed: "مكتملة",
+  failed: "فشلت",
+  retrying: "إعادة محاولة",
+  dead: "متوقفة نهائيًا",
+};
+
+function boundedOperationalText(value: string, maximum = 240) {
+  const normalized = value.trim();
+  return normalized.length > maximum ? `${normalized.slice(0, maximum)}…` : normalized;
+}
+
+function isPast(value: string, reference: number) {
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) && timestamp < reference;
+}
+
+function IntegrationsView({ value }: { value: JsonValue }) {
+  const parsed = useMemo(() => OperationsQueueSchema.safeParse(value), [value]);
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<JobStatus | "all">("all");
+  if (!parsed.success) return <div className="error-box">صيغة بيانات العمليات غير متوافقة؛ لن يتم عرض حالة تكامل قد تكون غير دقيقة.</div>;
+
+  const operations = parsed.data;
+  const now = Date.now();
+  const allJobs = [...operations.followUps, ...operations.backgroundJobs];
+  const counts = allJobs.reduce<Record<JobStatus, number>>((result, job) => {
+    result[job.status] += 1;
+    return result;
+  }, { queued: 0, processing: 0, completed: 0, failed: 0, retrying: 0, dead: 0 });
+  const normalizedQuery = query.trim().toLocaleLowerCase("ar");
+  const matches = (status: JobStatus, fields: Array<string | null>) => {
+    if (statusFilter !== "all" && status !== statusFilter) return false;
+    return !normalizedQuery || fields.some((field) => field?.toLocaleLowerCase("ar").includes(normalizedQuery));
+  };
+  const followUps = operations.followUps.filter((job) => matches(job.status, [job.leadName, job.id, job.leadId, job.conversationId, job.stoppedReason]));
+  const backgroundJobs = operations.backgroundJobs.filter((job) => matches(job.status, [job.jobType, job.id, job.lastError]));
+  const attentionCount = counts.failed + counts.dead;
+  const overdueFollowUps = operations.followUps.filter((job) => ["queued", "retrying"].includes(job.status) && isPast(job.scheduledFor, now)).length;
+
+  return <>
+    <div className="operations-boundary"><div><strong>مراقبة تشغيلية للقراءة فقط</strong><p>تعكس طوابير المتابعة والمهام الداخلية المسجلة في آخر لقطة، ولا تثبت اتصال مزود خارجي لحظيًا.</p></div><span>لا توجد أوامر Retry أو Cancel</span></div>
+    <div className="operations-summary" aria-label="ملخص صحة العمليات">
+      <button type="button" className={statusFilter === "all" ? "active" : ""} onClick={() => setStatusFilter("all")}><span>إجمالي السجلات</span><strong>{allJobs.length}</strong></button>
+      <button type="button" className={statusFilter === "processing" ? "active" : ""} onClick={() => setStatusFilter("processing")}><span>قيد التنفيذ</span><strong>{counts.processing}</strong></button>
+      <button type="button" className={statusFilter === "retrying" ? "active" : ""} onClick={() => setStatusFilter("retrying")}><span>إعادة محاولة</span><strong>{counts.retrying}</strong></button>
+      <button type="button" className={statusFilter === "failed" ? "active danger" : ""} onClick={() => setStatusFilter("failed")}><span>فشل قابل للفحص</span><strong>{counts.failed}</strong></button>
+      <div className={attentionCount > 0 ? "summary-alert danger" : "summary-alert"}><span>تحتاج انتباهًا</span><strong>{attentionCount}</strong><small>Failed + Dead</small></div>
+      <div className={overdueFollowUps > 0 ? "summary-alert warning" : "summary-alert"}><span>متابعات متأخرة</span><strong>{overdueFollowUps}</strong><small>Queued / Retrying</small></div>
+    </div>
+    <div className="operations-toolbar"><label htmlFor="operations-search">بحث تشغيلي<input id="operations-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="العميل، نوع المهمة، المعرّف أو الخطأ..." /></label><label htmlFor="operations-status">الحالة<select id="operations-status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as JobStatus | "all")}><option value="all">كل الحالات</option>{(Object.keys(jobStatusLabels) as JobStatus[]).map((status) => <option key={status} value={status}>{jobStatusLabels[status]}</option>)}</select></label></div>
+    <div className="operations-columns">
+      <section><header><div><p>Follow-up queue</p><h3>متابعات العملاء</h3></div><span>{followUps.length} من {operations.followUps.length}</span></header>
+        {followUps.length === 0 && <p className="muted">لا توجد متابعات مطابقة.</p>}
+        <div className="operations-list">{followUps.map((job) => {
+          const overdue = ["queued", "retrying"].includes(job.status) && isPast(job.scheduledFor, now);
+          return <article key={job.id}><header><div><h4>{job.leadName}</h4><small>محاولة {job.attemptNumber}</small></div><span className={`job-status job-${job.status}`}>{jobStatusLabels[job.status]}</span></header><dl><div><dt>موعد التنفيذ</dt><dd>{formatBookingDateTime(job.scheduledFor)}</dd></div><div><dt>المحادثة</dt><dd>{job.conversationId ?? "غير مرتبطة"}</dd></div><div><dt>تاريخ الإنشاء</dt><dd>{formatBookingDateTime(job.createdAt)}</dd></div></dl>{overdue && <p className="operation-warning">متابعة متأخرة وفق توقيت لقطة البيانات.</p>}{job.stoppedReason && <p className="operation-error"><strong>سبب التوقف:</strong> {boundedOperationalText(job.stoppedReason)}</p>}</article>;
+        })}</div>
+      </section>
+      <section><header><div><p>Background jobs</p><h3>المهام الخلفية</h3></div><span>{backgroundJobs.length} من {operations.backgroundJobs.length}</span></header>
+        {backgroundJobs.length === 0 && <p className="muted">لا توجد مهام مطابقة.</p>}
+        <div className="operations-list">{backgroundJobs.map((job) => <article key={job.id}><header><div><h4>{job.jobType || "نوع غير محدد"}</h4><small>{job.attemptCount} محاولة</small></div><span className={`job-status job-${job.status}`}>{jobStatusLabels[job.status]}</span></header><dl><div><dt>آخر تحديث</dt><dd>{formatBookingDateTime(job.updatedAt)}</dd></div><div><dt>المحاولة التالية</dt><dd>{job.nextRetryAt ? formatBookingDateTime(job.nextRetryAt) : "غير مجدولة"}</dd></div><div><dt>تاريخ الإنشاء</dt><dd>{formatBookingDateTime(job.createdAt)}</dd></div></dl>{job.lastError && <p className="operation-error"><strong>آخر خطأ:</strong> {boundedOperationalText(job.lastError)}</p>}</article>)}</div>
+      </section>
+    </div>
+    <p className="operations-generated">آخر لقطة من RPC: {formatBookingDateTime(operations.generatedAt)} · حد المصدر 250 سجلًا لكل طابور.</p>
+  </>;
+}
+
 const bookingStatusLabels: Record<BookingStatus, string> = {
   pending: "قيد الانتظار",
   contacted: "تم التواصل",
@@ -629,7 +713,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   const current = useMemo(() => sections.find(([id]) => id === active)!, [active]);
   useEffect(() => { let cancelled = false; setStatus("loading"); setError(""); callRpc(session, current[3]).then((result) => { if (!cancelled) { setData(result); setStatus("ready"); } }).catch((cause) => { if (cancelled) return; const message = cause instanceof Error ? cause.message : "LOAD_FAILED"; if (message === "SESSION_EXPIRED") onLogout(); else { setError("تعذر تحميل هذه الوحدة بأمان."); setStatus("error"); } }); return () => { cancelled = true; }; }, [current, onLogout, reloadKey, session]);
   const modeLabel = active === "planner" || active === "crm" || active === "inbox" || active === "content" ? "CONTROLLED WRITE" : "READ ONLY";
-  return <div className="app-shell"><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><nav>{sections.map(([id, label, Icon]) => <button key={id} className={active === id ? "active" : ""} onClick={() => setActive(id)}><Icon size={18} />{label}</button>)}</nav><button className="logout" onClick={onLogout}><LogOut size={18} />تسجيل الخروج</button></aside><main className="workspace"><p className="eyebrow">INTERNAL OPERATIONS · {modeLabel}</p><h1>{current[1]}</h1><section className="panel"><div className="panel-heading"><div><h2>بيانات تشغيل حقيقية</h2><p>Supabase RPC محمي بهوية الموظف وصلاحيات قاعدة البيانات.</p></div><button className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>تحديث</button></div>{status === "loading" && <p className="muted">جاري التحميل الآمن...</p>}{status === "error" && <div className="error-box">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <MediaLibraryView value={data} /> : active === "analytics" ? <AnalyticsView value={data} /> : <DataView value={data} />)}</section></main></div>;
+  return <div className="app-shell"><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><nav>{sections.map(([id, label, Icon]) => <button key={id} className={active === id ? "active" : ""} onClick={() => setActive(id)}><Icon size={18} />{label}</button>)}</nav><button className="logout" onClick={onLogout}><LogOut size={18} />تسجيل الخروج</button></aside><main className="workspace"><p className="eyebrow">INTERNAL OPERATIONS · {modeLabel}</p><h1>{current[1]}</h1><section className="panel"><div className="panel-heading"><div><h2>بيانات تشغيل حقيقية</h2><p>Supabase RPC محمي بهوية الموظف وصلاحيات قاعدة البيانات.</p></div><button className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>تحديث</button></div>{status === "loading" && <p className="muted">جاري التحميل الآمن...</p>}{status === "error" && <div className="error-box">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <MediaLibraryView value={data} /> : active === "analytics" ? <AnalyticsView value={data} /> : active === "integrations" ? <IntegrationsView value={data} /> : <DataView value={data} />)}</section></main></div>;
 }
 
 function App() { const [session, setSession] = useState<Session | null>(null); useEffect(() => { try { const raw = sessionStorage.getItem("relaxfix-command-session"); if (raw) setSession(z.object({ accessToken: z.string(), displayName: z.string(), role: ProfileSchema.shape.role }).parse(JSON.parse(raw))); } catch { sessionStorage.removeItem("relaxfix-command-session"); } }, []); if (!session) return <Login onAuthenticated={setSession} />; return <Dashboard session={session} onLogout={() => { sessionStorage.removeItem("relaxfix-command-session"); setSession(null); }} />; }

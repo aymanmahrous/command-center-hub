@@ -147,6 +147,23 @@ test("Analytics validates every metric and preserves the attribution limitation"
   assert.match(app, /Math\.min\(publishedShare \* 100, 100\)/);
 });
 
+test("Integrations uses only the approved operations queue RPC and remains read-only", () => {
+  assert.match(app, /get_staff_operations_queue/);
+  assert.match(app, /active === "integrations" \? <IntegrationsView/);
+  assert.doesNotMatch(app, /retry_staff_(operation|job)|cancel_staff_(operation|job)/);
+  assert.doesNotMatch(app, /\/rest\/v1\/(follow_up_jobs|background_jobs)[^\n]*(PATCH|PUT|DELETE|POST)/i);
+  assert.match(app, /لا توجد أوامر Retry أو Cancel/);
+});
+
+test("Integrations validates queue records and states operational limits honestly", () => {
+  for (const field of ["followUps", "backgroundJobs", "generatedAt", "leadName", "attemptNumber", "scheduledFor", "stoppedReason", "jobType", "attemptCount", "nextRetryAt", "lastError"]) assert.match(app, new RegExp(field));
+  for (const status of ["queued", "processing", "completed", "failed", "retrying", "dead"]) assert.match(app, new RegExp(`"${status}"`));
+  assert.match(app, /لا تثبت اتصال مزود خارجي لحظيًا/);
+  assert.match(app, /حد المصدر 250 سجلًا لكل طابور/);
+  assert.match(app, /boundedOperationalText/);
+  assert.match(app, /متابعات متأخرة/);
+});
+
 test("deployment configuration fails closed and never embeds a live Supabase project", () => {
   assert.match(app, /VITE_SUPABASE_URL \?\? ""/);
   assert.match(app, /VITE_SUPABASE_ANON_KEY \?\? ""/);
