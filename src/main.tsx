@@ -21,22 +21,29 @@ type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string
 type Role = "super_admin" | "admin" | "reception" | "coach" | "content_manager";
 type Session = { accessToken: string; displayName: string; role: Role };
 type BookingStatus = "pending" | "contacted" | "confirmed" | "declined" | "cancelled";
+type LeadStage = "new" | "contacted" | "qualified" | "booking_intent" | "booked" | "follow_up" | "lost" | "customer";
 
 const ProfileSchema = z.object({ display_name: z.string().min(1), role: z.enum(["super_admin", "admin", "reception", "coach", "content_manager"]), active: z.literal(true) });
 const BookingSchema = z.object({
-  id: z.string().uuid(),
-  full_name: z.string(),
-  phone: z.string().nullable().optional(),
-  normalized_phone: z.string().nullable().optional(),
-  category: z.string().nullable().optional(),
-  location: z.string().nullable().optional(),
-  training_type: z.string().nullable().optional(),
-  requested_date: z.string().nullable().optional(),
-  requested_time: z.string().nullable().optional(),
-  status: z.enum(["pending", "contacted", "confirmed", "declined", "cancelled"]),
-  created_at: z.string(),
+  id: z.string().uuid(), full_name: z.string(), phone: z.string().nullable().optional(), normalized_phone: z.string().nullable().optional(),
+  category: z.string().nullable().optional(), location: z.string().nullable().optional(), training_type: z.string().nullable().optional(),
+  requested_date: z.string().nullable().optional(), requested_time: z.string().nullable().optional(),
+  status: z.enum(["pending", "contacted", "confirmed", "declined", "cancelled"]), created_at: z.string(),
+}).passthrough();
+const LeadSchema = z.object({
+  id: z.string().uuid(), name: z.string(), phone: z.string().nullable().optional(), channel: z.string().nullable().optional(),
+  stage: z.enum(["new", "contacted", "qualified", "booking_intent", "booked", "follow_up", "lost", "customer"]),
+  score: z.number().nullable().optional(), language: z.string().nullable().optional(), intent: z.string().nullable().optional(),
+  fearOfWater: z.boolean().nullable().optional(), lastActivityAt: z.string().nullable().optional(), nextFollowUpAt: z.string().nullable().optional(),
+  humanRequired: z.boolean(), doNotContact: z.boolean(),
 }).passthrough();
 const BookingUpdateSchema = z.object({ success: z.boolean(), code: z.string().optional(), bookingRequestId: z.string().uuid().optional(), status: z.enum(["pending", "contacted", "confirmed", "declined", "cancelled"]).optional() });
+const LeadUpdateSchema = z.object({
+  success: z.boolean(), code: z.string().optional(), leadId: z.string().uuid().optional(),
+  stage: z.enum(["new", "contacted", "qualified", "booking_intent", "booked", "follow_up", "lost", "customer"]).optional(),
+  humanRequired: z.boolean().optional(), doNotContact: z.boolean().optional(), nextFollowUpAt: z.string().nullable().optional(),
+  followUpAttempt: z.number().nullable().optional(), updatedAt: z.string().optional(),
+});
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
 const SUPABASE_ANON_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY ?? "").trim();
@@ -46,9 +53,7 @@ function configurationReady() {
   try {
     const url = new URL(SUPABASE_URL);
     return url.protocol === "https:" && url.hostname.endsWith(".supabase.co") && SUPABASE_ANON_KEY.length > 20 && STAFF_TABLE.length > 0;
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 }
 function rpcHeaders(session: Session) { return { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${session.accessToken}`, "Content-Type": "application/json", Accept: "application/json" }; }
 
@@ -78,6 +83,14 @@ async function updateBookingStatus(session: Session, bookingId: string, status: 
   return result;
 }
 
+async function updateLeadWorkflow(session: Session, leadId: string, stage: LeadStage, humanRequired: boolean, doNotContact: boolean, nextFollowUpAt: string | null) {
+  const result = LeadUpdateSchema.parse(await callRpc(session, "update_staff_lead_workflow", {
+    p_lead_id: leadId, p_stage: stage, p_human_required: humanRequired, p_do_not_contact: doNotContact, p_next_follow_up_at: nextFollowUpAt,
+  }));
+  if (!result.success) throw new Error(result.code ?? "UPDATE_REJECTED");
+  return result;
+}
+
 function Login({ onAuthenticated }: { onAuthenticated: (session: Session) => void }) {
   const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
   async function submit(event: FormEvent) { event.preventDefault(); setBusy(true); setError(""); try { const session = await signIn(email.trim(), password); sessionStorage.setItem("relaxfix-command-session", JSON.stringify(session)); onAuthenticated(session); } catch (cause) { const code = cause instanceof Error ? cause.message : "LOGIN_FAILED"; setError(code === "CONFIGURATION_REQUIRED" ? "إعدادات الاتصال غير مكتملة. التطبيق مغلق بأمان." : "تعذر تسجيل الدخول أو أن الحساب غير مخول."); } finally { setBusy(false); } }
@@ -90,10 +103,35 @@ function DataView({ value }: { value: JsonValue }) {
   return <span>{String(value ?? "—")}</span>;
 }
 
+function CRMView({ value, session, onChanged }: { value: JsonValue; session: Session; onChanged: () => void }) {
+  const parsed = z.array(LeadSchema).safeParse(value);
+  const [busyId, setBusyId] = useState<string | null>(null); const [notice, setNotice] = useState("");
+  const canWrite = ["super_admin", "admin", "reception", "coach"].includes(session.role);
+  if (!parsed.success) return <div className="error-box">صيغة بيانات CRM غير متوافقة؛ لم يتم تنفيذ أي كتابة.</div>;
+  if (parsed.data.length === 0) return <p className="muted">لا توجد عملاء محتملون حاليًا.</p>;
+  async function save(lead: z.infer<typeof LeadSchema>, form: HTMLFormElement) {
+    if (!canWrite || busyId) return;
+    const data = new FormData(form); const stage = String(data.get("stage")) as LeadStage;
+    const humanRequired = data.get("humanRequired") === "on"; const doNotContact = data.get("doNotContact") === "on";
+    const localFollowUp = String(data.get("nextFollowUpAt") ?? "").trim(); const nextFollowUpAt = localFollowUp ? new Date(localFollowUp).toISOString() : null;
+    if (!window.confirm(`تأكيد تحديث مسار ${lead.name}؟ سيتم تطبيق قواعد المتابعة وتسجيل العملية في Audit Log.`)) return;
+    setBusyId(lead.id); setNotice("");
+    try { await updateLeadWorkflow(session, lead.id, stage, humanRequired, doNotContact, nextFollowUpAt); setNotice("تم تحديث مسار العميل وتسجيل العملية بنجاح."); onChanged(); }
+    catch (cause) {
+      const code = cause instanceof Error ? cause.message : "UPDATE_FAILED";
+      const messages: Record<string, string> = { INVALID_FOLLOW_UP_TIME: "موعد المتابعة يجب أن يكون في المستقبل.", FOLLOW_UP_TOO_FAR: "موعد المتابعة يتجاوز الحد المسموح.", FOLLOW_UP_LIMIT_REACHED: "تم بلوغ الحد الأقصى لمحاولات المتابعة.", STAFF_ACCESS_DENIED: "ليست لديك صلاحية تنفيذ هذا التغيير." };
+      setNotice(messages[code] ?? "تعذر التحديث بأمان؛ لم يتم اعتماد أي تغيير غير مؤكد.");
+    } finally { setBusyId(null); }
+  }
+  return <><div className="write-banner"><strong>كتابة مضبوطة</strong><span>CRM workflow فقط · RBAC + locking + validation + Audit Log</span></div>{notice && <div className="notice-box">{notice}</div>}<div className="data-grid">{parsed.data.map((lead) => {
+    const followUpLocal = lead.nextFollowUpAt ? new Date(lead.nextFollowUpAt).toISOString().slice(0, 16) : "";
+    return <article className="data-card booking-card" key={lead.id}><h3>{lead.name}</h3><p>{lead.phone ?? "بدون هاتف"} · {lead.channel ?? "قناة غير معروفة"}</p><p>{lead.intent ?? "غير مصنف"} · Score: {lead.score ?? "—"}</p><form onSubmit={(event) => { event.preventDefault(); void save(lead, event.currentTarget); }}><label>المرحلة<select name="stage" defaultValue={lead.stage} disabled={!canWrite || busyId === lead.id}>{(["new", "contacted", "qualified", "booking_intent", "booked", "follow_up", "lost", "customer"] as const).map((stage) => <option key={stage} value={stage}>{stage}</option>)}</select></label><label>موعد المتابعة<input name="nextFollowUpAt" type="datetime-local" defaultValue={followUpLocal} disabled={!canWrite || busyId === lead.id} /></label><label><input name="humanRequired" type="checkbox" defaultChecked={lead.humanRequired} disabled={!canWrite || busyId === lead.id} /> يتطلب تدخلًا بشريًا</label><label><input name="doNotContact" type="checkbox" defaultChecked={lead.doNotContact} disabled={!canWrite || busyId === lead.id} /> عدم التواصل</label><button disabled={!canWrite || busyId === lead.id}>{busyId === lead.id ? "جاري الحفظ..." : "حفظ التغييرات"}</button></form>{!canWrite && <small>دورك يملك صلاحية القراءة فقط.</small>}</article>;
+  })}</div></>;
+}
+
 function BookingView({ value, session, onChanged }: { value: JsonValue; session: Session; onChanged: () => void }) {
   const parsed = z.array(BookingSchema).safeParse(value);
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [notice, setNotice] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null); const [notice, setNotice] = useState("");
   const canWrite = ["super_admin", "admin", "reception"].includes(session.role);
   if (!parsed.success) return <div className="error-box">صيغة بيانات الحجوزات غير متوافقة؛ لم يتم تنفيذ أي كتابة.</div>;
   if (parsed.data.length === 0) return <p className="muted">لا توجد طلبات حجز حاليًا.</p>;
@@ -112,8 +150,8 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   const [active, setActive] = useState<SectionId>("dashboard"); const [reloadKey, setReloadKey] = useState(0); const [data, setData] = useState<JsonValue>(null); const [status, setStatus] = useState<"loading" | "ready" | "error">("loading"); const [error, setError] = useState("");
   const current = useMemo(() => sections.find(([id]) => id === active)!, [active]);
   useEffect(() => { let cancelled = false; setStatus("loading"); setError(""); callRpc(session, current[3]).then((result) => { if (!cancelled) { setData(result); setStatus("ready"); } }).catch((cause) => { if (cancelled) return; const message = cause instanceof Error ? cause.message : "LOAD_FAILED"; if (message === "SESSION_EXPIRED") onLogout(); else { setError("تعذر تحميل هذه الوحدة بأمان."); setStatus("error"); } }); return () => { cancelled = true; }; }, [current, onLogout, reloadKey, session]);
-  const modeLabel = active === "planner" ? "CONTROLLED WRITE" : "READ ONLY";
-  return <div className="app-shell"><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><nav>{sections.map(([id, label, Icon]) => <button key={id} className={active === id ? "active" : ""} onClick={() => setActive(id)}><Icon size={18} />{label}</button>)}</nav><button className="logout" onClick={onLogout}><LogOut size={18} />تسجيل الخروج</button></aside><main className="workspace"><p className="eyebrow">INTERNAL OPERATIONS · {modeLabel}</p><h1>{current[1]}</h1><section className="panel"><div className="panel-heading"><div><h2>بيانات تشغيل حقيقية</h2><p>Supabase RPC محمي بهوية الموظف وصلاحيات قاعدة البيانات.</p></div><button className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>تحديث</button></div>{status === "loading" && <p className="muted">جاري التحميل الآمن...</p>}{status === "error" && <div className="error-box">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} /> : <DataView value={data} />)}</section></main></div>;
+  const modeLabel = active === "planner" || active === "crm" ? "CONTROLLED WRITE" : "READ ONLY";
+  return <div className="app-shell"><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><nav>{sections.map(([id, label, Icon]) => <button key={id} className={active === id ? "active" : ""} onClick={() => setActive(id)}><Icon size={18} />{label}</button>)}</nav><button className="logout" onClick={onLogout}><LogOut size={18} />تسجيل الخروج</button></aside><main className="workspace"><p className="eyebrow">INTERNAL OPERATIONS · {modeLabel}</p><h1>{current[1]}</h1><section className="panel"><div className="panel-heading"><div><h2>بيانات تشغيل حقيقية</h2><p>Supabase RPC محمي بهوية الموظف وصلاحيات قاعدة البيانات.</p></div><button className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>تحديث</button></div>{status === "loading" && <p className="muted">جاري التحميل الآمن...</p>}{status === "error" && <div className="error-box">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} /> : <DataView value={data} />)}</section></main></div>;
 }
 
 function App() { const [session, setSession] = useState<Session | null>(null); useEffect(() => { try { const raw = sessionStorage.getItem("relaxfix-command-session"); if (raw) setSession(z.object({ accessToken: z.string(), displayName: z.string(), role: ProfileSchema.shape.role }).parse(JSON.parse(raw))); } catch { sessionStorage.removeItem("relaxfix-command-session"); } }, []); if (!session) return <Login onAuthenticated={setSession} />; return <Dashboard session={session} onLogout={() => { sessionStorage.removeItem("relaxfix-command-session"); setSession(null); }} />; }
