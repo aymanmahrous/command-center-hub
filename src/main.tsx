@@ -6,6 +6,7 @@ import "./styles.css";
 import "./ai-inbox.css";
 import "./bookings.css";
 import "./content-studio.css";
+import "./media-library.css";
 
 const sections = [
   ["dashboard", "Command Center", LayoutDashboard, "get_staff_command_center"],
@@ -28,6 +29,8 @@ type LeadStage = "new" | "contacted" | "qualified" | "booking_intent" | "booked"
 type ConversationMode = "ai_active" | "human_required" | "human_takeover" | "paused";
 type ContentStatus = "idea" | "draft" | "generated" | "needs_review" | "approved" | "scheduled" | "published" | "failed";
 type ContentAction = "approve" | "return_to_review" | "schedule" | "unschedule";
+type MediaAssetType = "image" | "video" | "logo" | "other";
+type MediaSource = "upload" | "ai_generated" | "external";
 
 const ProfileSchema = z.object({ display_name: z.string().min(1), role: z.enum(["super_admin", "admin", "reception", "coach", "content_manager"]), active: z.literal(true) });
 const BookingSchema = z.object({
@@ -78,6 +81,12 @@ const ContentMutationSchema = z.object({
   status: z.enum(["idea", "draft", "generated", "needs_review", "approved", "scheduled", "published", "failed"]).optional(),
   scheduledFor: z.string().nullable().optional(), updatedAt: z.string().optional(),
 });
+const MediaAssetSchema = z.object({
+  id: z.string().uuid(), createdBy: z.string().uuid(), contentItemId: z.string().uuid().nullable(),
+  assetType: z.enum(["image", "video", "logo", "other"]), source: z.enum(["upload", "ai_generated", "external"]),
+  storagePath: z.string().nullable(), provider: z.string().nullable(), providerJobId: z.string().nullable(),
+  prompt: z.string().nullable(), metadata: z.record(z.unknown()), createdAt: z.string(),
+}).passthrough();
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
 const SUPABASE_ANON_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY ?? "").trim();
@@ -408,6 +417,78 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
   </>;
 }
 
+const mediaTypeLabels: Record<MediaAssetType, string> = { image: "صورة", video: "فيديو", logo: "شعار", other: "أخرى" };
+const mediaSourceLabels: Record<MediaSource, string> = { upload: "رفع موظف", ai_generated: "مولّد بالذكاء الاصطناعي", external: "مصدر خارجي" };
+
+function mediaFileName(storagePath: string | null) {
+  if (!storagePath) return "بدون ملف محفوظ";
+  return storagePath.split("/").filter(Boolean).at(-1) ?? "ملف خاص";
+}
+
+function mediaMetadataSummary(metadata: Record<string, unknown>) {
+  const entries = Object.entries(metadata);
+  if (entries.length === 0) return "لا توجد بيانات وصفية";
+  return entries.slice(0, 6).map(([key, value]) => {
+    const rendered = typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? String(value) : "بيانات مركبة";
+    return `${key.replaceAll("_", " ")}: ${rendered.slice(0, 120)}`;
+  }).join(" · ");
+}
+
+function MediaLibraryView({ value }: { value: JsonValue }) {
+  const parsed = useMemo(() => z.array(MediaAssetSchema).safeParse(value), [value]);
+  const [query, setQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<MediaAssetType | "all">("all");
+  const [sourceFilter, setSourceFilter] = useState<MediaSource | "all">("all");
+  const assets = parsed.success ? parsed.data : [];
+  const counts = useMemo(() => {
+    const initial: Record<MediaAssetType, number> = { image: 0, video: 0, logo: 0, other: 0 };
+    for (const asset of assets) initial[asset.assetType] += 1;
+    return initial;
+  }, [assets]);
+  const filteredAssets = useMemo(() => {
+    const normalized = query.trim().toLocaleLowerCase("ar");
+    return assets.filter((asset) => {
+      if (typeFilter !== "all" && asset.assetType !== typeFilter) return false;
+      if (sourceFilter !== "all" && asset.source !== sourceFilter) return false;
+      if (!normalized) return true;
+      return [mediaFileName(asset.storagePath), asset.provider, asset.providerJobId, asset.prompt, asset.contentItemId, mediaMetadataSummary(asset.metadata)]
+        .filter((field): field is string => Boolean(field))
+        .some((field) => field.toLocaleLowerCase("ar").includes(normalized));
+    });
+  }, [assets, query, sourceFilter, typeFilter]);
+
+  if (!parsed.success) return <div className="error-box">صيغة بيانات Media Library غير متوافقة؛ لم يتم عرض روابط أو تنفيذ أي كتابة.</div>;
+
+  return <>
+    <div className="media-security-banner"><strong>مكتبة وسائط خاصة للقراءة فقط</strong><span>RPC مصادق · ملفات خاصة · لا رفع أو حذف أو توليد من هذه الواجهة</span></div>
+    <div className="media-summary" aria-label="ملخص أنواع الوسائط">
+      <button type="button" className={typeFilter === "all" ? "active" : ""} onClick={() => setTypeFilter("all")}><span>الكل</span><strong>{assets.length}</strong></button>
+      {(Object.keys(mediaTypeLabels) as MediaAssetType[]).map((type) => <button type="button" key={type} className={typeFilter === type ? "active" : ""} onClick={() => setTypeFilter(type)}><span>{mediaTypeLabels[type]}</span><strong>{counts[type]}</strong></button>)}
+    </div>
+    <div className="media-toolbar">
+      <label>بحث<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="اسم الملف، المزود، الوصف..." /></label>
+      <label>المصدر<select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value as MediaSource | "all")}><option value="all">جميع المصادر</option>{(Object.keys(mediaSourceLabels) as MediaSource[]).map((source) => <option key={source} value={source}>{mediaSourceLabels[source]}</option>)}</select></label>
+      <span>{filteredAssets.length} من {assets.length}</span>
+    </div>
+    {assets.length === 0 && <p className="muted">لا توجد أصول وسائط مرتبطة بهذا الموظف حاليًا.</p>}
+    {assets.length > 0 && filteredAssets.length === 0 && <p className="muted">لا توجد وسائط مطابقة للبحث أو الفلاتر.</p>}
+    <div className="media-grid">{filteredAssets.map((asset) => <article className="media-card" key={asset.id}>
+      <div className={`media-placeholder media-${asset.assetType}`}><Library size={26} /><span>{mediaTypeLabels[asset.assetType]}</span><small>معاينة خاصة غير مكشوفة</small></div>
+      <div className="media-details">
+        <header><div><span>{mediaSourceLabels[asset.source]}</span><h3>{mediaFileName(asset.storagePath)}</h3></div><span className="private-badge">خاص</span></header>
+        <dl>
+          <div><dt>المزود</dt><dd>{asset.provider || "داخلي / غير محدد"}</dd></div>
+          <div><dt>تاريخ الإنشاء</dt><dd>{formatBookingDateTime(asset.createdAt)}</dd></div>
+          <div><dt>عنصر المحتوى</dt><dd>{asset.contentItemId ?? "غير مرتبط"}</dd></div>
+          <div><dt>مهمة المزود</dt><dd>{asset.providerJobId ?? "غير متاح"}</dd></div>
+        </dl>
+        {asset.prompt && <div className="media-prompt"><strong>وصف التوليد</strong><p>{asset.prompt}</p></div>}
+        <p className="media-metadata">{mediaMetadataSummary(asset.metadata)}</p>
+      </div>
+    </article>)}</div>
+  </>;
+}
+
 const bookingStatusLabels: Record<BookingStatus, string> = {
   pending: "قيد الانتظار",
   contacted: "تم التواصل",
@@ -514,7 +595,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   const current = useMemo(() => sections.find(([id]) => id === active)!, [active]);
   useEffect(() => { let cancelled = false; setStatus("loading"); setError(""); callRpc(session, current[3]).then((result) => { if (!cancelled) { setData(result); setStatus("ready"); } }).catch((cause) => { if (cancelled) return; const message = cause instanceof Error ? cause.message : "LOAD_FAILED"; if (message === "SESSION_EXPIRED") onLogout(); else { setError("تعذر تحميل هذه الوحدة بأمان."); setStatus("error"); } }); return () => { cancelled = true; }; }, [current, onLogout, reloadKey, session]);
   const modeLabel = active === "planner" || active === "crm" || active === "inbox" || active === "content" ? "CONTROLLED WRITE" : "READ ONLY";
-  return <div className="app-shell"><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><nav>{sections.map(([id, label, Icon]) => <button key={id} className={active === id ? "active" : ""} onClick={() => setActive(id)}><Icon size={18} />{label}</button>)}</nav><button className="logout" onClick={onLogout}><LogOut size={18} />تسجيل الخروج</button></aside><main className="workspace"><p className="eyebrow">INTERNAL OPERATIONS · {modeLabel}</p><h1>{current[1]}</h1><section className="panel"><div className="panel-heading"><div><h2>بيانات تشغيل حقيقية</h2><p>Supabase RPC محمي بهوية الموظف وصلاحيات قاعدة البيانات.</p></div><button className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>تحديث</button></div>{status === "loading" && <p className="muted">جاري التحميل الآمن...</p>}{status === "error" && <div className="error-box">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : <DataView value={data} />)}</section></main></div>;
+  return <div className="app-shell"><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><nav>{sections.map(([id, label, Icon]) => <button key={id} className={active === id ? "active" : ""} onClick={() => setActive(id)}><Icon size={18} />{label}</button>)}</nav><button className="logout" onClick={onLogout}><LogOut size={18} />تسجيل الخروج</button></aside><main className="workspace"><p className="eyebrow">INTERNAL OPERATIONS · {modeLabel}</p><h1>{current[1]}</h1><section className="panel"><div className="panel-heading"><div><h2>بيانات تشغيل حقيقية</h2><p>Supabase RPC محمي بهوية الموظف وصلاحيات قاعدة البيانات.</p></div><button className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>تحديث</button></div>{status === "loading" && <p className="muted">جاري التحميل الآمن...</p>}{status === "error" && <div className="error-box">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <MediaLibraryView value={data} /> : <DataView value={data} />)}</section></main></div>;
 }
 
 function App() { const [session, setSession] = useState<Session | null>(null); useEffect(() => { try { const raw = sessionStorage.getItem("relaxfix-command-session"); if (raw) setSession(z.object({ accessToken: z.string(), displayName: z.string(), role: ProfileSchema.shape.role }).parse(JSON.parse(raw))); } catch { sessionStorage.removeItem("relaxfix-command-session"); } }, []); if (!session) return <Login onAuthenticated={setSession} />; return <Dashboard session={session} onLogout={() => { sessionStorage.removeItem("relaxfix-command-session"); setSession(null); }} />; }

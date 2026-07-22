@@ -2,7 +2,7 @@
 
 ## Current stage
 
-Content Studio operations on branch `feat/content-studio-operations` after the protected merges of AI Inbox PR #9 and Bookings PR #10.
+Media Library operations on branch `feat/media-library-operations` after the protected merges of AI Inbox PR #9, Bookings PR #10, and Content Studio PR #11.
 
 ## Implemented
 
@@ -17,6 +17,8 @@ Content Studio operations on branch `feat/content-studio-operations` after the p
 - Real Content Studio records with search, status filtering, editable content fields, and published-content protection.
 - Content editing remains exclusively on `update_staff_content_item`; review and schedule transitions remain exclusively on `transition_staff_content_item`.
 - Content mutations use server-aligned RBAC, explicit confirmation, a global in-flight lock, safe session-expiry handling, and the RPC-provided Audit Log.
+- Real employee-owned media assets are presented through `get_staff_media_assets` with counts, search, type/source filters, content linkage, provider context, prompts, and bounded metadata.
+- Media Library remains strictly read-only and does not expose private Storage URLs or any upload, generation, update, or deletion path.
 
 ## Verified evidence
 
@@ -26,17 +28,18 @@ Content Studio operations on branch `feat/content-studio-operations` after the p
 - No migration, RLS/policy, cron, worker, public-site, direct-table-write, or service-role change exists in the branch.
 - AI Inbox PR #9 merged after an independent approval and successful required checks on 2026-07-22.
 - Bookings PR #10 merged after an independent approval and successful required checks on 2026-07-22.
-- Content Studio local verification passed: TypeScript, 18/18 tests, production build, and diff check.
+- Content Studio PR #11 merged after an independent approval and successful required checks on 2026-07-22.
+- Media Library local verification passed: TypeScript, 20/20 tests, and production build.
 
 ## Pending / blocked
 
-- Review the final Content Studio diff for scope and regression risk.
-- Open a dedicated Content Studio pull request and wait for protected CI and independent approval.
+- Review the final Media Library diff for scope and regression risk.
+- Open a dedicated Media Library pull request and wait for protected CI and independent approval.
 - No permission or implementation blocker is currently known.
 
 ## NEXT_REQUIRED_ACTION
 
-Complete Content Studio verification, open its pull request, merge only after CI and protection requirements pass, then begin Media Library from updated `main`.
+Complete Media Library verification, open its pull request, merge only after CI and protection requirements pass, then begin Analytics from updated `main`.
 
 ## Prohibited actions
 
