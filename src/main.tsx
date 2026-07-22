@@ -30,8 +30,10 @@ const ProfileSchema = z.object({
   active: z.literal(true),
 });
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "") ?? "";
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "";
+const DEFAULT_SUPABASE_URL = "https://nmzxrjdxvmmzzmajrskm.supabase.co";
+const DEFAULT_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_qXOPVaD5_f60qf1UbYrm2A_sH9c0lW5";
+const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? DEFAULT_SUPABASE_URL).replace(/\/$/, "");
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? DEFAULT_SUPABASE_PUBLISHABLE_KEY;
 const STAFF_TABLE = import.meta.env.VITE_STAFF_PROFILE_TABLE ?? "staff_profiles";
 
 function configurationReady() {
