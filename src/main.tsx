@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, LayoutDashboard, Library, LogOut, Settings2, ShieldAlert, Workflow } from "lucide-react";
 import { z } from "zod";
 import "./styles.css";
+import "./ai-inbox.css";
 
 const sections = [
   ["dashboard", "Command Center", LayoutDashboard, "get_staff_command_center"],
@@ -22,6 +23,7 @@ type Role = "super_admin" | "admin" | "reception" | "coach" | "content_manager";
 type Session = { accessToken: string; displayName: string; role: Role };
 type BookingStatus = "pending" | "contacted" | "confirmed" | "declined" | "cancelled";
 type LeadStage = "new" | "contacted" | "qualified" | "booking_intent" | "booked" | "follow_up" | "lost" | "customer";
+type ConversationMode = "ai_active" | "human_required" | "human_takeover" | "paused";
 
 const ProfileSchema = z.object({ display_name: z.string().min(1), role: z.enum(["super_admin", "admin", "reception", "coach", "content_manager"]), active: z.literal(true) });
 const BookingSchema = z.object({
@@ -43,6 +45,22 @@ const LeadUpdateSchema = z.object({
   stage: z.enum(["new", "contacted", "qualified", "booking_intent", "booked", "follow_up", "lost", "customer"]).optional(),
   humanRequired: z.boolean().optional(), doNotContact: z.boolean().optional(), nextFollowUpAt: z.string().nullable().optional(),
   followUpAttempt: z.number().nullable().optional(), updatedAt: z.string().optional(),
+});
+const ConversationSchema = z.object({
+  id: z.string().uuid(), leadId: z.string().uuid(), leadName: z.string(),
+  channel: z.enum(["instagram", "facebook", "whatsapp", "website"]),
+  mode: z.enum(["ai_active", "human_required", "human_takeover", "paused"]),
+  unread: z.number().int().nonnegative(), lastMessage: z.string(), updatedAt: z.string(),
+  leadScore: z.number().int(), intent: z.string(), humanRequired: z.boolean(),
+}).passthrough();
+const MessageSchema = z.object({
+  id: z.string().uuid(), conversationId: z.string().uuid(), direction: z.string(),
+  authorType: z.string(), body: z.string(), safetyClassification: z.string().nullable().optional(),
+  createdAt: z.string(),
+}).passthrough();
+const ConversationModeUpdateSchema = z.object({
+  success: z.boolean(), code: z.string().optional(), conversationId: z.string().uuid().optional(),
+  mode: z.enum(["ai_active", "human_required", "human_takeover", "paused"]).optional(),
 });
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
@@ -91,6 +109,18 @@ async function updateLeadWorkflow(session: Session, leadId: string, stage: LeadS
   return result;
 }
 
+async function getConversationMessages(session: Session, conversationId: string) {
+  return z.array(MessageSchema).parse(await callRpc(session, "get_staff_conversation_messages", { p_conversation_id: conversationId }));
+}
+
+async function setConversationMode(session: Session, conversationId: string, mode: ConversationMode) {
+  const result = ConversationModeUpdateSchema.parse(await callRpc(session, "set_staff_conversation_mode", {
+    p_conversation_id: conversationId, p_mode: mode,
+  }));
+  if (!result.success) throw new Error(result.code ?? "UPDATE_REJECTED");
+  return result;
+}
+
 function Login({ onAuthenticated }: { onAuthenticated: (session: Session) => void }) {
   const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
   async function submit(event: FormEvent) { event.preventDefault(); setBusy(true); setError(""); try { const session = await signIn(email.trim(), password); sessionStorage.setItem("relaxfix-command-session", JSON.stringify(session)); onAuthenticated(session); } catch (cause) { const code = cause instanceof Error ? cause.message : "LOGIN_FAILED"; setError(code === "CONFIGURATION_REQUIRED" ? "إعدادات الاتصال غير مكتملة. التطبيق مغلق بأمان." : "تعذر تسجيل الدخول أو أن الحساب غير مخول."); } finally { setBusy(false); } }
@@ -101,6 +131,100 @@ function DataView({ value }: { value: JsonValue }) {
   if (Array.isArray(value)) { if (value.length === 0) return <p className="muted">لا توجد بيانات متاحة حاليًا.</p>; return <div className="data-grid">{value.map((item, index) => <article className="data-card" key={index}><DataView value={item} /></article>)}</div>; }
   if (value && typeof value === "object") return <dl className="record">{Object.entries(value).map(([key, item]) => <React.Fragment key={key}><dt>{key.replaceAll("_", " ")}</dt><dd>{typeof item === "object" && item !== null ? <DataView value={item} /> : String(item ?? "—")}</dd></React.Fragment>)}</dl>;
   return <span>{String(value ?? "—")}</span>;
+}
+
+const conversationModeLabels: Record<ConversationMode, string> = {
+  ai_active: "الذكاء الاصطناعي نشط",
+  human_required: "مراجعة بشرية مطلوبة",
+  human_takeover: "استلام بشري",
+  paused: "متوقفة مؤقتًا",
+};
+
+function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: JsonValue; session: Session; onChanged: () => void; onSessionExpired: () => void }) {
+  const parsed = useMemo(() => z.array(ConversationSchema).safeParse(value), [value]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<z.infer<typeof MessageSchema>[]>([]);
+  const [messageStatus, setMessageStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [notice, setNotice] = useState("");
+  const canWrite = ["super_admin", "admin", "reception", "coach"].includes(session.role);
+  const conversations = parsed.success ? parsed.data : [];
+  const selected = conversations.find((conversation) => conversation.id === selectedId) ?? null;
+
+  useEffect(() => {
+    if (!parsed.success) return;
+    if (!selectedId && conversations[0]) setSelectedId(conversations[0].id);
+    if (selectedId && !conversations.some((conversation) => conversation.id === selectedId)) setSelectedId(conversations[0]?.id ?? null);
+  }, [conversations, parsed.success, selectedId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!selectedId) { setMessages([]); setMessageStatus("idle"); return; }
+    setMessageStatus("loading"); setMessages([]);
+    getConversationMessages(session, selectedId).then((result) => {
+      if (!cancelled) { setMessages(result); setMessageStatus("ready"); }
+    }).catch((cause) => {
+      if (cancelled) return;
+      const code = cause instanceof Error ? cause.message : "LOAD_FAILED";
+      if (code === "SESSION_EXPIRED") onSessionExpired();
+      else setMessageStatus("error");
+    });
+    return () => { cancelled = true; };
+  }, [onSessionExpired, selectedId, session]);
+
+  if (!parsed.success) return <div className="error-box">صيغة بيانات AI Inbox غير متوافقة؛ لم يتم تنفيذ أي كتابة.</div>;
+  if (conversations.length === 0) return <p className="muted">لا توجد محادثات حاليًا.</p>;
+
+  async function changeMode(conversation: z.infer<typeof ConversationSchema>, next: ConversationMode) {
+    if (!canWrite || busyId || conversation.mode === next) return;
+    if (!window.confirm(`تأكيد تغيير وضع محادثة ${conversation.leadName} من «${conversationModeLabels[conversation.mode]}» إلى «${conversationModeLabels[next]}»؟ سيتم تسجيل العملية في Audit Log.`)) return;
+    setBusyId(conversation.id); setNotice("");
+    try {
+      await setConversationMode(session, conversation.id, next);
+      setNotice("تم تحديث وضع المحادثة وتسجيل العملية بنجاح.");
+      onChanged();
+    } catch (cause) {
+      const code = cause instanceof Error ? cause.message : "UPDATE_FAILED";
+      const messagesByCode: Record<string, string> = {
+        INVALID_MODE: "وضع المحادثة المطلوب غير مسموح.",
+        NOT_FOUND: "المحادثة لم تعد موجودة.",
+        STAFF_ACCESS_DENIED: "ليست لديك صلاحية تنفيذ هذا التغيير.",
+      };
+      if (code === "SESSION_EXPIRED") { onSessionExpired(); return; }
+      setNotice(messagesByCode[code] ?? "تعذر التحديث بأمان؛ لم يتم اعتماد أي تغيير غير مؤكد.");
+    } finally { setBusyId(null); }
+  }
+
+  return <>
+    <div className="write-banner"><strong>تحكم مضبوظ في المحادثات</strong><span>RPC فقط · RBAC + تأكيد + منع التكرار + Audit Log</span></div>
+    {notice && <div className="notice-box">{notice}</div>}
+    <div className="inbox-layout">
+      <div className="conversation-list" aria-label="قائمة المحادثات">
+        {conversations.map((conversation) => <button type="button" key={conversation.id} className={selectedId === conversation.id ? "selected" : ""} onClick={() => { setSelectedId(conversation.id); setNotice(""); }}>
+          <span><strong>{conversation.leadName}</strong>{conversation.unread > 0 && <b className="unread-count">{conversation.unread}</b>}</span>
+          <small>{conversation.lastMessage || "لا توجد رسائل"}</small>
+          <em>{conversation.channel} · {conversationModeLabels[conversation.mode]}</em>
+        </button>)}
+      </div>
+      <section className="conversation-panel">
+        <header>
+          <div><h3>{selected?.leadName ?? "اختر محادثة"}</h3>{selected && <p>Score {selected.leadScore}/100 · {selected.intent}</p>}</div>
+          {selected && <label>وضع المحادثة<select value={selected.mode} disabled={!canWrite || busyId !== null} onChange={(event) => void changeMode(selected, event.target.value as ConversationMode)}>{(Object.keys(conversationModeLabels) as ConversationMode[]).map((mode) => <option key={mode} value={mode}>{conversationModeLabels[mode]}</option>)}</select></label>}
+        </header>
+        {selected?.humanRequired && <div className="human-alert">تتطلب هذه المحادثة مراجعة بشرية حاليًا.</div>}
+        <div className="message-stream">
+          {messageStatus === "loading" && <p className="muted">جاري تحميل الرسائل بأمان...</p>}
+          {messageStatus === "error" && <div className="error-box">تعذر تحميل الرسائل بأمان.</div>}
+          {messageStatus === "ready" && messages.length === 0 && <p className="muted">لا توجد رسائل في هذه المحادثة.</p>}
+          {messages.map((message) => <article key={message.id} className={`message-bubble ${message.direction === "outbound" ? "outbound" : "inbound"}`}>
+            <p>{message.body}</p><small>{message.authorType}{message.safetyClassification ? ` · ${message.safetyClassification}` : ""} · {new Date(message.createdAt).toLocaleString("ar-AE")}</small>
+          </article>)}
+        </div>
+        {!canWrite && <p className="read-only-note">دورك يملك صلاحية القراءة فقط؛ التحكم في وضع المحادثة معطل.</p>}
+        {busyId === selected?.id && <p className="muted">جاري حفظ التغيير المراجع...</p>}
+      </section>
+    </div>
+  </>;
 }
 
 function CRMView({ value, session, onChanged }: { value: JsonValue; session: Session; onChanged: () => void }) {
@@ -150,8 +274,8 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   const [active, setActive] = useState<SectionId>("dashboard"); const [reloadKey, setReloadKey] = useState(0); const [data, setData] = useState<JsonValue>(null); const [status, setStatus] = useState<"loading" | "ready" | "error">("loading"); const [error, setError] = useState("");
   const current = useMemo(() => sections.find(([id]) => id === active)!, [active]);
   useEffect(() => { let cancelled = false; setStatus("loading"); setError(""); callRpc(session, current[3]).then((result) => { if (!cancelled) { setData(result); setStatus("ready"); } }).catch((cause) => { if (cancelled) return; const message = cause instanceof Error ? cause.message : "LOAD_FAILED"; if (message === "SESSION_EXPIRED") onLogout(); else { setError("تعذر تحميل هذه الوحدة بأمان."); setStatus("error"); } }); return () => { cancelled = true; }; }, [current, onLogout, reloadKey, session]);
-  const modeLabel = active === "planner" || active === "crm" ? "CONTROLLED WRITE" : "READ ONLY";
-  return <div className="app-shell"><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><nav>{sections.map(([id, label, Icon]) => <button key={id} className={active === id ? "active" : ""} onClick={() => setActive(id)}><Icon size={18} />{label}</button>)}</nav><button className="logout" onClick={onLogout}><LogOut size={18} />تسجيل الخروج</button></aside><main className="workspace"><p className="eyebrow">INTERNAL OPERATIONS · {modeLabel}</p><h1>{current[1]}</h1><section className="panel"><div className="panel-heading"><div><h2>بيانات تشغيل حقيقية</h2><p>Supabase RPC محمي بهوية الموظف وصلاحيات قاعدة البيانات.</p></div><button className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>تحديث</button></div>{status === "loading" && <p className="muted">جاري التحميل الآمن...</p>}{status === "error" && <div className="error-box">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} /> : <DataView value={data} />)}</section></main></div>;
+  const modeLabel = active === "planner" || active === "crm" || active === "inbox" ? "CONTROLLED WRITE" : "READ ONLY";
+  return <div className="app-shell"><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><nav>{sections.map(([id, label, Icon]) => <button key={id} className={active === id ? "active" : ""} onClick={() => setActive(id)}><Icon size={18} />{label}</button>)}</nav><button className="logout" onClick={onLogout}><LogOut size={18} />تسجيل الخروج</button></aside><main className="workspace"><p className="eyebrow">INTERNAL OPERATIONS · {modeLabel}</p><h1>{current[1]}</h1><section className="panel"><div className="panel-heading"><div><h2>بيانات تشغيل حقيقية</h2><p>Supabase RPC محمي بهوية الموظف وصلاحيات قاعدة البيانات.</p></div><button className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>تحديث</button></div>{status === "loading" && <p className="muted">جاري التحميل الآمن...</p>}{status === "error" && <div className="error-box">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : <DataView value={data} />)}</section></main></div>;
 }
 
 function App() { const [session, setSession] = useState<Session | null>(null); useEffect(() => { try { const raw = sessionStorage.getItem("relaxfix-command-session"); if (raw) setSession(z.object({ accessToken: z.string(), displayName: z.string(), role: ProfileSchema.shape.role }).parse(JSON.parse(raw))); } catch { sessionStorage.removeItem("relaxfix-command-session"); } }, []); if (!session) return <Login onAuthenticated={setSession} />; return <Dashboard session={session} onLogout={() => { sessionStorage.removeItem("relaxfix-command-session"); setSession(null); }} />; }
