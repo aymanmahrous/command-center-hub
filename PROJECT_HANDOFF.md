@@ -7,69 +7,43 @@ Last verified: 2026-07-23 (Asia/Dubai)
 Owner: Repository Owner
 Historical baseline: `PROJECT_HANDOFF.md` at commit `312c30b4662afdea33b8b6f3e6a4e44201ec4b1f`
 
-## Current governance stage
+## Current stage
 
-`GOV-H: COMPLETED — GOVERNANCE FULLY ESTABLISHED`
+`PHASE-3-PREP: COMPLETED — READY FOR SAFE EXECUTION`
 
-GOV-A through GOV-H are complete on `agent/phase-a-source-of-truth`. This certifies governance documentation and branch preparation only. It does not authorize execution, change `main`, activate repository settings or start `PHASE-3-SAFE-EXECUTION`.
+Equivalent activation wording: `PHASE-3-PREP: COMPLETED — READY FOR EXECUTION`.
 
-## Final authoritative documents
+This certifies preparation only. No Check, Workflow, script, test, build, Preview, deployment or external connection was run. `PHASE-3-SAFE-EXECUTION` still requires a new explicit order and a complete PASS gate.
 
-- `docs/governance/GOV_H_READINESS_REPORT.md` — final governance decision.
-- `docs/governance/GOVERNANCE_COMPLETION_CERTIFICATE.md` — completion certificate.
-- `docs/governance/PHASE_3_ACTIVATION_GATE.md` — mandatory post-governance execution gate.
-- `docs/governance/POST_GOVERNANCE_ROADMAP.md` — non-executable next-step order.
-- `docs/governance/PHASE_NAMESPACE.md` — canonical phase definition.
-- `docs/governance/WRITE_AND_WORKFLOW_REGISTRY.md` — registered operations, idempotency and concurrency.
-- `docs/governance/AI_ENVIRONMENT_FOUNDATION.md` — blocked AI design.
+## Registered Phase 3 operations
 
-## Permanently blocked unless separately re-authorized
+`WRITE_AND_WORKFLOW_REGISTRY.md` now contains the literal operations:
 
-- direct browser table writes and protected credentials;
-- all Production writes;
-- Migrations, DDL, RLS, grants, policies, cron and workers;
-- AI/provider generation and spend;
-- Storage writes;
-- publishing, scheduling, webhooks, messaging and external side effects;
-- unregistered operations;
-- mutable or unspecified target refs;
-- self-approved sensitive actions;
-- history rewriting, force-push rollback or undocumented database correction.
+1. `source-only-verification` — read-only source/test/build verification on an exact SHA.
+2. `preview-readonly-verification` — read-only GET/HEAD browser verification against one approved HTTPS Preview URL and exact SHA.
 
-PR #8 remains stale, requires revalidation and is non-merge-ready. Any future CRM work must be recreated as an isolated Feature PR from then-current `main` after separate authorization.
+Both rows include Repository, classification, environment, approvals, checks, secrets scope, kill switch, rollback, audit receipt, idempotency, concurrency and status `ALLOWED-FOR-PHASE-3`.
 
-## Future candidates inside PHASE-3-SAFE-EXECUTION
+`ALLOWED-FOR-PHASE-3` is eligibility for a future activation review, not automatic authorization.
 
-Only after a separate explicit post-GOV-H order and a complete PASS gate:
+## Activation gate
 
-1. source-only verification on an exact SHA;
-2. manual `preview-readonly` verification against an exact approved HTTPS URL and SHA;
-3. a specifically registered, time-limited server-mediated operation only after successful checks, named independent approval and verified environment controls.
+`PHASE_3_ACTIVATION_GATE.md` now recognizes only the two operations above for the first safe-execution attempt.
 
-No current AI, Migration, Storage, publishing or Production-write operation is eligible.
+- `source-only-verification` requires successful `verify:source`, `verify:ci`, `verify:release`, `test:unit`, `test:security` and `test:contracts` on the exact target SHA.
+- `preview-readonly-verification` additionally requires successful `test:e2e:preview`, an exact approved HTTPS Preview URL and verified `preview-readonly` secrets scope.
+- Named Operator and independent approver are mandatory.
+- A usable authorized dispatch mechanism or isolated runner is mandatory.
+- Any missing field returns `FAIL-CLOSED`.
 
-## Safe operating boundary
+## Continuing prohibitions
 
-Every candidate must be Registry-listed, time-bounded, exact-SHA pinned, independently approved, idempotent where applicable, concurrency-controlled, auditable, reversible and equipped with a named kill-switch owner. Read-only Environments may contain no write-capable secret. Any missing or stale control causes fail closed.
+Production writes, database writes, Migrations, AI/provider access, Storage writes, publishing, scheduling, webhooks, outbound messaging, protected browser credentials, repository settings and PR metadata changes remain blocked. PR #8 remains stale and non-merge-ready.
 
-## Experimental activation conditions
+## Safety receipt
 
-Before any experimental run:
+PHASE-3-PREP changed governance Markdown only on `agent/phase-a-source-of-truth`. It did not touch `main`, run checks or Workflows, create a Preview, deploy, connect to Production/database/providers, generate, publish, migrate or mutate external state.
 
-- issue a new explicit instruction after GOV-H;
-- complete `PHASE_3_ACTIVATION_GATE.md`;
-- verify named owners and independent approvers;
-- observe all applicable stable checks successful on the exact target SHA;
-- verify host allowlist and Environment secret scope;
-- record expiry, kill switch, rollback and audit receipt location;
-- issue a separate time-bounded GO decision.
+## Next transition
 
-A NO-GO or incomplete gate permits no partial execution, fallback or automatic retry.
-
-## Final safety receipt
-
-No Workflow, script, test, build, Preview, deployment, Migration, database/provider/Production connection, generation, write, Storage mutation, publishing, messaging, settings, secrets, PR metadata or `main` change occurred during GOV-H.
-
-## Post-governance transition
-
-Governance is complete. `PHASE-3-SAFE-EXECUTION` does not begin automatically and remains blocked until a separate explicit order passes the activation gate.
+Do not begin `PHASE-3-SAFE-EXECUTION` automatically. A new explicit instruction must select one literal operation, provide an exact new target SHA and satisfy every Activation Gate control.
