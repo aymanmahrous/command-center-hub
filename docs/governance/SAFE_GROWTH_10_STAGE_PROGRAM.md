@@ -9,7 +9,7 @@ Last verified: 2026-07-24 (Asia/Dubai)
 
 `SAFE-GROWTH-10-STAGE-PROGRAM: APPROVED — SEQUENTIAL EXECUTION ONLY`
 
-The program is executed one stage at a time. A stage must be completed, documented, independently reviewed and returned to fail-closed before the next stage may begin. No stage starts automatically.
+One stage is handled at a time. A stage must be completed, documented, independently reviewed and returned to fail-closed before the next stage may begin. No stage starts automatically.
 
 ## Program roles
 
@@ -18,133 +18,42 @@ The program is executed one stage at a time. A stage must be completed, document
 - Repository: `aymanmahrous/command-center-hub`
 - Branch: `agent/phase-a-source-of-truth`
 
-A later stage may require additional Security, Release, Privacy, Database, Content or Provider approval. Missing approval fails closed.
+## Permanent boundaries
 
-## Permanent program prohibitions
-
-The following are prohibited throughout all ten stages unless a later, separate governance amendment explicitly replaces this rule:
-
-- image generation;
-- video generation;
-- paid AI provider use;
-- automatic provider spend;
-- unapproved trials that can convert to paid usage;
-- automatic fallback to a paid model or provider;
-- hidden media rendering, transcription, enhancement or generation charges;
-- Production writes without an operation-specific gate;
-- Supabase, Storage, publishing, scheduling, webhook, CRM or Booking writes without a separately approved stage operation;
-- execution outside an exact target SHA and named repository branch.
-
-Default AI cost ceiling: `0`.
-Default media-generation ceiling: `0` images and `0` videos.
-
-## Universal stage contract
-
-Every stage must define and record:
-
-1. exact scope and excluded scope;
-2. exact repository, branch and target SHA;
-3. Owner / Operator and Independent approver;
-4. required checks and evidence;
-5. allowed Environment and secret scope;
-6. kill switch and named owner;
-7. rollback / recovery plan;
-8. audit receipt location;
-9. idempotency identity;
-10. concurrency lock identity;
-11. maximum duration and expiry;
-12. PASS and FAIL conditions;
-13. explicit stop before the next stage.
+- paid AI provider use: prohibited; cost ceiling `0`;
+- generated images: prohibited; ceiling `0`;
+- generated videos: prohibited; ceiling `0`;
+- automatic provider spend or paid fallback: prohibited;
+- Production, Supabase, Storage, publishing, scheduling, webhook, CRM or Booking writes require a later operation-specific gate;
+- execution outside an exact target SHA and named branch is prohibited.
 
 Any missing, ambiguous, expired, skipped or unverified control causes `FAIL-CLOSED`.
 
 ## Stages
 
-### 1. SAFE EXECUTION BASELINE
+1. SAFE EXECUTION BASELINE — `COMPLETED`.
+2. READ-ONLY INVENTORY — `COMPLETED`.
+3. CONVERSION OPERATING MODEL — `COMPLETED`.
+4. CONTENT CALENDAR (DRAFT-ONLY) — `COMPLETED`.
+5. N8N SHADOW MODE — `BLOCKED — NO AUTHORIZED SHADOW RUNNER`.
+6. CHATBOT SCRIPTED EVALUATION — `BLOCKED`.
+7. SINGLE CHANNEL PILOT — `BLOCKED`.
+8. MULTI-CHANNEL EXPANSION — `BLOCKED`.
+9. CRM & BOOKING INTEGRATION — `BLOCKED`.
+10. MONTHLY GROWTH OPERATIONS REVIEW — `BLOCKED`.
 
-Status: `COMPLETED`.
+## Stage 05 result
 
-Established the immutable safety contract, role separation, cost/media prohibition, approved dispatch boundary, receipts, rollback, kill switch, idempotency and concurrency rules. No provider or runtime execution.
+Stage 05 was explicitly requested with Target SHA `648a416c778fbdd85013796af9b0bf4cc373d75e` and Environment `SHADOW-MODE-ONLY`.
 
-### 2. READ-ONLY INVENTORY
-
-Status: `STAGE-02-READ-ONLY-INVENTORY: COMPLETED — STOPPED BEFORE STAGE 03`.
-
-Repository-grounded inventory completed for website/SEO/Local SEO evidence, Google Business/Maps documentation, social-channel evidence gaps, n8n artifacts, chatbot interfaces and CRM/Booking entry-point boundaries. External account data remained unavailable by design because no API call, provider login or Workflow was permitted.
-
-Authoritative evidence:
-
-- `docs/governance/STAGE_02_READ_ONLY_INVENTORY_GATE.md`
-- `docs/governance/STAGE_02_READ_ONLY_INVENTORY_REPORT.md`
-
-### 3. CONVERSION OPERATING MODEL
-
-Status: `STAGE-03-CONVERSION-OPERATING-MODEL: COMPLETED — STOPPED BEFORE STAGE 04`.
-
-The governed design now defines interaction sources, validated-event schema, contact/Lead/Booking-request schemas, validation, deduplication, UTM attribution, consent/privacy boundaries, state machines, human handoff, deterministic chatbot flow, n8n pseudo-flow, idempotency, concurrency, receipts and KPIs. No runtime, external read, API, provider, Workflow, n8n, chatbot, CRM or Booking operation occurred.
+Repository inspection found a disabled, synthetic-data, no-external-write n8n artifact in the product repository. However, no independently approved isolated n8n runner, registered execution command, exact runtime/container identity, network-deny receipt or credential-empty instance receipt was available. Static JSON inspection cannot be represented as an n8n execution.
 
 Authoritative evidence:
 
-- `docs/governance/STAGE_03_CONVERSION_OPERATING_MODEL.md`
-
-### 4. CONTENT CALENDAR (DRAFT-ONLY)
-
-Status: `STAGE-04-CONTENT-CALENDAR-DRAFT-ONLY: COMPLETED — STOPPED BEFORE STAGE 05`.
-
-A four-week text-only editorial design now defines Awareness, Trust and Conversion content types; channel roles; theoretical CTA, conversion-stage and UTM mapping; weekly/monthly cadence; content fingerprints; approval states; claims controls; idempotency; concurrency; kill switch; rollback and audit receipts. All items remain `draft_only`; no final publishable copy, media, upload, scheduling or publishing was created.
-
-Authoritative evidence:
-
-- `docs/governance/STAGE_04_CONTENT_CALENDAR_DRAFT.md`
-
-### 5. N8N SHADOW MODE
-
-Status: `BLOCKED`.
-
-Design and later validate synthetic-data, no-write workflows with bounded retries, replay protection, dead-letter behavior and zero Production credentials. No live webhook or provider mutation.
-
-### 6. CHATBOT SCRIPTED EVALUATION
-
-Status: `BLOCKED`.
-
-Evaluate deterministic scripted conversations and handoff behavior without a paid AI provider, external tool writes, CRM writes or Booking confirmation.
-
-### 7. SINGLE CHANNEL PILOT
-
-Status: `BLOCKED`.
-
-A separately approved pilot for one channel only, with one operation, strict volume limit, manual approval and immediate kill switch. Images, video generation and paid AI remain prohibited.
-
-### 8. MULTI-CHANNEL EXPANSION
-
-Status: `BLOCKED`.
-
-Expand only after the single-channel pilot has complete PASS receipts. Each channel retains independent credentials, locks, approvals and rollback; no unsafe cross-channel fallback.
-
-### 9. CRM & BOOKING INTEGRATION
-
-Status: `BLOCKED`.
-
-Introduce server-mediated, idempotent, concurrency-controlled Lead and Booking-request operations after separate Database/Security approval. Staff confirmation remains required.
-
-### 10. MONTHLY GROWTH OPERATIONS REVIEW
-
-Status: `BLOCKED`.
-
-Review KPIs, attribution, failures, costs, permissions, receipts, content quality, local visibility and conversion. The review cannot activate a blocked operation by itself.
-
-## Transition rule
-
-A stage is eligible to start only after:
-
-- the previous stage report says `COMPLETED`;
-- the previous stage returned to fail-closed;
-- a separate explicit instruction names the next stage;
-- the next-stage Gate is complete;
-- a new exact target SHA is selected.
+- `docs/governance/STAGE_05_N8N_SHADOW_MODE_REPORT.md`
 
 ## Current program state
 
-`FAIL-CLOSED / NOT AUTHORIZED FOR STAGE 05`
+`FAIL-CLOSED / NOT AUTHORIZED FOR STAGE 06`
 
-Stage 05 must not begin automatically.
+Stage 05 remains incomplete. A retry requires a new explicit instruction, a new target SHA and an approved isolated n8n runner with outbound networking disabled and no credentials. Stage 06 must not begin automatically.
