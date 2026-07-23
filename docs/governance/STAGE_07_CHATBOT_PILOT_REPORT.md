@@ -1,24 +1,24 @@
-# Stage 07 — Chatbot Pilot Report
+# Stage 07 — Website-Only Chatbot Pilot Report
 
 Document status: CURRENT
-Authority: STAGE EXECUTION ATTEMPT RECEIPT AND PILOT DESIGN CONTRACT
+Authority: STAGE EXECUTION RETRY RECEIPT
 Applies to: command-center-hub
 Last verified: 2026-07-24 (Asia/Dubai)
 
 ## Decision
 
-`STAGE-07-SINGLE-CHANNEL-PILOT (MULTI-SURFACE EXTENSION): BLOCKED — LIVE PILOT NOT AUTHORIZED`
+`STAGE-07-SINGLE-CHANNEL-PILOT (WEBSITE-ONLY): BLOCKED — NO AUTHORIZED WEBSITE PILOT RUNNER`
 
-`DESIGN PACKAGE: COMPLETED — NO CHANNEL ACTIVATED`
+`SOURCE READINESS: VERIFIED BY REPOSITORY INSPECTION ONLY`
 
 `FAIL-CLOSED / NOT AUTHORIZED FOR STAGE 08`
 
 ## Authorization
 
-- Target SHA: `63504f919a2937df94ea2a9655b80299907e24ec`
+- Target SHA: `57558ff9eeca00f1f75c01b4e2fb8bd1a3f53d7c`
 - Owner / Operator: `AYMAN`
 - Independent approver: `pixelreel2026`
-- Requested Environment: `WEBSITE + FACEBOOK + INSTAGRAM + WHATSAPP ONLY`
+- Allowed Environment: `WEBSITE ONLY`
 - FREE-SAFE-MODE: `ACTIVE`
 - External API calls ceiling: `0`
 - CRM writes ceiling: `0`
@@ -30,147 +30,116 @@ Last verified: 2026-07-24 (Asia/Dubai)
 - Generated videos ceiling: `0`
 - User-message storage or transmission ceiling: `0`
 
-## Gate conflict
+## Selected channel
 
-The requested scope is not a single-channel pilot. It contains four surfaces: website, Facebook Page Inbox, Instagram DM and WhatsApp Business Auto-Replies.
+The retry correctly selects one channel only: the website.
 
-Facebook, Instagram and WhatsApp reply activation requires remote account configuration or message handling. That cannot be represented as completed while external calls, webhooks, publishing, message transmission and account connections are all prohibited.
+Facebook, Instagram and WhatsApp are excluded. No account, reply configuration or external message surface is in scope.
 
-Therefore this stage may define scripts, channel boundaries, review controls and a future rollout sequence, but it may not activate or test a live surface.
+## Intended pilot behavior
 
-## Design-only pilot model
-
-### Surface order for later separately gated execution
-
-1. Website scripted interface only.
-2. Facebook Page Inbox saved replies or automated replies.
-3. Instagram DM quick replies.
-4. WhatsApp Business approved scripted auto-replies.
-
-Each surface must receive an independent Gate, credential boundary, kill switch, receipt and rollback. No simultaneous activation is permitted under the current Single Channel stage definition.
-
-## Approved scripted intent families
+The website chatbot may answer approved scripted topics for:
 
 - services;
-- prices, only from approved current facts;
+- prices from approved current facts only;
 - approved locations;
-- schedules and availability with staff-confirmation language;
+- schedules and preferred time windows;
 - children;
 - adults;
 - ladies;
-- Booking Request, never confirmed booking;
-- contact and human handoff.
+- Booking Request candidate creation language only;
+- contact and human-handoff guidance.
 
-## Global reply rules
+It must never confirm availability or a booking automatically.
 
-- use approved repository facts only;
-- never invent price, availability, location, review, credential or outcome;
-- never confirm a booking automatically;
-- never claim that a staff transfer occurred unless a later real channel action proves it;
-- collect no user message, PII or conversation content in this stage;
-- route complaints, safety, privacy, uncertainty and booking confirmation to staff conceptually;
-- preserve Arabic/English factual parity;
-- prohibit medical, therapeutic, rehabilitation or guaranteed-result claims.
+## Repository evidence
 
-## Surface-specific design
+The product repository contains a deterministic bilingual chatbot and a source-verification command, `npm run verify:chatbot-phase1`.
 
-### Website
+Static inspection of that verifier shows:
 
-A future pilot may expose deterministic scripted replies inside the website only after a separate runtime Gate. Current status: documentation only; no chatbot runtime or preview executed.
+- coverage for services, pricing, booking, locations, schedules, adults, kids, ladies and contact;
+- Arabic and English intent cases;
+- explicit Booking Request disclaimers;
+- medical-data warnings;
+- checks that chatbot source does not use `localStorage`, `sessionStorage`, `fetch(` or `XMLHttpRequest`;
+- accessibility and single-mount contracts.
 
-### Facebook Page Inbox
+This evidence supports source readiness but does not prove a website runtime execution.
 
-Draft reply categories may be prepared for services, prices, locations, schedules and staff handoff. No Page account was accessed and no Auto-Reply was created or enabled.
+## Gate result
 
-### Instagram DM
+A genuine pilot PASS receipt could not be produced because:
 
-Quick Reply labels and text templates may be prepared. No Instagram account was accessed and no Quick Reply was created or enabled.
+- no approved local or isolated website runtime was supplied;
+- no authorized Preview URL or Preview Gate was supplied;
+- no registered execution command was available through the authorized connector;
+- no browser/runtime receipt showed the chatbot responding on the website;
+- the source verifier was inspected but not executed;
+- no immutable transcript-free test receipt exists.
 
-### WhatsApp Business
+Under fail-closed governance, repository inspection is not a live website pilot.
 
-Scripted Auto-Reply patterns may be prepared for greeting, service routing, availability disclaimer and staff handoff. No WhatsApp account, API, device session or message was accessed, transmitted or stored.
+## Required safe state model
 
-## Conceptual reply state model
+`typed locally -> intent classified locally -> approved scripted response | bounded clarification | human-handoff notice -> STOP`
 
-`message_category -> approved_script -> factual_response | bounded_clarification | human_handoff_notice -> STOP`
+Permitted output: `Booking Request candidate` language only.
 
 Prohibited states:
 
-`message_received_from_provider`, `conversation_stored`, `external_reply_sent`, `lead_created`, `calendar_checked`, `booking_confirmed`, `webhook_emitted`.
+`message_transmitted`, `conversation_stored`, `external_api_called`, `lead_written`, `crm_written`, `calendar_checked`, `booking_written`, `booking_confirmed`, `webhook_emitted`.
 
-## Draft-only social calendar
+## PASS requirements for a later retry
 
-This is editorial planning only for Facebook and Instagram:
+A later retry must provide:
 
-- Monday: Awareness concept;
-- Wednesday: Trust concept;
-- Friday: Conversion concept;
-- Sunday: FAQ / clarification concept.
-
-All items remain text-only `draft_only`. No post copy was uploaded, scheduled or published. No image, video, audio, thumbnail or real media was used.
-
-## Conversion mapping
-
-- factual question -> `Interaction`;
-- acceptable structured request -> `Validated Event candidate`;
-- qualified request -> `Lead candidate`;
-- service/location/time preference -> `Booking Request candidate`;
-- staff action under a later Gate -> `Staff Confirmation`.
-
-No surface may skip directly to confirmed booking.
-
-## Future independent pilot requirements
-
-Before any one surface can run:
-
-- select exactly one surface;
-- approve a new exact Target SHA;
-- identify the account/runtime and owner;
-- define allowed message fields and retention as zero or explicitly approved;
-- establish credential isolation;
-- establish channel-specific kill switch;
-- define maximum message/test volume;
-- obtain Privacy and Security approval;
-- define immutable receipts;
-- prove no paid fallback or media generation;
-- authorize the external account operation explicitly.
+- a new exact Target SHA;
+- an approved isolated/local website runner or explicitly authorized Preview;
+- outbound-network denial or equivalent proof;
+- zero credentials and zero Production secrets;
+- a bounded synthetic input set;
+- execution of the approved chatbot verifier;
+- browser/runtime evidence for Arabic and English scenarios;
+- proof that typed text is neither stored nor transmitted;
+- proof that Booking Requests are not confirmed;
+- immutable receipts with no user PII.
 
 ## Kill switch and rollback
 
 - Kill switch owner: `AYMAN`.
-- Current kill action: do not activate any surface or remote reply configuration.
-- Future channel kill action: disable only the selected surface and preserve unrelated channels.
-- Rollback for this stage: a new auditable branch commit restoring prior governance text.
-- No remote rollback is required because no account or runtime state changed.
+- Current kill action: do not start or expose a pilot runtime.
+- Future website kill action: disable only the website chatbot pilot surface.
+- Rollback: create a new auditable branch commit restoring the prior governance state.
+- No remote rollback is required because no runtime or external state changed.
 
 ## Audit receipt
 
 - website chatbot runtime executions: `0`;
-- Facebook account connections/replies: `0`;
-- Instagram account connections/replies: `0`;
-- WhatsApp account connections/messages: `0`;
+- chatbot source verifier executions: `0`;
+- browser/Preview pilot sessions: `0`;
 - external API calls: `0`;
 - user messages stored: `0`;
-- user messages transmitted by this stage: `0`;
+- user messages transmitted: `0`;
 - CRM writes: `0`;
 - Booking writes: `0`;
-- publishing actions: `0`;
-- scheduling actions: `0`;
+- Calendar connections/writes: `0`;
+- publishing/scheduling: `0`;
 - webhooks: `0`;
 - paid AI calls: `0`;
 - generated images: `0`;
 - generated videos: `0`;
-- Production / Supabase / Storage connections: `0`;
+- Production/Supabase/Storage connections: `0`;
 - `main` modifications: `0`.
 
 ## Preserved dependencies
 
-Stage 05 remains `BLOCKED — NO AUTHORIZED SHADOW RUNNER`. Stage 06 remains documentation-only completed. Neither status authorizes live channel operation.
+Stage 05 remains `BLOCKED — NO AUTHORIZED SHADOW RUNNER`. Stage 06 remains documentation-only completed.
 
 ## Final state
 
-Stage 07 live pilot is not complete. The design package is complete and all channels remain inactive.
+Stage 07 website-only live pilot is not complete. Source readiness is documented, but no runtime PASS receipt exists.
 
 `FAIL-CLOSED / NOT AUTHORIZED FOR STAGE 08`
 
-A retry must choose exactly one channel and provide a new operation-specific Gate. Multi-surface activation belongs to Stage 08 only after a genuine single-channel PASS receipt.
+Stage 08 must not begin. A new retry requires an approved runner or Preview and a new exact Target SHA.
