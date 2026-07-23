@@ -9,7 +9,7 @@ Last verified: 2026-07-24 (Asia/Dubai)
 
 `SAFE-GROWTH-10-STAGE-PROGRAM: APPROVED — SEQUENTIAL EXECUTION ONLY`
 
-Stages normally proceed sequentially. Stage 06 was authorized as a documentation-only dependency exception because Stage 05 has no authorized runner. Stage 07 was requested as a multi-surface extension, but the live pilot could not be authorized under a Single Channel stage with zero external calls and zero user-message transmission.
+Stage 07 was retried correctly with one selected channel: Website only. Repository evidence supports deterministic, privacy-bounded chatbot source readiness, but no approved runtime, Preview or immutable live-pilot receipt was available. Stage 07 therefore remains incomplete.
 
 ## Program roles
 
@@ -24,8 +24,8 @@ Stages normally proceed sequentially. Stage 06 was authorized as a documentation
 - generated images: prohibited; ceiling `0`;
 - generated videos: prohibited; ceiling `0`;
 - external API, Production, Supabase, Storage, publishing, scheduling, webhook, CRM or Booking writes require separate authority;
-- user-message storage or transmission requires explicit Privacy and operation-specific authority;
-- missing or unverified controls fail closed.
+- user-message storage or transmission is prohibited for this pilot;
+- missing or unverified execution evidence fails closed.
 
 ## Stages
 
@@ -35,44 +35,29 @@ Stages normally proceed sequentially. Stage 06 was authorized as a documentation
 4. CONTENT CALENDAR (DRAFT-ONLY) — `COMPLETED`.
 5. N8N SHADOW MODE — `BLOCKED — NO AUTHORIZED SHADOW RUNNER`.
 6. CHATBOT SCRIPTED EVALUATION — `COMPLETED — DOCUMENTATION ONLY`.
-7. SINGLE CHANNEL PILOT — `BLOCKED — LIVE PILOT NOT AUTHORIZED; DESIGN PACKAGE COMPLETED`.
+7. SINGLE CHANNEL PILOT — `BLOCKED — WEBSITE SOURCE READY; NO AUTHORIZED WEBSITE PILOT RUNNER`.
 8. MULTI-CHANNEL EXPANSION — `BLOCKED`.
 9. CRM & BOOKING INTEGRATION — `BLOCKED`.
 10. MONTHLY GROWTH OPERATIONS REVIEW — `BLOCKED`.
 
-## Stage 05 preserved result
+## Stage 07 website-only retry
 
-Stage 05 remains incomplete. No n8n execution occurred and no Shadow Receipt exists.
-
-- `docs/governance/STAGE_05_N8N_SHADOW_MODE_REPORT.md`
-
-## Stage 06 result
-
-Stage 06 completed repository-only scripted scenario design. No chatbot runtime or external operation occurred.
-
-- `docs/governance/STAGE_06_CHATBOT_SCRIPTED_EVALUATION.md`
-
-## Stage 07 result
-
-Stage 07 received a request covering website, Facebook Page Inbox, Instagram DM and WhatsApp Business. This conflicts with the Single Channel contract and requires external account configuration or message handling that was prohibited by the requested zero-call and zero-transmission limits.
-
-A design package was completed for:
-
-- approved scripted intents and reply rules;
-- website, Facebook, Instagram and WhatsApp boundaries;
-- human handoff and no-auto-booking controls;
-- text-only Facebook/Instagram draft cadence;
-- channel-specific future Gate requirements;
-- kill switch, rollback and zero-effect receipts.
-
-No channel was activated, connected, tested or used to transmit or store a user message.
+- Target SHA: `57558ff9eeca00f1f75c01b4e2fb8bd1a3f53d7c`.
+- Allowed Environment: `WEBSITE ONLY`.
+- The selected channel satisfies the Single Channel rule.
+- Static repository inspection supports scripted intents for services, prices, locations, schedules, children, adults, ladies, Booking Requests and contact/handoff.
+- Privacy contracts prohibit browser persistence and message transmission in the chatbot source.
+- No runtime, Preview, source verifier, browser session or synthetic pilot execution occurred.
+- No live Pilot PASS receipt exists.
 
 Authoritative evidence:
 
 - `docs/governance/STAGE_07_CHATBOT_PILOT_REPORT.md`
+- `docs/governance/STAGE_06_CHATBOT_SCRIPTED_EVALUATION.md`
+- `docs/governance/STAGE_05_N8N_SHADOW_MODE_REPORT.md`
 
 ## Current program state
 
 `FAIL-CLOSED / NOT AUTHORIZED FOR STAGE 08`
 
-Stage 07 live pilot remains incomplete. A retry must select exactly one channel, use a new exact Target SHA and provide an operation-specific Gate. Stage 08 must not begin automatically.
+Stage 08 must not begin. A later Stage 07 retry requires a new exact Target SHA and an approved isolated/local runner or explicitly authorized Preview with zero external effects.
