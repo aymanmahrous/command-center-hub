@@ -8,20 +8,18 @@ Owner: Repository Owner
 
 ## Current stage
 
-`STAGE-07-SINGLE-CHANNEL-PILOT (MULTI-SURFACE EXTENSION): BLOCKED — LIVE PILOT NOT AUTHORIZED`
+`STAGE-07-SINGLE-CHANNEL-PILOT (WEBSITE-ONLY): BLOCKED — NO AUTHORIZED WEBSITE PILOT RUNNER`
 
-`DESIGN PACKAGE: COMPLETED — NO CHANNEL ACTIVATED`
+`SOURCE READINESS: VERIFIED BY REPOSITORY INSPECTION ONLY`
 
 `STAGE-05-N8N-SHADOW-MODE: BLOCKED — NO AUTHORIZED SHADOW RUNNER`
-
-`SAFE-GROWTH-10-STAGE-PROGRAM: APPROVED — SEQUENTIAL EXECUTION ONLY`
 
 ## Authorization
 
 - Owner / Operator: `AYMAN`
 - Independent approver: `pixelreel2026`
-- Stage 07 Target SHA: `63504f919a2937df94ea2a9655b80299907e24ec`
-- Requested Environment: `WEBSITE + FACEBOOK + INSTAGRAM + WHATSAPP ONLY`
+- Stage 07 retry Target SHA: `57558ff9eeca00f1f75c01b4e2fb8bd1a3f53d7c`
+- Allowed Environment: `WEBSITE ONLY`
 - FREE-SAFE-MODE: `ACTIVE`
 - external API calls ceiling: `0`
 - CRM and Booking writes ceiling: `0`
@@ -30,20 +28,20 @@ Owner: Repository Owner
 - generated images/videos ceiling: `0`
 - user-message storage/transmission ceiling: `0`
 
-## Stage 07 finding
+## Stage 07 retry finding
 
-The request covered four surfaces, so it did not satisfy the Single Channel stage contract. Facebook, Instagram and WhatsApp activation would also require remote account configuration or message handling, which was prohibited by the zero-call and zero-transmission boundary.
+The retry correctly selected the website as the only channel. Static product-repository evidence shows deterministic bilingual intents and privacy/source contracts suitable for a future website pilot.
 
-A repository-only design package now defines:
+No approved local runner, isolated runtime, authorized Preview, executed source verifier, browser session or immutable Pilot PASS receipt was available. `command-center-hub` cannot claim a website runtime execution from source inspection alone.
 
-- scripted intent families and response rules;
-- website, Facebook, Instagram and WhatsApp surface boundaries;
-- staff handoff and no-auto-booking controls;
-- text-only Facebook/Instagram draft cadence;
-- future one-channel rollout order;
-- independent Gate, credential, kill-switch, volume, Privacy and receipt requirements.
+## Intended safe website behavior
 
-No account, channel, chatbot runtime or message flow was activated.
+- answer approved services, prices, locations, schedules, children, adults, ladies, Booking Request and contact intents;
+- produce Booking Request candidate language only;
+- never confirm availability or booking;
+- use bounded clarification or human-handoff notice when needed;
+- never store or transmit typed messages;
+- perform no API, CRM, Booking or Calendar operation.
 
 ## Authoritative documents
 
@@ -51,25 +49,17 @@ No account, channel, chatbot runtime or message flow was activated.
 - `docs/governance/STAGE_07_CHATBOT_PILOT_REPORT.md`
 - `docs/governance/STAGE_06_CHATBOT_SCRIPTED_EVALUATION.md`
 - `docs/governance/STAGE_05_N8N_SHADOW_MODE_REPORT.md`
-- `docs/governance/STAGE_04_CONTENT_CALENDAR_DRAFT.md`
-
-## Preserved dependencies
-
-- Stage 05 remains blocked and has no Shadow Receipt.
-- Stage 06 remains documentation-only completed.
-- Stage 07 has no live Pilot PASS receipt.
-- Stage 08 remains blocked.
 
 ## Safety receipt
 
 - website chatbot runtime executions: `0`;
-- Facebook connections/replies: `0`;
-- Instagram connections/replies: `0`;
-- WhatsApp connections/messages: `0`;
+- source verifier executions: `0`;
+- browser/Preview sessions: `0`;
 - external/API calls: `0`;
 - user messages stored/transmitted: `0`;
 - CRM writes: `0`;
 - Booking writes: `0`;
+- Calendar connections/writes: `0`;
 - publishing/scheduling/webhooks: `0`;
 - paid AI calls: `0`;
 - generated images/videos: `0`;
@@ -80,4 +70,4 @@ No account, channel, chatbot runtime or message flow was activated.
 
 `FAIL-CLOSED / NOT AUTHORIZED FOR STAGE 08`
 
-A Stage 07 retry must select exactly one channel, use a new exact Target SHA and provide an operation-specific Gate. Multi-surface activation is not authorized.
+Stage 07 remains incomplete without a genuine website Pilot PASS receipt. A later retry requires a new Target SHA and an approved isolated/local runner or authorized Preview.
