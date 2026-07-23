@@ -89,9 +89,13 @@ Authoritative evidence:
 
 ### 4. CONTENT CALENDAR (DRAFT-ONLY)
 
-Status: `BLOCKED`.
+Status: `STAGE-04-CONTENT-CALENDAR-DRAFT-ONLY: COMPLETED — STOPPED BEFORE STAGE 05`.
 
-Create offline text-only editorial planning, approval states, attribution and content fingerprints. No AI generation, images, video, upload, scheduling or publishing.
+A four-week text-only editorial design now defines Awareness, Trust and Conversion content types; channel roles; theoretical CTA, conversion-stage and UTM mapping; weekly/monthly cadence; content fingerprints; approval states; claims controls; idempotency; concurrency; kill switch; rollback and audit receipts. All items remain `draft_only`; no final publishable copy, media, upload, scheduling or publishing was created.
+
+Authoritative evidence:
+
+- `docs/governance/STAGE_04_CONTENT_CALENDAR_DRAFT.md`
 
 ### 5. N8N SHADOW MODE
 
@@ -141,6 +145,6 @@ A stage is eligible to start only after:
 
 ## Current program state
 
-`FAIL-CLOSED / NOT AUTHORIZED FOR STAGE 04`
+`FAIL-CLOSED / NOT AUTHORIZED FOR STAGE 05`
 
-Stage 04 must not begin automatically.
+Stage 05 must not begin automatically.
