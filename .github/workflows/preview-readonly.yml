@@ -1,0 +1,44 @@
+name: Preview Verification — Read Only
+
+on:
+  workflow_dispatch:
+    inputs:
+      preview_url:
+        description: Exact HTTPS Preview URL to verify
+        required: true
+        type: string
+      target_sha:
+        description: Exact 40-character commit SHA represented by the Preview
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: command-center-preview-${{ inputs.target_sha }}
+  cancel-in-progress: true
+
+jobs:
+  preview-e2e:
+    name: test:e2e:preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: preview-readonly
+    steps:
+      - name: Validate read-only Preview inputs
+        env:
+          PREVIEW_URL: ${{ inputs.preview_url }}
+          TARGET_SHA: ${{ inputs.target_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$PREVIEW_URL" =~ ^https:// ]]
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.target_sha }}
+      - name: Verify Preview responds without mutation
+        env:
+          PREVIEW_URL: ${{ inputs.preview_url }}
+        run: curl --fail --silent --show-error --location --max-time 30 "$PREVIEW_URL" >/dev/null
