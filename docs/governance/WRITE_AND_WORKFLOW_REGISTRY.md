@@ -7,9 +7,18 @@ Last verified: 2026-07-23 (Asia/Dubai)
 
 ## Governing rules
 
-Browser code is deny-by-default for writes. No direct table write, protected credential, Storage mutation, publication, outbound message, Migration or deployment action may originate in the browser. Only named server-enforced operations may be considered, and GOV-G authorizes no execution.
+Browser code is deny-by-default for writes. No direct table write, protected credential, Storage mutation, publication, outbound message, Migration or deployment action may originate in the browser. Only named server-enforced operations may be considered. `PHASE-3-PREP` authorizes no execution.
 
 No step may enter `PHASE-3-SAFE-EXECUTION` unless it is listed here with owner, approver, environment, idempotency, concurrency, audit, kill switch and rollback.
+
+## Phase 3 safe-operation registry
+
+| Repository | Operation name | Classification | Allowed environment | Required approvals | Required checks | Required secrets scope | Kill switch | Rollback | Audit receipt | Idempotency | Concurrency lock | Status |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `aymanmahrous/command-center-hub` | `source-only-verification` | Read-only source/test/build verification; no external write | Isolated runner or GitHub Actions on exact branch SHA; no Preview or Production access | Repository Owner; named Operator; independent reviewer distinct from author/operator; Security approval if runner/environment scope changes | `verify:source`, `verify:ci`, `verify:release`, `test:unit`, `test:security`, `test:contracts` on exact target SHA | Repository read token only; no database, Supabase service role, AI, Storage-write, publishing, webhook or Production secret | Cancel run and disable dispatch/runner access; preserve logs and check receipts | No state rollback expected; if governance/configuration caused the run, revert only through a new auditable branch commit | Repository, branch, target SHA, operator, approver, start/end/expiry, exact check contexts and run IDs, input/config hashes, final PASS/FAIL and unresolved effects | Operation identity = repository + exact target SHA + check set; replay must reference the same run/receipt or create a separately identified rerun without external side effect | One active verification set per repository + target SHA; runner/workflow concurrency group cancels or rejects duplicate in-flight attempts | `ALLOWED-FOR-PHASE-3` |
+| `aymanmahrous/command-center-hub` | `preview-readonly-verification` | Read-only HTTP/browser verification; GET/HEAD only; no mutation | `preview-readonly` against one exact approved HTTPS Preview URL and exact target SHA | Repository Owner; named Operator; independent reviewer distinct from author/operator; Security/Release approval of URL and secret inventory | All `source-only-verification` checks successful on exact SHA plus `test:e2e:preview` | No secrets preferred; otherwise only verified read-only access token. No database/service-role, AI, Storage-write, publishing, webhook, messaging or Production-write credential | Cancel run; disable `preview-readonly` approval; revoke scoped read token; block the URL if scope mismatch appears | Stop verification and discard transient browser state/artifacts as allowed; no remote state change is permitted; Git changes revert by new auditable commit only | Repository, branch, target SHA, exact URL/host, environment, operator/approver, check/run IDs, request methods, response summary, console/network failures, secret-scope attestation, start/end/expiry and final PASS/FAIL | Operation identity = target SHA + normalized Preview URL + verifier version; exact replay is read-only and receives a distinct run ID linked to the prior receipt | One active Preview verification per repository + target SHA + normalized URL; cancel/reject overlapping runs | `ALLOWED-FOR-PHASE-3` |
+
+`ALLOWED-FOR-PHASE-3` means eligible for a future activation review only. It does not authorize automatic dispatch or execution. A separate explicit order and complete PASS under `PHASE_3_ACTIVATION_GATE.md` remain mandatory.
 
 ## Migration separation rule
 
@@ -37,11 +46,11 @@ No step may enter `PHASE-3-SAFE-EXECUTION` unless it is listed here with owner, 
 
 ## Idempotency verification design
 
-For each write candidate, verification must demonstrate: first request succeeds once; exact replay returns the original result without a second side effect; conflicting payload with the same key is rejected; retry after timeout reconciles the original receipt; audit records contain one durable operation identity. No such test was run by GOV-G.
+For each write candidate, verification must demonstrate: first request succeeds once; exact replay returns the original result without a second side effect; conflicting payload with the same key is rejected; retry after timeout reconciles the original receipt; audit records contain one durable operation identity. No such test was run by PHASE-3-PREP.
 
 ## Concurrency verification design
 
-Verification must demonstrate: two simultaneous requests for the same lock scope produce at most one accepted mutation; the loser receives a bounded conflict/in-progress result; expired locks are recoverable; lock owner/run ID and timestamps are auditable; unrelated scopes may proceed independently. No such test was run by GOV-G.
+Verification must demonstrate: two simultaneous requests for the same lock scope produce at most one accepted mutation; the loser receives a bounded conflict/in-progress result; expired locks are recoverable; lock owner/run ID and timestamps are auditable; unrelated scopes may proceed independently. No such test was run by PHASE-3-PREP.
 
 ## Browser runtime blocklist
 
