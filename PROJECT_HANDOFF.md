@@ -7,84 +7,48 @@ Last verified: 2026-07-23 (Asia/Dubai)
 Owner: Repository Owner
 Historical baseline: `PROJECT_HANDOFF.md` at commit `312c30b4662afdea33b8b6f3e6a4e44201ec4b1f`
 
-## Purpose
-
-This is the current operational continuation source. Historical implementation and verification evidence remains dated evidence only. Governance completion never authorizes runtime or external execution without a separate explicit approval.
-
-## Source-of-truth order
-
-1. `AGENT_CONSTITUTION.md`.
-2. `docs/governance/PHASE_NAMESPACE.md`.
-3. This Handoff.
-4. `docs/governance/GOV_E_READINESS_REPORT.md`.
-5. `.github/workflows/verify.yml` and `.github/workflows/preview-readonly.yml`.
-6. `docs/governance/GITHUB_RULESETS_DESIGN.md` and `GITHUB_ENVIRONMENTS_DESIGN.md`.
-7. `docs/governance/WRITE_AND_WORKFLOW_REGISTRY.md` and `RISK_OWNERSHIP_MATRIX.md`.
-8. `docs/governance/PR_REGISTRY.md`.
-9. Historical evidence, which is never executable.
-
 ## Current governance stage
 
-`GOV-E: COMPLETED — READY FOR GOV-F`
+`GOV-F: COMPLETED — READY FOR GOV-G`
 
-GOV-A established source truth, GOV-B organized PR risk, GOV-C inventoried sensitive operations, GOV-D designed GitHub enforcement, and GOV-E normalized branch-only CI. No Workflow or check was run or activated on `main`.
+GOV-A through GOV-E established source truth, PR classification, operation ownership, GitHub enforcement design and normalized CI. GOV-F completed static risk reduction on this governance branch only. No Workflow, script, test, build, Preview, deployment or external system was run.
 
-## GOV-E stable checks
+## GOV-F improvements
 
-The normalized check names are:
+- Reviewed all declared dependencies and devDependencies; no removal was made without executed evidence.
+- Added `docs/governance/DEPENDENCY_REVIEW_GOV_F.md`.
+- Added deny-by-default browser runtime write rules to `WRITE_AND_WORKFLOW_REGISTRY.md`.
+- Added `docs/governance/PRODUCTION_HOST_ALLOWLIST.md`; the Command Center Production read allowlist remains empty until an exact host is verified.
+- Added `docs/governance/SECRETS_SCOPE_MAP.md`.
+- Confirmed no active repository Workflow is designed to perform Production writes.
+- Database, AI, Storage, publishing, messaging and Production-write paths remain blocked.
 
-- `verify:source`;
-- `verify:ci`;
-- `verify:release`;
-- `test:unit`;
-- `test:security`;
-- `test:contracts`;
-- `test:e2e:preview`.
+## Browser runtime prohibited paths
 
-`test:integration:disposable` is reserved but not applicable because this repository contains no authorized disposable database integration path.
+Browser/client code may not perform direct table POST/PATCH/PUT/DELETE, hold service-role or provider secrets, administer migrations/RLS/grants/cron/workers, mutate elevated Storage, call AI with protected credentials, publish, schedule, send outbound messages, or invoke unregistered RPCs.
 
-## Command Center CI changes
+Named staff RPCs remain classified as controlled server-enforced writes, but GOV-F does not authorize their execution or Production activation. PR #8 remains stale and non-merge-ready.
 
-- `.github/workflows/verify.yml` now declares PR, manual, and `push` to `main` triggers.
-- All referenced Actions use full commit SHAs.
-- `package.json` exposes stable verification scripts while keeping `verify` as an alias to `verify:ci`.
-- The existing consolidated test suite currently backs unit, security, and contract aliases; later physical suite separation must preserve these check names.
-- `.github/workflows/preview-readonly.yml` is manual-only, requires an exact HTTPS URL and target SHA, uses no secrets, and exposes `test:e2e:preview`.
+## Production host allowlist
 
-## Supply-chain job
+Deny by default. No exact Command Center Production hostname is approved by GOV-F. Preview, Supabase, provider, Storage, webhook and arbitrary deployment hosts are excluded.
 
-The independent `supply-chain` job defines:
+## Secrets scope
 
-- `npm ci --ignore-scripts`;
-- lockfile dry-run integrity;
-- `npm audit --omit=dev`;
-- version-pinned unused-package and license checks;
-- CycloneDX SBOM generation and pinned artifact upload;
-- rejection of Action references using `@v*`, `@main`, or `@master`.
+- Read-only/browser environments may contain only verified public identifiers or read-only credentials.
+- Service-role/database credentials belong only to a future protected `production-write` environment.
+- AI keys belong only to `production-ai-spend`.
+- Storage and publishing tokens require separate protected environments.
+- No secret value is recorded in governance files; actual GitHub secret inventories were not queried.
 
-These definitions were not executed during GOV-E.
+## Verification limitation
 
-## Verification levels
+Dependency usage, secret absence and Workflow behavior were reviewed statically. The normalized supply-chain job and checks were not run. Rulesets, required checks, CODEOWNERS enforcement and Environments are not active on `main`.
 
-- Source verification: normal PR and push-to-main CI, no external write credentials.
-- Disposable verification: not applicable and not authorized for this repository.
-- Preview verification: manual `preview-readonly`, read-only response check.
-- Production-readonly verification: not configured or authorized for Command Center.
-- Production-write and AI-spend: prohibited.
+## Safety boundary
 
-## Earlier governance state
-
-- PR #19 remains the documentation candidate and was not modified.
-- PR #8 remains stale, requires revalidation, and is non-merge-ready.
-- CODEOWNERS, Rulesets, Environment designs, operation registry, risk ownership, kill switches, and rollback procedures remain authoritative through their governance files.
-- Rulesets, Branch Protection, required checks, CODEOWNERS enforcement, and Environments are not active on `main` merely because their designs exist on this branch.
-
-## Safety and limitations
-
-- No Workflow, test, audit, build, Preview, deployment, database/provider connection, Production action, PR metadata change, or `main` change occurred.
-- Supply-chain and CI definitions require a later authorized run before successful check names can be observed and enforced.
-- Do not activate Required Checks until their exact successful contexts are observed.
+Do not modify `main`, change PR metadata or repository settings, run Workflows/scripts/tests/builds, deploy, connect to Production/Supabase/providers, generate, publish, schedule, message, modify secrets or spend.
 
 ## Transition gate
 
-GOV-E is complete as a branch-only CI-normalization stage. GOV-F may begin only under a separate explicit instruction.
+GOV-F is complete on this branch. GOV-G may begin only after a separate explicit instruction.
