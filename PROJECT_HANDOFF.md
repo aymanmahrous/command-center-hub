@@ -9,102 +9,82 @@ Historical baseline: `PROJECT_HANDOFF.md` at commit `312c30b4662afdea33b8b6f3e6a
 
 ## Purpose
 
-This is the current operational continuation source. Historical implementation and verification evidence remains dated evidence and is not represented as newly verified. No governance stage authorizes runtime or external execution unless a later explicit approval says so.
+This is the current operational continuation source. Historical implementation and verification evidence remains dated evidence only. Governance completion never authorizes runtime or external execution without a separate explicit approval.
 
 ## Source-of-truth order
 
-1. `AGENT_CONSTITUTION.md` — governance candidate.
-2. `docs/governance/PHASE_NAMESPACE.md` — canonical phase naming.
-3. This Handoff — current operational status.
-4. `docs/governance/GITHUB_RULESETS_DESIGN.md` — proposed repository enforcement.
-5. `docs/governance/GITHUB_ENVIRONMENTS_DESIGN.md` — proposed Environment separation.
-6. `.github/CODEOWNERS` — branch-only sensitive-path ownership candidate.
-7. `docs/governance/WRITE_AND_WORKFLOW_REGISTRY.md` — write/read paths, approvals, kill switches and rollback.
-8. `docs/governance/RISK_OWNERSHIP_MATRIX.md` — accountable role separation.
-9. `docs/governance/PR_REGISTRY.md` — PR classifications and dependencies.
-10. Historical documents and PR receipts — evidence only and never executable.
+1. `AGENT_CONSTITUTION.md`.
+2. `docs/governance/PHASE_NAMESPACE.md`.
+3. This Handoff.
+4. `docs/governance/GOV_E_READINESS_REPORT.md`.
+5. `.github/workflows/verify.yml` and `.github/workflows/preview-readonly.yml`.
+6. `docs/governance/GITHUB_RULESETS_DESIGN.md` and `GITHUB_ENVIRONMENTS_DESIGN.md`.
+7. `docs/governance/WRITE_AND_WORKFLOW_REGISTRY.md` and `RISK_OWNERSHIP_MATRIX.md`.
+8. `docs/governance/PR_REGISTRY.md`.
+9. Historical evidence, which is never executable.
 
 ## Current governance stage
 
-`GOV-D: COMPLETED — READY FOR GOV-E`
+`GOV-E: COMPLETED — READY FOR GOV-F`
 
-GOV-A established the source of truth, GOV-B organized PR risk, GOV-C inventoried sensitive operations, and GOV-D prepared branch-only GitHub enforcement designs. Rulesets, Branch Protection, Code Owner enforcement and Environments are not claimed as active on `main`.
+GOV-A established source truth, GOV-B organized PR risk, GOV-C inventoried sensitive operations, GOV-D designed GitHub enforcement, and GOV-E normalized branch-only CI. No Workflow or check was run or activated on `main`.
 
-## Historical and GOV-C operational boundary
+## GOV-E stable checks
 
-Historical evidence records controlled inbox, booking, CRM and content operations, with migrations, AI, publishing and external actions blocked. The authoritative operation inventory and role separation remain in `WRITE_AND_WORKFLOW_REGISTRY.md` and `RISK_OWNERSHIP_MATRIX.md`. No tests, builds, Workflows or external checks ran during GOV-A through GOV-D.
+The normalized check names are:
 
-## GOV-B PR organization
+- `verify:source`;
+- `verify:ci`;
+- `verify:release`;
+- `test:unit`;
+- `test:security`;
+- `test:contracts`;
+- `test:e2e:preview`.
 
-- PR #19: `ACTIVE / DOCUMENTATION`; unchanged.
-- PR #8: `STALE / REVALIDATION REQUIRED / NON-MERGE-READY`.
-- PRs #9 through #18: historical evidence only.
-- No active database, AI, publishing or external-messaging candidate is authorized.
+`test:integration:disposable` is reserved but not applicable because this repository contains no authorized disposable database integration path.
 
-## GOV-D CODEOWNERS design
+## Command Center CI changes
 
-`.github/CODEOWNERS` now covers:
+- `.github/workflows/verify.yml` now declares PR, manual, and `push` to `main` triggers.
+- All referenced Actions use full commit SHAs.
+- `package.json` exposes stable verification scripts while keeping `verify` as an alias to `verify:ci`.
+- The existing consolidated test suite currently backs unit, security, and contract aliases; later physical suite separation must preserve these check names.
+- `.github/workflows/preview-readonly.yml` is manual-only, requires an exact HTTPS URL and target SHA, uses no secrets, and exposes `test:e2e:preview`.
 
-- `.github/workflows/**`;
-- `supabase/migrations/**`;
-- auth, AI and booking source paths;
-- `scripts/verify-*`;
-- privacy documents;
-- `AGENT_CONSTITUTION.md`;
-- `PROJECT_HANDOFF.md`;
-- governance documents.
+## Supply-chain job
 
-`@aymanmahrous` is the Responsible candidate and `@pixelreel2026` is the known independent-review candidate. Their access and Code Owner eligibility must be verified before merge or activation. The file on this branch does not enforce anything on `main`.
+The independent `supply-chain` job defines:
 
-## GOV-D Rulesets design
+- `npm ci --ignore-scripts`;
+- lockfile dry-run integrity;
+- `npm audit --omit=dev`;
+- version-pinned unused-package and license checks;
+- CycloneDX SBOM generation and pinned artifact upload;
+- rejection of Action references using `@v*`, `@main`, or `@master`.
 
-The proposed `main` ruleset requires PRs, independent approval, Code Owner review, stale-approval dismissal, review after last push, conversation resolution, stable required checks, blocked force-push and deletion, restricted emergency bypass, and an audit-preserving merge policy. GOV-E must establish stable required-check names before settings activation.
+These definitions were not executed during GOV-E.
 
-## GOV-D Environments design
+## Verification levels
 
-Four isolated designs are documented:
+- Source verification: normal PR and push-to-main CI, no external write credentials.
+- Disposable verification: not applicable and not authorized for this repository.
+- Preview verification: manual `preview-readonly`, read-only response check.
+- Production-readonly verification: not configured or authorized for Command Center.
+- Production-write and AI-spend: prohibited.
 
-- `preview-readonly`;
-- `production-readonly`;
-- `production-write`;
-- `production-ai-spend`.
+## Earlier governance state
 
-Each defines secret scope, allowed triggers, approvals, kill switch and rollback. Read-only environments may not contain write credentials. Write and AI-spend environments require separate named independent approval and remain inactive.
+- PR #19 remains the documentation candidate and was not modified.
+- PR #8 remains stale, requires revalidation, and is non-merge-ready.
+- CODEOWNERS, Rulesets, Environment designs, operation registry, risk ownership, kill switches, and rollback procedures remain authoritative through their governance files.
+- Rulesets, Branch Protection, required checks, CODEOWNERS enforcement, and Environments are not active on `main` merely because their designs exist on this branch.
 
-## Kill switches and rollback
+## Safety and limitations
 
-The GOV-C registry remains authoritative for domain kill switches and rollback. GOV-D adds settings-level stops: disable Environment approval, revoke narrowly scoped credentials, block dispatch, cancel pending deployment, and preserve settings/run receipts. Git rollback uses a new auditable commit; history rewriting remains prohibited.
-
-## Governance completion evidence
-
-### GOV-A
-
-- Source of truth, phase namespace, Constitution candidate and evidence registry established.
-
-### GOV-B
-
-- Open PRs classified and one-PR-per-risk-domain rules recorded.
-
-### GOV-C
-
-- Write/workflow registry, ownership matrix, kill switches and rollback requirements completed.
-
-### GOV-D
-
-- `.github/CODEOWNERS` added on the governance branch.
-- `GITHUB_RULESETS_DESIGN.md` created.
-- `GITHUB_ENVIRONMENTS_DESIGN.md` created.
-- `GOV_D_READINESS_REPORT.md` records `GOV-D: COMPLETED — READY FOR GOV-E`.
-- No repository setting, `main`, PR metadata, Workflow, deployment or external system was changed.
-
-## Prohibited actions
-
-- Do not modify `main` or change repository settings under this branch-only stage.
-- Do not merge, revert, close, relabel, retarget or comment on PRs.
-- Do not run scripts, Workflows, tests, builds, Preview or deployment.
-- Do not create/apply migrations or access Supabase, AI providers, Production, secrets or external accounts.
-- Do not generate, publish, schedule, message, advertise, bill or spend.
+- No Workflow, test, audit, build, Preview, deployment, database/provider connection, Production action, PR metadata change, or `main` change occurred.
+- Supply-chain and CI definitions require a later authorized run before successful check names can be observed and enforced.
+- Do not activate Required Checks until their exact successful contexts are observed.
 
 ## Transition gate
 
-GOV-D is complete as an enforcement design stage. GOV-E may begin only under a separate explicit instruction. Actual Ruleset, Branch Protection, CODEOWNERS enforcement and Environment activation require a separate settings authorization and evidence receipt.
+GOV-E is complete as a branch-only CI-normalization stage. GOV-F may begin only under a separate explicit instruction.
