@@ -5,45 +5,40 @@ Authority: OPERATIONAL
 Applies to: command-center-hub
 Last verified: 2026-07-23 (Asia/Dubai)
 Owner: Repository Owner
-Historical baseline: `PROJECT_HANDOFF.md` at commit `312c30b4662afdea33b8b6f3e6a4e44201ec4b1f`
 
 ## Current stage
 
-`PHASE-3-PREP: COMPLETED — READY FOR SAFE EXECUTION`
+`PHASE-3-DISPATCH-SETUP: COMPLETED — READY FOR EXECUTION`
 
-Equivalent activation wording: `PHASE-3-PREP: COMPLETED — READY FOR EXECUTION`.
+This certifies dispatch preparation only. No Check, Workflow, script, test, build, Preview, deployment or external connection was run.
 
-This certifies preparation only. No Check, Workflow, script, test, build, Preview, deployment or external connection was run. `PHASE-3-SAFE-EXECUTION` still requires a new explicit order and a complete PASS gate.
+## Authorized source-only dispatch
 
-## Registered Phase 3 operations
+`.github/workflows/phase-3-source-only-dispatch.yml` defines manual `workflow_dispatch` for `source-only-verification` only.
 
-`WRITE_AND_WORKFLOW_REGISTRY.md` now contains the literal operations:
+It requires an exact 40-character SHA equal to the selected `agent/phase-a-source-of-truth` commit, uses `contents: read`, disables persisted checkout credentials, references no secret or Environment and exposes only:
 
-1. `source-only-verification` — read-only source/test/build verification on an exact SHA.
-2. `preview-readonly-verification` — read-only GET/HEAD browser verification against one approved HTTPS Preview URL and exact SHA.
+- `verify:source`;
+- `verify:ci`;
+- `verify:release`;
+- `test:unit`;
+- `test:security`;
+- `test:contracts`.
 
-Both rows include Repository, classification, environment, approvals, checks, secrets scope, kill switch, rollback, audit receipt, idempotency, concurrency and status `ALLOWED-FOR-PHASE-3`.
+Concurrency is limited to one run per target SHA. Cancellation is the kill switch.
 
-`ALLOWED-FOR-PHASE-3` is eligibility for a future activation review, not automatic authorization.
+## Safety boundary
+
+The dispatch definition contains no Production, database, Supabase, AI, Storage-write, publishing, scheduling, webhook or messaging credential or step. `preview-readonly-verification` remains separate and requires its own exact URL and Environment evidence.
 
 ## Activation gate
 
-`PHASE_3_ACTIVATION_GATE.md` now recognizes only the two operations above for the first safe-execution attempt.
-
-- `source-only-verification` requires successful `verify:source`, `verify:ci`, `verify:release`, `test:unit`, `test:security` and `test:contracts` on the exact target SHA.
-- `preview-readonly-verification` additionally requires successful `test:e2e:preview`, an exact approved HTTPS Preview URL and verified `preview-readonly` secrets scope.
-- Named Operator and independent approver are mandatory.
-- A usable authorized dispatch mechanism or isolated runner is mandatory.
-- Any missing field returns `FAIL-CLOSED`.
+`PHASE_3_ACTIVATION_GATE.md` now names the Workflow as the authorized dispatch mechanism. A future execution still requires a new target SHA, named Operator and independent approver, time limit, successful exact-SHA receipts and a separate explicit order. If branch dispatch is unavailable, use only an independently approved isolated runner with identical commands; otherwise fail closed.
 
 ## Continuing prohibitions
 
-Production writes, database writes, Migrations, AI/provider access, Storage writes, publishing, scheduling, webhooks, outbound messaging, protected browser credentials, repository settings and PR metadata changes remain blocked. PR #8 remains stale and non-merge-ready.
-
-## Safety receipt
-
-PHASE-3-PREP changed governance Markdown only on `agent/phase-a-source-of-truth`. It did not touch `main`, run checks or Workflows, create a Preview, deploy, connect to Production/database/providers, generate, publish, migrate or mutate external state.
+Production writes, database writes, Migrations, AI/provider access, Storage writes, publishing, scheduling, webhooks, outbound messaging, settings and PR metadata changes remain blocked. PR #8 remains stale and non-merge-ready.
 
 ## Next transition
 
-Do not begin `PHASE-3-SAFE-EXECUTION` automatically. A new explicit instruction must select one literal operation, provide an exact new target SHA and satisfy every Activation Gate control.
+Do not start `PHASE-3-SAFE-EXECUTION` automatically. A separate explicit instruction must select one registered operation and satisfy every Activation Gate control.
