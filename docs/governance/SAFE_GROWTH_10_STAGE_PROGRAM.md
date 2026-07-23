@@ -3,7 +3,7 @@
 Document status: CURRENT
 Authority: STRATEGIC OPERATING PROGRAM
 Applies to: command-center-hub
-Last verified: 2026-07-23 (Asia/Dubai)
+Last verified: 2026-07-24 (Asia/Dubai)
 
 ## Program decision
 
@@ -79,9 +79,13 @@ Authoritative evidence:
 
 ### 3. CONVERSION OPERATING MODEL
 
-Status: `BLOCKED`.
+Status: `STAGE-03-CONVERSION-OPERATING-MODEL: COMPLETED — STOPPED BEFORE STAGE 04`.
 
-Define the governed flow from interaction to validated event, deduplicated contact, Lead, qualification, Booking request and staff confirmation. No CRM or Booking writes.
+The governed design now defines interaction sources, validated-event schema, contact/Lead/Booking-request schemas, validation, deduplication, UTM attribution, consent/privacy boundaries, state machines, human handoff, deterministic chatbot flow, n8n pseudo-flow, idempotency, concurrency, receipts and KPIs. No runtime, external read, API, provider, Workflow, n8n, chatbot, CRM or Booking operation occurred.
+
+Authoritative evidence:
+
+- `docs/governance/STAGE_03_CONVERSION_OPERATING_MODEL.md`
 
 ### 4. CONTENT CALENDAR (DRAFT-ONLY)
 
@@ -137,6 +141,6 @@ A stage is eligible to start only after:
 
 ## Current program state
 
-`FAIL-CLOSED / NOT AUTHORIZED FOR STAGE 03`
+`FAIL-CLOSED / NOT AUTHORIZED FOR STAGE 04`
 
-Stage 03 must not begin automatically.
+Stage 04 must not begin automatically.
