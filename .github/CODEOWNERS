@@ -1,0 +1,17 @@
+# GOV-D CODEOWNERS candidate — branch-only, not active on main.
+# Responsible owner: @aymanmahrous
+# Independent-review candidate: @pixelreel2026
+# Before merge, verify both accounts have the required repository access and that
+# branch protection requires review from Code Owners. Role mappings remain in
+# docs/governance/RISK_OWNERSHIP_MATRIX.md.
+
+/.github/workflows/                    @aymanmahrous @pixelreel2026
+/supabase/migrations/                  @aymanmahrous @pixelreel2026
+/src/**/auth*                          @aymanmahrous @pixelreel2026
+/src/**/ai*                            @aymanmahrous @pixelreel2026
+/src/**/booking*                       @aymanmahrous @pixelreel2026
+/scripts/verify-*                      @aymanmahrous @pixelreel2026
+/docs/privacy/                         @aymanmahrous @pixelreel2026
+/AGENT_CONSTITUTION.md                 @aymanmahrous @pixelreel2026
+/PROJECT_HANDOFF.md                    @aymanmahrous @pixelreel2026
+/docs/governance/                      @aymanmahrous @pixelreel2026
