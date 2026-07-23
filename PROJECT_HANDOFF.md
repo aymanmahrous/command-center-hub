@@ -10,13 +10,63 @@ Owner: Repository Owner
 
 `PHASE-3-DISPATCH-SETUP: COMPLETED — READY FOR EXECUTION`
 
-This certifies dispatch preparation only. No Check, Workflow, script, test, build, Preview, deployment or external connection was run.
+`GROWTH-OPERATING-FOUNDATION: APPROVED — EXECUTION GATED`
+
+The dispatch mechanism is prepared but no Check or Workflow was run. The omnichannel growth plan is now the strategic operating basis, but it does not activate any provider, account, automation, write or publishing path.
+
+## Approved strategic foundation
+
+The authoritative plan is `docs/governance/GROWTH_OPERATING_FOUNDATION.md`, with approval evidence in `docs/governance/GROWTH_OPERATING_FOUNDATION_APPROVAL_REPORT.md`.
+
+It governs:
+
+1. Google Business;
+2. Google Maps;
+3. SEO;
+4. Local SEO;
+5. Meta — Facebook and Instagram;
+6. TikTok;
+7. YouTube;
+8. n8n;
+9. Chatbot;
+10. Scheduling and Publishing.
+
+The objectives are qualified search growth, Abu Dhabi local visibility, Google Maps/Business improvement, controlled automation, traceable Lead/Booking conversion and safe multi-channel operation without destructive coupling.
+
+## Repository role
+
+`command-center-hub` is the governance and control plane. It may expose read-only channel health, approvals, audit receipts, queue state and exceptions. It may not hold browser provider secrets, write directly to providers or bypass server-enforced operations.
+
+## First permitted strategic work
+
+Only separately authorized source-only or read-only work may be considered first:
+
+- technical SEO and source audit;
+- public-site read-only verification;
+- Google Business/Maps ownership and discrepancy inventory;
+- NAP, citation and Local SEO gap inventory;
+- channel/account/permission inventory without credentials being added;
+- n8n architecture and workflow registry design;
+- chatbot scripted/non-provider evaluation;
+- offline editorial calendar and approval-state design.
+
+## Still frozen
+
+- provider account connections and credentials;
+- Google Business/Maps mutations;
+- n8n execution and webhooks;
+- AI generation or AI-powered chatbot tools;
+- CRM and Booking writes;
+- social/video upload, replies, scheduling and publishing;
+- Production database, Supabase, Storage and Migrations;
+- bulk content/location generation or automatic cross-channel publishing;
+- repository settings, secrets and PR metadata changes without separate authority.
+
+PR #8 remains stale and non-merge-ready.
 
 ## Authorized source-only dispatch
 
-`.github/workflows/phase-3-source-only-dispatch.yml` defines manual `workflow_dispatch` for `source-only-verification` only.
-
-It requires an exact 40-character SHA equal to the selected `agent/phase-a-source-of-truth` commit, uses `contents: read`, disables persisted checkout credentials, references no secret or Environment and exposes only:
+`.github/workflows/phase-3-source-only-dispatch.yml` defines manual `workflow_dispatch` for `source-only-verification` only. It requires an exact 40-character SHA equal to the selected governance-branch commit, uses `contents: read`, disables persisted checkout credentials, references no secret or Environment and exposes only:
 
 - `verify:source`;
 - `verify:ci`;
@@ -27,18 +77,8 @@ It requires an exact 40-character SHA equal to the selected `agent/phase-a-sourc
 
 Concurrency is limited to one run per target SHA. Cancellation is the kill switch.
 
-## Safety boundary
+## Activation rule
 
-The dispatch definition contains no Production, database, Supabase, AI, Storage-write, publishing, scheduling, webhook or messaging credential or step. `preview-readonly-verification` remains separate and requires its own exact URL and Environment evidence.
+Strategic approval is not execution approval. Every channel and operation must receive its own exact scope, target SHA, named operator, independent approver, credential boundary, checks, idempotency, concurrency lock, kill switch, rollback and audit receipt. Missing controls fail closed.
 
-## Activation gate
-
-`PHASE_3_ACTIVATION_GATE.md` now names the Workflow as the authorized dispatch mechanism. A future execution still requires a new target SHA, named Operator and independent approver, time limit, successful exact-SHA receipts and a separate explicit order. If branch dispatch is unavailable, use only an independently approved isolated runner with identical commands; otherwise fail closed.
-
-## Continuing prohibitions
-
-Production writes, database writes, Migrations, AI/provider access, Storage writes, publishing, scheduling, webhooks, outbound messaging, settings and PR metadata changes remain blocked. PR #8 remains stale and non-merge-ready.
-
-## Next transition
-
-Do not start `PHASE-3-SAFE-EXECUTION` automatically. A separate explicit instruction must select one registered operation and satisfy every Activation Gate control.
+Do not start `PHASE-3-SAFE-EXECUTION`, connect a provider, create a webhook, write a Lead/Booking, run n8n or publish automatically without a separate explicit instruction and a complete activation gate.
