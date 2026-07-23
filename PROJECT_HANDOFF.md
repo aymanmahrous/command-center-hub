@@ -8,45 +8,52 @@ Owner: Repository Owner
 
 ## Current stage
 
+`STAGE-06-CHATBOT-SCRIPTED-EVALUATION: COMPLETED — STOPPED BEFORE STAGE 07`
+
 `STAGE-05-N8N-SHADOW-MODE: BLOCKED — NO AUTHORIZED SHADOW RUNNER`
 
 `SAFE-GROWTH-10-STAGE-PROGRAM: APPROVED — SEQUENTIAL EXECUTION ONLY`
 
-Stage 05 was requested but not completed. The project returned to fail-closed. Stage 06 is not authorized.
+Stage 06 was completed as a repository-only documentation exception. It does not mark Stage 05 complete and does not authorize any runtime.
 
 ## Authorization
 
 - Owner / Operator: `AYMAN`
 - Independent approver: `pixelreel2026`
-- Stage 05 Target SHA: `648a416c778fbdd85013796af9b0bf4cc373d75e`
-- Allowed Environment: `SHADOW-MODE-ONLY`
+- Stage 06 Target SHA: `0d8fdf7f8a68919d5ca0d2e35afc0774e38adb3b`
+- Allowed Environment: `DESIGN-ONLY / REPOSITORY-READ-ONLY`
 - FREE-SAFE-MODE: `ACTIVE`
 - paid AI cost ceiling: `0`
 - generated images ceiling: `0`
 - generated videos ceiling: `0`
 
-## Stage 05 finding
+## Completed Stage 06 design
 
-The product repository contains an inactive preview-only n8n workflow using synthetic data, consent and validation checks, an idempotency key and external writes disabled.
+The scripted evaluation defines safe Arabic/English scenarios for services, pricing, locations, schedules, Booking Requests, human handoff, complaints, safety-sensitive requests, child-data minimization, low confidence, duplicates and cancellation/change.
 
-No approved isolated n8n runtime or runner was available to execute it. No exact runtime/container identity, outbound-network deny receipt, credential-empty instance evidence, registered execution command or immutable Shadow Receipt was available. Therefore no n8n execution may be claimed.
+It requires approved facts only, minimum data, no medical claims, no invented price or availability, no automatic booking confirmation and mandatory staff confirmation.
 
-`command-center-hub` remains the governance/control plane and has no authority to import or activate the workflow.
+`command-center-hub` remains the governance/control plane and may later display scenario status, rule failures and review receipts only after separate authority.
+
+## Preserved Stage 05 state
+
+Stage 05 remains blocked. No n8n runtime, import, execution or Shadow Receipt occurred.
 
 ## Authoritative documents
 
 - `docs/governance/SAFE_GROWTH_10_STAGE_PROGRAM.md`
+- `docs/governance/STAGE_06_CHATBOT_SCRIPTED_EVALUATION.md`
 - `docs/governance/STAGE_05_N8N_SHADOW_MODE_REPORT.md`
-- `docs/governance/STAGE_04_CONTENT_CALENDAR_DRAFT.md`
 - `docs/governance/STAGE_03_CONVERSION_OPERATING_MODEL.md`
 
 ## Safety receipt
 
-- n8n shadow executions: `0`;
-- n8n production executions: `0`;
+- chatbot runtime executions: `0`;
 - external/API calls: `0`;
+- n8n executions: `0`;
 - CRM writes: `0`;
 - Booking writes: `0`;
+- Calendar connections/writes: `0`;
 - publishing/scheduling/webhooks: `0`;
 - paid AI calls: `0`;
 - generated images/videos: `0`;
@@ -55,6 +62,6 @@ No approved isolated n8n runtime or runner was available to execute it. No exact
 
 ## Current safety state
 
-`FAIL-CLOSED / NOT AUTHORIZED FOR STAGE 06`
+`FAIL-CLOSED / NOT AUTHORIZED FOR STAGE 07`
 
-Stage 05 requires a separately authorized retry with a new target SHA and a genuinely isolated n8n runner. Do not start Stage 06 automatically.
+Stage 07 requires a separate explicit instruction, a new target SHA and an operation-specific Gate. Do not represent Stage 05 as completed.
