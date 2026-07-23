@@ -8,17 +8,17 @@ Owner: Repository Owner
 
 ## Current stage
 
-`STAGE-03-CONVERSION-OPERATING-MODEL: COMPLETED — STOPPED BEFORE STAGE 04`
+`STAGE-04-CONTENT-CALENDAR-DRAFT-ONLY: COMPLETED — STOPPED BEFORE STAGE 05`
 
 `SAFE-GROWTH-10-STAGE-PROGRAM: APPROVED — SEQUENTIAL EXECUTION ONLY`
 
-The project completed Stage 03 as repository-only design work, returned to fail-closed and stopped. No later stage starts automatically.
+The project completed Stage 04 as text-only repository design, returned to fail-closed and stopped. No later stage starts automatically.
 
 ## Program roles and authorization
 
 - Owner / Operator: `AYMAN`
 - Independent approver: `pixelreel2026`
-- Stage 03 Target SHA: `7b554984062fc860d047d54a226e12dc9527acaa`
+- Stage 04 Target SHA: `8436ce429bb001a0a22a973405b462e4460a1397`
 - Allowed Environment: `DESIGN-ONLY / REPOSITORY-READ-ONLY`
 - FREE-SAFE-MODE: `ACTIVE`
 - paid AI cost ceiling: `0`
@@ -28,47 +28,49 @@ The project completed Stage 03 as repository-only design work, returned to fail-
 ## Authoritative documents
 
 - `docs/governance/SAFE_GROWTH_10_STAGE_PROGRAM.md`
+- `docs/governance/STAGE_04_CONTENT_CALENDAR_DRAFT.md`
 - `docs/governance/STAGE_03_CONVERSION_OPERATING_MODEL.md`
 - `docs/governance/STAGE_02_READ_ONLY_INVENTORY_REPORT.md`
 - `docs/governance/GROWTH_OPERATING_FOUNDATION.md`
 
-## Completed Stage 03 design
+## Completed Stage 04 design
 
-The operating model defines:
+The draft-only calendar defines:
 
-- the governed conversion path from Interaction through Staff Confirmation;
-- theoretical source-channel mapping;
-- validated-event, Lead and Booking-request schemas;
-- validation and deduplication rules;
-- UTM and attribution mapping;
-- consent, privacy and minimum-data boundaries;
-- Lead and Booking-request state machines;
-- human-handoff conditions;
-- deterministic text-only chatbot flow;
-- n8n pseudo-flow reserved for Stage 05;
-- idempotency, concurrency, receipts and KPI definitions.
+- Awareness, Trust and Conversion content categories;
+- channel roles for website, Google Business, Meta, TikTok, YouTube and Chatbot;
+- theoretical CTA mapping to the Stage 03 conversion model;
+- theoretical UTM and attribution fields;
+- weekly and four-week monthly planning cadence;
+- content ID and fingerprint revision rules;
+- owner and independent-review states;
+- factual, privacy, local-representation and claims controls;
+- idempotency, concurrency, kill-switch, rollback and receipt rules.
 
-`command-center-hub` remains the governance/control plane. It may later display approved receipts, queue states, exceptions and KPIs, but Stage 03 did not create or query live data.
+Every item remains `draft_only`. `approved_design` is not publishing authorization.
+
+`command-center-hub` remains the governance/control plane. It may later display calendar status, owner, approvals, fingerprints, attribution and exceptions, but Stage 04 created no provider draft, live content, schedule or publish job.
 
 ## Runtime and external boundary
 
-Stage 03 performed no:
+Stage 04 performed no:
 
 - API or provider call;
-- Workflow, n8n or chatbot runtime;
-- Lighthouse, PageSpeed or Insights run;
+- Workflow or n8n execution;
 - CRM or Booking write;
 - Production, Supabase or Storage connection;
 - publishing, scheduling or webhook;
 - paid AI call;
-- image or video generation.
+- image or video generation;
+- use of real media;
+- final publishable content creation.
 
 ## Ten-stage order
 
 1. SAFE EXECUTION BASELINE — completed.
 2. READ-ONLY INVENTORY — completed.
 3. CONVERSION OPERATING MODEL — completed.
-4. CONTENT CALENDAR (DRAFT-ONLY) — blocked.
+4. CONTENT CALENDAR (DRAFT-ONLY) — completed.
 5. N8N SHADOW MODE — blocked.
 6. CHATBOT SCRIPTED EVALUATION — blocked.
 7. SINGLE CHANNEL PILOT — blocked.
@@ -78,10 +80,10 @@ Stage 03 performed no:
 
 ## Safety receipt
 
-External/API calls, Workflow executions, n8n executions, chatbot runs, CRM writes, Booking writes, paid AI calls, generated images/videos, publishing/scheduling/webhooks, Lighthouse/PageSpeed/Insights runs, Production/Supabase/Storage connections and `main` modifications were all `0`.
+External/API calls, Workflow executions, n8n executions, CRM writes, Booking writes, paid AI calls, generated images/videos, real media use, final publishable copy, publishing/scheduling/webhooks, Production/Supabase/Storage connections and `main` modifications were all `0`.
 
 ## Current safety state
 
-`FAIL-CLOSED / NOT AUTHORIZED FOR STAGE 04`
+`FAIL-CLOSED / NOT AUTHORIZED FOR STAGE 05`
 
-Stage 04 requires a separate explicit instruction, a new exact target SHA and its own completed Gate.
+Stage 05 requires a separate explicit instruction, a new exact target SHA and its own completed Gate.
