@@ -9,46 +9,57 @@ Historical baseline: `PROJECT_HANDOFF.md` at commit `312c30b4662afdea33b8b6f3e6a
 
 ## Current governance stage
 
-`GOV-F: COMPLETED — READY FOR GOV-G`
+`GOV-G: COMPLETED — READY FOR GOV-H`
 
-GOV-A through GOV-E established source truth, PR classification, operation ownership, GitHub enforcement design and normalized CI. GOV-F completed static risk reduction on this governance branch only. No Workflow, script, test, build, Preview, deployment or external system was run.
+GOV-A through GOV-F established source truth, PR organization, operation ownership, enforcement design, normalized CI and static hardening. GOV-G prepared a safe Phase 3 contract only. No execution or external connection occurred.
 
-## GOV-F improvements
+## Canonical Phase 3
 
-- Reviewed all declared dependencies and devDependencies; no removal was made without executed evidence.
-- Added `docs/governance/DEPENDENCY_REVIEW_GOV_F.md`.
-- Added deny-by-default browser runtime write rules to `WRITE_AND_WORKFLOW_REGISTRY.md`.
-- Added `docs/governance/PRODUCTION_HOST_ALLOWLIST.md`; the Command Center Production read allowlist remains empty until an exact host is verified.
-- Added `docs/governance/SECRETS_SCOPE_MAP.md`.
-- Confirmed no active repository Workflow is designed to perform Production writes.
-- Database, AI, Storage, publishing, messaging and Production-write paths remain blocked.
+The only authoritative identifier is `PHASE-3-SAFE-EXECUTION`.
 
-## Browser runtime prohibited paths
+It permits only a separately authorized, time-limited and Registry-listed operation. It prohibits Production writes, uncontrolled AI, publishing, Storage writes, Migration, browser protected credentials and any unregistered step. Missing owner, independent approval, target SHA, idempotency, concurrency, audit, kill switch or rollback causes a fail-closed decision.
 
-Browser/client code may not perform direct table POST/PATCH/PUT/DELETE, hold service-role or provider secrets, administer migrations/RLS/grants/cron/workers, mutate elevated Storage, call AI with protected credentials, publish, schedule, send outbound messages, or invoke unregistered RPCs.
+GOV-G does not start Phase 3.
 
-Named staff RPCs remain classified as controlled server-enforced writes, but GOV-F does not authorize their execution or Production activation. PR #8 remains stale and non-merge-ready.
+## Migration and Feature separation
 
-## Production host allowlist
+- Every Migration must use an isolated database-only PR.
+- Feature PRs must contain no Migration, DDL, RLS, policy, grant, cron, worker or schema change.
+- Migration PRs must contain no UI, Feature, AI/provider, publishing, Storage or unrelated application change.
+- Disposable verification and independent database/security approval are prerequisites; Production application remains separately blocked.
 
-Deny by default. No exact Command Center Production hostname is approved by GOV-F. Preview, Supabase, provider, Storage, webhook and arbitrary deployment hosts are excluded.
+## AI Environment foundation
 
-## Secrets scope
+`docs/governance/AI_ENVIRONMENT_FOUNDATION.md` is `BLOCKED — DESIGN ONLY`.
 
-- Read-only/browser environments may contain only verified public identifiers or read-only credentials.
-- Service-role/database credentials belong only to a future protected `production-write` environment.
-- AI keys belong only to `production-ai-spend`.
-- Storage and publishing tokens require separate protected environments.
-- No secret value is recorded in governance files; actual GitHub secret inventories were not queried.
+- Model allowlist is empty by default.
+- Token ceilings require explicit numeric approval.
+- Cost ceiling is zero until explicitly approved.
+- First candidate, if ever authorized, is text-only and draft-only.
+- No Storage, publishing, Migration or Production database write is allowed.
+- AI Operations Owner controls the kill switch; independent AI Risk approval is required.
+- Audit receipt must contain model, token/cost values, run/idempotency/lock IDs, hashes and provider receipt.
 
-## Verification limitation
+## Idempotency
 
-Dependency usage, secret absence and Workflow behavior were reviewed statically. The normalized supply-chain job and checks were not run. Rulesets, required checks, CODEOWNERS enforcement and Environments are not active on `main`.
+Controlled write candidates use durable operation identities derived from target object, intended state, request identity and expected version/hash. Exact replay must return the original receipt without a second side effect; conflicting reuse must fail. AI retries must reuse the same run/idempotency identity.
 
-## Safety boundary
+## Concurrency locks
 
-Do not modify `main`, change PR metadata or repository settings, run Workflows/scripts/tests/builds, deploy, connect to Production/Supabase/providers, generate, publish, schedule, message, modify secrets or spend.
+Locks are scoped per conversation, booking, lead, content item, AI tenant/day/purpose, migration environment and external target. Concurrent same-scope requests may accept at most one mutation; conflict, lease expiry and recovery must be auditable.
+
+## Disposable verification plan
+
+A future database-only PR must use an empty isolated Supabase/Postgres instance, pinned tools, exact migration hashes and target SHA. The plan applies the chain, tests approved repeat/upgrade scenarios, inspects schema/RLS/grants/functions/cron/workers, captures artifacts and destroys the instance. No Production secret, data, provider, Storage or publishing connection is allowed. Command Center currently has no authorized disposable database path; the plan is a prerequisite only.
+
+## Continuing blocked paths
+
+PR #8, database writes, migrations, AI generation, Storage mutation, publishing, outbound messaging, Production writes, repository settings and PR metadata changes remain blocked without separate authority.
+
+## Safety receipt
+
+No Workflow, script, test, build, Preview, deployment, Migration, database/provider/Production connection, generation, publishing, Storage write, PR metadata change, setting change, secret change or `main` modification occurred.
 
 ## Transition gate
 
-GOV-F is complete on this branch. GOV-G may begin only after a separate explicit instruction.
+GOV-H may begin only under a separate explicit instruction. It must issue a final go/no-go decision; until then `PHASE-3-SAFE-EXECUTION` remains blocked.
