@@ -2,69 +2,97 @@
 
 ## Current stage
 
-Performance Review on branch `performance/final-performance-review` after the protected merges of AI Inbox PR #9, Bookings PR #10, Content Studio PR #11, Media Library PR #12, Analytics PR #13, Integrations PR #14, System Polish PR #15, Final Audit PR #16, and Final Security Review PR #17.
+GOV-B — Documentation & Operational Governance on branch `docs/gov-b-operational-governance`, based on protected `main` at merge commit `312c30b4662afdea33b8b6f3e6a4e44201ec4b1f` after Performance Review PR #18.
 
-## Implemented
+## Stable baseline
 
-- Real conversation list through the existing `get_staff_inbox` RPC.
-- Real message history through `get_staff_conversation_messages`.
-- Confirmed, role-gated conversation mode changes through `set_staff_conversation_mode`.
-- Complete mode support: `ai_active`, `human_required`, `human_takeover`, and `paused`.
-- In-flight locking, safe error states, session-expiry handling, and responsive UI.
-- Security-contract coverage for RPC-only writes, RBAC, confirmation, duplicate prevention, and the mode allowlist.
-- Bookings operational summary, search, status filters, full existing request context, and safe session-expiry handling.
-- Bookings status writes remain exclusively on `update_booking_request_status` with confirmation and a single in-flight lock.
-- Real Content Studio records with search, status filtering, editable content fields, and published-content protection.
-- Content editing remains exclusively on `update_staff_content_item`; review and schedule transitions remain exclusively on `transition_staff_content_item`.
-- Content mutations use server-aligned RBAC, explicit confirmation, a global in-flight lock, safe session-expiry handling, and the RPC-provided Audit Log.
-- Real employee-owned media assets are presented through `get_staff_media_assets` with counts, search, type/source filters, content linkage, provider context, prompts, and bounded metadata.
-- Media Library remains strictly read-only and does not expose private Storage URLs or any upload, generation, update, or deletion path.
-- Real aggregate growth metrics are presented through `get_staff_growth_analytics` with response validation and zero-safe descriptive ratios.
-- Analytics keeps the backend `attributionReady` limitation visible and does not claim campaign conversion, causality, or ROI without attribution links.
-- Integrations validates and presents the existing operations queue through `get_staff_operations_queue` with status/search filters, overdue detection, bounded errors, and explicit source limitations.
-- Integrations remains read-only and does not expose retry, cancel, provider-test, credential, webhook, or direct-table actions.
-- System Polish cancels stale reads, aligns CRM session expiry and global write locking, validates local dates safely, and improves keyboard/loading semantics without changing RPC behavior.
-- Final Audit adds reproducible dependency locking, moves build tooling out of runtime dependencies, and makes CI use a locked, script-free Node 22 install.
-- Final Security Review rejects browser-unsafe API keys, supports the preferred publishable-key environment alias, and safely retains only an `anon`-role legacy fallback.
-- Stored sessions now keep only the access token and revalidate the Supabase user plus active staff profile before protected UI is rendered.
-- Authentication/profile validation disables browser caching, exposes a bounded rate-limit message, and replaces the remaining dynamic inline style with semantic progress markup.
-- Performance Review measures the initial production entry and makes every production build enforce raw and gzip JavaScript/CSS budgets.
-- The performance gate is fixture-tested to pass bounded assets and fail an oversized entry without adding a runtime dependency or changing application behavior.
+- Repository: `aymanmahrous/command-center-hub`
+- Protected branch: `main`
+- Stable merge commit: `312c30b4662afdea33b8b6f3e6a4e44201ec4b1f`
+- Completed pull request: #18 — Performance Review
+- Verification reported before merge: TypeScript, 33/33 tests, production build, and initial-load performance budget passed.
+- Vercel commit status reported successful for the baseline commit.
 
-## Verified evidence
+## PR #18 summary
 
-- `npm run typecheck`: passed on 2026-07-22.
-- `npm test`: passed 13/13 on 2026-07-22.
-- `npm run build`: passed on 2026-07-22.
-- No migration, RLS/policy, cron, worker, public-site, direct-table-write, or service-role change exists in the branch.
-- AI Inbox PR #9 merged after an independent approval and successful required checks on 2026-07-22.
-- Bookings PR #10 merged after an independent approval and successful required checks on 2026-07-22.
-- Content Studio PR #11 merged after an independent approval and successful required checks on 2026-07-22.
-- Media Library PR #12 merged after an independent approval and successful required checks on 2026-07-22.
-- Analytics PR #13 merged after an independent approval and successful required checks on 2026-07-22.
-- Integrations local verification passed: TypeScript, 24/24 tests, and production build.
-- The Integrations job status allowlist matches the source database enum and the final diff contains no prohibited path or direct-write change.
-- Integrations PR #14 merged after an independent approval and successful required checks on 2026-07-22.
-- System Polish local verification passed: TypeScript, 26/26 tests, production build, React review, and prohibited-path review.
-- System Polish PR #15 merged after an independent approval and successful required checks on 2026-07-22.
-- Final Audit dependency checks passed: clean `npm ci`, zero full/runtime vulnerabilities, and no unused TypeScript symbols.
-- Final Audit local verification passed: TypeScript, 28/28 tests, production build, locked-install checks, and prohibited-path review.
-- Final Audit PR #16 merged after an independent approval and successful required checks on 2026-07-22.
-- Final Security Review local verification passed: TypeScript, 31/31 tests, production build, strict unused-symbol check, zero dependency vulnerabilities, React review, and prohibited-path review.
-- Final Security Review PR #17 merged after an independent approval and successful required checks on 2026-07-22.
-- Performance Review local verification passed: TypeScript, 33/33 tests, production build, and initial budgets at 302,436 bytes JavaScript / 20,716 bytes CSS raw.
+PR #18 added an enforced initial-load budget to the production build. The build now measures JavaScript and CSS assets referenced by the built entry page, checks raw and gzip sizes, fails closed when the initial JavaScript entry is missing, and rejects assets that exceed the approved limits. Contract tests prove that bounded assets pass and an oversized JavaScript entry fails. The change did not add runtime dependencies or alter application, database, publishing, or public-site behavior.
 
-## Pending / blocked
+## Implemented application baseline
 
-- Open a dedicated Performance Review pull request and wait for protected CI and independent approval.
-- No permission or implementation blocker is currently known.
+- Real AI Inbox conversation list and message history through approved RPC functions.
+- Role-gated conversation mode changes through `set_staff_conversation_mode`.
+- Booking status changes exclusively through `update_booking_request_status`.
+- Content edits through `update_staff_content_item` and controlled transitions through `transition_staff_content_item`.
+- Media Library, Analytics, and Integrations operational views remain read-only.
+- Browser authentication rejects unsafe API keys and stores only the access token before revalidation.
+- Client writes use confirmation, RBAC-aligned RPC boundaries, and in-flight locking.
+- Production build enforces JavaScript and CSS initial-load budgets.
+
+## Environment and commands
+
+- Node.js 20 or newer; CI reference is Node 22.
+- Install dependencies with `npm ci` using the committed lockfile.
+- Use only approved publishable/anonymous browser environment credentials; browser service-role credentials are prohibited.
+- Development: `npm run dev`
+- Type validation: `npm run typecheck`
+- Tests: `npm test`
+- Production build and performance gate: `npm run build`
+- Full verification: `npm run verify`
+- Local production preview: `npm run preview`
+
+## Core paths
+
+- `src/`: application UI, authentication, validation, and operational modules.
+- `tests/`: security, workflow, build, and performance regression contracts.
+- `scripts/check-performance-budget.mjs`: initial production asset budget gate.
+- `.github/workflows/`: protected CI workflows.
+- `docs/GOV_B_OPERATIONAL_GOVERNANCE.md`: stage scope, ownership, controls, and completion criteria.
+- `docs/MONITORING_RUNBOOK.md`: monitoring requirements and incident response.
+- `docs/ROLLBACK_RUNBOOK.md`: release, rollback, and recovery procedure.
+- `docs/WRITE_WORKFLOW_REGISTRY.md`: approved write boundaries, approvals, auditing, and kill switches.
+
+## Ownership summary
+
+- Repository owner: branch protection, merges, tags, releases, and final production authority.
+- Application maintainer: frontend, validation, tests, and safe client behavior.
+- Backend/data owner: Supabase RPC contracts, RBAC, RLS, policies, and database recovery.
+- Deployment owner: Vercel configuration, logs, alerts, deployments, and rollback.
+- Content operations owner: review, scheduling, publishing approval, and publishing pause.
+- Incident commander: severity, containment, kill switch, rollback decision, and recovery declaration.
+- Security reviewer: authentication, credentials, dependency and exposure review.
+
+## GOV-B changes in this branch
+
+- Added operational governance baseline and completion criteria.
+- Added monitoring and incident runbook.
+- Added rollback and GitHub Release/tag strategy.
+- Added write/workflow registry for all known write boundaries.
+- Defined narrow-to-broad kill-switch hierarchy and ownership.
+- Documented that Vercel account-level alerts and runtime monitoring require deployment-owner activation and evidence; repository documentation cannot truthfully activate those settings.
+
+## Pending operational evidence
+
+- Vercel deployment owner must confirm failure notifications, runtime log access, alert recipients, and available latency/resource monitoring.
+- The deployment identifier matching commit `312c30b` must be recorded.
+- An approved annotated Git tag and GitHub Release should be created only after GOV-B is reviewed and merged.
+- No production environment, deployment, Supabase, publishing, chatbot, API, or runtime setting has been changed by this documentation branch.
+
+## GOV-B completion gate
+
+- `npm run verify` passes on the GOV-B branch.
+- Required GitHub checks pass.
+- Independent review approves the pull request.
+- Vercel monitoring activation evidence is recorded without secrets.
+- No unresolved review thread, incident, or prohibited change remains.
 
 ## NEXT_REQUIRED_ACTION
 
-Open the Performance Review pull request, merge only after CI and protection requirements pass, then begin Documentation Review from updated `main`.
+Open the GOV-B pull request from `docs/gov-b-operational-governance` to protected `main`. Merge only after required CI and independent approval. Before declaring GOV-B complete, the deployment owner must record Vercel monitoring and active deployment evidence. Begin GOV-C only from updated `main` after these gates pass.
 
 ## Prohibited actions
 
-- Do not create or edit migrations, RLS, policies, cron, or workers.
-- Do not expose service-role credentials or write directly to tables.
+- Do not create or edit migrations, RLS, policies, cron, or workers under GOV-B.
+- Do not expose service-role credentials or write directly to database tables.
 - Do not modify or deploy the public Relax Fix UAE site.
+- Do not enable publishing, chatbot automation, external delivery, or destructive rollback merely to test governance documentation.
+- Do not claim Vercel account-level monitoring is active without deployment-owner evidence.
