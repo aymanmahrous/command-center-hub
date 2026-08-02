@@ -113,6 +113,16 @@ const StoredSessionSchema = z.object({ accessToken: z.string().min(1) }).passthr
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
 const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
 const STAFF_TABLE = (import.meta.env.VITE_STAFF_PROFILE_TABLE ?? "staff_profiles").trim();
+const PASSWORD_RESET_PATH = (import.meta.env.VITE_PASSWORD_RESET_PATH ?? "").trim();
+
+const AUTH_MESSAGES = {
+  CONFIGURATION_REQUIRED: "إعدادات الاتصال غير مكتملة أو غير آمنة. التطبيق مغلق بأمان.\nConnection settings are incomplete or unsafe. The application is securely locked.",
+  INVALID_LOGIN: "البريد الإلكتروني أو كلمة المرور غير صحيحة.\nThe email or password is incorrect.",
+  STAFF_ACCESS_DENIED: "هذا الحساب غير مفعّل للوصول إلى لوحة التحكم.\nThis account is not active for Command Center access.",
+  SERVICE_UNAVAILABLE: "تعذر الاتصال بالخدمة. تحقق من الإنترنت ثم حاول لاحقًا.\nUnable to reach the service. Check your connection and try again later.",
+  LOGIN_FAILED: "تعذر تسجيل الدخول. حاول مرة أخرى.\nSign-in failed. Please try again.",
+  RESET_SUCCESS: "إذا كان البريد مسجلاً، فستصلك رسالة لإعادة تعيين كلمة المرور.\nIf the email is registered, a password reset message will be sent.",
+} as const;
 
 function legacyKeyRole(key: string) {
   try {
@@ -135,6 +145,23 @@ function configurationReady() {
     return url.protocol === "https:" && url.hostname.endsWith(".supabase.co") && browserSafeApiKey(SUPABASE_PUBLIC_KEY) && STAFF_TABLE.length > 0;
   } catch { return false; }
 }
+function passwordResetRedirect() {
+  if (!PASSWORD_RESET_PATH) return null;
+  if (!PASSWORD_RESET_PATH.startsWith("/")) throw new Error("CONFIGURATION_REQUIRED");
+  return new URL(PASSWORD_RESET_PATH, window.location.origin).toString();
+}
+
+function authErrorCode(cause: unknown) {
+  return cause instanceof Error ? cause.message : "LOGIN_FAILED";
+}
+
+function authMessage(code: string) {
+  if (code === "CONFIGURATION_REQUIRED") return AUTH_MESSAGES.CONFIGURATION_REQUIRED;
+  if (code === "INVALID_LOGIN") return AUTH_MESSAGES.INVALID_LOGIN;
+  if (code === "STAFF_ACCESS_DENIED") return AUTH_MESSAGES.STAFF_ACCESS_DENIED;
+  if (code === "NETWORK_UNAVAILABLE" || code === "SERVICE_UNAVAILABLE" || code === "TOO_MANY_ATTEMPTS") return AUTH_MESSAGES.SERVICE_UNAVAILABLE;
+  return AUTH_MESSAGES.LOGIN_FAILED;
+}
 function rpcHeaders(session: Session) { return { apikey: SUPABASE_PUBLIC_KEY, Authorization: `Bearer ${session.accessToken}`, "Content-Type": "application/json", Accept: "application/json" }; }
 
 async function loadStaffProfile(accessToken: string, userId: string, signal?: AbortSignal) {
@@ -150,11 +177,37 @@ async function loadStaffProfile(accessToken: string, userId: string, signal?: Ab
 
 async function signIn(email: string, password: string): Promise<Session> {
   if (!configurationReady()) throw new Error("CONFIGURATION_REQUIRED");
-  const authResponse = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, { method: "POST", headers: { "Content-Type": "application/json", apikey: SUPABASE_PUBLIC_KEY }, body: JSON.stringify({ email, password }) });
+  let authResponse: Response;
+  try {
+    authResponse = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, { method: "POST", headers: { "Content-Type": "application/json", apikey: SUPABASE_PUBLIC_KEY }, body: JSON.stringify({ email, password }) });
+  } catch {
+    throw new Error("NETWORK_UNAVAILABLE");
+  }
   if (authResponse.status === 429) throw new Error("TOO_MANY_ATTEMPTS");
+  if (authResponse.status === 401 || authResponse.status === 403) throw new Error("CONFIGURATION_REQUIRED");
+  if (authResponse.status >= 500) throw new Error("SERVICE_UNAVAILABLE");
   if (!authResponse.ok) throw new Error("INVALID_LOGIN");
   const auth = z.object({ access_token: z.string(), user: z.object({ id: z.string().uuid() }) }).parse(await authResponse.json());
   return loadStaffProfile(auth.access_token, auth.user.id);
+}
+
+async function requestPasswordReset(email: string): Promise<void> {
+  if (!configurationReady()) throw new Error("CONFIGURATION_REQUIRED");
+  const redirectTo = passwordResetRedirect();
+  let response: Response;
+  try {
+    response = await fetch(`${SUPABASE_URL}/auth/v1/recover`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: SUPABASE_PUBLIC_KEY },
+      body: JSON.stringify({ email, ...(redirectTo ? { redirect_to: redirectTo } : {}) }),
+    });
+  } catch {
+    throw new Error("NETWORK_UNAVAILABLE");
+  }
+  if (response.status === 429) throw new Error("TOO_MANY_ATTEMPTS");
+  if (response.status === 401 || response.status === 403) throw new Error("CONFIGURATION_REQUIRED");
+  if (response.status >= 500) throw new Error("SERVICE_UNAVAILABLE");
+  if (!response.ok) throw new Error("LOGIN_FAILED");
 }
 
 async function restoreSession(accessToken: string, signal: AbortSignal): Promise<Session> {
@@ -219,9 +272,46 @@ async function transitionContentItem(session: Session, contentItemId: string, ac
 }
 
 function Login({ onAuthenticated }: { onAuthenticated: (session: Session) => void }) {
-  const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
-  async function submit(event: FormEvent) { event.preventDefault(); setBusy(true); setError(""); try { const session = await signIn(email.trim(), password); sessionStorage.setItem("relaxfix-command-session", JSON.stringify({ accessToken: session.accessToken })); onAuthenticated(session); } catch (cause) { const code = cause instanceof Error ? cause.message : "LOGIN_FAILED"; setError(code === "CONFIGURATION_REQUIRED" ? "إعدادات الاتصال غير مكتملة أو المفتاح غير آمن. التطبيق مغلق بأمان." : code === "TOO_MANY_ATTEMPTS" ? "محاولات تسجيل الدخول كثيرة. انتظر قليلًا ثم أعد المحاولة." : "تعذر تسجيل الدخول أو أن الحساب غير مخول."); } finally { setBusy(false); } }
-  return <main className="login-page"><section className="login-card" aria-busy={busy}><div className="brand-mark"><ShieldAlert size={28} /></div><p className="eyebrow">RELAX FIX UAE</p><h1>Command Center Hub</h1><p className="muted">منصة العمليات الداخلية. الدخول للموظفين النشطين فقط.</p><form onSubmit={submit}><label>البريد الإلكتروني<input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} /></label><label>كلمة المرور<input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></label>{error && <div className="error-box" role="alert">{error}</div>}<button disabled={busy}>{busy ? "جاري التحقق..." : "تسجيل الدخول"}</button></form><p className="security-note">لا يتم تخزين كلمة المرور. الجلسة تبقى في هذه النافذة فقط.</p></section></main>;
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetError, setResetError] = useState("");
+  const [resetNotice, setResetNotice] = useState("");
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    setResetError("");
+    setResetNotice("");
+    try {
+      const session = await signIn(email.trim(), password);
+      sessionStorage.setItem("relaxfix-command-session", JSON.stringify({ accessToken: session.accessToken }));
+      onAuthenticated(session);
+    } catch (cause) {
+      setError(authMessage(authErrorCode(cause)));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function forgotPassword() {
+    setResetBusy(true);
+    setResetError("");
+    setResetNotice("");
+    try {
+      await requestPasswordReset(email.trim());
+      setResetNotice(AUTH_MESSAGES.RESET_SUCCESS);
+    } catch (cause) {
+      setResetError(authMessage(authErrorCode(cause)));
+    } finally {
+      setResetBusy(false);
+    }
+  }
+
+  return <main className="login-page"><section className="login-card" aria-busy={busy || resetBusy}><div className="brand-mark"><ShieldAlert size={28} /></div><p className="eyebrow">RELAX FIX UAE</p><h1>Command Center Hub</h1><p className="muted">منصة العمليات الداخلية. الدخول للموظفين النشطين فقط.</p><form onSubmit={submit}><label>البريد الإلكتروني<input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} /></label><label>كلمة المرور<input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></label><button type="button" className="text-button forgot-password" disabled={busy || resetBusy} onClick={() => void forgotPassword()}><span lang="ar" dir="rtl">نسيت كلمة المرور؟</span> <span lang="en" dir="ltr">Forgot password?</span></button>{resetNotice && <div className="notice-box" role="status">{resetNotice}</div>}{resetError && <div className="error-box" role="alert">{resetError}</div>}{error && <div className="error-box" role="alert">{error}</div>}<button disabled={busy || resetBusy}>{busy ? "جاري التحقق..." : "تسجيل الدخول"}</button></form><p className="security-note">لا يتم تخزين كلمة المرور. الجلسة تبقى في هذه النافذة فقط.</p></section></main>;
 }
 
 function DataView({ value }: { value: JsonValue }) {
