@@ -198,7 +198,38 @@ test("restored sessions revalidate the JWT and active staff profile", () => {
 test("authentication rate limits fail safely without account disclosure", () => {
   assert.match(app, /authResponse\.status === 429/);
   assert.match(app, /TOO_MANY_ATTEMPTS/);
-  assert.match(app, /محاولات تسجيل الدخول كثيرة/);
+  assert.match(app, /Unable to reach the service/);
+});
+
+test("CONFIGURATION_REQUIRED is only returned when configurationReady() is false", () => {
+  assert.match(app, /if \(!configurationReady\(\)\) throw new Error\("CONFIGURATION_REQUIRED"\)/);
+  assert.doesNotMatch(app, /status === 401[^)]*CONFIGURATION_REQUIRED/);
+  assert.doesNotMatch(app, /status === 403[^)]*CONFIGURATION_REQUIRED/);
+});
+
+test("auth 401 and 403 responses map to invalid credentials, not configuration error", () => {
+  assert.match(app, /authResponse\.status === 401 \|\| authResponse\.status === 403.*INVALID_LOGIN/s);
+  assert.match(app, /The email or password is incorrect/);
+});
+
+test("login error mapping is explicit and bilingual", () => {
+  assert.match(app, /Connection settings are incomplete or unsafe/);
+  assert.match(app, /The email or password is incorrect/);
+  assert.match(app, /This account is not active for Command Center access/);
+  assert.match(app, /Unable to reach the service/);
+  assert.match(app, /Sign-in failed\. Please try again/);
+  assert.match(app, /authMessage\(code: string\)/);
+});
+
+test("forgot-password flow uses public recover endpoint with non-enumerating success copy", () => {
+  assert.match(app, /requestPasswordReset\(email: string\)/);
+  assert.match(app, /\/auth\/v1\/recover/);
+  assert.match(app, /RESET_SUCCESS/);
+  assert.match(app, /If the email is registered, a password reset message will be sent/);
+  assert.match(app, /نسيت كلمة المرور؟/);
+  assert.match(app, /Forgot password\?/);
+  assert.match(app, /PASSWORD_RESET_PATH/);
+  assert.match(envExample, /^VITE_PASSWORD_RESET_PATH=/m);
 });
 
 test("System Polish cancels stale reads and handles session expiry consistently", () => {
