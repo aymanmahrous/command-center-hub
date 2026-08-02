@@ -1,5 +1,7 @@
 # Bookings Operations Handoff
 
+Document status: historical stage evidence. PR #10 was merged after successful protected CI and independent approval on 2026-07-22.
+
 ## Scope implemented
 
 - The Bookings module continues to read only through `get_staff_bookings`.
@@ -23,7 +25,7 @@
 - `npm test`: passed, 15/15 tests.
 - `npm run build`: passed with Vite production output.
 - `git diff --check`: passed.
-- Protected pull-request CI: pending.
+- Protected pull-request CI and independent review: passed on PR #10.
 
 ## Rollback
 
@@ -31,4 +33,4 @@ Revert the Bookings feature merge commit or redeploy the previous successful Com
 
 ## Next required action
 
-Review the final diff for scope and regression risk, then open a dedicated Bookings pull request and wait for protected CI and independent approval.
+Completed. Current project sequencing is maintained only in `PROJECT_HANDOFF.md`.

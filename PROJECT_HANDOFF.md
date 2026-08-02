@@ -2,7 +2,7 @@
 
 ## Current stage
 
-Performance Review on branch `performance/final-performance-review` after the protected merges of AI Inbox PR #9, Bookings PR #10, Content Studio PR #11, Media Library PR #12, Analytics PR #13, Integrations PR #14, System Polish PR #15, Final Audit PR #16, and Final Security Review PR #17.
+Documentation Review on branch `docs/final-documentation-review` after the protected merges of AI Inbox PR #9, Bookings PR #10, Content Studio PR #11, Media Library PR #12, Analytics PR #13, Integrations PR #14, System Polish PR #15, Final Audit PR #16, Final Security Review PR #17, and Performance Review PR #18.
 
 ## Implemented
 
@@ -30,12 +30,11 @@ Performance Review on branch `performance/final-performance-review` after the pr
 - Authentication/profile validation disables browser caching, exposes a bounded rate-limit message, and replaces the remaining dynamic inline style with semantic progress markup.
 - Performance Review measures the initial production entry and makes every production build enforce raw and gzip JavaScript/CSS budgets.
 - The performance gate is fixture-tested to pass bounded assets and fail an oversized entry without adding a runtime dependency or changing application behavior.
+- Documentation Review replaces the obsolete empty-baseline README with current operation, environment, RPC boundary, verification, and documentation guidance.
+- Historical provenance and feature handoffs are explicitly labelled, superseded merge blockers are reconciled, and relative Markdown links are contract-tested.
 
 ## Verified evidence
 
-- `npm run typecheck`: passed on 2026-07-22.
-- `npm test`: passed 13/13 on 2026-07-22.
-- `npm run build`: passed on 2026-07-22.
 - No migration, RLS/policy, cron, worker, public-site, direct-table-write, or service-role change exists in the branch.
 - AI Inbox PR #9 merged after an independent approval and successful required checks on 2026-07-22.
 - Bookings PR #10 merged after an independent approval and successful required checks on 2026-07-22.
@@ -53,15 +52,17 @@ Performance Review on branch `performance/final-performance-review` after the pr
 - Final Security Review local verification passed: TypeScript, 31/31 tests, production build, strict unused-symbol check, zero dependency vulnerabilities, React review, and prohibited-path review.
 - Final Security Review PR #17 merged after an independent approval and successful required checks on 2026-07-22.
 - Performance Review local verification passed: TypeScript, 33/33 tests, production build, and initial budgets at 302,436 bytes JavaScript / 20,716 bytes CSS raw.
+- Performance Review PR #18 merged after an independent approval and successful required checks on 2026-07-22.
+- Documentation Review local verification passed: TypeScript, 35/35 tests, production build, documentation link/contract checks, and the unchanged performance budget.
 
 ## Pending / blocked
 
-- Open a dedicated Performance Review pull request and wait for protected CI and independent approval.
+- Complete local Documentation Review verification, then open its dedicated pull request and wait for protected CI and independent approval.
 - No permission or implementation blocker is currently known.
 
 ## NEXT_REQUIRED_ACTION
 
-Open the Performance Review pull request, merge only after CI and protection requirements pass, then begin Documentation Review from updated `main`.
+Complete Documentation Review, merge its pull request only after CI and protection requirements pass, then begin Release Readiness Review from updated `main`.
 
 ## Prohibited actions
 

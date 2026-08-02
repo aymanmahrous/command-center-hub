@@ -24,13 +24,13 @@
    - Media Library
    - Analytics
    - Integrations / operations queue
-5. Passwords are never persisted. The validated session is held only in `sessionStorage`.
+5. Passwords are never persisted. Only the access token is held in `sessionStorage`; user and active staff authorization are revalidated during restoration.
 6. CI verifies TypeScript, security-contract tests, and the production build.
 7. Search indexing is blocked and deployment security headers are declared.
 
 ## Controlled write boundary
 
-The first permitted write is booking-request status transition through the existing database function:
+Controlled writes are limited to the existing approved RPCs for booking status, CRM workflow, conversation mode, and content review/scheduling. The first introduced write was the booking-request status transition through:
 
 `update_booking_request_status(p_booking_request_id uuid, p_status text)`
 
@@ -45,14 +45,15 @@ Safety controls:
 - A failed or rejected request is not represented as successful.
 - No email, WhatsApp, publishing, cron, worker, or background job is triggered by this operation.
 
-All other sections remain read-only.
+Media Library, Analytics, Integrations, Command Center summary, and automation status remain read-only. No interface sends real messages or publishes content.
 
 ## Environment contract
 
 Only browser-safe variables may be used:
 
 - `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
+- `VITE_SUPABASE_PUBLISHABLE_KEY` (preferred)
+- `VITE_SUPABASE_ANON_KEY` (legacy `anon`-role fallback only)
 - `VITE_STAFF_PROFILE_TABLE`
 
 Never place a service-role key, database password, or server secret in a `VITE_*` variable.

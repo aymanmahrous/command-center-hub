@@ -1,5 +1,7 @@
 # System Polish Handoff
 
+Document status: historical stage evidence. PR #15 was merged after successful protected CI and independent approval on 2026-07-22.
+
 ## Scope
 
 - Cancels stale dashboard and conversation-message reads when the user changes context or the component unmounts.

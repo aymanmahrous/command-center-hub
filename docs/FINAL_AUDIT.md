@@ -25,12 +25,12 @@ No release-blocking defect was found in the repository baseline. One supply-chai
 | Rollback | Pass | Feature handoffs document merge-revert / previous Command Center deployment rollback; no database rollback is required for these UI stages. |
 | Production safety | Pass | No migration, RLS/policy, cron, worker, public-site, real-message, publishing, scheduling, or production-secret mutation is included. |
 
-## Deferred, non-blocking reviews
+## Subsequent review status
 
-- Final Security Review: verify transition support from the legacy `VITE_SUPABASE_ANON_KEY` name to a publishable-key alias without changing deployed secrets.
-- Performance Review: measure bundle composition and render behavior; current production bundle is approximately 301 kB JavaScript / 87.5 kB gzip.
-- Documentation Review: reconcile historic test counts and stage wording across handoff documents.
-- Release Readiness Review: verify protected CI on every audit/review PR and confirm the production activation gates remain closed.
+- Final Security Review: completed and merged through protected PR #17.
+- Performance Review: completed and merged through protected PR #18; exact baseline and enforced budgets are in `PERFORMANCE_REVIEW.md`.
+- Documentation Review: in progress on its dedicated protected branch.
+- Release Readiness Review: pending; it must verify protected CI on every audit/review PR and confirm the production activation gates remain closed.
 
 ## Rollback
 

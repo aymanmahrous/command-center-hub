@@ -1,5 +1,7 @@
 # Content Studio Operations Handoff
 
+Document status: historical stage evidence. PR #11 was merged after successful protected CI and independent approval on 2026-07-22.
+
 ## Scope
 
 - Real content records are read through the existing `get_staff_content_items` RPC.
