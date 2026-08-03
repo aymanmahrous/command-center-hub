@@ -24,21 +24,23 @@
 | النظام | الحالة |
 |---|---|
 | الموقع العام | خارج نطاق هذا المستودع؛ لا تغيير ولا نشر منه. |
-| تطبيق Command Center Hub | مبني ومُدقَّق تقنيًا حسب `PROJECT_HANDOFF.md` (ميزات Inbox/Bookings/Content Studio/Media Library/Analytics/Integrations مكتملة ومُختبرة). |
+| تطبيق Command Center Hub | الواجهة بعد تسجيل الدخول تم التحقق منها بصريًا فقط (Authenticated UI visually verified). RBAC، الـAPIs، عمليات الكتابة (write operations)، الإسناد (attribution)، وبعض المسارات الوظيفية **غير مُتحقَّق منها بالكامل** بعد. |
 | Supabase | متصل ومُستخدَم عبر RPCs معتمدة فقط؛ لا Migration أو RLS جديدة دون موافقة صريحة. |
 | n8n | الـWorkflow الخاص باعتماد ونشر المحتوى مبني ويعمل داخليًا حتى نقطة Owner Approval. |
-| المحتوى | جدول `content_items` لا يحتوي حتى الآن على عنصر Facebook حقيقي جاهز للاختبار. |
+| المحتوى | تم إنشاء واعتماد عنصر Facebook حقيقي واحد داخل `content_items` (انظر CURRENT_BLOCKER). |
 | التصميمات | لا تغيير مطلوب في هذه المرحلة. |
 
 ## 4. ما يعمل وما لم يتم التحقق منه
 
 **يعمل ومؤكَّد:**
-- تطبيق Command Center Hub يعمل بميزاته المدمجة (راجع `PROJECT_HANDOFF.md`).
+- الواجهة الأمامية لتطبيق Command Center Hub بعد تسجيل الدخول: Authenticated UI visually verified.
 - Workflow اعتماد المحتوى في n8n يعمل داخليًا وينفّذ حتى خطوة Owner Approval بنجاح دون نشر فعلي.
+- إنشاء واعتماد عنصر Facebook حقيقي نصي بدون وسائط (`content_item_id: 9cf29b08-aaa3-4278-80bc-08a4cf3bc381`) وعرضه على المالك.
 
 **لم يتم التحقق منه بعد:**
-- النشر الفعلي لعنصر Facebook حقيقي عبر الـWorkflow (لم يُختبر لعدم وجود عنصر حقيقي).
-- سلوك الـWorkflow بعد موافقة المالك الفعلية على عنصر حقيقي.
+- RBAC، الـAPIs، عمليات الكتابة (write operations)، الإسناد (attribution)، وبعض المسارات الوظيفية للتطبيق — غير مُتحقَّق منها بالكامل.
+- النشر الفعلي لعنصر Facebook الحقيقي عبر الـWorkflow (بانتظار تنفيذ التفويض المحدد من المالك).
+- سلوك الـWorkflow الكامل بعد النشر الفعلي (توليد Facebook Post ID، الرابط، وقت النشر، execution ID، وreceipt status).
 
 ## 5. البنود المغلقة والمؤجلة والممنوعة
 
@@ -47,7 +49,7 @@
 - الاختبار الداخلي الأول لـWorkflow اعتماد المحتوى حتى نقطة Owner Approval — نجح ولا يُعاد فحصه دون خطأ مباشر جديد.
 
 **مؤجلة:**
-- Release Readiness Review للتطبيق (مذكورة في `PROJECT_HANDOFF.md` كخطوة تالية تقنية، لا تتعارض مع المرحلة الحالية الحوكمية).
+- Release Readiness Review للتطبيق (مذكورة في `PROJECT_HANDOFF.md`) — بند تقني مؤجل فقط، لا يُدرَج ضمن ترتيب مراحل خطة التسويق في القسم 6 ولا يعطلها.
 
 **ممنوعة:**
 - استخدام `test-content-0001` كعنصر اختبار حقيقي — إنه **Mock فقط** ولا يُستخدم للنشر أو كدليل جاهزية.
@@ -57,12 +59,19 @@
 
 ## 6. ترتيب المراحل المتبقية المعتمد
 
-1. **Facebook Controlled Publishing Test** ← المرحلة الحالية (انظر أدناه).
-2. مراجعة نتيجة اختبار النشر المضبوط مع المالك واعتمادها.
-3. Release Readiness Review لتطبيق Command Center Hub (حسب `PROJECT_HANDOFF.md`).
-4. توسيع النشر لقنوات إضافية بعد اعتماد المالك صراحة، مرحلة بمرحلة.
+1. Complete and safely test Facebook publishing ← المرحلة الحالية (انظر CURRENT_PHASE في القسم 7).
+2. Complete and test Instagram.
+3. Approve and schedule week-one content.
+4. Create and approve media after text approval.
+5. Live publishing with receipts.
+6. GA4 / UTM / Attribution / Conversion Tracking.
+7. SEO / Local SEO.
+8. Chatbot for service and leads.
+9. n8n alerts / follow-ups / reports.
+10. Google Ads.
+11. Meta Ads.
 
-لا يجوز تغيير هذا الترتيب أو تجاوز مرحلة قبل إغلاق التي تسبقها.
+لا يجوز تغيير هذا الترتيب أو تجاوز مرحلة قبل إغلاق التي تسبقها. Release Readiness Review لتطبيق Command Center Hub بند تقني مؤجل (القسم 5) ولا يُدرَج بين هذه المراحل.
 
 ## 7. CURRENT_PHASE
 
@@ -70,19 +79,32 @@
 
 ## 8. CURRENT_BLOCKER
 
-لا يوجد عنصر Facebook حقيقي داخل `content_items` حتى الآن.
+تم إنشاء عنصر Facebook حقيقي ومعتمد: `content_item_id: 9cf29b08-aaa3-4278-80bc-08a4cf3bc381`.
+النشر الفعلي يتطلب تنفيذ التفويض المحدد من المالك ثم تسجيل إيصال النشر.
 
 ## 9. آخر نتيجة مؤكدة
 
-الاختبار الداخلي للـWorkflow نجح وتوقف عند Owner Approval دون نشر فعلي.
+تم إنشاء واعتماد عنصر Facebook حقيقي نصي بدون وسائط، وعُرض على المالك. منح المالك تفويضًا محدودًا لهذا المنشور الواحد فقط، دون Boost أو إعلانات أو إعادة نشر أو Retry تلقائي عند غموض النتيجة.
 
 ## 10. الخطوة الحالية (NEXT)
 
-تجهيز عنصر Facebook حقيقي من المحتوى المعتمد، ثم عرضه على المالك للمراجعة والموافقة قبل أي نشر فعلي.
+تنفيذ نشر عنصر Facebook المصرح به فقط عبر المسار المعتمد، ثم تقديم: Facebook Post ID، رابط المنشور، وقت النشر الفعلي، execution ID، وreceipt status. عند غموض النتيجة لا يُعاد النشر.
 
 ## 11. تذكير إلزامي لكل Agent
 
 - لا تبدأ من الصفر — التزم بـCURRENT_PHASE أعلاه.
 - لا تعِد فحص البنود المغلقة في القسم 5.
 - لا تستخدم `test-content-0001` كدليل جاهزية أو للنشر.
-- أي نشر فعلي لعنصر Facebook يتطلب موافقة صريحة من المالك بعد عرض العنصر عليه.
+- أي نشر فعلي لعنصر Facebook يتطلب موافقة صريحة من المالك بعد عرض العنصر عليه، ضمن التفويض المحدود المذكور في القسم 9 (منشور واحد فقط، بدون Boost أو إعلانات أو إعادة نشر).
+- عند غموض نتيجة النشر: لا تُعِد المحاولة تلقائيًا؛ أبلغ المدير/المالك.
+- التزم بحدود الأنظمة المعتمدة في القسم 12 (APPROVED SYSTEM BOUNDARIES) ولا تلمس الأنظمة أو الحسابات غير المدرجة فيه.
+
+## 12. APPROVED SYSTEM BOUNDARIES
+
+- Active Supabase project only: `nmzxrjdxvmmzzmajrskm`
+- Never touch inactive Supabase: `aazhniddjvhuimlxxjfd`
+- Approved n8n workflow only: `xNwYPSXQiUyzDSyZ`
+- Old workflows must remain inactive and untouched: `7OVKtZ2TAZsrDIXc`, `Vj8Xh4UQ534LYist`
+- Facebook Page ID: `1164107840123575`
+- Instagram Account ID: `17841439747493221`
+- Never expose tokens or secrets in documentation.
