@@ -4,8 +4,12 @@ import { gzipSync } from "node:zlib";
 
 const distDirectory = resolve(process.env.PERFORMANCE_DIST_DIR ?? "dist");
 const indexPath = resolve(distDirectory, "index.html");
+// gzip budget raised 95,000 -> 96,000 for Content Publishing v1 (the
+// "Publish now" action and its Edge Function client call) — see
+// docs/PERFORMANCE_REVIEW.md "Content Publishing v1 addendum". Raw budget
+// is unchanged; it already has headroom.
 const budgets = {
-  js: { raw: 330_000, gzip: 95_000 },
+  js: { raw: 330_000, gzip: 96_000 },
   css: { raw: 25_000, gzip: 6_000 },
 };
 

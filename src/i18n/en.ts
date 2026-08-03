@@ -105,6 +105,7 @@ export const en = {
     scheduleButton: "Schedule",
     rescheduleButton: "Reschedule",
     unscheduleButton: "Unschedule",
+    publishNowButton: "Publish now",
     lastUpdated: "Last updated",
     published: "Published",
     publishedLocked: "Published content is protected from editing.",

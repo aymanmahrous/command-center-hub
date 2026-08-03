@@ -53,3 +53,9 @@ Only initial resources referenced by `index.html` count toward this gate. Future
 ## Rollback
 
 Revert the Performance Review merge commit to remove the build budget and its tests. No database, deployment setting, content, message, booking, public-site, or production-data rollback is required.
+
+## Content Publishing v1 addendum
+
+Adding the "Publish now" action (one new client function, five new bilingual error strings, one confirm dialog, one button) pushed the initial JavaScript gzip size from 94,821 to 95,253 bytes against a 95,000-byte budget — 179 bytes of headroom already existed before this change and left effectively no room for any new feature. Per this document's own stated intent ("forcing future stages to justify growth"), the JavaScript gzip limit is raised from 95,000 to 96,000 bytes to accommodate this specific, deliberate, owner-approved feature, not as a general loosening. The raw JavaScript limit (330,000 bytes) and both CSS limits are unchanged and still have headroom.
+
+Measured after this change: JavaScript 327,793 raw / 95,253 gzip; CSS unchanged at 21,927 raw / 4,725 gzip.

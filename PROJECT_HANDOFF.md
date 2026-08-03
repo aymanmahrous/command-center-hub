@@ -4,6 +4,8 @@
 
 Documentation Review on branch `docs/final-documentation-review` after the protected merges of AI Inbox PR #9, Bookings PR #10, Content Studio PR #11, Media Library PR #12, Analytics PR #13, Integrations PR #14, System Polish PR #15, Final Audit PR #16, Final Security Review PR #17, and Performance Review PR #18.
 
+In parallel, **Content Publishing v1 ("Publish now" only)** is now an explicitly authorized next phase, requested and confirmed by the project owner, superseding the "no worker / no external platform call" boundary that Content Studio PR #11 originally shipped with (see `docs/CONTENT_STUDIO_HANDOFF.md`). It lives on branch `claude/safe-content-publisher-deploy-016bra` as a **draft PR only** — not merged, not deployed to Production. It adds one Supabase Edge Function (`safe-content-publisher`) and proposes one new Postgres RPC (`record_staff_content_publish_result`, in `supabase/sql/`, explicitly unapplied pending the owner's own review and sign-off — see that file's header). Scheduling to Meta (as opposed to immediate "Publish now") and any Instagram cron/poller are explicitly out of scope for this phase.
+
 ## Implemented
 
 - Real conversation list through the existing `get_staff_inbox` RPC.
@@ -59,13 +61,16 @@ Documentation Review on branch `docs/final-documentation-review` after the prote
 
 - Complete local Documentation Review verification, then open its dedicated pull request and wait for protected CI and independent approval.
 - No permission or implementation blocker is currently known.
+- Content Publishing v1 is pending: (1) the owner's review and sign-off of `supabase/sql/2026xxxx_record_staff_content_publish_result.sql` before it is applied to any database, (2) the owner setting `META_PAGE_ACCESS_TOKEN`, `META_PAGE_ID`, `INSTAGRAM_BUSINESS_ACCOUNT_ID` as Supabase Edge Function secrets directly (never through this repo or an assistant), and (3) `supabase functions deploy safe-content-publisher`. None of this has happened yet; the frontend "Publish now" button will fail closed until it does.
 
 ## NEXT_REQUIRED_ACTION
 
-Complete Documentation Review, merge its pull request only after CI and protection requirements pass, then begin Release Readiness Review from updated `main`.
+Complete Documentation Review, merge its pull request only after CI and protection requirements pass, then begin Release Readiness Review from updated `main`. Separately, the owner reviews and applies (or requests changes to) the Content Publishing v1 RPC SQL, sets the Meta secrets, and deploys the Edge Function before the draft PR can be considered functionally complete.
 
 ## Prohibited actions
 
-- Do not create or edit migrations, RLS, policies, cron, or workers.
-- Do not expose service-role credentials or write directly to tables.
+- Do not create or edit RLS, policies, or cron without first explaining exactly what and why and getting the owner's explicit confirmation.
+- Do not create additional workers/Edge Functions beyond the explicitly authorized `safe-content-publisher` (Content Publishing v1, "Publish now" only) without the same explicit confirmation.
+- Do not expose service-role credentials to the browser or write to `content_items`/`audit_logs` directly from client code; the one narrow, documented exception is `safe-content-publisher`'s own server-side use of the service-role key solely to mint short-lived signed Storage URLs (see that function's header comment).
+- Do not build Instagram scheduling, a cron/poller, or any Meta-side "Schedule" call — that remains a separate, later decision.
 - Do not modify or deploy the public Relax Fix UAE site.
