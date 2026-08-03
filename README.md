@@ -1,5 +1,9 @@
 # Command Center Hub
 
+## MANDATORY AGENT STARTUP
+
+Before any task on this repository, read, in order: [`MASTER_PROJECT_HANDOFF.md`](MASTER_PROJECT_HANDOFF.md), [`OWNER_WORKING_PROFILE.md`](OWNER_WORKING_PROFILE.md), [`OWNER_PROTECTION_AND_BUDGET_POLICY.md`](OWNER_PROTECTION_AND_BUDGET_POLICY.md), and [`PROJECT_HANDOFF.md`](PROJECT_HANDOFF.md). See [`AGENTS.md`](AGENTS.md) for the full execution rules.
+
 Private internal operations application for RelaxFix UAE. This repository is independent from the public Relax Fix UAE website and must never be used to modify or deploy that site.
 
 ## Current capabilities
