@@ -273,6 +273,17 @@ async function transitionContentItem(session: Session, contentItemId: string, ac
   return result;
 }
 
+async function publishContentItem(session: Session, contentItemId: string) {
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/safe-content-publisher`, {
+    method: "POST", headers: rpcHeaders(session), body: JSON.stringify({ contentItemId }),
+  });
+  if (response.status === 401) throw new Error("SESSION_EXPIRED");
+  if (response.status === 403) throw new Error("STAFF_ACCESS_DENIED");
+  const result = (await response.json()) as { success: boolean; code?: string };
+  if (!result.success) throw new Error(result.code ?? "META_API_ERROR");
+  return result;
+}
+
 function LanguageSwitcher({ onDark = false }: { onDark?: boolean }) {
   const { language, setLanguage, t } = useLanguage();
   const labels = t("language");
@@ -525,6 +536,8 @@ function contentErrorMessage(language: Language, code: string) {
     INVALID_HASHTAG: "أحد الوسوم غير صالح أو يتجاوز 100 حرف.", INVALID_TRANSITION: "هذا الانتقال غير مسموح للحالة الحالية.",
     APPROVAL_REQUIRED: "يجب اعتماد المحتوى قبل الجدولة.", INVALID_SCHEDULE_TIME: "وقت الجدولة يجب أن يكون في المستقبل.",
     SCHEDULE_TOO_FAR: "لا يمكن الجدولة لأكثر من 366 يومًا.", INVALID_ACTION: "الإجراء المطلوب غير مسموح.",
+    META_API_ERROR: "تعذر النشر على Meta؛ حاول لاحقًا.", MEDIA_MISSING: "هذا المحتوى بحاجة وسائط أولًا.",
+    RECORD_FAILED: "نُشر لكن تعذر التسجيل؛ راجع يدويًا.",
   } : {
     STAFF_ACCESS_DENIED: "You don't have permission for this.", NOT_FOUND: "This content item no longer exists.",
     PUBLISHED_CONTENT_IMMUTABLE: "Published content can't be edited.", INVALID_CAPTION: "Caption is required, max 5000 characters.",
@@ -532,6 +545,8 @@ function contentErrorMessage(language: Language, code: string) {
     INVALID_HASHTAG: "A hashtag is invalid or over 100 characters.", INVALID_TRANSITION: "Not allowed for the current status.",
     APPROVAL_REQUIRED: "Content must be approved before scheduling.", INVALID_SCHEDULE_TIME: "Scheduled time must be in the future.",
     SCHEDULE_TOO_FAR: "Can't schedule more than 366 days ahead.", INVALID_ACTION: "This action isn't allowed.",
+    META_API_ERROR: "Meta publish failed; try again later.", MEDIA_MISSING: "This content needs media first.",
+    RECORD_FAILED: "Published but couldn't record it; review manually.",
   };
   return messages[code] ?? (language === "ar" ? "تعذر تنفيذ التغيير بأمان؛ لم يتم اعتماد أي تغيير غير مؤكد." : "Update failed safely; no change was made.");
 }
@@ -608,6 +623,15 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
     await runMutation(item.id, () => transitionContentItem(session, item.id, action, scheduledFor), language === "ar" ? `تم تنفيذ «${contentActionLabels[action]}» وتسجيل العملية بنجاح.` : `"${contentActionLabelsEn[action]}" completed and recorded.`);
   }
 
+  async function publishNow(item: z.infer<typeof ContentItemSchema>) {
+    if (!canWrite || busyId || item.status !== "approved") return;
+    const confirmMessage = language === "ar"
+      ? `تأكيد نشر «${item.topic || "محتوى بدون عنوان"}» على ${item.platform}؟ اتصال فعلي بـ Meta لا يمكن التراجع عنه، ويُسجَّل في Audit Log.`
+      : `Publish "${item.topic || copy.untitled}" to ${item.platform}? A real Meta call that can't be undone, recorded in the Audit Log.`;
+    if (!window.confirm(confirmMessage)) return;
+    await runMutation(item.id, () => publishContentItem(session, item.id), language === "ar" ? "تم النشر على Meta وتسجيل العملية بنجاح." : "Published to Meta and recorded.");
+  }
+
   return <>
     <div className="write-banner"><strong>{copy.writeBannerTitle}</strong><span>{copy.writeBannerSubtitle}</span></div>
     {notice && <div className="notice-box" aria-live="polite">{notice}</div>}
@@ -637,6 +661,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
             {["draft", "generated", "approved", "scheduled", "failed"].includes(item.status) && <button type="button" className="secondary" disabled={!canWrite || busyId !== null} onClick={(event) => void transition(item, "return_to_review", event.currentTarget.form!)}>{copy.returnToReviewButton}</button>}
             {["approved", "scheduled"].includes(item.status) && <button type="button" disabled={!canWrite || busyId !== null} onClick={(event) => void transition(item, "schedule", event.currentTarget.form!)}>{item.status === "scheduled" ? copy.rescheduleButton : copy.scheduleButton}</button>}
             {item.status === "scheduled" && <button type="button" className="secondary" disabled={!canWrite || busyId !== null} onClick={(event) => void transition(item, "unschedule", event.currentTarget.form!)}>{copy.unscheduleButton}</button>}
+            {item.status === "approved" && <button type="button" disabled={!canWrite || busyId !== null} onClick={() => void publishNow(item)}>{copy.publishNowButton}</button>}
           </div>
         </form>
         <footer><span>{copy.lastUpdated}: {formatBookingDateTime(language, item.updatedAt)}</span>{item.publishedAt && <span>{copy.published}: {formatBookingDateTime(language, item.publishedAt)}</span>}{!canWrite && <span>{t("common").readOnlyNote}</span>}{item.status === "published" && <span>{copy.publishedLocked}</span>}</footer>

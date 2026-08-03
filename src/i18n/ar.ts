@@ -107,6 +107,7 @@ export const ar: Dictionary = {
     scheduleButton: "جدولة",
     rescheduleButton: "إعادة الجدولة",
     unscheduleButton: "إلغاء الجدولة",
+    publishNowButton: "نشر الآن",
     lastUpdated: "آخر تحديث",
     published: "نشر",
     publishedLocked: "المحتوى المنشور محمي من التحرير.",
