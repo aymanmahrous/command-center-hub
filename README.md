@@ -53,6 +53,7 @@ The browser must not write directly to tables. Do not add migrations, RLS/policy
 - [Final security review](docs/FINAL_SECURITY_REVIEW.md)
 - [Performance review](docs/PERFORMANCE_REVIEW.md)
 - [Documentation review](docs/DOCUMENTATION_REVIEW.md)
+- [Release readiness review](docs/RELEASE_READINESS_REVIEW.md)
 - [Standalone architecture and rollback](docs/STANDALONE_MIGRATION_HANDOFF.md)
 - Feature evidence: [AI Inbox](docs/AI_INBOX_HANDOFF.md), [Bookings](docs/BOOKINGS_OPERATIONS_HANDOFF.md), [Content Studio](docs/CONTENT_STUDIO_HANDOFF.md), [Media Library](docs/MEDIA_LIBRARY_HANDOFF.md), [Analytics](docs/ANALYTICS_HANDOFF.md), [Integrations](docs/INTEGRATIONS_HANDOFF.md), and [System Polish](docs/SYSTEM_POLISH_HANDOFF.md)
 
