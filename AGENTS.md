@@ -8,6 +8,7 @@
 2. [`OWNER_WORKING_PROFILE.md`](OWNER_WORKING_PROFILE.md) — كيف يُدار التواصل مع المالك غير التقني.
 3. [`OWNER_PROTECTION_AND_BUDGET_POLICY.md`](OWNER_PROTECTION_AND_BUDGET_POLICY.md) — قواعد حماية المشروع والرصيد.
 4. [`PROJECT_HANDOFF.md`](PROJECT_HANDOFF.md) — الحالة التقنية التفصيلية لتطوير التطبيق.
+5. [`SWIM_FLUENT_DESIGN_SYSTEM.md`](SWIM_FLUENT_DESIGN_SYSTEM.md) — **إلزامي لكل وكيل تصميم**: الاستراتيجية الرسمية الوحيدة لأي تصميم أو محتوى بصري لـSwim Fluent UAE (`DESIGN_STRATEGY_LOCK_V1 — OWNER_APPROVED — ACTIVE IMMEDIATELY`). لا يُتجاوز ولا يُعاد فتحه من الصفر.
 
 ## قواعد التنفيذ الإلزامية
 
