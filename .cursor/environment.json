@@ -1,0 +1,11 @@
+{
+  "name": "Command Center Hub",
+  "install": "npm ci --ignore-scripts --no-audit --no-fund",
+  "terminals": [
+    {
+      "name": "dev",
+      "command": "npm run dev"
+    }
+  ],
+  "ports": [5000]
+}
