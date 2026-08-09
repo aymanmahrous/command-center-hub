@@ -646,17 +646,25 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
 }
 
 const mediaTypeLabels: Record<Language, Record<MediaAssetType, string>> = {
-  ar: { image: "صورة", video: "فيديو", logo: "شعار", other: "أخرى" },
-  en: { image: "Image", video: "Video", logo: "Logo", other: "Other" },
+  ar: { image: "صورة", video: "فيديو", logo: "شعار", other: "مستند" },
+  en: { image: "Image", video: "Video", logo: "Logo", other: "Document" },
 };
 const mediaSourceLabels: Record<Language, Record<MediaSource, string>> = {
   ar: { upload: "رفع موظف", ai_generated: "مولّد بالذكاء الاصطناعي", external: "مصدر خارجي" },
   en: { upload: "Staff upload", ai_generated: "AI generated", external: "External source" },
 };
 
-function mediaFileName(language: Language, copy: Dictionary["media"], storagePath: string | null) {
+function mediaFileName(language: Language, copy: Dictionary["media"], storagePath: string | null, metadata: Record<string, unknown> = {}) {
+  const metadataName = typeof metadata.file_name === "string" ? metadata.file_name.trim() : "";
+  if (metadataName) return metadataName;
   if (!storagePath) return copy.noSavedFile;
   return storagePath.split("/").filter(Boolean).at(-1) ?? copy.privateFile;
+}
+
+function mediaPreviewHint(language: Language, copy: Dictionary["media"], assetType: MediaAssetType) {
+  if (assetType === "video") return language === "ar" ? "معاينة خاصة غير مكشوفة" : "Private preview, not disclosed";
+  if (assetType === "other") return copy.documentPreviewPrivate;
+  return language === "ar" ? "معاينة خاصة غير مكشوفة" : "Private preview, not disclosed";
 }
 
 function mediaMetadataSummary(copy: Dictionary["media"], metadata: Record<string, unknown>) {
@@ -689,7 +697,7 @@ function MediaLibraryView({ value }: { value: JsonValue }) {
       if (typeFilter !== "all" && asset.assetType !== typeFilter) return false;
       if (sourceFilter !== "all" && asset.source !== sourceFilter) return false;
       if (!normalized) return true;
-      return [mediaFileName(language, copy, asset.storagePath), asset.provider, asset.providerJobId, asset.prompt, asset.contentItemId, mediaMetadataSummary(copy, asset.metadata)]
+      return [mediaFileName(language, copy, asset.storagePath, asset.metadata), asset.provider, asset.providerJobId, asset.prompt, asset.contentItemId, mediaMetadataSummary(copy, asset.metadata)]
         .filter((field): field is string => Boolean(field))
         .some((field) => field.toLocaleLowerCase("ar").includes(normalized));
     });
@@ -711,9 +719,9 @@ function MediaLibraryView({ value }: { value: JsonValue }) {
     {assets.length === 0 && <p className="muted">{copy.noAssets}</p>}
     {assets.length > 0 && filteredAssets.length === 0 && <p className="muted">{copy.noResults}</p>}
     <div className="media-grid">{filteredAssets.map((asset) => <article className="media-card" key={asset.id}>
-      <div className={`media-placeholder media-${asset.assetType}`}><Library size={26} /><span>{typeLabels[asset.assetType]}</span><small>{language === "ar" ? "معاينة خاصة غير مكشوفة" : "Private preview, not disclosed"}</small></div>
+      <div className={`media-placeholder media-${asset.assetType}`}><Library size={26} /><span>{typeLabels[asset.assetType]}</span><small>{mediaPreviewHint(language, copy, asset.assetType)}</small></div>
       <div className="media-details">
-        <header><div><span>{sourceLabels[asset.source]}</span><h3>{mediaFileName(language, copy, asset.storagePath)}</h3></div><span className="private-badge">{copy.privateBadge}</span></header>
+        <header><div><span>{sourceLabels[asset.source]}</span><h3>{mediaFileName(language, copy, asset.storagePath, asset.metadata)}</h3></div><span className="private-badge">{copy.privateBadge}</span></header>
         <dl>
           <div><dt>{copy.providerLabel}</dt><dd>{asset.provider || copy.internalUnspecified}</dd></div>
           <div><dt>{copy.createdLabel}</dt><dd>{formatBookingDateTime(language, asset.createdAt)}</dd></div>
