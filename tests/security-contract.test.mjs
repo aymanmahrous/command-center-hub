@@ -120,17 +120,21 @@ test("Content Studio honors server status and action allowlists", () => {
 test("Media Library uses the staff RPC and exposes no storage or table mutation", () => {
   assert.match(app, /get_staff_media_assets/);
   assert.match(app, /active === "media" \? <MediaLibraryView/);
-  assert.doesNotMatch(app, /\/storage\/v1\//i);
+  assert.doesNotMatch(app, /\/storage\/v1\/object\/[^`]+(?:POST|PUT|DELETE)/i);
   assert.doesNotMatch(app, /create_staff_media_asset_record|create_staff_video_generation_job|update_staff_video_generation_job/);
   assert.doesNotMatch(app, /\/rest\/v1\/media_assets[^\n]*(PATCH|PUT|DELETE|POST)/i);
 });
 
-test("Media Library validates ownership-shaped records and remains private read-only", () => {
+test("Media Library validates ownership-shaped records and private image preview", () => {
   for (const field of ["createdBy", "contentItemId", "assetType", "source", "storagePath", "providerJobId", "metadata", "createdAt"]) assert.match(app, new RegExp(field));
   for (const type of ["image", "video", "logo", "other"]) assert.match(app, new RegExp(`"${type}"`));
   for (const source of ["upload", "ai_generated", "external"]) assert.match(app, new RegExp(`"${source}"`));
   assert.match(app, /مكتبة وسائط خاصة للقراءة فقط/);
-  assert.match(app, /معاينة خاصة غير مكشوفة/);
+  assert.match(app, /MediaPreviewImage/);
+  assert.match(app, /fetchStaffMediaPreviewObjectUrl/);
+  assert.match(app, /relax-fix-media/);
+  assert.match(app, /assetType === "image"/);
+  assert.match(app, /URL\.revokeObjectURL/);
   assert.match(app, /typeFilter/);
   assert.match(app, /sourceFilter/);
 });

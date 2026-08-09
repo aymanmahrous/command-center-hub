@@ -44,6 +44,26 @@
 .media-placeholder.media-image { background: linear-gradient(145deg, #cffafe, #ecfeff); color: #0e7490; }
 .media-placeholder.media-logo { background: linear-gradient(145deg, #ede9fe, #f5f3ff); color: #6d28d9; }
 .media-placeholder small { color: #64748b; }
+.media-preview {
+  width: 100%;
+  min-height: 210px;
+  max-height: 320px;
+  object-fit: contain;
+  display: block;
+  background: linear-gradient(145deg, #cffafe, #ecfeff);
+}
+.media-preview-loading,
+.media-preview-error {
+  min-height: 210px;
+  display: grid;
+  place-content: center;
+  padding: 16px;
+  text-align: center;
+  color: #64748b;
+  background: linear-gradient(145deg, #e2e8f0, #f8fafc);
+  font-size: 0.82rem;
+}
+.media-preview-error { color: #b45309; background: linear-gradient(145deg, #fff7ed, #fffbeb); }
 .media-details { min-width: 0; padding: 18px; display: grid; gap: 14px; }
 .media-details header { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
 .media-details header > div > span { color: #64748b; font-size: 0.78rem; }
