@@ -43,6 +43,7 @@
 .media-placeholder.media-video { background: linear-gradient(145deg, #dbeafe, #eff6ff); color: #1d4ed8; }
 .media-placeholder.media-image { background: linear-gradient(145deg, #cffafe, #ecfeff); color: #0e7490; }
 .media-placeholder.media-logo { background: linear-gradient(145deg, #ede9fe, #f5f3ff); color: #6d28d9; }
+.media-placeholder.media-other { background: linear-gradient(145deg, #fef3c7, #fffbeb); color: #b45309; }
 .media-placeholder small { color: #64748b; }
 .media-details { min-width: 0; padding: 18px; display: grid; gap: 14px; }
 .media-details header { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
