@@ -135,6 +135,9 @@ export const ar: Dictionary = {
     contentItemLabel: "عنصر المحتوى",
     providerJobLabel: "مهمة المزود",
     privateBadge: "خاص",
+    previewLoading: "جاري تحميل المعاينة الخاصة...",
+    previewUnavailable: "المعاينة الخاصة غير متاحة",
+    videoPreviewPrivate: "معاينة الفيديو غير معروضة هنا",
   },
   analytics: {
     attributionReadyBadge: "موثوق للربط",
