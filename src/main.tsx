@@ -88,7 +88,7 @@ const ContentMutationSchema = z.object({
   scheduledFor: z.string().nullable().optional(), updatedAt: z.string().optional(),
 });
 const MediaAssetSchema = z.object({
-  id: z.string().uuid(), createdBy: z.string().uuid(), contentItemId: z.string().uuid().nullable(),
+  id: z.string().uuid(), createdBy: z.string().uuid().nullable(), contentItemId: z.string().uuid().nullable(),
   assetType: z.enum(["image", "video", "logo", "other"]), source: z.enum(["upload", "ai_generated", "external"]),
   storagePath: z.string().nullable(), provider: z.string().nullable(), providerJobId: z.string().nullable(),
   prompt: z.string().nullable(), metadata: z.record(z.unknown()), createdAt: z.string(),
@@ -116,6 +116,7 @@ const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\
 const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
 const STAFF_TABLE = (import.meta.env.VITE_STAFF_PROFILE_TABLE ?? "staff_profiles").trim();
 const PASSWORD_RESET_PATH = (import.meta.env.VITE_PASSWORD_RESET_PATH ?? "").trim();
+const MEDIA_BUCKET = "relax-fix-media";
 
 const AUTH_MESSAGES = {
   CONFIGURATION_REQUIRED: "إعدادات الاتصال غير مكتملة أو غير آمنة. التطبيق مغلق بأمان.\nConnection settings are incomplete or unsafe. The application is securely locked.",
@@ -228,6 +229,27 @@ async function callRpc(session: Session, rpcName: string, body: Record<string, u
   if (response.status === 403) throw new Error("STAFF_ACCESS_DENIED");
   if (!response.ok) throw new Error(`RPC_FAILED_${response.status}`);
   return (await response.json()) as JsonValue;
+}
+
+function encodedStorageObjectPath(path: string) {
+  return path.split("/").filter(Boolean).map((segment) => encodeURIComponent(segment)).join("/");
+}
+
+function isPreviewableImageStoragePath(storagePath: string | null) {
+  return Boolean(storagePath && !storagePath.includes("://"));
+}
+
+async function fetchStaffMediaPreviewObjectUrl(session: Session, storagePath: string, signal?: AbortSignal): Promise<string> {
+  const response = await fetch(`${SUPABASE_URL}/storage/v1/object/${MEDIA_BUCKET}/${encodedStorageObjectPath(storagePath)}`, {
+    method: "GET",
+    headers: { apikey: SUPABASE_PUBLIC_KEY, Authorization: `Bearer ${session.accessToken}` },
+    signal,
+  });
+  if (response.status === 401) throw new Error("SESSION_EXPIRED");
+  if (response.status === 403) throw new Error("STAFF_ACCESS_DENIED");
+  if (!response.ok) throw new Error(`STORAGE_PREVIEW_${response.status}`);
+  const blob = await response.blob();
+  return URL.createObjectURL(blob);
 }
 
 async function updateBookingStatus(session: Session, bookingId: string, status: BookingStatus) {
@@ -668,7 +690,45 @@ function mediaMetadataSummary(copy: Dictionary["media"], metadata: Record<string
   }).join(" · ");
 }
 
-function MediaLibraryView({ value }: { value: JsonValue }) {
+function MediaPreviewImage({ session, storagePath, alt, onSessionExpired }: { session: Session; storagePath: string; alt: string; onSessionExpired: () => void }) {
+  const { language, t } = useLanguage();
+  const copy = t("media");
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setStatus("loading");
+    setPreviewUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return null;
+    });
+
+    fetchStaffMediaPreviewObjectUrl(session, storagePath, controller.signal).then((objectUrl) => {
+      setPreviewUrl(objectUrl);
+      setStatus("ready");
+    }).catch((cause) => {
+      if (cause instanceof DOMException && cause.name === "AbortError") return;
+      const code = cause instanceof Error ? cause.message : "LOAD_FAILED";
+      if (code === "SESSION_EXPIRED") onSessionExpired();
+      else setStatus("error");
+    });
+
+    return () => {
+      controller.abort();
+      setPreviewUrl((current) => {
+        if (current) URL.revokeObjectURL(current);
+        return null;
+      });
+    };
+  }, [onSessionExpired, session, storagePath]);
+
+  if (status === "loading") return <div className="media-preview media-preview-loading" role="status">{copy.previewLoading}</div>;
+  if (status === "error" || !previewUrl) return <div className="media-preview media-preview-error" role="status">{copy.previewUnavailable}</div>;
+  return <img className="media-preview" src={previewUrl} alt={alt} loading="lazy" decoding="async" />;
+}
+
+function MediaLibraryView({ value, session, onSessionExpired }: { value: JsonValue; session: Session; onSessionExpired: () => void }) {
   const { language, t } = useLanguage();
   const copy = t("media");
   const typeLabels = mediaTypeLabels[language];
@@ -710,8 +770,15 @@ function MediaLibraryView({ value }: { value: JsonValue }) {
     </div>
     {assets.length === 0 && <p className="muted">{copy.noAssets}</p>}
     {assets.length > 0 && filteredAssets.length === 0 && <p className="muted">{copy.noResults}</p>}
-    <div className="media-grid">{filteredAssets.map((asset) => <article className="media-card" key={asset.id}>
-      <div className={`media-placeholder media-${asset.assetType}`}><Library size={26} /><span>{typeLabels[asset.assetType]}</span><small>{language === "ar" ? "معاينة خاصة غير مكشوفة" : "Private preview, not disclosed"}</small></div>
+    <div className="media-grid">{filteredAssets.map((asset) => {
+      const previewAlt = mediaFileName(language, copy, asset.storagePath);
+      const showImagePreview = asset.assetType === "image" && isPreviewableImageStoragePath(asset.storagePath);
+      return <article className="media-card" key={asset.id}>
+      {showImagePreview ? (
+        <MediaPreviewImage session={session} storagePath={asset.storagePath!} alt={previewAlt} onSessionExpired={onSessionExpired} />
+      ) : (
+        <div className={`media-placeholder media-${asset.assetType}`}><Library size={26} /><span>{typeLabels[asset.assetType]}</span><small>{asset.assetType === "video" ? copy.videoPreviewPrivate : copy.previewUnavailable}</small></div>
+      )}
       <div className="media-details">
         <header><div><span>{sourceLabels[asset.source]}</span><h3>{mediaFileName(language, copy, asset.storagePath)}</h3></div><span className="private-badge">{copy.privateBadge}</span></header>
         <dl>
@@ -723,7 +790,8 @@ function MediaLibraryView({ value }: { value: JsonValue }) {
         {asset.prompt && <div className="media-prompt"><strong>{copy.generationDescription}</strong><p>{asset.prompt}</p></div>}
         <p className="media-metadata">{mediaMetadataSummary(copy, asset.metadata)}</p>
       </div>
-    </article>)}</div>
+    </article>;
+    })}</div>
   </>;
 }
 
@@ -942,7 +1010,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   useEffect(() => { document.title = `${nav[current[0]]} · ${nav.dashboard}`; }, [current, nav]);
   useEffect(() => { const controller = new AbortController(); setStatus("loading"); setError(""); callRpc(session, current[3], {}, controller.signal).then((result) => { setData(result); setStatus("ready"); }).catch((cause) => { if (cause instanceof DOMException && cause.name === "AbortError") return; const message = cause instanceof Error ? cause.message : "LOAD_FAILED"; if (message === "SESSION_EXPIRED") onLogout(); else { setError(dashboardCopy.loadError); setStatus("error"); } }); return () => controller.abort(); }, [current, dashboardCopy.loadError, onLogout, reloadKey, session]);
   const modeLabel = active === "planner" || active === "crm" || active === "inbox" || active === "content" ? dashboardCopy.controlledWrite : dashboardCopy.readOnly;
-  return <div className="app-shell"><a className="skip-link" href="#main-workspace">{nav.skipToContent}</a><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><LanguageSwitcher onDark /><nav aria-label="وحدات Command Center">{sections.map(([id, , Icon]) => <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => setActive(id)}><Icon size={18} aria-hidden="true" />{nav[id]}</button>)}</nav><button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button></aside><main className="workspace" id="main-workspace" tabIndex={-1}><p className="eyebrow">{dashboardCopy.eyebrow} · {modeLabel}</p><h1>{nav[current[0]]}</h1><section className="panel" aria-busy={status === "loading"}><div className="panel-heading"><div><h2>{dashboardCopy.panelHeading}</h2><p>{dashboardCopy.panelSubheading}</p></div><button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button></div>{status === "loading" && <p className="muted" role="status">{t("common").loading}</p>}{status === "error" && <div className="error-box" role="alert">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <MediaLibraryView value={data} /> : active === "analytics" ? <AnalyticsView value={data} /> : active === "integrations" ? <IntegrationsView value={data} /> : active === "automations" ? <AutomationsView value={data} /> : <DataView value={data} />)}</section></main></div>;
+  return <div className="app-shell"><a className="skip-link" href="#main-workspace">{nav.skipToContent}</a><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><LanguageSwitcher onDark /><nav aria-label="وحدات Command Center">{sections.map(([id, , Icon]) => <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => setActive(id)}><Icon size={18} aria-hidden="true" />{nav[id]}</button>)}</nav><button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button></aside><main className="workspace" id="main-workspace" tabIndex={-1}><p className="eyebrow">{dashboardCopy.eyebrow} · {modeLabel}</p><h1>{nav[current[0]]}</h1><section className="panel" aria-busy={status === "loading"}><div className="panel-heading"><div><h2>{dashboardCopy.panelHeading}</h2><p>{dashboardCopy.panelSubheading}</p></div><button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button></div>{status === "loading" && <p className="muted" role="status">{t("common").loading}</p>}{status === "error" && <div className="error-box" role="alert">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <MediaLibraryView value={data} session={session} onSessionExpired={onLogout} /> : active === "analytics" ? <AnalyticsView value={data} /> : active === "integrations" ? <IntegrationsView value={data} /> : active === "automations" ? <AutomationsView value={data} /> : <DataView value={data} />)}</section></main></div>;
 }
 
 function App() {
