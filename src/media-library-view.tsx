@@ -11,7 +11,7 @@ type MediaSource = "upload" | "ai_generated" | "external";
 type MediaLibrarySession = { accessToken: string };
 
 const MediaAssetSchema = z.object({
-  id: z.string().uuid(), createdBy: z.string().uuid(), contentItemId: z.string().uuid().nullable(),
+  id: z.string().uuid(), createdBy: z.string().uuid().nullable(), contentItemId: z.string().uuid().nullable(),
   assetType: z.enum(["image", "video", "logo", "other"]), source: z.enum(["upload", "ai_generated", "external"]),
   storagePath: z.string().nullable(), provider: z.string().nullable(), providerJobId: z.string().nullable(),
   prompt: z.string().nullable(), metadata: z.record(z.unknown()), createdAt: z.string(),
