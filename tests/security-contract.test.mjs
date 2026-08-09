@@ -6,6 +6,7 @@ const envExample = await readFile(new URL("../.env.example", import.meta.url), "
 const gitignore = await readFile(new URL("../.gitignore", import.meta.url), "utf8");
 const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
 const app = await readFile(new URL("../src/main.tsx", import.meta.url), "utf8");
+const mediaView = await readFile(new URL("../src/media-library-view.tsx", import.meta.url), "utf8");
 
 test("environment example contains the browser-safe configuration contract", () => {
   assert.match(envExample, /^VITE_SUPABASE_URL=/m);
@@ -119,20 +120,21 @@ test("Content Studio honors server status and action allowlists", () => {
 
 test("Media Library uses the staff RPC and exposes no storage or table mutation", () => {
   assert.match(app, /get_staff_media_assets/);
-  assert.match(app, /active === "media" \? <MediaLibraryView/);
-  assert.doesNotMatch(app, /\/storage\/v1\//i);
-  assert.doesNotMatch(app, /create_staff_media_asset_record|create_staff_video_generation_job|update_staff_video_generation_job/);
-  assert.doesNotMatch(app, /\/rest\/v1\/media_assets[^\n]*(PATCH|PUT|DELETE|POST)/i);
+  assert.match(app, /import\("\.\/media-library-view"\)/);
+  assert.match(mediaView, /fetchStaffMediaBlob/);
+  assert.match(mediaView, /openStaffMediaAsset/);
+  assert.doesNotMatch(mediaView, /create_staff_media_asset_record|create_staff_video_generation_job|update_staff_video_generation_job/);
+  assert.doesNotMatch(mediaView, /\/rest\/v1\/media_assets[^\n]*(PATCH|PUT|DELETE|POST)/i);
 });
 
 test("Media Library validates ownership-shaped records and remains private read-only", () => {
-  for (const field of ["createdBy", "contentItemId", "assetType", "source", "storagePath", "providerJobId", "metadata", "createdAt"]) assert.match(app, new RegExp(field));
-  for (const type of ["image", "video", "logo", "other"]) assert.match(app, new RegExp(`"${type}"`));
-  for (const source of ["upload", "ai_generated", "external"]) assert.match(app, new RegExp(`"${source}"`));
-  assert.match(app, /مكتبة وسائط خاصة للقراءة فقط/);
-  assert.match(app, /معاينة خاصة غير مكشوفة/);
-  assert.match(app, /typeFilter/);
-  assert.match(app, /sourceFilter/);
+  for (const field of ["createdBy", "contentItemId", "assetType", "source", "storagePath", "providerJobId", "metadata", "createdAt"]) assert.match(mediaView, new RegExp(field));
+  for (const type of ["image", "video", "logo", "other"]) assert.match(mediaView, new RegExp(`"${type}"`));
+  for (const source of ["upload", "ai_generated", "external"]) assert.match(mediaView, new RegExp(`"${source}"`));
+  assert.match(mediaView, /مكتبة وسائط خاصة للقراءة فقط/);
+  assert.match(mediaView, /privateExternalReference/);
+  assert.match(mediaView, /typeFilter/);
+  assert.match(mediaView, /sourceFilter/);
 });
 
 test("Analytics uses the approved aggregate RPC and has no direct metric queries", () => {

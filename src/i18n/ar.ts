@@ -135,6 +135,12 @@ export const ar: Dictionary = {
     contentItemLabel: "عنصر المحتوى",
     providerJobLabel: "مهمة المزود",
     privateBadge: "خاص",
+    documentPreviewPrivate: "مستند خاص — لا معاينة مضمّنة",
+    privateExternalReference: "مرجع خارجي خاص",
+    previewUnavailable: "المعاينة الخاصة غير متاحة",
+    documentOpen: "فتح",
+    documentDownload: "تنزيل",
+    documentActionFailed: "تعذر فتح هذا المستند الخاص.",
   },
   analytics: {
     attributionReadyBadge: "موثوق للربط",

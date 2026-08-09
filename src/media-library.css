@@ -43,7 +43,15 @@
 .media-placeholder.media-video { background: linear-gradient(145deg, #dbeafe, #eff6ff); color: #1d4ed8; }
 .media-placeholder.media-image { background: linear-gradient(145deg, #cffafe, #ecfeff); color: #0e7490; }
 .media-placeholder.media-logo { background: linear-gradient(145deg, #ede9fe, #f5f3ff); color: #6d28d9; }
+.media-placeholder.media-other { background: linear-gradient(145deg, #fef3c7, #fffbeb); color: #b45309; }
 .media-placeholder small { color: #64748b; }
+.media-preview { min-height: 210px; background: #0f172a; display: grid; place-items: center; }
+.media-preview-image img { display: block; width: 100%; height: 100%; min-height: 210px; max-height: 280px; object-fit: cover; }
+.media-document-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 4px; }
+.media-document-actions button { border: 1px solid #d97706; border-radius: 999px; padding: 7px 12px; background: #fff7ed; color: #9a3412; font-size: 0.78rem; font-weight: 800; cursor: pointer; }
+.media-document-actions button.secondary { border-color: #cbd5e1; background: #fff; color: #334155; }
+.media-document-actions button:disabled { opacity: 0.7; cursor: wait; }
+.media-action-error { color: #b91c1c; }
 .media-details { min-width: 0; padding: 18px; display: grid; gap: 14px; }
 .media-details header { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
 .media-details header > div > span { color: #64748b; font-size: 0.78rem; }
@@ -62,6 +70,7 @@
   .media-toolbar, .media-card { grid-template-columns: 1fr; }
   .media-toolbar > span { padding-bottom: 0; }
   .media-placeholder { min-height: 150px; }
+  .media-preview-image img { min-height: 150px; max-height: 220px; }
 }
 
 @media (max-width: 520px) {
