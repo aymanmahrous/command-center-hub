@@ -1,4 +1,4 @@
-import React, { FormEvent, useEffect, useMemo, useState } from "react";
+import React, { FormEvent, lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, LayoutDashboard, Library, LogOut, Settings2, ShieldAlert, Workflow } from "lucide-react";
 import { z } from "zod";
@@ -12,6 +12,8 @@ import "./media-library.css";
 import "./analytics.css";
 import "./integrations.css";
 import "./system-polish.css";
+
+const MediaLibraryView = lazy(() => import("./media-library-view").then((module) => ({ default: module.MediaLibraryView })));
 
 const sections = [
   ["dashboard", "Command Center", LayoutDashboard, "get_staff_command_center"],
@@ -645,88 +647,6 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
   </>;
 }
 
-const mediaTypeLabels: Record<Language, Record<MediaAssetType, string>> = {
-  ar: { image: "صورة", video: "فيديو", logo: "شعار", other: "أخرى" },
-  en: { image: "Image", video: "Video", logo: "Logo", other: "Other" },
-};
-const mediaSourceLabels: Record<Language, Record<MediaSource, string>> = {
-  ar: { upload: "رفع موظف", ai_generated: "مولّد بالذكاء الاصطناعي", external: "مصدر خارجي" },
-  en: { upload: "Staff upload", ai_generated: "AI generated", external: "External source" },
-};
-
-function mediaFileName(language: Language, copy: Dictionary["media"], storagePath: string | null) {
-  if (!storagePath) return copy.noSavedFile;
-  return storagePath.split("/").filter(Boolean).at(-1) ?? copy.privateFile;
-}
-
-function mediaMetadataSummary(copy: Dictionary["media"], metadata: Record<string, unknown>) {
-  const entries = Object.entries(metadata);
-  if (entries.length === 0) return copy.noMetadata;
-  return entries.slice(0, 6).map(([key, value]) => {
-    const rendered = typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? String(value) : copy.compositeData;
-    return `${key.replaceAll("_", " ")}: ${rendered.slice(0, 120)}`;
-  }).join(" · ");
-}
-
-function MediaLibraryView({ value }: { value: JsonValue }) {
-  const { language, t } = useLanguage();
-  const copy = t("media");
-  const typeLabels = mediaTypeLabels[language];
-  const sourceLabels = mediaSourceLabels[language];
-  const parsed = useMemo(() => z.array(MediaAssetSchema).safeParse(value), [value]);
-  const [query, setQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState<MediaAssetType | "all">("all");
-  const [sourceFilter, setSourceFilter] = useState<MediaSource | "all">("all");
-  const assets = parsed.success ? parsed.data : [];
-  const counts = useMemo(() => {
-    const initial: Record<MediaAssetType, number> = { image: 0, video: 0, logo: 0, other: 0 };
-    for (const asset of assets) initial[asset.assetType] += 1;
-    return initial;
-  }, [assets]);
-  const filteredAssets = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase("ar");
-    return assets.filter((asset) => {
-      if (typeFilter !== "all" && asset.assetType !== typeFilter) return false;
-      if (sourceFilter !== "all" && asset.source !== sourceFilter) return false;
-      if (!normalized) return true;
-      return [mediaFileName(language, copy, asset.storagePath), asset.provider, asset.providerJobId, asset.prompt, asset.contentItemId, mediaMetadataSummary(copy, asset.metadata)]
-        .filter((field): field is string => Boolean(field))
-        .some((field) => field.toLocaleLowerCase("ar").includes(normalized));
-    });
-  }, [assets, copy, language, query, sourceFilter, typeFilter]);
-
-  if (!parsed.success) return <div className="error-box">{copy.invalidFormat}</div>;
-
-  return <>
-    <div className="media-security-banner"><strong>{language === "ar" ? "مكتبة وسائط خاصة للقراءة فقط" : "Private read-only media library"}</strong><span>{copy.bannerSubtitle}</span></div>
-    <div className="media-summary" aria-label={language === "ar" ? "ملخص أنواع الوسائط" : "Media type summary"}>
-      <button type="button" className={typeFilter === "all" ? "active" : ""} onClick={() => setTypeFilter("all")}><span>{copy.allLabel}</span><strong>{assets.length}</strong></button>
-      {(Object.keys(typeLabels) as MediaAssetType[]).map((type) => <button type="button" key={type} className={typeFilter === type ? "active" : ""} onClick={() => setTypeFilter(type)}><span>{typeLabels[type]}</span><strong>{counts[type]}</strong></button>)}
-    </div>
-    <div className="media-toolbar">
-      <label>{t("common").search}<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={copy.searchPlaceholder} /></label>
-      <label>{copy.sourceLabel}<select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value as MediaSource | "all")}><option value="all">{copy.allSources}</option>{(Object.keys(sourceLabels) as MediaSource[]).map((source) => <option key={source} value={source}>{sourceLabels[source]}</option>)}</select></label>
-      <span>{filteredAssets.length} {t("common").of} {assets.length}</span>
-    </div>
-    {assets.length === 0 && <p className="muted">{copy.noAssets}</p>}
-    {assets.length > 0 && filteredAssets.length === 0 && <p className="muted">{copy.noResults}</p>}
-    <div className="media-grid">{filteredAssets.map((asset) => <article className="media-card" key={asset.id}>
-      <div className={`media-placeholder media-${asset.assetType}`}><Library size={26} /><span>{typeLabels[asset.assetType]}</span><small>{language === "ar" ? "معاينة خاصة غير مكشوفة" : "Private preview, not disclosed"}</small></div>
-      <div className="media-details">
-        <header><div><span>{sourceLabels[asset.source]}</span><h3>{mediaFileName(language, copy, asset.storagePath)}</h3></div><span className="private-badge">{copy.privateBadge}</span></header>
-        <dl>
-          <div><dt>{copy.providerLabel}</dt><dd>{asset.provider || copy.internalUnspecified}</dd></div>
-          <div><dt>{copy.createdLabel}</dt><dd>{formatBookingDateTime(language, asset.createdAt)}</dd></div>
-          <div><dt>{copy.contentItemLabel}</dt><dd>{asset.contentItemId ?? t("common").unlinked}</dd></div>
-          <div><dt>{copy.providerJobLabel}</dt><dd>{asset.providerJobId ?? t("common").unavailable}</dd></div>
-        </dl>
-        {asset.prompt && <div className="media-prompt"><strong>{copy.generationDescription}</strong><p>{asset.prompt}</p></div>}
-        <p className="media-metadata">{mediaMetadataSummary(copy, asset.metadata)}</p>
-      </div>
-    </article>)}</div>
-  </>;
-}
-
 function safeRatio(numerator: number, denominator: number) {
   return denominator > 0 ? numerator / denominator : null;
 }
@@ -942,7 +862,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   useEffect(() => { document.title = `${nav[current[0]]} · ${nav.dashboard}`; }, [current, nav]);
   useEffect(() => { const controller = new AbortController(); setStatus("loading"); setError(""); callRpc(session, current[3], {}, controller.signal).then((result) => { setData(result); setStatus("ready"); }).catch((cause) => { if (cause instanceof DOMException && cause.name === "AbortError") return; const message = cause instanceof Error ? cause.message : "LOAD_FAILED"; if (message === "SESSION_EXPIRED") onLogout(); else { setError(dashboardCopy.loadError); setStatus("error"); } }); return () => controller.abort(); }, [current, dashboardCopy.loadError, onLogout, reloadKey, session]);
   const modeLabel = active === "planner" || active === "crm" || active === "inbox" || active === "content" ? dashboardCopy.controlledWrite : dashboardCopy.readOnly;
-  return <div className="app-shell"><a className="skip-link" href="#main-workspace">{nav.skipToContent}</a><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><LanguageSwitcher onDark /><nav aria-label="وحدات Command Center">{sections.map(([id, , Icon]) => <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => setActive(id)}><Icon size={18} aria-hidden="true" />{nav[id]}</button>)}</nav><button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button></aside><main className="workspace" id="main-workspace" tabIndex={-1}><p className="eyebrow">{dashboardCopy.eyebrow} · {modeLabel}</p><h1>{nav[current[0]]}</h1><section className="panel" aria-busy={status === "loading"}><div className="panel-heading"><div><h2>{dashboardCopy.panelHeading}</h2><p>{dashboardCopy.panelSubheading}</p></div><button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button></div>{status === "loading" && <p className="muted" role="status">{t("common").loading}</p>}{status === "error" && <div className="error-box" role="alert">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <MediaLibraryView value={data} /> : active === "analytics" ? <AnalyticsView value={data} /> : active === "integrations" ? <IntegrationsView value={data} /> : active === "automations" ? <AutomationsView value={data} /> : <DataView value={data} />)}</section></main></div>;
+  return <div className="app-shell"><a className="skip-link" href="#main-workspace">{nav.skipToContent}</a><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><LanguageSwitcher onDark /><nav aria-label="وحدات Command Center">{sections.map(([id, , Icon]) => <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => setActive(id)}><Icon size={18} aria-hidden="true" />{nav[id]}</button>)}</nav><button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button></aside><main className="workspace" id="main-workspace" tabIndex={-1}><p className="eyebrow">{dashboardCopy.eyebrow} · {modeLabel}</p><h1>{nav[current[0]]}</h1><section className="panel" aria-busy={status === "loading"}><div className="panel-heading"><div><h2>{dashboardCopy.panelHeading}</h2><p>{dashboardCopy.panelSubheading}</p></div><button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button></div>{status === "loading" && <p className="muted" role="status">{t("common").loading}</p>}{status === "error" && <div className="error-box" role="alert">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MediaLibraryView value={data} session={session} onSessionExpired={onLogout} /></Suspense> : active === "analytics" ? <AnalyticsView value={data} /> : active === "integrations" ? <IntegrationsView value={data} /> : active === "automations" ? <AutomationsView value={data} /> : <DataView value={data} />)}</section></main></div>;
 }
 
 function App() {

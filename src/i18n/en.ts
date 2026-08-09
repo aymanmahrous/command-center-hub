@@ -133,6 +133,12 @@ export const en = {
     contentItemLabel: "Content item",
     providerJobLabel: "Provider job",
     privateBadge: "Private",
+    documentPreviewPrivate: "Private document — no inline preview",
+    privateExternalReference: "Private external reference",
+    previewUnavailable: "Private preview unavailable",
+    documentOpen: "Open",
+    documentDownload: "Download",
+    documentActionFailed: "Could not open this private document.",
   },
   analytics: {
     attributionReadyBadge: "Trusted for linking",
