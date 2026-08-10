@@ -106,7 +106,7 @@
 - Approved n8n workflow only: `xNwYPSXQiUyzDSyZ`
 - Old workflows must remain inactive and untouched: `7OVKtZ2TAZsrDIXc`, `Vj8Xh4UQ534LYist`
 - Facebook Page ID: `1164107840123575`
-- Instagram Account ID: `17841439747493221`
+- Instagram Account ID: `17841400516601494`
 - Never expose tokens or secrets in documentation.
 
 ## 13. FUTURE PHASE ASSETS — DO NOT REBUILD
