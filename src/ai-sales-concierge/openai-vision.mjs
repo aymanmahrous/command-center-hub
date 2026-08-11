@@ -11,6 +11,13 @@ export const OPENAI_VISION_SETUP = {
   model: "gpt-4o-mini",
   credentialEnv: "OPENAI_API_KEY",
   apiUrl: "https://api.openai.com/v1/chat/completions",
+  // Secure runtime locations (never commit real values):
+  // 1) Primary WhatsApp runtime: n8n Cloud → Settings → Variables → OPENAI_API_KEY
+  // 2) Local/agent tests: process environment OPENAI_API_KEY (Cursor/env secrets)
+  expectedSecretLocations: [
+    "n8n Cloud Variables: OPENAI_API_KEY",
+    "process.env.OPENAI_API_KEY",
+  ],
   productionChanged: false,
   outboundEnabled: false,
 };
