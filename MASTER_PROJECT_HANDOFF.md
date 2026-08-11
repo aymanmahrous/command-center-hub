@@ -117,5 +117,11 @@
 - **GA4**: الكود موجود (Consent Mode v2) لكنه معطّل (`VITE_ENABLE_GA4=false`) وبدون Measurement ID مؤكد.
 - **Chatbot الموقع**: واجهة FAQ أمامية مبنية ومتحقَّق منها بصريًا مرة واحدة في Preview، لكنها معطّلة بـ Feature Flag ولا تُخزّن أو ترسل أي بيانات.
 - **Supabase**: جداول `conversations`/`leads`/`knowledge_entries` جاهزة هيكليًا للمرحلة 8 لكنها فارغة (0 صف).
-- لا يوجد اتصال حي مؤكد بـ WhatsApp Business API أو Facebook Messenger أو Instagram Messaging (لا Webhooks، لا بيانات مسجَّلة).
+- **WhatsApp inbound (مؤكَّد 2026-08-11):** اتصال حي ناجح Meta → n8n → Supabase → CRM → AI Draft.
+  - WABA الحالي فقط: `1368531584751834` (لا تستخدم القديم `130088509889530`).
+  - Phone Number ID الحالي فقط: `1227466847119021` / عرض الاختبار `+1 555-659-6148` (لا تستخدم القديم `100566230597045`).
+  - App: `Relax Fix UAE Platform` مشترك على الـWABA عبر `subscribed_apps`.
+  - دليل حي: n8n execution `270`, webhook_event `955c0595-b21d-484d-832a-ea1bcf00aaa8`, message `5acdcd5a-b13c-4d72-9547-d3847299b8dc`, draft `8fc6e9d2-b1c0-4921-a389-a1f99907f018`, النص `Test 2`, `DRAFT_READY`.
+  - **WhatsApp outbound يبقى OFF** حتى موافقة صريحة منفصلة.
+- Facebook Messenger / Instagram Messaging: لا يُفترض اتصال وارد حي مؤكَّد هنا خارج نطاق واتساب أعلاه.
 - **Vercel Production / الدومين / Google Search Console / Google Business Profile**: BLOCKED_BY_ACCESS أو UNVERIFIED — لم تُفحص مباشرة في هذا الجرد؛ تتطلب دخول المالك عند وصول دور المرحلة المعنية فقط.
