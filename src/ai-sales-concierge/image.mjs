@@ -1,12 +1,39 @@
 import { buildSalesConciergeTurn } from "./logic.mjs";
+import { createOpenAiVisionAdapter, isOpenAiVisionCredentialPresent, OPENAI_VISION_PROVIDER_ID } from "./openai-vision.mjs";
 import { applyVisionToConciergeInput, understandWhatsAppImage } from "./vision.mjs";
 
+function resolveVisionOptions(options = {}) {
+  if (options.adapters && options.providerId) return options;
+
+  const adapters = { ...(options.adapters || {}) };
+  if (!adapters[OPENAI_VISION_PROVIDER_ID]) {
+    adapters[OPENAI_VISION_PROVIDER_ID] = createOpenAiVisionAdapter({
+      apiKey: options.apiKey,
+      fetchImpl: options.fetchImpl,
+      model: options.model,
+    });
+  }
+
+  return {
+    ...options,
+    providerId: options.providerId || OPENAI_VISION_PROVIDER_ID,
+    adapters,
+  };
+}
+
 /**
- * Phase 6E image turn foundation:
- * image (+ optional caption) → vision adapter (if approved) → existing concierge → draft only.
+ * Phase 6E image turn with OpenAI Vision preferred:
+ * image (+ optional caption) → OpenAI Vision (if OPENAI_API_KEY present) → existing concierge → draft only.
  * Falls back to caption / Phase 6C image prompt when vision is unavailable.
  */
 export async function buildImageConciergeTurn(input = {}, options = {}) {
+  const visionOptions = resolveVisionOptions(options);
+
+  // If credential is absent and caller did not inject an adapter, keep caption/metadata fallback.
+  if (!options.adapters && !isOpenAiVisionCredentialPresent() && options.apiKey == null) {
+    visionOptions.providerId = null;
+  }
+
   const vision = await understandWhatsAppImage(
     {
       imageBytes: input.imageBytes,
@@ -18,7 +45,7 @@ export async function buildImageConciergeTurn(input = {}, options = {}) {
       messageId: input.messageId,
       conversationId: input.conversationId,
     },
-    options,
+    visionOptions,
   );
 
   const conciergeInput = applyVisionToConciergeInput(

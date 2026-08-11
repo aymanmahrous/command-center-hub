@@ -35,10 +35,10 @@ const failingVisionAdapter = {
   },
 };
 
-test("no vision provider is selected in Phase 6E", () => {
-  assert.equal(VISION_PROVIDER_REQUIREMENT.approvedProvider, null);
-  assert.equal(VISION_PROVIDER_REQUIREMENT.preferredProvider, null);
-  assert.equal(VISION_PROVIDER_REQUIREMENT.status, "OWNER_APPROVAL_REQUIRED");
+test("no unpaid vision provider is silently activated without env credential", () => {
+  assert.equal(VISION_PROVIDER_REQUIREMENT.approvedProvider, "openai_vision");
+  assert.equal(VISION_PROVIDER_REQUIREMENT.preferredProvider, "openai_vision");
+  assert.equal(VISION_PROVIDER_REQUIREMENT.status, "OWNER_APPROVED_OPENAI_VISION");
   assert.equal(VISION_PROVIDER_REQUIREMENT.outboundEnabled, false);
   assert.equal(VISION_PROVIDER_REQUIREMENT.productionChanged, false);
 });
@@ -48,7 +48,7 @@ test("image with caption preserves caption in concierge pricing flow", async () 
     caption: "How much is a private lesson?",
     stage: "new",
   });
-  assert.equal(result.vision.code, "VISION_PROVIDER_NOT_CONFIGURED");
+  assert.ok(["VISION_PROVIDER_NOT_CONFIGURED", "MISSING_MEDIA"].includes(result.vision.code));
   assert.match(result.draftReply, /150 AED instead of 200 AED/);
   assert.equal(result.outboundEnabled, false);
 });

@@ -12,21 +12,24 @@
  */
 
 export const VISION_PROVIDER_REQUIREMENT = {
-  status: "OWNER_APPROVAL_REQUIRED",
-  approvedProvider: null,
-  preferredProvider: null,
+  status: "OWNER_APPROVED_OPENAI_VISION",
+  // Preferred/approved by owner direction. Still inactive until OPENAI_API_KEY is present in secure env.
+  preferredProvider: "openai_vision",
+  approvedProvider: "openai_vision",
   candidates: [
     {
       id: "openai_vision",
-      label: "OpenAI Vision (gpt-4o / gpt-4.1)",
+      label: "OpenAI Vision (gpt-4o-mini)",
+      preferred: true,
       credential: "OPENAI_API_KEY",
-      notes: "Vision-capable chat completions. Not selected or enabled in this phase.",
+      notes: "Approved by owner. Reads OPENAI_API_KEY from secure environment only.",
     },
     {
       id: "google_gemini_vision",
       label: "Google Gemini multimodal",
+      preferred: false,
       credential: "GOOGLE_GEMINI_API_KEY",
-      notes: "Separate from Google Speech-to-Text. Not selected or enabled in this phase.",
+      notes: "Not selected while OpenAI Vision is approved.",
     },
   ],
   productionChanged: false,
@@ -101,7 +104,9 @@ export async function understandWhatsAppImage(input = {}, options = {}) {
     };
   }
 
-  const providerId = options.providerId || VISION_PROVIDER_REQUIREMENT.approvedProvider;
+  const providerId = Object.prototype.hasOwnProperty.call(options, "providerId")
+    ? options.providerId
+    : VISION_PROVIDER_REQUIREMENT.approvedProvider;
   if (!providerId) {
     return {
       ok: false,
