@@ -5,10 +5,19 @@ import test from "node:test";
 const workflow = JSON.parse(await readFile(new URL("../n8n/workflows/relax-fix-whatsapp-webhook-ingress.json", import.meta.url), "utf8"));
 
 test("whatsapp ingress preserves meta verification branches", () => {
-  assert.equal(workflow.nodes.find((node) => node.name === "WhatsApp Meta Webhook")?.parameters?.path, "whatsapp-meta-webhook");
+  const webhook = workflow.nodes.find((node) => node.name === "Webhook");
+  assert.equal(webhook?.parameters?.path, "whatsapp-meta-webhook");
+  assert.equal(workflow.nodes.find((node) => node.name === "Subscribe Verification?")?.disabled, false);
   assert.ok(workflow.connections["Subscribe Verification?"]?.main?.[0]?.[0]?.node === "Verify Token Matches?");
   assert.ok(workflow.connections["Verify Token Matches?"]?.main?.[0]?.[0]?.node === "Return Verify Challenge");
   assert.ok(workflow.connections["Verify Token Matches?"]?.main?.[1]?.[0]?.node === "Reject Verification");
+});
+
+test("whatsapp ingress passes full Meta body via $json.body", () => {
+  const ingest = workflow.nodes.find((node) => node.name === "Ingest WhatsApp Event");
+  assert.match(ingest.parameters.jsonBody, /\$json\.body/);
+  assert.doesNotMatch(ingest.parameters.jsonBody, /\$\('Webhook'\)\.first\(\)/);
+  assert.equal(workflow.pinData && Object.keys(workflow.pinData).length, 0);
 });
 
 test("whatsapp ingress calls concierge only after MESSAGE_INGESTED", () => {

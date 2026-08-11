@@ -3,20 +3,20 @@
   "nodes": [
     {
       "parameters": {
-        "httpMethod": "GET,POST",
+        "multipleMethods": true,
         "path": "whatsapp-meta-webhook",
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "webhook-trigger",
-      "name": "WhatsApp Meta Webhook",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2,
+      "typeVersion": 2.1,
       "position": [
         0,
         0
       ],
-      "webhookId": "relax-fix-whatsapp-meta-webhook"
+      "id": "03d5b908-d3ee-4819-9bc0-a4d877f9f12a",
+      "name": "Webhook",
+      "webhookId": "f3fdb3cc-5bb8-4776-8452-bd48602db4b3"
     },
     {
       "parameters": {
@@ -30,7 +30,7 @@
           "conditions": [
             {
               "id": "verify-mode",
-              "leftValue": "={{ $json.query?.hub?.mode || '' }}",
+              "leftValue": "={{ $json.query['hub.mode'] || $json.query?.hub?.mode || '' }}",
               "rightValue": "subscribe",
               "operator": {
                 "type": "string",
@@ -42,14 +42,15 @@
         },
         "options": {}
       },
-      "id": "if-subscribe-mode",
+      "id": "54a8d289-2e22-45c7-9081-9071ab11d9c4",
       "name": "Subscribe Verification?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        240,
-        0
-      ]
+        -64,
+        720
+      ],
+      "disabled": false
     },
     {
       "parameters": {
@@ -63,7 +64,7 @@
           "conditions": [
             {
               "id": "verify-token",
-              "leftValue": "={{ $json.query?.hub?.verify_token || '' }}",
+              "leftValue": "={{ $json.query['hub.verify_token'] || $json.query?.hub?.verify_token || '' }}",
               "rightValue": "RELAX_FIX_UAE_WHATSAPP_VERIFY",
               "operator": {
                 "type": "string",
@@ -75,30 +76,30 @@
         },
         "options": {}
       },
-      "id": "if-verify-token",
+      "id": "b01dc252-7ba4-4411-bb5f-732c66bf349c",
       "name": "Verify Token Matches?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        500,
-        -160
+        208,
+        560
       ]
     },
     {
       "parameters": {
         "respondWith": "text",
-        "responseBody": "={{ $('WhatsApp Meta Webhook').item.json.query.hub.challenge }}",
+        "responseBody": "={{ $json.query['hub.challenge'] }}",
         "options": {
           "responseCode": 200
         }
       },
-      "id": "respond-challenge",
+      "id": "255fa119-8fbb-467b-a6ab-9768f904bc5a",
       "name": "Return Verify Challenge",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        780,
-        -240
+        480,
+        480
       ]
     },
     {
@@ -109,13 +110,13 @@
           "responseCode": 403
         }
       },
-      "id": "respond-forbidden",
+      "id": "e3c2171c-3288-4463-a0c8-c079e26fb91b",
       "name": "Reject Verification",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        780,
-        -80
+        480,
+        640
       ]
     },
     {
@@ -126,23 +127,22 @@
         "nodeCredentialType": "supabaseApi",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { \"p_payload\": $('WhatsApp Meta Webhook').item.json.body } }}",
+        "jsonBody": "={{ { \"p_payload\": $json.body } }}",
         "options": {
           "response": {
             "response": {
-              "fullResponse": false,
               "neverError": true
             }
           }
         }
       },
-      "id": "supabase-ingest",
+      "id": "091acd1f-aa8e-4020-8fc4-543a15195062",
       "name": "Ingest WhatsApp Event",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        500,
-        140
+        208,
+        864
       ],
       "credentials": {
         "supabaseApi": {
@@ -150,6 +150,38 @@
           "name": "Supabase account"
         }
       }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $('Ingest WhatsApp Event').first().json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "ec04f1fc-925e-4d29-9a64-246c4d6591f4",
+      "name": "Acknowledge Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        480,
+        864
+      ]
+    },
+    {
+      "parameters": {
+        "content": "Phase 6B ingress.\nVerify token: RELAX_FIX_UAE_WHATSAPP_VERIFY\nPhone Number ID gate: 1227466847119021\nInbound only. No outbound.\nIMPORTANT: Ingest MUST use $json.body (not $('Webhook').first()) because multipleMethods webhook puts POST on output branch 1.\nKeep Subscribe Verification? ENABLED. Do not pin empty payloads.",
+        "height": 180,
+        "width": 360
+      },
+      "id": "a46f4c51-921c-4fec-aa78-f60c381a678d",
+      "name": "Phase 5G Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -336,
+        512
+      ]
     },
     {
       "parameters": {
@@ -176,13 +208,13 @@
         },
         "options": {}
       },
-      "id": "if-message-ingested",
+      "id": "phase6b-message-ingested-if",
       "name": "Message Ingested?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        740,
-        140
+        400,
+        864
       ]
     },
     {
@@ -193,23 +225,22 @@
         "nodeCredentialType": "supabaseApi",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { \"p_conversation_id\": $('Ingest WhatsApp Event').item.json.conversationId, \"p_message_id\": $('Ingest WhatsApp Event').item.json.messageId } }}",
+        "jsonBody": "={{ { \"p_conversation_id\": $('Ingest WhatsApp Event').first().json.conversationId, \"p_message_id\": $('Ingest WhatsApp Event').first().json.messageId } }}",
         "options": {
           "response": {
             "response": {
-              "fullResponse": false,
               "neverError": true
             }
           }
         }
       },
-      "id": "concierge-draft",
+      "id": "phase6b-concierge-draft",
       "name": "Draft Concierge Turn",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        980,
-        60
+        640,
+        784
       ],
       "credentials": {
         "supabaseApi": {
@@ -217,43 +248,18 @@
           "name": "Supabase account"
         }
       }
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ $('Ingest WhatsApp Event').item.json }}",
-        "options": {
-          "responseCode": 200
-        }
-      },
-      "id": "respond-ingest-ok",
-      "name": "Acknowledge Webhook",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.1,
-      "position": [
-        1220,
-        140
-      ]
-    },
-    {
-      "parameters": {
-        "content": "Phase 6B: after MESSAGE_INGESTED, call process_ai_sales_concierge_turn (draft only).\nVerify token: RELAX_FIX_UAE_WHATSAPP_VERIFY\nPhone Number ID gate: 100566230597045\nInbound only. No outbound WhatsApp messages.",
-        "height": 180,
-        "width": 420
-      },
-      "id": "note-phase6b",
-      "name": "Phase 6B Notes",
-      "type": "n8n-nodes-base.stickyNote",
-      "typeVersion": 1,
-      "position": [
-        -40,
-        -220
-      ]
     }
   ],
   "connections": {
-    "WhatsApp Meta Webhook": {
+    "Webhook": {
       "main": [
+        [
+          {
+            "node": "Subscribe Verification?",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "Subscribe Verification?",
@@ -344,9 +350,10 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "phase-6b-ingress-v1",
+  "versionId": "phase-6b-ingress-v2-json-body-fix",
   "meta": {
     "templateCredsSetupCompleted": false
   },
-  "tags": []
+  "tags": [],
+  "pinData": {}
 }
