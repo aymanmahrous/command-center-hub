@@ -12,20 +12,27 @@
  */
 
 export const STT_PROVIDER_REQUIREMENT = {
-  status: "OWNER_APPROVAL_REQUIRED",
+  status: "OWNER_SETUP_REQUIRED",
+  // Preferred by owner direction (Phase 6D). Remains inactive until credentials exist.
+  preferredProvider: "google_speech_to_text_v2",
   approvedProvider: null,
   candidates: [
     {
-      id: "openai_whisper",
-      label: "OpenAI Whisper (whisper-1 / gpt-4o-transcribe)",
-      credential: "OPENAI_API_KEY",
-      notes: "Supports Arabic and English. Gulf/Egyptian accents depend on model quality; not guaranteed.",
+      id: "google_speech_to_text_v2",
+      label: "Google Cloud Speech-to-Text V2 (Chirp 3)",
+      preferred: true,
+      credential: "GOOGLE_SPEECH_CREDENTIALS_JSON",
+      projectId: "GOOGLE_CLOUD_PROJECT_ID",
+      languages: ["ar-AE", "ar-EG", "en-US"],
+      model: "chirp_3",
+      notes: "Preferred for short WhatsApp voice notes. Requires Speech-to-Text API enabled by owner.",
     },
     {
-      id: "google_speech_to_text",
-      label: "Google Cloud Speech-to-Text",
-      credential: "GOOGLE_SPEECH_CREDENTIALS_JSON",
-      notes: "Supports ar-AE / ar-EG / en-US language codes when enabled on the project.",
+      id: "openai_whisper",
+      label: "OpenAI Whisper (whisper-1 / gpt-4o-transcribe)",
+      preferred: false,
+      credential: "OPENAI_API_KEY",
+      notes: "Fallback candidate only. Not selected while Google STT V2 is preferred.",
     },
   ],
   productionChanged: false,

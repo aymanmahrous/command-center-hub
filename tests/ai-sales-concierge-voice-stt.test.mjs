@@ -35,7 +35,8 @@ const emptyAdapter = {
 
 test("owner approval is required before any STT provider is selected", () => {
   assert.equal(STT_PROVIDER_REQUIREMENT.approvedProvider, null);
-  assert.equal(STT_PROVIDER_REQUIREMENT.status, "OWNER_APPROVAL_REQUIRED");
+  assert.equal(STT_PROVIDER_REQUIREMENT.status, "OWNER_SETUP_REQUIRED");
+  assert.equal(STT_PROVIDER_REQUIREMENT.preferredProvider, "google_speech_to_text_v2");
   assert.equal(STT_PROVIDER_REQUIREMENT.outboundEnabled, false);
   assert.equal(STT_PROVIDER_REQUIREMENT.productionChanged, false);
 });
