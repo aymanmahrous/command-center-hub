@@ -49,6 +49,34 @@ function pricingBlock(language, offerType) {
   return lines.join("\n");
 }
 
+function buildApprovedFacts(language) {
+  return [
+    APPROVED_PRICING.private[language],
+    APPROVED_PRICING.group[language],
+    APPROVED_PRICING.siblings[language],
+  ];
+}
+
+function withAiContext(result, input, state) {
+  const recentMessages = Array.isArray(input.recentMessages) ? input.recentMessages : [];
+  const inboundCount = recentMessages.filter((m) => m?.role === "customer" || m?.direction === "inbound").length;
+  const isFirstMessage = inboundCount <= 1 && !input.intent;
+  return {
+    ...result,
+    fallbackReply: result.draftReply,
+    aiGenerationAllowed: Boolean(result.draftReply) && result.humanHandoff !== true && result.skipped !== true,
+    aiContext: {
+      state,
+      language: result.language,
+      customerMessage: String(input.messageBody || "").trim(),
+      recentMessages,
+      isFirstMessage,
+      approvedFacts: buildApprovedFacts(result.language === "ar" ? "ar" : "en"),
+      service: result.nextService ?? null,
+    },
+  };
+}
+
 export function buildSalesConciergeTurn(input) {
   const language = detectLanguage(input.messageBody);
   const body = input.messageBody.trim();
@@ -63,44 +91,52 @@ export function buildSalesConciergeTurn(input) {
   const priorState = state;
 
   if (mode !== "ai_active") {
-    return {
-      processed: false,
-      skipped: true,
-      skipReason: "CONVERSATION_NOT_AI_ACTIVE",
-      language,
-      detectedIntent: state,
-      draftReply: null,
-      nextIntent: input.intent ?? formatIntent(state),
-      nextService: service,
-      nextStage: stage,
-      nextScore: score,
-      nextFearOfWater: fearOfWater,
-      humanHandoff: false,
-      outboundEnabled: false,
-    };
+    return withAiContext(
+      {
+        processed: false,
+        skipped: true,
+        skipReason: "CONVERSATION_NOT_AI_ACTIVE",
+        language,
+        detectedIntent: state,
+        draftReply: null,
+        nextIntent: input.intent ?? formatIntent(state),
+        nextService: service,
+        nextStage: stage,
+        nextScore: score,
+        nextFearOfWater: fearOfWater,
+        humanHandoff: false,
+        outboundEnabled: false,
+      },
+      input,
+      state,
+    );
   }
 
   if (HUMAN_HANDOFF_PATTERN.test(body)) {
     humanHandoff = true;
     nextStage = stage === "new" ? "contacted" : stage;
-    return {
-      processed: true,
-      skipped: false,
-      language,
-      detectedIntent: "human_handoff",
-      draftReply: t(
+    return withAiContext(
+      {
+        processed: true,
+        skipped: false,
         language,
-        "I'll connect you with Coach Ayman for personal follow-up. He will reply shortly.",
-        "سأوصلك بالكوتش أيمن للمتابعة الشخصية. سيرد عليك قريبًا.",
-      ),
-      nextIntent: formatIntent("human_handoff"),
-      nextService: service,
-      nextStage,
-      nextScore: score + 10,
-      nextFearOfWater: fearOfWater,
-      humanHandoff: true,
-      outboundEnabled: false,
-    };
+        detectedIntent: "human_handoff",
+        draftReply: t(
+          language,
+          "I'll connect you with Coach Ayman for personal follow-up. He will reply shortly.",
+          "سأوصلك بالكوتش أيمن للمتابعة الشخصية. سيرد عليك قريبًا.",
+        ),
+        nextIntent: formatIntent("human_handoff"),
+        nextService: service,
+        nextStage,
+        nextScore: score + 10,
+        nextFearOfWater: fearOfWater,
+        humanHandoff: true,
+        outboundEnabled: false,
+      },
+      input,
+      "human_handoff",
+    );
   }
 
   if (state === "greeting") {
@@ -198,20 +234,24 @@ export function buildSalesConciergeTurn(input) {
     nextStage = stage === "new" ? "contacted" : stage;
   }
 
-  return {
-    processed: true,
-    skipped: false,
-    language,
-    detectedIntent: state,
-    draftReply,
-    nextIntent: formatIntent(state),
-    nextService: service,
-    nextStage,
-    nextScore: score,
-    nextFearOfWater: fearOfWater,
-    humanHandoff,
-    outboundEnabled: false,
-  };
+  return withAiContext(
+    {
+      processed: true,
+      skipped: false,
+      language,
+      detectedIntent: state,
+      draftReply,
+      nextIntent: formatIntent(state),
+      nextService: service,
+      nextStage,
+      nextScore: score,
+      nextFearOfWater: fearOfWater,
+      humanHandoff,
+      outboundEnabled: false,
+    },
+    input,
+    state,
+  );
 }
 
 export { APPROVED_PRICING };

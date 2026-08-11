@@ -33,19 +33,26 @@ test("whatsapp ingress sends draft reply only after DRAFT_READY", () => {
   const prepare = workflow.nodes.find((node) => node.name === "Prepare WhatsApp Outbound");
   const readyIf = workflow.nodes.find((node) => node.name === "Outbound Payload Ready?");
   const send = workflow.nodes.find((node) => node.name === "Send WhatsApp Reply");
+  const generate = workflow.nodes.find((node) => node.name === "Generate AI Reply");
   assert.match(sendIf.parameters.conditions.conditions[0].leftValue, /DRAFT_READY/);
   assert.equal(prepare?.type, "n8n-nodes-base.code");
   assert.match(readyIf.parameters.conditions.conditions[0].leftValue, /outboundReady/);
   assert.match(send.parameters.url, /graph\.facebook\.com\/v21\.0\/1227466847119021\/messages/);
   assert.match(send.parameters.jsonBody, /outboundPayload/);
+  assert.equal(generate?.type, "@n8n/n8n-nodes-langchain.openAi");
+  assert.equal(generate?.parameters?.modelId?.value, "gpt-5-nano");
+  assert.equal(generate?.credentials?.openAiApi?.name, "n8n free OpenAI API credits");
   assert.ok(workflow.connections["Draft Concierge Turn"]?.main?.[0]?.[0]?.node === "Should Send WhatsApp Reply?");
-  assert.ok(workflow.connections["Should Send WhatsApp Reply?"]?.main?.[0]?.[0]?.node === "Prepare WhatsApp Outbound");
+  assert.ok(workflow.connections["Should Send WhatsApp Reply?"]?.main?.[0]?.[0]?.node === "Claim AI Budget");
+  assert.ok(workflow.connections["Claim AI Budget"]?.main?.[0]?.[0]?.node === "Build AI Prompt");
+  assert.ok(workflow.connections["AI Budget Allowed?"]?.main?.[0]?.[0]?.node === "Generate AI Reply");
+  assert.ok(workflow.connections["Restore Reply After Log"]?.main?.[0]?.[0]?.node === "Prepare WhatsApp Outbound");
   assert.ok(workflow.connections["Prepare WhatsApp Outbound"]?.main?.[0]?.[0]?.node === "Outbound Payload Ready?");
   assert.ok(workflow.connections["Outbound Payload Ready?"]?.main?.[0]?.[0]?.node === "Send WhatsApp Reply");
   assert.ok(workflow.connections["Send WhatsApp Reply"]?.main?.[0]?.[0]?.node === "Acknowledge Webhook");
 });
 
-test("whatsapp ingress http nodes stay limited to ingest concierge and graph send", () => {
+test("whatsapp ingress http nodes stay limited to ingest concierge ai budget log and graph send", () => {
   const outboundUrls = workflow.nodes
     .filter((node) => node.type === "n8n-nodes-base.httpRequest")
     .map((node) => node.parameters.url)
@@ -54,6 +61,8 @@ test("whatsapp ingress http nodes stay limited to ingest concierge and graph sen
     outboundUrls,
     [
       "https://graph.facebook.com/v21.0/1227466847119021/messages",
+      "https://nmzxrjdxvmmzzmajrskm.supabase.co/rest/v1/rpc/claim_ai_concierge_generation",
+      "https://nmzxrjdxvmmzzmajrskm.supabase.co/rest/v1/rpc/log_ai_concierge_usage",
       "https://nmzxrjdxvmmzzmajrskm.supabase.co/rest/v1/rpc/process_ai_sales_concierge_turn",
       "https://nmzxrjdxvmmzzmajrskm.supabase.co/rest/v1/rpc/process_whatsapp_webhook_ingress",
     ].sort(),

@@ -59,6 +59,10 @@ test("qualification asks short offer-type question before pricing", () => {
   const result = turn("Hi");
   assert.equal(result.nextIntent, "concierge:awaiting_offer_type");
   assert.match(result.draftReply, /private lesson or a group lesson/i);
+  assert.equal(result.fallbackReply, result.draftReply);
+  assert.equal(result.aiGenerationAllowed, true);
+  assert.equal(result.aiContext.isFirstMessage, true);
+  assert.ok(result.aiContext.approvedFacts.some((fact) => /150 AED|150 درهم/.test(fact)));
 });
 
 test("human handoff routes to Coach Ayman without enabling outbound", () => {

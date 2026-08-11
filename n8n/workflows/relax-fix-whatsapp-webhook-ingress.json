@@ -279,8 +279,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1220,
-        60
+        1160,
+        -20
       ]
     },
     {
@@ -306,8 +306,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1900,
-        -80
+        3040,
+        -120
       ],
       "credentials": {
         "httpHeaderAuth": {
@@ -325,7 +325,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1460,
+        2680,
         -20
       ]
     },
@@ -359,7 +359,185 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1680,
+        2860,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://nmzxrjdxvmmzzmajrskm.supabase.co/rest/v1/rpc/claim_ai_concierge_generation",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"p_conversation_id\": $json.conversationId, \"p_message_id\": $json.messageId, \"p_hourly_cap\": 12, \"p_daily_cap\": 250 } }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "phase6d-claim-ai-budget",
+      "name": "Claim AI Budget",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        -20
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst draft = $('Should Send WhatsApp Reply?').first().json;\nconst claim = $json || {};\n\nlet customerMessage = String(draft.aiContext?.customerMessage || draft.customerMessage || '').trim();\nif (!customerMessage) {\n  try {\n    const msgs = $('Webhook').first().json.body.entry[0].changes[0].value.messages;\n    const m = msgs && msgs[0];\n    if (m?.text?.body) customerMessage = String(m.text.body).trim();\n    else if (m?.button?.text) customerMessage = String(m.button.text).trim();\n  } catch (e) {}\n}\n\nconst language = draft.language || (/[ء-ي]/.test(customerMessage) ? 'ar' : 'en');\nconst state = draft.aiContext?.state || String(draft.intent || '').replace(/^concierge:/, '') || 'awaiting_offer_type';\nconst approvedFacts = draft.aiContext?.approvedFacts || [\n  'Private lesson: 150 AED instead of 200 AED — limited-time offer.',\n  'Group lesson: up to 5 people — 450 AED.',\n  'Siblings discount: 50 AED off per sibling. Example: eligible sibling group = 400 AED instead of 450 AED.'\n];\nconst recent = Array.isArray(claim.recentMessages) ? claim.recentMessages : (draft.aiContext?.recentMessages || []);\nconst isFirstMessage = draft.aiContext?.isFirstMessage === true || recent.filter((m) => m.role === 'customer').length <= 1;\nconst allowed = claim.allowed === true && draft.humanHandoff !== true && !!draft.draftReply && draft.code === 'DRAFT_READY';\nconst facts = approvedFacts.map((f) => `- ${f}`).join('\\n');\nconst systemPrompt = [\n  'You are the WhatsApp sales concierge for Relax Fix UAE (swimming lessons).',\n  'Reply in the same language and dialect the customer used (Gulf Arabic, Arabic, or English).',\n  'Keep replies short (2-5 sentences), warm, and practical.',\n  'Never invent prices, discounts, schedules, guarantees, or services.',\n  'Use ONLY these approved commercial facts:',\n  facts,\n  `Current business state: ${state}.`,\n  'If unclear, ask one clarifying question instead of dumping the full price list.',\n  'Do not mention that you are an AI.'\n].join('\\n');\nconst history = recent.slice(-8).map((m) => `${m.role}: ${m.body}`).join('\\n');\nconst userPrompt = [\n  isFirstMessage ? 'This is the first customer message — include a brief friendly greeting.' : 'Continue the conversation naturally.',\n  `State: ${state}`,\n  `Detected language hint: ${language}`,\n  history ? `Recent messages:\\n${history}` : 'Recent messages: (none)',\n  `New customer message:\\n${customerMessage || '(empty)'}`,\n  'Write only the WhatsApp reply text.'\n].join('\\n\\n');\n\nreturn [{\n  json: {\n    ...draft,\n    aiBudget: claim,\n    aiAllowed: allowed,\n    systemPrompt,\n    userPrompt,\n    fallbackReply: draft.fallbackReply || draft.draftReply,\n    draftReply: draft.draftReply,\n    customerMessage\n  }\n}];\n"
+      },
+      "id": "phase6d-build-ai-prompt",
+      "name": "Build AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ai-allowed",
+              "leftValue": "={{ $json.aiAllowed === true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "phase6d-ai-allowed",
+      "name": "AI Budget Allowed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1700,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "text",
+        "operation": "message",
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-5-nano",
+          "mode": "list",
+          "cachedResultName": "GPT-5-NANO"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "={{ $json.systemPrompt }}"
+            },
+            {
+              "role": "user",
+              "content": "={{ $json.userPrompt }}"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 220
+        }
+      },
+      "id": "phase6d-generate-ai-reply",
+      "name": "Generate AI Reply",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        1920,
+        -120
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "sjT4yJSrFCIxQuBa",
+          "name": "n8n free OpenAI API credits"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst promptItem = $('Build AI Prompt').first().json;\nconst aiItem = $json || {};\nconst fallback = String(promptItem.fallbackReply || promptItem.draftReply || '').trim();\nlet aiText = '';\nif (typeof aiItem.message === 'string') aiText = aiItem.message;\nelse if (typeof aiItem.text === 'string') aiText = aiItem.text;\nelse if (typeof aiItem.output === 'string') aiText = aiItem.output;\nelse if (aiItem.message?.content) aiText = String(aiItem.message.content);\nelse if (Array.isArray(aiItem.messages) && aiItem.messages[0]?.content) aiText = String(aiItem.messages[0].content);\n\nconst approved = new Set(['150','200','450','400','50']);\nconst forbidden = /(guarantee|guaranteed|available tomorrow|free lesson|خصم إضافي|ضمان|درس مجاني)/i;\nfunction safe(text) {\n  const reply = String(text || '').trim();\n  if (!reply) return false;\n  if (forbidden.test(reply)) return false;\n  const chunks = reply.match(/\\d+(?:[.,]\\d+)?\\s*(?:AED|aed|dirham|درهم)/gi) || [];\n  for (const chunk of chunks) {\n    const amount = (chunk.match(/\\d+(?:[.,]\\d+)?/) || [''])[0].replace(/[.,]/g, '');\n    if (amount && !approved.has(amount)) return false;\n  }\n  return true;\n}\n\nconst usedAi = promptItem.aiAllowed === true && safe(aiText);\nconst draftReply = usedAi ? aiText.trim() : fallback;\nconst usage = aiItem.usage || aiItem.tokenUsage || {};\nreturn [{\n  json: {\n    ...promptItem,\n    draftReply,\n    fallbackReply: fallback,\n    aiReplySource: usedAi ? 'ai' : (promptItem.aiAllowed ? 'fallback_unsafe' : 'fallback_cost_cap'),\n    aiUsage: {\n      prompt_tokens: Number(usage.prompt_tokens || usage.promptTokens || 0) || 0,\n      completion_tokens: Number(usage.completion_tokens || usage.completionTokens || 0) || 0,\n      total_tokens: Number(usage.total_tokens || usage.totalTokens || 0) || 0\n    }\n  }\n}];\n"
+      },
+      "id": "phase6d-finalize-ai-reply",
+      "name": "Finalize AI Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2140,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://nmzxrjdxvmmzzmajrskm.supabase.co/rest/v1/rpc/log_ai_concierge_usage",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"p_conversation_id\": $json.conversationId, \"p_message_id\": $json.messageId, \"p_channel\": $json.channel || 'whatsapp', \"p_provider\": 'openai', \"p_model\": 'gpt-5-nano', \"p_prompt_tokens\": $json.aiUsage?.prompt_tokens || 0, \"p_completion_tokens\": $json.aiUsage?.completion_tokens || 0, \"p_total_tokens\": $json.aiUsage?.total_tokens || 0, \"p_capped\": $json.aiReplySource !== 'ai', \"p_source\": $json.aiReplySource || 'fallback' } }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "phase6d-log-ai-usage",
+      "name": "Log AI Usage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2320,
+        -20
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst finalized = $('Finalize AI Reply').first().json;\nreturn [{ json: finalized }];\n"
+      },
+      "id": "phase6d-restore-after-log",
+      "name": "Restore Reply After Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2500,
         -20
       ]
     }
@@ -463,7 +641,7 @@
       "main": [
         [
           {
-            "node": "Prepare WhatsApp Outbound",
+            "node": "Claim AI Budget",
             "type": "main",
             "index": 0
           }
@@ -516,13 +694,97 @@
           }
         ]
       ]
+    },
+    "Claim AI Budget": {
+      "main": [
+        [
+          {
+            "node": "Build AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Budget Allowed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Budget Allowed?": {
+      "main": [
+        [
+          {
+            "node": "Generate AI Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Finalize AI Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate AI Reply": {
+      "main": [
+        [
+          {
+            "node": "Finalize AI Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalize AI Reply": {
+      "main": [
+        [
+          {
+            "node": "Log AI Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log AI Usage": {
+      "main": [
+        [
+          {
+            "node": "Restore Reply After Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore Reply After Log": {
+      "main": [
+        [
+          {
+            "node": "Prepare WhatsApp Outbound",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "phase-6c-outbound-v3",
+  "versionId": "phase-6d-openai-v1",
   "meta": {
     "templateCredsSetupCompleted": false
   },
