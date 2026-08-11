@@ -122,6 +122,8 @@
   - Phone Number ID الحالي فقط: `1227466847119021` / عرض الاختبار `+1 555-659-6148` (لا تستخدم القديم `100566230597045`).
   - App: `Relax Fix UAE Platform` مشترك على الـWABA عبر `subscribed_apps`.
   - دليل حي: n8n execution `270`, webhook_event `955c0595-b21d-484d-832a-ea1bcf00aaa8`, message `5acdcd5a-b13c-4d72-9547-d3847299b8dc`, draft `8fc6e9d2-b1c0-4921-a389-a1f99907f018`, النص `Test 2`, `DRAFT_READY`.
-  - **WhatsApp outbound ENABLED (owner-approved 2026-08-11):** بعد `DRAFT_READY` يُرسل الرد عبر Graph API من Phone Number ID `1227466847119021` داخل workflow `BqHXNlpbhq63pRK6` (Phase 6C). التحقق التجاري/Live App ما زال غير مكتمل؛ يعمل حاليًا على رقم الاختبار + أرقام الاختبار المسموحة.
+  - **WhatsApp outbound ENABLED + PASS حي (owner-approved 2026-08-11):** بعد `DRAFT_READY` يُرسل الرد تلقائيًا عبر Graph API من Phone Number ID `1227466847119021` داخل workflow `BqHXNlpbhq63pRK6` (Phase 6C: Prepare → Send → Acknowledge).
+  - دليل outbound حي: n8n execution `282` (success) → `Send WhatsApp Reply` أعاد `wamid.HBgMOTcxNTUxMzc4NjYwFQIAERgSRjFGNjUxMUFEODIyRDcxQ0NGAA==` إلى `971551378660`؛ المالك أكّد وصول الرد.
+  - التحقق التجاري/Live App ما زال غير مكتمل؛ يعمل حاليًا على رقم الاختبار + أرقام الاختبار المسموحة.
 - Facebook Messenger / Instagram Messaging: لا يُفترض اتصال وارد حي مؤكَّد هنا خارج نطاق واتساب أعلاه.
 - **Vercel Production / الدومين / Google Search Console / Google Business Profile**: BLOCKED_BY_ACCESS أو UNVERIFIED — لم تُفحص مباشرة في هذا الجرد؛ تتطلب دخول المالك عند وصول دور المرحلة المعنية فقط.
