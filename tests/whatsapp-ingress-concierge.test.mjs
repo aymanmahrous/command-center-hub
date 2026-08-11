@@ -28,20 +28,30 @@ test("whatsapp ingress calls concierge only after MESSAGE_INGESTED", () => {
   assert.ok(workflow.connections["Message Ingested?"]?.main?.[1]?.[0]?.node === "Acknowledge Webhook");
 });
 
-test("whatsapp ingress concierge node stays draft-only", () => {
-  const concierge = workflow.nodes.find((node) => node.name === "Draft Concierge Turn");
-  assert.match(concierge.parameters.url, /process_ai_sales_concierge_turn/);
-  assert.match(concierge.parameters.jsonBody, /p_conversation_id/);
-  assert.match(concierge.parameters.jsonBody, /p_message_id/);
+test("whatsapp ingress sends draft reply only after DRAFT_READY", () => {
+  const sendIf = workflow.nodes.find((node) => node.name === "Should Send WhatsApp Reply?");
+  const send = workflow.nodes.find((node) => node.name === "Send WhatsApp Reply");
+  assert.match(sendIf.parameters.conditions.conditions[0].leftValue, /DRAFT_READY/);
+  assert.match(send.parameters.url, /graph\.facebook\.com\/v21\.0\/1227466847119021\/messages/);
+  assert.match(send.parameters.jsonBody, /draftReply/);
+  assert.ok(workflow.connections["Draft Concierge Turn"]?.main?.[0]?.[0]?.node === "Should Send WhatsApp Reply?");
+  assert.ok(workflow.connections["Should Send WhatsApp Reply?"]?.main?.[0]?.[0]?.node === "Send WhatsApp Reply");
+  assert.ok(workflow.connections["Should Send WhatsApp Reply?"]?.main?.[1]?.[0]?.node === "Acknowledge Webhook");
+  assert.ok(workflow.connections["Send WhatsApp Reply"]?.main?.[0]?.[0]?.node === "Acknowledge Webhook");
+});
+
+test("whatsapp ingress http nodes stay limited to ingest concierge and graph send", () => {
   const outboundUrls = workflow.nodes
     .filter((node) => node.type === "n8n-nodes-base.httpRequest")
-    .map((node) => node.parameters.url);
+    .map((node) => node.parameters.url)
+    .sort();
   assert.deepEqual(
     outboundUrls,
     [
-      "https://nmzxrjdxvmmzzmajrskm.supabase.co/rest/v1/rpc/process_whatsapp_webhook_ingress",
+      "https://graph.facebook.com/v21.0/1227466847119021/messages",
       "https://nmzxrjdxvmmzzmajrskm.supabase.co/rest/v1/rpc/process_ai_sales_concierge_turn",
-    ],
+      "https://nmzxrjdxvmmzzmajrskm.supabase.co/rest/v1/rpc/process_whatsapp_webhook_ingress",
+    ].sort(),
   );
 });
 

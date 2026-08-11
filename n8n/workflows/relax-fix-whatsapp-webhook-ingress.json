@@ -164,18 +164,18 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        480,
-        864
+        1700,
+        140
       ]
     },
     {
       "parameters": {
-        "content": "Phase 6B ingress.\nVerify token: RELAX_FIX_UAE_WHATSAPP_VERIFY\nPhone Number ID gate: 1227466847119021\nInbound only. No outbound.\nIMPORTANT: Ingest MUST use $json.body (not $('Webhook').first()) because multipleMethods webhook puts POST on output branch 1.\nKeep Subscribe Verification? ENABLED. Do not pin empty payloads.",
+        "content": "Phase 6C: inbound + draft + outbound WhatsApp reply.\nVerify token: RELAX_FIX_UAE_WHATSAPP_VERIFY\nPhone Number ID: 1227466847119021\nWABA: 1368531584751834\nIngest MUST use $json.body.\nOutbound sends draftReply after DRAFT_READY only.",
         "height": 180,
         "width": 360
       },
       "id": "a46f4c51-921c-4fec-aa78-f60c381a678d",
-      "name": "Phase 5G Notes",
+      "name": "Phase 6C Notes",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
@@ -246,6 +246,72 @@
         "supabaseApi": {
           "id": "SUPABASE_CREDENTIAL_ID",
           "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "send-draft",
+              "leftValue": "={{ $json.code === 'DRAFT_READY' && !!$json.draftReply && $json.channel === 'whatsapp' && $json.humanHandoff !== true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "phase6c-should-send-reply",
+      "name": "Should Send WhatsApp Reply?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1220,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v21.0/1227466847119021/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', to: String($('Webhook').last().json.body.entry[0].changes[0].value.messages[0].from).replace(/^\\+/, ''), type: 'text', text: { body: $json.draftReply } }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "phase6c-send-whatsapp-reply",
+      "name": "Send WhatsApp Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1460,
+        -20
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "WHATSAPP_GRAPH_BEARER_CREDENTIAL_ID",
+          "name": "WhatsApp Graph Bearer"
         }
       }
     }
@@ -338,6 +404,35 @@
       "main": [
         [
           {
+            "node": "Should Send WhatsApp Reply?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Send WhatsApp Reply?": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Acknowledge Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WhatsApp Reply": {
+      "main": [
+        [
+          {
             "node": "Acknowledge Webhook",
             "type": "main",
             "index": 0
@@ -350,7 +445,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "phase-6b-ingress-v2-json-body-fix",
+  "versionId": "phase-6c-outbound-v1",
   "meta": {
     "templateCredsSetupCompleted": false
   },
