@@ -289,13 +289,23 @@
         "url": "https://graph.facebook.com/v21.0/1227466847119021/messages",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', to: String($('Webhook').last().json.body.entry[0].changes[0].value.messages[0].from).replace(/^\\+/, ''), type: 'text', text: { body: $json.draftReply } }) }}",
+        "jsonBody": "={{ ({ messaging_product: 'whatsapp', to: String(($('Webhook').item.json.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.from || $('Subscribe Verification?').item.json.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.from || '')).replace(/^\\+/, ''), type: 'text', text: { body: String($json.draftReply || '') }}) }}",
         "options": {
           "response": {
             "response": {
-              "neverError": true
+              "neverError": true,
+              "responseFormat": "json"
             }
           }
         }
@@ -445,7 +455,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "phase-6c-outbound-v1",
+  "versionId": "phase-6c-outbound-v2",
   "meta": {
     "templateCredsSetupCompleted": false
   },
