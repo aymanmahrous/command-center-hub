@@ -4,6 +4,10 @@ import test from "node:test";
 import { APPROVED_PRICING, buildSalesConciergeTurn, detectLanguage } from "../src/ai-sales-concierge/logic.mjs";
 
 const migration = await readFile(new URL("../supabase/migrations/20260811103000_ai_sales_concierge_phase6a.sql", import.meta.url), "utf8");
+const clarifierMigration = await readFile(
+  new URL("../supabase/migrations/20260811235500_ai_sales_concierge_presented_pricing_clarifier.sql", import.meta.url),
+  "utf8",
+);
 
 function turn(messageBody, overrides = {}) {
   return buildSalesConciergeTurn({
@@ -65,7 +69,11 @@ test("human handoff routes to Coach Ayman without enabling outbound", () => {
 });
 
 test("booking guidance advances lead stage intent", () => {
-  const priced = turn("private lesson", { intent: "concierge:presented_pricing", service: "private", stage: "qualified" });
+  const priced = turn("how much for a private lesson?", {
+    intent: "concierge:presented_pricing",
+    service: "private",
+    stage: "qualified",
+  });
   const booking = turn("I want to book", {
     intent: priced.nextIntent,
     service: priced.nextService,
@@ -74,6 +82,38 @@ test("booking guidance advances lead stage intent", () => {
   });
   assert.equal(booking.nextStage, "booking_intent");
   assert.match(booking.draftReply, /Coach Ayman/i);
+});
+
+test("presented_pricing asks clarifier instead of resending pricing for unrelated messages", () => {
+  const result = turn("test 5", {
+    intent: "concierge:presented_pricing",
+    service: "private",
+    stage: "qualified",
+  });
+  assert.equal(result.nextIntent, "concierge:presented_pricing");
+  assert.doesNotMatch(result.draftReply, /150 AED instead of 200 AED/);
+  assert.match(result.draftReply, /private lesson or a group lesson/i);
+  assert.match(result.draftReply, /proceed with booking/i);
+});
+
+test("presented_pricing still resends pricing when customer asks about price again", () => {
+  const result = turn("how much does it cost?", {
+    intent: "concierge:presented_pricing",
+    service: "private",
+    stage: "qualified",
+  });
+  assert.equal(result.nextIntent, "concierge:presented_pricing");
+  assert.match(result.draftReply, /150 AED instead of 200 AED/);
+});
+
+test("clarifier migration updates presented_pricing sticky replies only", () => {
+  assert.match(clarifierMigration, /process_ai_sales_concierge_turn/);
+  assert.match(clarifierMigration, /v_prior_state/);
+  assert.match(
+    clarifierMigration,
+    /Would you like a private lesson or a group lesson, and shall we proceed with booking\?/,
+  );
+  assert.match(clarifierMigration, /Sticky-state fix/);
 });
 
 test("approved pricing constants are frozen", () => {

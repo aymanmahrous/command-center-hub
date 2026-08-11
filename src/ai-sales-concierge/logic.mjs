@@ -60,6 +60,7 @@ export function buildSalesConciergeTurn(input) {
   let humanHandoff = false;
   let nextStage = stage;
   let state = parseConciergeState(input.intent);
+  const priorState = state;
 
   if (mode !== "ai_active") {
     return {
@@ -162,11 +163,25 @@ export function buildSalesConciergeTurn(input) {
       "سؤال سريع: هل السبّاح مرتاح في الماء، أم يوجد خوف من الماء؟",
     );
   } else if (state === "presented_pricing") {
-    const offerType = service === "private" ? "private" : service === "siblings" ? "siblings" : service === "group" ? "group" : "private";
-    draftReply = [
-      pricingBlock(language, offerType),
-      t(language, "Would you like to proceed with booking?", "هل تود المتابعة للحجز؟"),
-    ].join("\n\n");
+    // Already in pricing: only resend the full offer for pricing keywords.
+    // Unrelated follow-ups get a short clarifier (avoids sticky identical replies).
+    if (
+      priorState === "presented_pricing" &&
+      !PRICING_PATTERN.test(body) &&
+      !BOOKING_PATTERN.test(body)
+    ) {
+      draftReply = t(
+        language,
+        "Would you like a private lesson or a group lesson, and shall we proceed with booking?",
+        "هل تفضّل حصة خاصة أم مجموعة، وهل نتابع للحجز؟",
+      );
+    } else {
+      const offerType = service === "private" ? "private" : service === "siblings" ? "siblings" : service === "group" ? "group" : "private";
+      draftReply = [
+        pricingBlock(language, offerType),
+        t(language, "Would you like to proceed with booking?", "هل تود المتابعة للحجز؟"),
+      ].join("\n\n");
+    }
   } else if (state === "booking_guidance") {
     draftReply = t(
       language,
