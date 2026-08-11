@@ -30,13 +30,18 @@ test("whatsapp ingress calls concierge only after MESSAGE_INGESTED", () => {
 
 test("whatsapp ingress sends draft reply only after DRAFT_READY", () => {
   const sendIf = workflow.nodes.find((node) => node.name === "Should Send WhatsApp Reply?");
+  const prepare = workflow.nodes.find((node) => node.name === "Prepare WhatsApp Outbound");
+  const readyIf = workflow.nodes.find((node) => node.name === "Outbound Payload Ready?");
   const send = workflow.nodes.find((node) => node.name === "Send WhatsApp Reply");
   assert.match(sendIf.parameters.conditions.conditions[0].leftValue, /DRAFT_READY/);
+  assert.equal(prepare?.type, "n8n-nodes-base.code");
+  assert.match(readyIf.parameters.conditions.conditions[0].leftValue, /outboundReady/);
   assert.match(send.parameters.url, /graph\.facebook\.com\/v21\.0\/1227466847119021\/messages/);
-  assert.match(send.parameters.jsonBody, /draftReply/);
+  assert.match(send.parameters.jsonBody, /outboundPayload/);
   assert.ok(workflow.connections["Draft Concierge Turn"]?.main?.[0]?.[0]?.node === "Should Send WhatsApp Reply?");
-  assert.ok(workflow.connections["Should Send WhatsApp Reply?"]?.main?.[0]?.[0]?.node === "Send WhatsApp Reply");
-  assert.ok(workflow.connections["Should Send WhatsApp Reply?"]?.main?.[1]?.[0]?.node === "Acknowledge Webhook");
+  assert.ok(workflow.connections["Should Send WhatsApp Reply?"]?.main?.[0]?.[0]?.node === "Prepare WhatsApp Outbound");
+  assert.ok(workflow.connections["Prepare WhatsApp Outbound"]?.main?.[0]?.[0]?.node === "Outbound Payload Ready?");
+  assert.ok(workflow.connections["Outbound Payload Ready?"]?.main?.[0]?.[0]?.node === "Send WhatsApp Reply");
   assert.ok(workflow.connections["Send WhatsApp Reply"]?.main?.[0]?.[0]?.node === "Acknowledge Webhook");
 });
 

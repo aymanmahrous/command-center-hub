@@ -164,7 +164,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        1700,
+        2140,
         140
       ]
     },
@@ -289,18 +289,9 @@
         "url": "https://graph.facebook.com/v21.0/1227466847119021/messages",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ ({ messaging_product: 'whatsapp', to: String(($('Webhook').item.json.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.from || $('Subscribe Verification?').item.json.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.from || '')).replace(/^\\+/, ''), type: 'text', text: { body: String($json.draftReply || '') }}) }}",
+        "jsonBody": "={{ $json.outboundPayload }}",
         "options": {
           "response": {
             "response": {
@@ -315,8 +306,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1460,
-        -20
+        1900,
+        -80
       ],
       "credentials": {
         "httpHeaderAuth": {
@@ -324,6 +315,53 @@
           "name": "WhatsApp Graph Bearer"
         }
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst draft = $json;\nconst webhookItems = $('Webhook').all();\nlet from = '';\nfor (const item of webhookItems) {\n  try {\n    const msgs = item.json.body.entry[0].changes[0].value.messages;\n    if (msgs && msgs[0] && msgs[0].from) {\n      from = String(msgs[0].from).replace(/^\\+/, '');\n      break;\n    }\n  } catch (e) {}\n}\nif (!from) {\n  try {\n    const msgs = $('Subscribe Verification?').item.json.body.entry[0].changes[0].value.messages;\n    from = String(msgs[0].from).replace(/^\\+/, '');\n  } catch (e) {}\n}\nif (!draft.draftReply || !from) {\n  return [{ json: { ...draft, outboundReady: false, outboundSkipReason: !draft.draftReply ? 'NO_DRAFT' : 'NO_FROM' } }];\n}\nreturn [{\n  json: {\n    ...draft,\n    outboundReady: true,\n    outboundPayload: {\n      messaging_product: 'whatsapp',\n      to: from,\n      type: 'text',\n      text: { body: String(draft.draftReply) }\n    }\n  }\n}];\n"
+      },
+      "id": "phase6c-prepare-outbound",
+      "name": "Prepare WhatsApp Outbound",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1460,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "outbound-ready",
+              "leftValue": "={{ $json.outboundReady === true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "phase6c-outbound-ready",
+      "name": "Outbound Payload Ready?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1680,
+        -20
+      ]
     }
   ],
   "connections": {
@@ -425,7 +463,7 @@
       "main": [
         [
           {
-            "node": "Send WhatsApp Reply",
+            "node": "Prepare WhatsApp Outbound",
             "type": "main",
             "index": 0
           }
@@ -449,13 +487,42 @@
           }
         ]
       ]
+    },
+    "Prepare WhatsApp Outbound": {
+      "main": [
+        [
+          {
+            "node": "Outbound Payload Ready?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Outbound Payload Ready?": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Acknowledge Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "phase-6c-outbound-v2",
+  "versionId": "phase-6c-outbound-v3",
   "meta": {
     "templateCredsSetupCompleted": false
   },
