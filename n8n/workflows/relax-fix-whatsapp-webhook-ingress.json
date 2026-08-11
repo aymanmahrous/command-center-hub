@@ -153,8 +153,75 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "message-ingested",
+              "leftValue": "={{ $json.processed === true && $json.code === 'MESSAGE_INGESTED' && !!$json.conversationId && !!$json.messageId }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-message-ingested",
+      "name": "Message Ingested?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        740,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://nmzxrjdxvmmzzmajrskm.supabase.co/rest/v1/rpc/process_ai_sales_concierge_turn",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"p_conversation_id\": $('Ingest WhatsApp Event').item.json.conversationId, \"p_message_id\": $('Ingest WhatsApp Event').item.json.messageId } }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": false,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "concierge-draft",
+      "name": "Draft Concierge Turn",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        980,
+        60
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ $json }}",
+        "responseBody": "={{ $('Ingest WhatsApp Event').item.json }}",
         "options": {
           "responseCode": 200
         }
@@ -164,18 +231,18 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        780,
+        1220,
         140
       ]
     },
     {
       "parameters": {
-        "content": "Phase 5G ingress only. Keep inactive until owner activates after Meta webhook registration.\nVerify token: RELAX_FIX_UAE_WHATSAPP_VERIFY\nPhone Number ID gate: 100566230597045\nInbound only. No outbound WhatsApp messages.",
+        "content": "Phase 6B: after MESSAGE_INGESTED, call process_ai_sales_concierge_turn (draft only).\nVerify token: RELAX_FIX_UAE_WHATSAPP_VERIFY\nPhone Number ID gate: 100566230597045\nInbound only. No outbound WhatsApp messages.",
         "height": 180,
-        "width": 360
+        "width": 420
       },
-      "id": "note-phase5g",
-      "name": "Phase 5G Notes",
+      "id": "note-phase6b",
+      "name": "Phase 6B Notes",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
@@ -236,6 +303,35 @@
       "main": [
         [
           {
+            "node": "Message Ingested?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message Ingested?": {
+      "main": [
+        [
+          {
+            "node": "Draft Concierge Turn",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Acknowledge Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Draft Concierge Turn": {
+      "main": [
+        [
+          {
             "node": "Acknowledge Webhook",
             "type": "main",
             "index": 0
@@ -248,7 +344,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "phase-5g-ingress-v1",
+  "versionId": "phase-6b-ingress-v1",
   "meta": {
     "templateCredsSetupCompleted": false
   },
