@@ -43,11 +43,23 @@ test("whatsapp ingress sends draft reply only after DRAFT_READY", () => {
   assert.equal(generate?.type, "@n8n/n8n-nodes-langchain.openAi");
   assert.equal(generate?.parameters?.modelId?.value, "gpt-5-nano");
   assert.equal(generate?.credentials?.openAiApi?.name, "n8n free OpenAI API credits");
+  assert.equal(generate?.parameters?.options?.maxTokens, 800);
   assert.equal(generateImage?.type, "@n8n/n8n-nodes-langchain.openAi");
   assert.equal(generateImage?.parameters?.resource, "image");
   assert.equal(generateImage?.parameters?.operation, "analyze");
   assert.equal(generateImage?.parameters?.modelId?.value, "gpt-5-nano");
   assert.equal(generateImage?.credentials?.openAiApi?.name, "n8n free OpenAI API credits");
+  assert.equal(generateImage?.parameters?.options?.maxTokens, 800);
+  const buildPrompt = workflow.nodes.find((node) => node.name === "Build AI Prompt");
+  assert.match(buildPrompt.parameters.jsCode, /findWebhookMessages/);
+  assert.match(buildPrompt.parameters.jsCode, /\$\('Webhook'\)\.all\(\)/);
+  assert.doesNotMatch(
+    buildPrompt.parameters.jsCode,
+    /\$\('Webhook'\)\.first\(\)\.json\.body\.entry/,
+  );
+  const finalize = workflow.nodes.find((node) => node.name === "Finalize AI Reply");
+  assert.match(finalize.parameters.jsCode, /fallback_empty/);
+  assert.match(finalize.parameters.jsCode, /finishReason === 'length'/);
   assert.ok(workflow.connections["Draft Concierge Turn"]?.main?.[0]?.[0]?.node === "Should Send WhatsApp Reply?");
   assert.ok(workflow.connections["Should Send WhatsApp Reply?"]?.main?.[0]?.[0]?.node === "Claim AI Budget");
   assert.ok(workflow.connections["Claim AI Budget"]?.main?.[0]?.[0]?.node === "Build AI Prompt");

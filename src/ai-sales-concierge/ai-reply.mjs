@@ -6,7 +6,7 @@ export const AI_PROVIDER = {
   source: "existing_n8n_credential",
   credentialName: "n8n free OpenAI API credits",
   model: "gpt-5-nano",
-  maxOutputTokens: 220,
+  maxOutputTokens: 800,
 };
 
 export const AI_COST_CAPS = {
@@ -210,7 +210,8 @@ export function resolveOutboundReply({ aiText, fallbackReply, costAllowed = true
   }
   const safety = assertAiReplySafe(aiText);
   if (!safety.ok) {
-    return { reply: fallbackReply, source: "fallback_unsafe", safe: false, safetyReason: safety.reason };
+    const source = safety.reason === "EMPTY_REPLY" ? "fallback_empty" : "fallback_unsafe";
+    return { reply: fallbackReply, source, safe: false, safetyReason: safety.reason };
   }
   return { reply: String(aiText).trim(), source: "ai", safe: true };
 }

@@ -141,6 +141,15 @@ test("unsafe AI prices fall back to deterministic guardrail reply", () => {
   assert.match(rejected.reply, /150 AED instead of 200 AED/);
   assert.doesNotMatch(rejected.reply, /99 AED/);
 
+  const empty = resolveOutboundReply({
+    aiText: "",
+    fallbackReply: turn.fallbackReply,
+    costAllowed: true,
+  });
+  assert.equal(empty.source, "fallback_empty");
+  assert.equal(empty.safetyReason, "EMPTY_REPLY");
+  assert.equal(empty.reply, turn.fallbackReply);
+
   const accepted = resolveOutboundReply({
     aiText: "Private lesson is 150 AED instead of 200 AED. Want to book?",
     fallbackReply: turn.fallbackReply,
