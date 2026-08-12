@@ -306,7 +306,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3040,
+        3900,
         -120
       ],
       "credentials": {
@@ -325,7 +325,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2680,
+        3540,
         -20
       ]
     },
@@ -359,7 +359,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        2860,
+        3720,
         -20
       ]
     },
@@ -397,7 +397,7 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst draft = $('Should Send WhatsApp Reply?').first().json;\nconst claim = $json || {};\n\nlet customerMessage = String(draft.aiContext?.customerMessage || draft.customerMessage || '').trim();\nif (!customerMessage) {\n  try {\n    const msgs = $('Webhook').first().json.body.entry[0].changes[0].value.messages;\n    const m = msgs && msgs[0];\n    if (m?.text?.body) customerMessage = String(m.text.body).trim();\n    else if (m?.button?.text) customerMessage = String(m.button.text).trim();\n  } catch (e) {}\n}\n\nconst language = draft.language || (/[ء-ي]/.test(customerMessage) ? 'ar' : 'en');\nconst state = draft.aiContext?.state || String(draft.intent || '').replace(/^concierge:/, '') || 'awaiting_offer_type';\nconst approvedFacts = draft.aiContext?.approvedFacts || [\n  'Private lesson: 150 AED instead of 200 AED — limited-time offer.',\n  'Group lesson: up to 5 people — 450 AED.',\n  'Siblings discount: 50 AED off per sibling. Example: eligible sibling group = 400 AED instead of 450 AED.'\n];\nconst recent = Array.isArray(claim.recentMessages) ? claim.recentMessages : (draft.aiContext?.recentMessages || []);\nconst isFirstMessage = draft.aiContext?.isFirstMessage === true || recent.filter((m) => m.role === 'customer').length <= 1;\nconst allowed = claim.allowed === true && draft.humanHandoff !== true && !!draft.draftReply && draft.code === 'DRAFT_READY';\nconst facts = approvedFacts.map((f) => `- ${f}`).join('\\n');\nconst systemPrompt = [\n  'You are the WhatsApp sales concierge for Relax Fix UAE (swimming lessons).',\n  'Match the customer's language and dialect naturally (Egyptian Arabic colloquial, Gulf/UAE Arabic, Modern Standard Arabic, or English). Do not force a different dialect.',\n  'Keep replies short (2-5 sentences), warm, and practical.',\n  'Never invent prices, discounts, schedules, guarantees, or services.',\n  'Use ONLY these approved commercial facts:',\n  facts,\n  `Current business state: ${state}.`,\n  'If unclear, ask one clarifying question instead of dumping the full price list.',\n  'Do not mention that you are an AI.'\n].join('\\n');\nconst history = recent.slice(-8).map((m) => `${m.role}: ${m.body}`).join('\\n');\nconst userPrompt = [\n  isFirstMessage ? 'This is the first customer message — include a brief friendly greeting.' : 'Continue the conversation naturally.',\n  `State: ${state}`,\n  `Detected language hint: ${language}`,\n  history ? `Recent messages:\\n${history}` : 'Recent messages: (none)',\n  `New customer message:\\n${customerMessage || '(empty)'}`,\n  'Write only the WhatsApp reply text.'\n].join('\\n\\n');\n\nreturn [{\n  json: {\n    ...draft,\n    aiBudget: claim,\n    aiAllowed: allowed,\n    systemPrompt,\n    userPrompt,\n    fallbackReply: draft.fallbackReply || draft.draftReply,\n    draftReply: draft.draftReply,\n    customerMessage\n  }\n}];\n"
+        "jsCode": "\nconst draft = $('Should Send WhatsApp Reply?').first().json;\nconst claim = $json || {};\n\nlet customerMessage = String(draft.aiContext?.customerMessage || draft.customerMessage || '').trim();\nlet hasImage = false;\nlet imageMediaId = draft.mediaId || draft.aiContext?.mediaId || null;\nlet imageMimeType = draft.mediaMimeType || draft.aiContext?.mimeType || null;\nlet imageCaption = null;\n\ntry {\n  const msgs = $('Webhook').first().json.body.entry[0].changes[0].value.messages;\n  const m = msgs && msgs[0];\n  if (m) {\n    if (m.type === 'image' && m.image) {\n      hasImage = true;\n      imageMediaId = m.image.id || imageMediaId;\n      imageMimeType = m.image.mime_type || imageMimeType;\n      imageCaption = (m.image.caption || '').trim() || null;\n      customerMessage = imageCaption || customerMessage || '[Customer sent an image]';\n    } else if (!customerMessage) {\n      if (m.text?.body) customerMessage = String(m.text.body).trim();\n      else if (m.button?.text) customerMessage = String(m.button.text).trim();\n    }\n  }\n} catch (e) {}\n\nif (!hasImage && (draft.messageType === 'image' || draft.safety_classification === 'whatsapp_image')) {\n  hasImage = true;\n}\n\nconst language = draft.language || (/[ء-ي]/.test(customerMessage || imageCaption || '') ? 'ar' : 'en');\nconst state = draft.aiContext?.state || String(draft.intent || '').replace(/^concierge:/, '') || 'awaiting_offer_type';\nconst approvedFacts = draft.aiContext?.approvedFacts || [\n  'Private lesson: 150 AED instead of 200 AED — limited-time offer.',\n  'Group lesson: up to 5 people — 450 AED.',\n  'Siblings discount: 50 AED off per sibling. Example: eligible sibling group = 400 AED instead of 450 AED.'\n];\nconst recent = Array.isArray(claim.recentMessages) ? claim.recentMessages : (draft.aiContext?.recentMessages || []);\nconst isFirstMessage = draft.aiContext?.isFirstMessage === true || recent.filter((m) => m.role === 'customer').length <= 1;\nconst allowed = claim.allowed === true && draft.humanHandoff !== true && !!draft.draftReply && draft.code === 'DRAFT_READY';\nconst facts = approvedFacts.map((f) => `- ${f}`).join('\\n');\nconst systemPrompt = [\n  'You are the WhatsApp sales concierge for Relax Fix UAE (swimming lessons).',\n  'Match the customer\\'s language and dialect naturally (Egyptian Arabic colloquial, Gulf/UAE Arabic, Modern Standard Arabic, or English). Do not force a different dialect.',\n  'Keep replies short (2-5 sentences), warm, and practical.',\n  'Never invent prices, discounts, schedules, guarantees, or services.',\n  'Use ONLY these approved commercial facts:',\n  facts,\n  `Current business state: ${state}.`,\n  'If unclear, ask one clarifying question instead of dumping the full price list.',\n  'Do not mention that you are an AI.',\n  hasImage ? 'The customer attached an image. Use what you see plus any caption/question. Do not invent facility claims beyond the image and approved facts.' : null,\n].filter(Boolean).join('\\n');\nconst history = recent.slice(-8).map((m) => `${m.role}: ${m.body}`).join('\\n');\nconst messageBlock = hasImage\n  ? [\n      'New customer message includes an image.',\n      imageCaption ? `Caption/question: ${imageCaption}` : 'Caption/question: (none — rely on the image)',\n    ].join('\\n')\n  : `New customer message:\\n${customerMessage || '(empty)'}`;\nconst userPrompt = [\n  isFirstMessage ? 'This is the first customer message — include a brief friendly greeting.' : 'Continue the conversation naturally.',\n  `State: ${state}`,\n  `Detected language hint: ${language}`,\n  history ? `Recent messages:\\n${history}` : 'Recent messages: (none)',\n  messageBlock,\n  'Write only the WhatsApp reply text.'\n].join('\\n\\n');\n\nreturn [{\n  json: {\n    ...draft,\n    aiBudget: claim,\n    aiAllowed: allowed,\n    hasImage: hasImage === true && !!imageMediaId,\n    imageMediaId,\n    imageMimeType,\n    imageCaption,\n    systemPrompt,\n    userPrompt,\n    analyzeText: `${systemPrompt}\\n\\n${userPrompt}`,\n    fallbackReply: draft.fallbackReply || draft.draftReply,\n    draftReply: draft.draftReply,\n    customerMessage\n  }\n}];\n"
       },
       "id": "phase6d-build-ai-prompt",
       "name": "Build AI Prompt",
@@ -472,8 +472,8 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 1.8,
       "position": [
-        1920,
-        -120
+        2080,
+        40
       ],
       "credentials": {
         "openAiApi": {
@@ -485,14 +485,14 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst promptItem = $('Build AI Prompt').first().json;\nconst aiItem = $json || {};\nconst fallback = String(promptItem.fallbackReply || promptItem.draftReply || '').trim();\nlet aiText = '';\nif (typeof aiItem.message === 'string') aiText = aiItem.message;\nelse if (typeof aiItem.text === 'string') aiText = aiItem.text;\nelse if (typeof aiItem.output === 'string') aiText = aiItem.output;\nelse if (aiItem.message?.content) aiText = String(aiItem.message.content);\nelse if (Array.isArray(aiItem.messages) && aiItem.messages[0]?.content) aiText = String(aiItem.messages[0].content);\n\nconst approved = new Set(['150','200','450','400','50']);\nconst forbidden = /(guarantee|guaranteed|available tomorrow|free lesson|خصم إضافي|ضمان|درس مجاني)/i;\nfunction safe(text) {\n  const reply = String(text || '').trim();\n  if (!reply) return false;\n  if (forbidden.test(reply)) return false;\n  const chunks = reply.match(/\\d+(?:[.,]\\d+)?\\s*(?:AED|aed|dirham|درهم)/gi) || [];\n  for (const chunk of chunks) {\n    const amount = (chunk.match(/\\d+(?:[.,]\\d+)?/) || [''])[0].replace(/[.,]/g, '');\n    if (amount && !approved.has(amount)) return false;\n  }\n  return true;\n}\n\nconst usedAi = promptItem.aiAllowed === true && safe(aiText);\nconst draftReply = usedAi ? aiText.trim() : fallback;\nconst usage = aiItem.usage || aiItem.tokenUsage || {};\nreturn [{\n  json: {\n    ...promptItem,\n    draftReply,\n    fallbackReply: fallback,\n    aiReplySource: usedAi ? 'ai' : (promptItem.aiAllowed ? 'fallback_unsafe' : 'fallback_cost_cap'),\n    aiUsage: {\n      prompt_tokens: Number(usage.prompt_tokens || usage.promptTokens || 0) || 0,\n      completion_tokens: Number(usage.completion_tokens || usage.completionTokens || 0) || 0,\n      total_tokens: Number(usage.total_tokens || usage.totalTokens || 0) || 0\n    }\n  }\n}];\n"
+        "jsCode": "\nconst promptItem = $('Build AI Prompt').first().json;\nconst aiItem = $json || {};\nconst fallback = String(promptItem.fallbackReply || promptItem.draftReply || '').trim();\nlet aiText = '';\nif (typeof aiItem.message === 'string') aiText = aiItem.message;\nelse if (typeof aiItem.text === 'string') aiText = aiItem.text;\nelse if (typeof aiItem.content === 'string') aiText = aiItem.content;\nelse if (typeof aiItem.output === 'string') aiText = aiItem.output;\nelse if (aiItem.message?.content) aiText = String(aiItem.message.content);\nelse if (Array.isArray(aiItem.messages) && aiItem.messages[0]?.content) aiText = String(aiItem.messages[0].content);\n\nconst approved = new Set(['150','200','450','400','50']);\nconst forbidden = /(guarantee|guaranteed|available tomorrow|free lesson|خصم إضافي|ضمان|درس مجاني)/i;\nfunction safe(text) {\n  const reply = String(text || '').trim();\n  if (!reply) return false;\n  if (forbidden.test(reply)) return false;\n  const chunks = reply.match(/\\d+(?:[.,]\\d+)?\\s*(?:AED|aed|dirham|درهم)/gi) || [];\n  for (const chunk of chunks) {\n    const amount = (chunk.match(/\\d+(?:[.,]\\d+)?/) || [''])[0].replace(/[.,]/g, '');\n    if (amount && !approved.has(amount)) return false;\n  }\n  return true;\n}\n\nconst usedAi = promptItem.aiAllowed === true && safe(aiText);\nconst draftReply = usedAi ? aiText.trim() : fallback;\nconst usage = aiItem.usage || aiItem.tokenUsage || {};\nreturn [{\n  json: {\n    ...promptItem,\n    draftReply,\n    fallbackReply: fallback,\n    aiReplySource: usedAi ? (promptItem.hasImage ? 'ai_image' : 'ai') : (promptItem.aiAllowed ? 'fallback_unsafe' : 'fallback_cost_cap'),\n    aiUsage: {\n      prompt_tokens: Number(usage.prompt_tokens || usage.promptTokens || 0) || 0,\n      completion_tokens: Number(usage.completion_tokens || usage.completionTokens || 0) || 0,\n      total_tokens: Number(usage.total_tokens || usage.totalTokens || 0) || 0\n    }\n  }\n}];\n"
       },
       "id": "phase6d-finalize-ai-reply",
       "name": "Finalize AI Reply",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2140,
+        3000,
         -20
       ]
     },
@@ -518,7 +518,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2320,
+        3180,
         -20
       ],
       "credentials": {
@@ -537,8 +537,229 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2500,
+        3360,
         -20
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "has-image",
+              "leftValue": "={{ $json.hasImage === true && !!$json.imageMediaId }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "phase6e-has-image",
+      "name": "Has Image Attachment?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1880,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://graph.facebook.com/v21.0/{{ $json.imageMediaId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "phase6e-resolve-wa-media",
+      "name": "Resolve WhatsApp Media URL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2080,
+        -220
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "WHATSAPP_GRAPH_BEARER_CREDENTIAL_ID",
+          "name": "WhatsApp Graph Bearer"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst prompt = $('Build AI Prompt').first().json;\nconst meta = $json || {};\nconst imageUrl = meta.url || meta.download_url || null;\nif (!imageUrl) {\n  return [{ json: { ...prompt, hasImage: false, imageSkipReason: 'MEDIA_URL_MISSING' } }];\n}\nreturn [{ json: { ...prompt, imageUrl: String(imageUrl), imageMimeType: meta.mime_type || prompt.imageMimeType || 'image/jpeg' } }];\n"
+      },
+      "id": "phase6e-attach-media-url",
+      "name": "Attach Media URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2260,
+        -220
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.imageUrl }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "phase6e-download-wa-media",
+      "name": "Download WhatsApp Media",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2440,
+        -220
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "WHATSAPP_GRAPH_BEARER_CREDENTIAL_ID",
+          "name": "WhatsApp Graph Bearer"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst prompt = $('Attach Media URL').first().json;\nconst item = $input.first();\nconst key = item.binary ? (item.binary.data ? 'data' : Object.keys(item.binary)[0]) : null;\nconst bin = key ? item.binary[key] : null;\nif (!bin || !bin.data) {\n  return [{ json: { ...prompt, hasImage: false, imageSkipReason: 'MEDIA_DOWNLOAD_FAILED' } }];\n}\nconst mime = bin.mimeType || prompt.imageMimeType || 'image/jpeg';\nconst dataUrl = `data:${mime};base64,${bin.data}`;\nreturn [{\n  json: { ...prompt, hasImage: true, imageDataUrl: dataUrl, analyzeText: prompt.analyzeText },\n  binary: { data: { ...bin, mimeType: mime, fileName: bin.fileName || 'whatsapp-image.jpg' } }\n}];\n"
+      },
+      "id": "phase6e-to-data-url",
+      "name": "Prepare Image Data URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2620,
+        -220
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-5-nano",
+          "mode": "list",
+          "cachedResultName": "GPT-5-NANO"
+        },
+        "text": "={{ $json.analyzeText }}",
+        "inputType": "base64",
+        "binaryPropertyName": "data",
+        "options": {
+          "maxTokens": 220
+        }
+      },
+      "id": "phase6e-generate-ai-image-reply",
+      "name": "Generate AI Reply With Image",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        2800,
+        -220
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "sjT4yJSrFCIxQuBa",
+          "name": "n8n free OpenAI API credits"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "image-url-ready",
+              "leftValue": "={{ !!$json.imageUrl || !!$json.imageDataUrl }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "phase6e-image-url-ready",
+      "name": "Image URL Ready?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2350,
+        -220
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "image-data-ready",
+              "leftValue": "={{ $json.hasImage === true && !!$json.imageDataUrl }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "phase6e-image-data-ready",
+      "name": "Image Data Ready?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2710,
+        -220
       ]
     }
   ],
@@ -721,7 +942,7 @@
       "main": [
         [
           {
-            "node": "Generate AI Reply",
+            "node": "Has Image Attachment?",
             "type": "main",
             "index": 0
           }
@@ -778,13 +999,122 @@
           }
         ]
       ]
+    },
+    "Has Image Attachment?": {
+      "main": [
+        [
+          {
+            "node": "Resolve WhatsApp Media URL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Generate AI Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve WhatsApp Media URL": {
+      "main": [
+        [
+          {
+            "node": "Attach Media URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach Media URL": {
+      "main": [
+        [
+          {
+            "node": "Image URL Ready?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download WhatsApp Media": {
+      "main": [
+        [
+          {
+            "node": "Prepare Image Data URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Image Data URL": {
+      "main": [
+        [
+          {
+            "node": "Image Data Ready?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate AI Reply With Image": {
+      "main": [
+        [
+          {
+            "node": "Finalize AI Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image URL Ready?": {
+      "main": [
+        [
+          {
+            "node": "Download WhatsApp Media",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Generate AI Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image Data Ready?": {
+      "main": [
+        [
+          {
+            "node": "Generate AI Reply With Image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Generate AI Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "phase-6d-openai-v1",
+  "versionId": "phase-6e-image-vision-v1",
   "meta": {
     "templateCredsSetupCompleted": false
   },

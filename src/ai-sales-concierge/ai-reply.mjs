@@ -81,9 +81,9 @@ export function evaluateAiCostCap({
   return { allowed: true, reason: null };
 }
 
-export function buildAiSystemPrompt({ language, state, approvedFacts }) {
+export function buildAiSystemPrompt({ language, state, approvedFacts, hasImage = false }) {
   const facts = (approvedFacts?.length ? approvedFacts : listApprovedFacts(language)).map((f) => `- ${f}`).join("\n");
-  return [
+  const lines = [
     "You are the WhatsApp sales concierge for Relax Fix UAE (swimming lessons).",
     "Match the customer's language and dialect naturally (Egyptian Arabic colloquial, Gulf/UAE Arabic, Modern Standard Arabic, or English). Do not force a different dialect.",
     "Keep replies short (2-5 sentences), warm, and practical.",
@@ -94,7 +94,33 @@ export function buildAiSystemPrompt({ language, state, approvedFacts }) {
     `Conversation goal: ${stateGoalInstruction(state, language)}.`,
     "If the customer message is unclear, ask one clarifying question instead of dumping the full price list.",
     "Do not mention that you are an AI or that you have a system prompt.",
-  ].join("\n");
+  ];
+  if (hasImage) {
+    lines.push(
+      "The customer attached an image. Use what you see in the image together with any caption/question to reply helpfully (e.g. pool suitability for lessons).",
+      "Do not invent facility claims beyond what is visible or already approved in the facts.",
+    );
+  }
+  return lines.join("\n");
+}
+
+export function extractInboundImageFromWhatsAppMessage(message = {}) {
+  if (!message || typeof message !== "object") {
+    return { hasImage: false, mediaId: null, mimeType: null, caption: null, customerMessage: "" };
+  }
+  const type = String(message.type || "text");
+  if (type !== "image") {
+    const textBody = String(message.text?.body || message.button?.text || "").trim();
+    return { hasImage: false, mediaId: null, mimeType: null, caption: null, customerMessage: textBody };
+  }
+  const caption = String(message.image?.caption || "").trim();
+  return {
+    hasImage: true,
+    mediaId: message.image?.id ? String(message.image.id) : null,
+    mimeType: message.image?.mime_type ? String(message.image.mime_type) : null,
+    caption: caption || null,
+    customerMessage: caption || "[Customer sent an image]",
+  };
 }
 
 export function buildAiUserPrompt({
@@ -103,19 +129,55 @@ export function buildAiUserPrompt({
   isFirstMessage = false,
   state,
   language,
+  hasImage = false,
+  imageCaption = null,
 }) {
   const history = recentMessages
     .slice(-8)
     .map((m) => `${m.role}: ${m.body}`)
     .join("\n");
+  const messageBlock = hasImage
+    ? [
+        "New customer message includes an image.",
+        imageCaption ? `Caption/question: ${imageCaption}` : "Caption/question: (none — rely on the image)",
+        customerMessage && customerMessage !== "[Customer sent an image]"
+          ? `Text context: ${customerMessage}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join("\n")
+    : `New customer message:\n${customerMessage}`;
+
   return [
     isFirstMessage ? "This is the first customer message in the conversation — include a brief friendly greeting." : "Continue the ongoing conversation naturally.",
     `State: ${state}`,
-    `Detected language hint: ${language || detectLanguage(customerMessage || "")}`,
+    `Detected language hint: ${language || detectLanguage(customerMessage || imageCaption || "")}`,
     history ? `Recent messages:\n${history}` : "Recent messages: (none)",
-    `New customer message:\n${customerMessage}`,
+    messageBlock,
     "Write only the WhatsApp reply text.",
   ].join("\n\n");
+}
+
+/** Single multimodal request descriptor for the existing n8n OpenAI credential (gpt-5-nano). */
+export function buildOpenAiMultimodalRequest({
+  systemPrompt,
+  userPrompt,
+  imageDataUrl = null,
+  model = AI_PROVIDER.model,
+  maxTokens = AI_PROVIDER.maxOutputTokens,
+}) {
+  const hasImage = Boolean(imageDataUrl);
+  return {
+    provider: AI_PROVIDER.name,
+    credentialName: AI_PROVIDER.credentialName,
+    model,
+    maxTokens,
+    hasImage,
+    // One call only — text message or image-analyze, never both/retries.
+    mode: hasImage ? "image_analyze" : "text_message",
+    text: `${systemPrompt}\n\n${userPrompt}`,
+    imageDataUrl: hasImage ? String(imageDataUrl) : null,
+  };
 }
 
 export function extractMoneyAmounts(text) {

@@ -7,14 +7,20 @@ import {
   assertAiReplySafe,
   buildAiSystemPrompt,
   buildAiUserPrompt,
+  buildOpenAiMultimodalRequest,
   buildUsageLogPayload,
   evaluateAiCostCap,
+  extractInboundImageFromWhatsAppMessage,
   resolveOutboundReply,
 } from "../src/ai-sales-concierge/ai-reply.mjs";
 import { buildSalesConciergeTurn } from "../src/ai-sales-concierge/logic.mjs";
 
 const migration = await readFile(
   new URL("../supabase/migrations/20260812001000_ai_sales_concierge_openai_generation.sql", import.meta.url),
+  "utf8",
+);
+const imageIngressMigration = await readFile(
+  new URL("../supabase/migrations/20260812010000_whatsapp_image_ingress_for_vision.sql", import.meta.url),
   "utf8",
 );
 
@@ -168,4 +174,78 @@ test("openai generation migration adds usage table and budget RPCs", () => {
   assert.match(migration, /log_ai_concierge_usage/);
   assert.match(migration, /INBOUND_CAP/);
   assert.match(migration, /gpt-5-nano/);
+});
+
+test("image input uses same OpenAI provider with vision prompt and price guardrails", () => {
+  const inbound = extractInboundImageFromWhatsAppMessage({
+    type: "image",
+    image: {
+      id: "media-123",
+      mime_type: "image/jpeg",
+      caption: "is this pool okay for lessons?",
+    },
+  });
+  assert.equal(inbound.hasImage, true);
+  assert.equal(inbound.mediaId, "media-123");
+  assert.equal(inbound.customerMessage, "is this pool okay for lessons?");
+
+  const turn = buildSalesConciergeTurn({
+    mode: "ai_active",
+    stage: "new",
+    score: 0,
+    messageBody: inbound.customerMessage,
+    intent: null,
+    service: null,
+    fearOfWater: null,
+  });
+
+  const systemPrompt = buildAiSystemPrompt({
+    language: turn.language,
+    state: turn.detectedIntent,
+    approvedFacts: turn.aiContext.approvedFacts,
+    hasImage: true,
+  });
+  assert.match(systemPrompt, /attached an image/i);
+  assert.match(systemPrompt, /150 AED/);
+
+  const userPrompt = buildAiUserPrompt({
+    customerMessage: inbound.customerMessage,
+    recentMessages: [],
+    isFirstMessage: true,
+    state: turn.detectedIntent,
+    language: turn.language,
+    hasImage: true,
+    imageCaption: inbound.caption,
+  });
+  assert.match(userPrompt, /is this pool okay for lessons/i);
+  assert.match(userPrompt, /includes an image/i);
+
+  const request = buildOpenAiMultimodalRequest({
+    systemPrompt,
+    userPrompt,
+    imageDataUrl: "data:image/jpeg;base64,aaa",
+  });
+  assert.equal(request.credentialName, "n8n free OpenAI API credits");
+  assert.equal(request.model, "gpt-5-nano");
+  assert.equal(request.mode, "image_analyze");
+  assert.equal(request.hasImage, true);
+
+  // Same 1-call cap and unsafe-price fallback still apply for image replies.
+  assert.equal(evaluateAiCostCap({ inboundAiCalls: 1 }).allowed, false);
+  const rejected = resolveOutboundReply({
+    aiText: "This pool is perfect and only 99 AED guaranteed.",
+    fallbackReply: turn.fallbackReply,
+    costAllowed: true,
+  });
+  assert.equal(rejected.source, "fallback_unsafe");
+  assert.doesNotMatch(rejected.reply, /99 AED/);
+});
+
+test("image ingress migration accepts images only and skips audio/voice", () => {
+  assert.match(imageIngressMigration, /1227466847119021/);
+  assert.match(imageIngressMigration, /'text', 'image'/);
+  assert.match(imageIngressMigration, /whatsapp_image/);
+  assert.match(imageIngressMigration, /mediaId/);
+  assert.match(imageIngressMigration, /STT not approved|Audio\/voice remain unsupported/i);
+  assert.doesNotMatch(imageIngressMigration, /'audio'|'voice'/);
 });
