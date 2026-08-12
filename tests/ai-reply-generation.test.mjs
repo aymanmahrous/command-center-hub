@@ -242,7 +242,7 @@ test("image input uses same OpenAI provider with vision prompt and price guardra
 });
 
 test("image ingress migration accepts images only and skips audio/voice", () => {
-  assert.match(imageIngressMigration, /1227466847119021/);
+  assert.match(imageIngressMigration, /1005662305970435/);
   assert.match(imageIngressMigration, /'text', 'image'/);
   assert.match(imageIngressMigration, /whatsapp_image/);
   assert.match(imageIngressMigration, /mediaId/);

@@ -1,7 +1,6 @@
--- Phase 6E-lite: accept WhatsApp IMAGE messages for AI vision replies.
--- Uses current Phone Number ID 1005662305970435.
--- Does NOT enable audio/voice transcription (STT not approved).
--- NOT applied to production until owner approval.
+-- Switch WhatsApp ingress to the newly registered Meta Phone Number ID.
+-- Display number remains 971551378660 (business_settings unchanged).
+-- No AI/guardrail behavior changes.
 
 CREATE OR REPLACE FUNCTION public.process_whatsapp_webhook_ingress(p_payload jsonb)
  RETURNS jsonb
@@ -91,7 +90,6 @@ begin
     return jsonb_build_object('success', false, 'code', 'PHONE_NUMBER_ID_MISMATCH');
   end if;
 
-  -- Text + image only. Audio/voice remain unsupported until STT is approved.
   if coalesce(v_message_type, 'text') not in ('text', 'image') then
     return jsonb_build_object('success', true, 'code', 'UNSUPPORTED_MESSAGE_TYPE', 'processed', false);
   end if;
@@ -114,35 +112,17 @@ begin
     return jsonb_build_object('success', false, 'code', 'EMPTY_MESSAGE_BODY');
   end if;
 
-  select id
-  into v_existing_webhook
+  select id into v_existing_webhook
   from public.webhook_events
-  where provider = v_provider
-    and provider_event_id = v_provider_event_id
+  where provider = v_provider and provider_event_id = v_provider_event_id
   limit 1;
 
   if found then
-    return jsonb_build_object(
-      'success', true,
-      'code', 'DUPLICATE_EVENT',
-      'duplicate', true,
-      'processed', false
-    );
+    return jsonb_build_object('success', true, 'code', 'DUPLICATE_EVENT', 'duplicate', true, 'processed', false);
   end if;
 
-  insert into public.webhook_events (
-    provider,
-    provider_event_id,
-    event_type,
-    payload,
-    processed_at
-  ) values (
-    v_provider,
-    v_provider_event_id,
-    coalesce(v_event_field, 'messages'),
-    p_payload,
-    now()
-  );
+  insert into public.webhook_events (provider, provider_event_id, event_type, payload, processed_at)
+  values (v_provider, v_provider_event_id, coalesce(v_event_field, 'messages'), p_payload, now());
 
   v_normalized_phone := regexp_replace(coalesce(v_from_phone, ''), '[^0-9]', '', 'g');
   if left(v_normalized_phone, 5) = '00971' then
@@ -163,107 +143,46 @@ begin
   v_language := case when v_message_body ~ '[ء-ي]' then 'ar' else 'en' end;
   v_display_name := coalesce(v_contact_name, v_normalized_phone);
 
-  select id
-  into v_lead_id
-  from public.leads
-  where normalized_phone = v_normalized_phone
-  limit 1;
+  select id into v_lead_id from public.leads where normalized_phone = v_normalized_phone limit 1;
 
   if not found then
-    insert into public.leads (
-      name,
-      full_name,
-      phone,
-      normalized_phone,
-      language,
-      source_channel,
-      stage,
-      score
-    ) values (
-      v_display_name,
-      v_display_name,
-      v_from_phone,
-      v_normalized_phone,
-      v_language,
-      'whatsapp',
-      'new',
-      0
-    )
+    insert into public.leads (name, full_name, phone, normalized_phone, language, source_channel, stage, score)
+    values (v_display_name, v_display_name, v_from_phone, v_normalized_phone, v_language, 'whatsapp', 'new', 0)
     returning id into v_lead_id;
   else
     update public.leads
-    set
-      language = v_language,
-      full_name = case
-        when v_contact_name is not null then v_contact_name
-        else full_name
-      end,
-      name = case
-        when v_contact_name is not null then v_contact_name
-        else name
-      end,
-      updated_at = now()
+    set language = v_language,
+        full_name = case when v_contact_name is not null then v_contact_name else full_name end,
+        name = case when v_contact_name is not null then v_contact_name else name end,
+        updated_at = now()
     where id = v_lead_id;
   end if;
 
-  select id
-  into v_conversation_id
+  select id into v_conversation_id
   from public.conversations
-  where channel = 'whatsapp'
-    and external_thread_id = v_wa_id
+  where channel = 'whatsapp' and external_thread_id = v_wa_id
   limit 1;
 
   if not found then
-    insert into public.conversations (
-      lead_id,
-      channel,
-      external_thread_id,
-      mode,
-      unread_count
-    ) values (
-      v_lead_id,
-      'whatsapp',
-      v_wa_id,
-      'ai_active',
-      0
-    )
+    insert into public.conversations (lead_id, channel, external_thread_id, mode, unread_count)
+    values (v_lead_id, 'whatsapp', v_wa_id, 'ai_active', 0)
     returning id into v_conversation_id;
   end if;
 
-  insert into public.messages (
-    conversation_id,
-    external_message_id,
-    direction,
-    author_type,
-    body,
-    safety_classification
-  ) values (
-    v_conversation_id,
-    v_provider_event_id,
-    'inbound',
-    'customer',
-    v_message_body,
-    v_safety_classification
-  )
+  insert into public.messages (conversation_id, external_message_id, direction, author_type, body, safety_classification)
+  values (v_conversation_id, v_provider_event_id, 'inbound', 'customer', v_message_body, v_safety_classification)
   on conflict (conversation_id, external_message_id) do nothing
   returning id into v_message_id;
 
   if v_message_id is null then
     return jsonb_build_object(
-      'success', true,
-      'code', 'DUPLICATE_MESSAGE',
-      'duplicate', true,
-      'processed', false,
-      'conversationId', v_conversation_id,
-      'leadId', v_lead_id,
-      'language', v_language
+      'success', true, 'code', 'DUPLICATE_MESSAGE', 'duplicate', true, 'processed', false,
+      'conversationId', v_conversation_id, 'leadId', v_lead_id, 'language', v_language
     );
   end if;
 
   update public.conversations
-  set
-    unread_count = unread_count + 1,
-    updated_at = now()
+  set unread_count = unread_count + 1, updated_at = now()
   where id = v_conversation_id;
 
   return jsonb_build_object(
