@@ -38,7 +38,7 @@ test("cost caps block extra inbound retries and hourly/daily overuse", () => {
   );
 });
 
-test("prompt builder supports English and Gulf/Arabic dialect customer messages", () => {
+test("prompt builder supports English, Egyptian dialect, and Gulf dialect customer messages", () => {
   const en = buildSalesConciergeTurn({
     mode: "ai_active",
     stage: "new",
@@ -68,8 +68,21 @@ test("prompt builder supports English and Gulf/Arabic dialect customer messages"
     state: "presented_pricing",
     approvedFacts: en.aiContext.approvedFacts,
   });
-  assert.match(arSystem, /Gulf Arabic|Arabic|English/i);
+  assert.match(arSystem, /Egyptian Arabic colloquial/i);
+  assert.match(arSystem, /Gulf\/UAE Arabic/i);
+  assert.match(arSystem, /English/i);
   assert.match(arSystem, /150 AED/);
+  assert.doesNotMatch(arSystem, /custom dialect-detection|detect dialect/i);
+
+  const egyptian = buildAiUserPrompt({
+    customerMessage: "عامل ايه؟ عايز أعرف سعر الحصة الخاصة كام؟",
+    recentMessages: [],
+    isFirstMessage: true,
+    state: "presented_pricing",
+    language: "ar",
+  });
+  assert.match(egyptian, /عامل ايه\؟ عايز أعرف سعر الحصة الخاصة كام\؟/);
+  assert.match(egyptian, /friendly greeting/i);
 
   const gulf = buildAiUserPrompt({
     customerMessage: "السلام عليكم، بكم الحصة الخاصة ياخوي؟",
@@ -80,6 +93,18 @@ test("prompt builder supports English and Gulf/Arabic dialect customer messages"
   });
   assert.match(gulf, /بكم الحصة الخاصة ياخوي/);
   assert.doesNotMatch(gulf, /friendly greeting/i);
+
+  // Guardrails remain deterministic for dialect pricing asks.
+  const egyptianTurn = buildSalesConciergeTurn({
+    mode: "ai_active",
+    stage: "new",
+    score: 0,
+    messageBody: "كام سعر الخاص؟",
+    intent: null,
+    service: null,
+    fearOfWater: null,
+  });
+  assert.match(egyptianTurn.fallbackReply, /150 درهم بدل 200 درهم/);
 });
 
 test("unsafe AI prices fall back to deterministic guardrail reply", () => {
