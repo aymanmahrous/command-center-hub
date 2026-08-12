@@ -170,7 +170,7 @@
     },
     {
       "parameters": {
-        "content": "Phase 6C: inbound + draft + outbound WhatsApp reply.\nVerify token: RELAX_FIX_UAE_WHATSAPP_VERIFY\nPhone Number ID: 1005662305970435\nWABA: 1368531584751834\nIngest MUST use $json.body.\nOutbound sends draftReply after DRAFT_READY only.",
+        "content": "Phase 6C: inbound + draft + outbound WhatsApp reply.\nVerify token: RELAX_FIX_UAE_WHATSAPP_VERIFY\nPhone Number ID: 1276699008856128\nWABA: 2575106602931255\nIngest MUST use $json.body.\nOutbound sends draftReply after DRAFT_READY only.",
         "height": 180,
         "width": 360
       },
@@ -286,7 +286,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://graph.facebook.com/v21.0/1005662305970435/messages",
+        "url": "https://graph.facebook.com/v21.0/1276699008856128/messages",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,

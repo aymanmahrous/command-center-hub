@@ -23,6 +23,10 @@ const imageIngressMigration = await readFile(
   new URL("../supabase/migrations/20260812010000_whatsapp_image_ingress_for_vision.sql", import.meta.url),
   "utf8",
 );
+const phoneNumberIdMigration = await readFile(
+  new URL("../supabase/migrations/20260812040500_whatsapp_phone_number_id_1276699008856128.sql", import.meta.url),
+  "utf8",
+);
 
 test("reuses existing n8n free OpenAI provider settings", () => {
   assert.equal(AI_PROVIDER.source, "existing_n8n_credential");
@@ -242,7 +246,7 @@ test("image input uses same OpenAI provider with vision prompt and price guardra
 });
 
 test("image ingress migration accepts images only and skips audio/voice", () => {
-  assert.match(imageIngressMigration, /1005662305970435/);
+  assert.match(imageIngressMigration, /1276699008856128/);
   assert.match(imageIngressMigration, /'text', 'image'/);
   assert.match(imageIngressMigration, /whatsapp_image/);
   assert.match(imageIngressMigration, /mediaId/);

@@ -38,7 +38,7 @@ test("whatsapp ingress sends draft reply only after DRAFT_READY", () => {
   assert.match(sendIf.parameters.conditions.conditions[0].leftValue, /DRAFT_READY/);
   assert.equal(prepare?.type, "n8n-nodes-base.code");
   assert.match(readyIf.parameters.conditions.conditions[0].leftValue, /outboundReady/);
-  assert.match(send.parameters.url, /graph\.facebook\.com\/v21\.0\/1005662305970435\/messages/);
+  assert.match(send.parameters.url, /graph\.facebook\.com\/v21\.0\/1276699008856128\/messages/);
   assert.match(send.parameters.jsonBody, /outboundPayload/);
   assert.equal(generate?.type, "@n8n/n8n-nodes-langchain.openAi");
   assert.equal(generate?.parameters?.modelId?.value, "gpt-5-nano");
@@ -71,7 +71,7 @@ test("whatsapp ingress http nodes stay limited to ingest concierge ai budget log
     [
       "=https://graph.facebook.com/v21.0/{{ $json.imageMediaId }}",
       "={{ $json.imageUrl }}",
-      "https://graph.facebook.com/v21.0/1005662305970435/messages",
+      "https://graph.facebook.com/v21.0/1276699008856128/messages",
       "https://nmzxrjdxvmmzzmajrskm.supabase.co/rest/v1/rpc/claim_ai_concierge_generation",
       "https://nmzxrjdxvmmzzmajrskm.supabase.co/rest/v1/rpc/log_ai_concierge_usage",
       "https://nmzxrjdxvmmzzmajrskm.supabase.co/rest/v1/rpc/process_ai_sales_concierge_turn",
