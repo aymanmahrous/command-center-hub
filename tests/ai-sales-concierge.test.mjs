@@ -118,7 +118,12 @@ test("author_type fix migration inserts drafts as ai not ai_draft", () => {
   assert.match(authorTypeFixMigration, /process_ai_sales_concierge_turn/);
   assert.match(authorTypeFixMigration, /author_type,\s*body,\s*safety_classification/);
   assert.match(authorTypeFixMigration, /\n\s*'ai',\s*\n\s*v_draft,/);
-  assert.doesNotMatch(authorTypeFixMigration, /'\s*ai_draft\s*'/);
+  // Ignore header comments that document the old buggy value.
+  const withoutLineComments = authorTypeFixMigration
+    .split("\n")
+    .filter((line) => !line.trimStart().startsWith("--"))
+    .join("\n");
+  assert.doesNotMatch(withoutLineComments, /'\s*ai_draft\s*'/);
 });
 
 test("clarifier migration updates presented_pricing sticky replies only", () => {
