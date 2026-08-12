@@ -4,6 +4,8 @@
 
 Documentation Review on branch `docs/final-documentation-review` after the protected merges of AI Inbox PR #9, Bookings PR #10, Content Studio PR #11, Media Library PR #12, Analytics PR #13, Integrations PR #14, System Polish PR #15, Final Audit PR #16, Final Security Review PR #17, and Performance Review PR #18.
 
+Operational publishing phase tracking (Facebook / Instagram controlled publishing) lives in `MASTER_PROJECT_HANDOFF.md`. Facebook Controlled Publishing Test is **CLOSED / COMPLETED** (2026-08-05); current administrative phase: **Instagram Controlled Publishing**.
+
 ## Implemented
 
 - Real conversation list through the existing `get_staff_inbox` RPC.
