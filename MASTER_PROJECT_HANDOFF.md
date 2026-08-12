@@ -75,27 +75,23 @@
 
 ## 7. CURRENT_PHASE
 
-**20-Day Content Scheduling — ACTIVE**
+**Operating — Scheduling ACTIVE + WhatsApp AI live**
 
 ## 8. CURRENT_BLOCKER
 
-لا Blocker مفتوح للجدولة الحالية.
-
-Facebook Controlled Publishing — CLOSED / COMPLETED.  
-Instagram Controlled Publishing Test — CLOSED / COMPLETED (`external_post_id: 18117977944493017`).  
-جدولة 20 يوم Instagram مفعّلة عبر المسار الرسمي: jobs مسلّحة + `authorize_next_due_scheduled_instagram_publish` عند الاستحقاق داخل workflow `xNwYPSXQiUyzDSyZ`.
+لا Blocker مفتوح للجدولة.
 
 ## 9. آخر نتيجة مؤكدة
 
-- Instagram Controlled Publishing PASS: `content_item_id=6d88c6fa-2c52-4e44-92c6-d97b0a52b3dc`, `external_post_id=18117977944493017`, receipt `published`.
-- Live Instagram Account ID (Graph-verified `@relaxfixuae`): `17841400516801494`.
-- 16 عنصر Instagram مجدول خلال 20 يومًا مع `publish_content` jobs متوافقة مع `scheduled_for`.
-- RPC `authorize_next_due_scheduled_instagram_publish` يُرجع `NO_DUE_CANDIDATE` قبل الموعد (لا نشر مبكر)، ويلتقط العنصر عند الاستحقاق فقط.
-- n8n Schedule path (workflow `xNwYPSXQiUyzDSyZ`) يفوّض تلقائيًا عند الاستحقاق ثم claim/publish مع إيصال.
+- Instagram Controlled Publishing PASS: `external_post_id=18117977944493017`, receipt `published`.
+- Live Instagram Account ID: `17841400516801494` (`@relaxfixuae`).
+- **20-day scheduling ACTIVE**: 16 Instagram items armed with aligned `publish_content` jobs; due-time Owner Authorization via `authorize_next_due_scheduled_instagram_publish` on workflow `xNwYPSXQiUyzDSyZ` (no 20-day pre-auth; no early publish — live RPC returns `NO_DUE_CANDIDATE` until due).
+- First due: `ec1d4726-7143-45b0-ad1d-e72b2a953061` at `2026-08-15T08:00:00Z`.
+- WhatsApp ingress workflow `BqHXNlpbhq63pRK6` ACTIVE; real inbound today ingested with AI draft path; Generate AI Reply model set to GPT-5-MINI after nano empty `finish_reason=length`.
 
 ## 10. الخطوة الحالية (NEXT)
 
-مراقبة أول نشر مجدول المستحق: `ec1d4726-7143-45b0-ad1d-e72b2a953061` في `2026-08-15T08:00:00Z`، ثم WhatsApp AI Concierge inbound test.
+مراقبة أول نشر مجدول في `2026-08-15T08:00:00Z`، والإبقاء على WhatsApp AI Concierge (draft/inbound) دون توسيع outbound غير المعتمد.
 
 ## 11. تذكير إلزامي لكل Agent
 
