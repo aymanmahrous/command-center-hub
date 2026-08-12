@@ -8,6 +8,10 @@ const clarifierMigration = await readFile(
   new URL("../supabase/migrations/20260811235500_ai_sales_concierge_presented_pricing_clarifier.sql", import.meta.url),
   "utf8",
 );
+const authorTypeFixMigration = await readFile(
+  new URL("../supabase/migrations/20260812041500_ai_sales_concierge_author_type_ai.sql", import.meta.url),
+  "utf8",
+);
 
 function turn(messageBody, overrides = {}) {
   return buildSalesConciergeTurn({
@@ -108,6 +112,13 @@ test("presented_pricing still resends pricing when customer asks about price aga
   });
   assert.equal(result.nextIntent, "concierge:presented_pricing");
   assert.match(result.draftReply, /150 AED instead of 200 AED/);
+});
+
+test("author_type fix migration inserts drafts as ai not ai_draft", () => {
+  assert.match(authorTypeFixMigration, /process_ai_sales_concierge_turn/);
+  assert.match(authorTypeFixMigration, /author_type,\s*body,\s*safety_classification/);
+  assert.match(authorTypeFixMigration, /\n\s*'ai',\s*\n\s*v_draft,/);
+  assert.doesNotMatch(authorTypeFixMigration, /'\s*ai_draft\s*'/);
 });
 
 test("clarifier migration updates presented_pricing sticky replies only", () => {
