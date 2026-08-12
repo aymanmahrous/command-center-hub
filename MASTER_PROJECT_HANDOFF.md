@@ -75,20 +75,27 @@
 
 ## 7. CURRENT_PHASE
 
-**Facebook Controlled Publishing Test**
+**20-Day Content Scheduling — ACTIVE**
 
 ## 8. CURRENT_BLOCKER
 
-تم إنشاء عنصر Facebook حقيقي ومعتمد: `content_item_id: 9cf29b08-aaa3-4278-80bc-08a4cf3bc381`.
-النشر الفعلي يتطلب تنفيذ التفويض المحدد من المالك ثم تسجيل إيصال النشر.
+لا Blocker مفتوح للجدولة الحالية.
+
+Facebook Controlled Publishing — CLOSED / COMPLETED.  
+Instagram Controlled Publishing Test — CLOSED / COMPLETED (`external_post_id: 18117977944493017`).  
+جدولة 20 يوم Instagram مفعّلة عبر المسار الرسمي: jobs مسلّحة + `authorize_next_due_scheduled_instagram_publish` عند الاستحقاق داخل workflow `xNwYPSXQiUyzDSyZ`.
 
 ## 9. آخر نتيجة مؤكدة
 
-تم إنشاء واعتماد عنصر Facebook حقيقي نصي بدون وسائط، وعُرض على المالك. منح المالك تفويضًا محدودًا لهذا المنشور الواحد فقط، دون Boost أو إعلانات أو إعادة نشر أو Retry تلقائي عند غموض النتيجة.
+- Instagram Controlled Publishing PASS: `content_item_id=6d88c6fa-2c52-4e44-92c6-d97b0a52b3dc`, `external_post_id=18117977944493017`, receipt `published`.
+- Live Instagram Account ID (Graph-verified `@relaxfixuae`): `17841400516801494`.
+- 16 عنصر Instagram مجدول خلال 20 يومًا مع `publish_content` jobs متوافقة مع `scheduled_for`.
+- RPC `authorize_next_due_scheduled_instagram_publish` يُرجع `NO_DUE_CANDIDATE` قبل الموعد (لا نشر مبكر)، ويلتقط العنصر عند الاستحقاق فقط.
+- n8n Schedule path (workflow `xNwYPSXQiUyzDSyZ`) يفوّض تلقائيًا عند الاستحقاق ثم claim/publish مع إيصال.
 
 ## 10. الخطوة الحالية (NEXT)
 
-تنفيذ نشر عنصر Facebook المصرح به فقط عبر المسار المعتمد، ثم تقديم: Facebook Post ID، رابط المنشور، وقت النشر الفعلي، execution ID، وreceipt status. عند غموض النتيجة لا يُعاد النشر.
+مراقبة أول نشر مجدول المستحق: `ec1d4726-7143-45b0-ad1d-e72b2a953061` في `2026-08-15T08:00:00Z`، ثم WhatsApp AI Concierge inbound test.
 
 ## 11. تذكير إلزامي لكل Agent
 
@@ -106,7 +113,8 @@
 - Approved n8n workflow only: `xNwYPSXQiUyzDSyZ`
 - Old workflows must remain inactive and untouched: `7OVKtZ2TAZsrDIXc`, `Vj8Xh4UQ534LYist`
 - Facebook Page ID: `1164107840123575`
-- Instagram Account ID: `17841439747493221`
+- Instagram Account ID (live, Graph-verified `@relaxfixuae`): `17841400516801494`
+- Obsolete Instagram Account ID (do not use): `17841439747493221`
 - Never expose tokens or secrets in documentation.
 
 ## 13. FUTURE PHASE ASSETS — DO NOT REBUILD
