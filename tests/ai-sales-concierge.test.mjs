@@ -131,12 +131,32 @@ test("mid-funnel greeting keeps conversation context", () => {
   assert.match(result.draftReply, /150 درهم بدل 200 درهم/);
 });
 
-test("missing location does not invent an address", () => {
-  const result = turn("Where are you located?");
-  assert.equal(result.nextIntent, "concierge:human_handoff");
-  assert.doesNotMatch(result.draftReply, /dubai marina|jbr|sheikh zayed|address:/i);
-  assert.match(result.draftReply, /Coach Ayman/i);
+test("location ask without area prompts once then resolves nearest pool", () => {
+  const ask = turn("وين أقرب مسبح؟");
+  assert.equal(ask.nextIntent, "concierge:awaiting_customer_area");
+  assert.match(ask.draftReply, /منطقة/);
+
+  const area = turn("البرشاء", { intent: ask.nextIntent, language: "ar" });
+  assert.equal(area.nextIntent, "concierge:presented_nearest_pool");
+  assert.match(area.draftReply, /ICS|مشرف|الفلاح|نجدة|maps\.app\.goo\.gl/i);
+  assert.doesNotMatch(area.draftReply, /dubai marina|jbr|invent/i);
 });
+
+test("english area resolves a real pool map link", () => {
+  const result = turn("I'm in JVC, what's the nearest location?");
+  assert.equal(result.nextIntent, "concierge:presented_nearest_pool");
+  assert.match(result.draftReply, /Abu Dhabi/);
+  assert.match(result.draftReply, /maps\.app\.goo\.gl/);
+});
+
+test("different areas can select different pools", () => {
+  const falah = turn("انا في الفلاح");
+  const mushrif = turn("أنا في المشرف");
+  assert.equal(falah.nearestPoolId, "ics-al-falah");
+  assert.equal(mushrif.nearestPoolId, "ics-mushrif");
+  assert.notEqual(falah.nearestPoolId, mushrif.nearestPoolId);
+});
+
 
 test("approved pricing constants are frozen", () => {
   assert.equal(APPROVED_PRICING.private.en.includes("150 AED"), true);

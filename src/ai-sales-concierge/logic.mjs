@@ -1,3 +1,11 @@
+import {
+  findNearestPool,
+  formatAskAreaReply,
+  formatNearestPoolReply,
+  isLocationIntent,
+  matchCustomerArea,
+} from "./pools.mjs";
+
 const APPROVED_PRICING = {
   private: {
     en: "Private lesson: 150 AED instead of 200 AED — limited-time offer.",
@@ -22,8 +30,6 @@ const HUMAN_HANDOFF_PATTERN =
   /(human|person|coach|ayman|speak to someone|talk to someone|موظف|بشري|كوتش|أيمن|مدرب|تحدث مع)/i;
 const MEDICAL_PATTERN =
   /(sick|ill|medical|doctor|health|injury|pain|hospital|مريض|مرض|دكتور|صحة|ألم|جرح|مستشفى|تعبان)/i;
-const LOCATION_PATTERN =
-  /(where|location|address|map|place|are you located|فين|وين|موقع|عنوان|مكان|الموقع)/i;
 const PRICING_PATTERN = /(price|cost|how much|fee|aed|dirham|سعر|اسعار|الأسعار|الاسعار|تكلفة|درهم|كم\s*ال)/i;
 const SERVICES_PATTERN =
   /(what do you offer|services|packages|what .+ provide|خدمات|وش عندكم|شو عندكم|ماذا تقدم|عروضكم|باقات)/i;
@@ -189,19 +195,44 @@ export function buildSalesConciergeTurn(input) {
     });
   }
 
-  if (LOCATION_PATTERN.test(body)) {
-    return handoffResult({
-      language,
-      service,
-      stage,
-      score,
-      fearOfWater,
-      draftReply: t(
+  // Location / nearest pool — structured knowledge only (no invented venues).
+  const matchedArea = matchCustomerArea(body);
+  if (priorState === "awaiting_customer_area" || matchedArea || isLocationIntent(body)) {
+    if (matchedArea) {
+      const nearest = findNearestPool(matchedArea);
+      const locationReply = formatNearestPoolReply(language, matchedArea, nearest);
+      return {
+        processed: true,
+        skipped: false,
         language,
-        "I don't have the exact training location saved here. I'll connect you with Coach Ayman for the precise details.",
-        "ما عندي الموقع الدقيق محفوظ هنا. سأوصلك بالكوتش أيمن لتفاصيل موقع التدريب الدقيقة.",
-      ),
-    });
+        detectedIntent: "presented_nearest_pool",
+        draftReply: locationReply,
+        nextIntent: formatIntent("presented_nearest_pool"),
+        nextService: service,
+        nextStage: stage === "new" ? "contacted" : stage,
+        nextScore: score + 10,
+        nextFearOfWater: fearOfWater,
+        humanHandoff: false,
+        outboundEnabled: false,
+        nearestPoolId: nearest?.pool?.id ?? null,
+      };
+    }
+    if (priorState === "awaiting_customer_area" || isLocationIntent(body)) {
+      return {
+        processed: true,
+        skipped: false,
+        language,
+        detectedIntent: "awaiting_customer_area",
+        draftReply: formatAskAreaReply(language),
+        nextIntent: formatIntent("awaiting_customer_area"),
+        nextService: service,
+        nextStage: stage === "new" ? "contacted" : stage,
+        nextScore: score,
+        nextFearOfWater: fearOfWater,
+        humanHandoff: false,
+        outboundEnabled: false,
+      };
+    }
   }
 
   // Progressive booking collection (one question at a time).
@@ -276,7 +307,7 @@ export function buildSalesConciergeTurn(input) {
     score += 10;
   } else if (GREETING_PATTERN.test(body) || LEARN_PATTERN.test(body) || priorState === "greeting") {
     // Keep funnel context: greeting mid-conversation should not wipe progress.
-    if (priorState === "presented_pricing" || priorState === "booking_ask_count" || priorState === "booking_ask_timing") {
+    if (priorState === "presented_pricing" || priorState === "booking_ask_count" || priorState === "booking_ask_timing" || priorState === "awaiting_customer_area" || priorState === "presented_nearest_pool") {
       state = priorState;
     } else if (priorState === "awaiting_fear_of_water") {
       state = "awaiting_fear_of_water";
