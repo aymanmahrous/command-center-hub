@@ -1,55 +1,40 @@
 /**
- * Schedule / availability facts for Relax Fix UAE.
- *
- * Discovery closed (2026-08-14) — live Google Calendar OAuth read:
- * - Credential `Google Calendar account` (uVP3oHdTvCq0b0fR): Connection Successful.
- * - Account: primary Gmail calendar (personal); 10 calendars total.
- * - No calendar named Relax Fix / Swim Fluent.
- * - 60-day upcoming scan across owner calendars: 56 events, 0 swim/lesson hits.
- * - Existing events are unrelated (courses/birthdays/etc.), not class inventory.
- * - `booking_requests` remains request intake only; website hours are not slots.
- *
- * Recommended next source: dedicated Google Calendar (same credential), once the
- * owner supplies real lesson rows. Do not invent or seed fake availability.
- *
- * Until a dedicated lessons calendar has real events, never claim Available.
+ * Schedule helpers for Relax Fix UAE Messenger AI.
+ * Owner-approved class windows live in availability.mjs.
+ * Google Calendar "Relax Fix UAE Lessons" is the occupancy source of truth.
+ * Windows alone never mean a slot is Available.
  */
 
+import {
+  CLASS_WINDOWS,
+  LESSONS_CALENDAR,
+  SCHEDULE_LOCATIONS,
+} from "./availability.mjs";
+
 export const SCHEDULE_SOURCE = {
-  publishedHoursUrl: "https://www.relaxfixuae.com/",
-  bookingIntake: "booking_requests via submit_booking_request (write request only)",
+  timezone: "Asia/Dubai",
+  lessonsCalendar: LESSONS_CALENDAR,
+  locations: SCHEDULE_LOCATIONS,
+  classWindows: CLASS_WINDOWS,
   googleCalendarCredential: {
     n8nId: "uVP3oHdTvCq0b0fR",
     name: "Google Calendar account",
     connection: "VALID",
-    workflowsUsingNodes: 0,
-    dedicatedRelaxFixCalendar: false,
-    realLessonEventsFound: false,
+    dedicatedRelaxFixCalendar: true,
+    calendarId: LESSONS_CALENDAR.calendarId,
   },
   recommendedSource: "GOOGLE_CALENDAR",
-  slotInventory: null,
+  /** Occupied times come only from Google Calendar / rf_lesson_occupancy mirror — never invented. */
+  slotInventory: "google_calendar_occupancy",
   retrievedAt: "2026-08-14",
 };
 
-/**
- * Target event shape for a future dedicated "Relax Fix UAE Lessons" calendar.
- * Read-only for AI until owner populates real events — capacity fields optional.
- */
-export const RECOMMENDED_GCAL_EVENT_SHAPE = {
-  calendarName: "Relax Fix UAE Lessons",
-  summaryFormat: "[private|group|siblings] | {poolName} | {trainerName}",
-  locationField: "pool display name (one of the four official pools)",
-  descriptionLines: ["capacity={n}", "booked={n}  // optional; omit if unknown"],
-  startEnd: "timed events (not all-day)",
-  pools: ["najda-street", "ics-al-falah", "ics-khalifa", "ics-mushrif"],
-};
-
-/** Published general hours from official website (all four locations share this copy). */
+/** Owner-approved class windows (same as CLASS_WINDOWS). Windows ≠ auto-available slots. */
 export const PUBLISHED_HOURS = {
   weekend: { days: ["saturday", "sunday"], open: "10:00", close: "22:00" },
   weekday: { days: ["monday", "tuesday", "wednesday", "thursday", "friday"], open: "16:00", close: "21:00" },
   disclaimer:
-    "These are general published hours, not a guarantee that every location/slot is free.",
+    "Approved class windows only. Actual availability requires Google Calendar occupancy check.",
 };
 
 // Timing/availability signals only — bare "book/حجز" stays in the booking funnel

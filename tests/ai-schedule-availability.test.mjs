@@ -26,10 +26,10 @@ function turn(messageBody, overrides = {}) {
   });
 }
 
-test("discovery records no live slot inventory", () => {
-  assert.equal(SCHEDULE_SOURCE.slotInventory, null);
+test("discovery records calendar occupancy source (not invented slots)", () => {
+  assert.equal(SCHEDULE_SOURCE.slotInventory, "google_calendar_occupancy");
   assert.equal(SCHEDULE_SOURCE.googleCalendarCredential.connection, "VALID");
-  assert.equal(SCHEDULE_SOURCE.googleCalendarCredential.realLessonEventsFound, false);
+  assert.equal(SCHEDULE_SOURCE.googleCalendarCredential.dedicatedRelaxFixCalendar, true);
   assert.equal(SCHEDULE_SOURCE.recommendedSource, "GOOGLE_CALENDAR");
   assert.ok(PUBLISHED_HOURS.weekend.open);
   assert.ok(PUBLISHED_HOURS.weekday.open);
