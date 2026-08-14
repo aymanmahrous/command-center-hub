@@ -86,8 +86,19 @@ begin
   v_language := case
     when v_body ~ '[ء-ي]' then 'ar'
     when v_body ~ '[A-Za-z]' then 'en'
-    when coalesce(v_lead.language, '') in ('ar', 'en') then v_lead.language
-    else 'en'
+    else coalesce(
+      (
+        select case when m.body ~ '[ء-ي]' then 'ar' else 'en' end
+        from public.messages m
+        where m.conversation_id = v_conversation.id
+          and m.direction = 'inbound'
+          and m.author_type = 'customer'
+          and m.body ~ '[ء-يA-Za-z]'
+        order by m.created_at desc, m.id desc
+        limit 1
+      ),
+      case when coalesce(v_lead.language, '') in ('ar', 'en') then v_lead.language else 'en' end
+    )
   end;
   v_service := nullif(btrim(coalesce(v_lead.service, '')), '');
   v_stage := v_lead.stage::text;

@@ -49,6 +49,18 @@ export function detectLanguage(text, fallback = "en") {
   return fallback === "ar" ? "ar" : "en";
 }
 
+function inferLanguage(body, input) {
+  if (/[ء-ي]/.test(body)) return "ar";
+  if (/[A-Za-z]/.test(body)) return "en";
+  const recent = Array.isArray(input.recentMessages) ? input.recentMessages : [];
+  for (let i = recent.length - 1; i >= 0; i -= 1) {
+    const text = String(recent[i]?.body || recent[i]?.text || "");
+    if (/[ء-ي]/.test(text)) return "ar";
+    if (/[A-Za-z]/.test(text)) return "en";
+  }
+  return input.language === "ar" ? "ar" : "en";
+}
+
 function t(language, en, ar) {
   return language === "ar" ? ar : en;
 }
@@ -113,8 +125,8 @@ function extractTiming(body) {
 }
 
 export function buildSalesConciergeTurn(input) {
-  const language = detectLanguage(input.messageBody, input.language || "en");
   const body = input.messageBody.trim();
+  const language = inferLanguage(body, input);
   const mode = input.mode;
   const stage = input.stage;
   let score = input.score ?? 0;
