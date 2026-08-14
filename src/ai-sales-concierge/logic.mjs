@@ -4,7 +4,13 @@ import {
   formatNearestPoolReply,
   isLocationIntent,
   matchCustomerArea,
+  RELAX_FIX_POOLS,
 } from "./pools.mjs";
+import {
+  evaluateScheduleRequest,
+  formatScheduleReply,
+  isScheduleIntent,
+} from "./schedule.mjs";
 
 const APPROVED_PRICING = {
   private: {
@@ -72,12 +78,21 @@ function t(language, en, ar) {
 }
 
 function parseConciergeState(intent) {
-  if (!intent || !intent.startsWith("concierge:")) return "greeting";
-  return intent.slice("concierge:".length) || "greeting";
+  if (!intent || !intent.startsWith("concierge:")) return { state: "greeting", preferredPoolId: null };
+  const raw = intent.slice("concierge:".length) || "greeting";
+  const parts = raw.split("__");
+  return { state: parts[0] || "greeting", preferredPoolId: parts[1] || null };
 }
 
-function formatIntent(state) {
-  return `concierge:${state}`;
+function formatIntent(state, preferredPoolId = null) {
+  return preferredPoolId ? `concierge:${state}__${preferredPoolId}` : `concierge:${state}`;
+}
+
+function poolDisplayName(language, poolId) {
+  if (!poolId) return null;
+  const pool = RELAX_FIX_POOLS.find((p) => p.id === poolId);
+  if (!pool) return null;
+  return language === "ar" ? pool.nameAr : pool.name;
 }
 
 function pricingForService(language, service) {
@@ -140,7 +155,9 @@ export function buildSalesConciergeTurn(input) {
   let fearOfWater = input.fearOfWater ?? null;
   let humanHandoff = false;
   let nextStage = stage;
-  const priorState = parseConciergeState(input.intent);
+  const parsedPrior = parseConciergeState(input.intent);
+  const priorState = parsedPrior.state;
+  let preferredPoolId = parsedPrior.preferredPoolId;
   let state = priorState;
   const recent = Array.isArray(input.recentMessages) ? input.recentMessages : [];
   const priorOutbound = recent.filter((m) => m.role === "assistant" || m.direction === "outbound").length;
@@ -154,7 +171,7 @@ export function buildSalesConciergeTurn(input) {
       language,
       detectedIntent: state,
       draftReply: null,
-      nextIntent: input.intent ?? formatIntent(state),
+      nextIntent: input.intent ?? formatIntent(state, preferredPoolId),
       nextService: service,
       nextStage: stage,
       nextScore: score,
@@ -195,26 +212,74 @@ export function buildSalesConciergeTurn(input) {
     });
   }
 
-  // Location / nearest pool — structured knowledge only (no invented venues).
+  // Shared area match for location + schedule context.
   const matchedArea = matchCustomerArea(body);
+
+  // Schedule / timing questions — never invent availability slots.
+  if (isScheduleIntent(body)) {
+    let poolId = preferredPoolId;
+    if (matchedArea) {
+      const nearest = findNearestPool(matchedArea);
+      poolId = nearest?.pool?.id ?? poolId;
+    }
+    if (PRIVATE_PATTERN.test(body)) service = "private";
+    else if (GROUP_PATTERN.test(body)) service = "group";
+    else if (SIBLING_PATTERN.test(body)) service = "siblings";
+
+    const evaluation = evaluateScheduleRequest(body);
+    const scheduleReply = formatScheduleReply(language, {
+      poolName: poolDisplayName(language, poolId),
+      service,
+      evaluation,
+    });
+    // If they also asked nearest place and we just resolved it, prepend map line once.
+    let draft = scheduleReply;
+    if (matchedArea && (isLocationIntent(body) || /أقرب|اقرب|nearest|closest/i.test(body))) {
+      const nearest = findNearestPool(matchedArea);
+      if (nearest?.pool) {
+        draft = `${formatNearestPoolReply(language, matchedArea, nearest)}\n\n${scheduleReply}`;
+        poolId = nearest.pool.id;
+      }
+    }
+    return {
+      processed: true,
+      skipped: false,
+      language,
+      detectedIntent: "schedule_handoff",
+      draftReply: draft,
+      nextIntent: formatIntent("schedule_handoff", poolId),
+      nextService: service,
+      nextStage: stage === "new" ? "contacted" : stage === "contacted" ? "qualified" : stage,
+      nextScore: score + 10,
+      nextFearOfWater: fearOfWater,
+      humanHandoff: false,
+      outboundEnabled: false,
+      nearestPoolId: poolId,
+      scheduleCheck: evaluation.publishedCheck,
+      canConfirmSlot: false,
+    };
+  }
+
+  // Location / nearest pool — structured knowledge only (no invented venues).
   if (priorState === "awaiting_customer_area" || matchedArea || isLocationIntent(body)) {
     if (matchedArea) {
       const nearest = findNearestPool(matchedArea);
       const locationReply = formatNearestPoolReply(language, matchedArea, nearest);
+      const poolId = nearest?.pool?.id ?? null;
       return {
         processed: true,
         skipped: false,
         language,
         detectedIntent: "presented_nearest_pool",
         draftReply: locationReply,
-        nextIntent: formatIntent("presented_nearest_pool"),
+        nextIntent: formatIntent("presented_nearest_pool", poolId),
         nextService: service,
         nextStage: stage === "new" ? "contacted" : stage,
         nextScore: score + 10,
         nextFearOfWater: fearOfWater,
         humanHandoff: false,
         outboundEnabled: false,
-        nearestPoolId: nearest?.pool?.id ?? null,
+        nearestPoolId: poolId,
       };
     }
     if (priorState === "awaiting_customer_area" || isLocationIntent(body)) {
@@ -224,7 +289,7 @@ export function buildSalesConciergeTurn(input) {
         language,
         detectedIntent: "awaiting_customer_area",
         draftReply: formatAskAreaReply(language),
-        nextIntent: formatIntent("awaiting_customer_area"),
+        nextIntent: formatIntent("awaiting_customer_area", preferredPoolId),
         nextService: service,
         nextStage: stage === "new" ? "contacted" : stage,
         nextScore: score,
@@ -307,7 +372,14 @@ export function buildSalesConciergeTurn(input) {
     score += 10;
   } else if (GREETING_PATTERN.test(body) || LEARN_PATTERN.test(body) || priorState === "greeting") {
     // Keep funnel context: greeting mid-conversation should not wipe progress.
-    if (priorState === "presented_pricing" || priorState === "booking_ask_count" || priorState === "booking_ask_timing" || priorState === "awaiting_customer_area" || priorState === "presented_nearest_pool") {
+    if (
+      priorState === "presented_pricing" ||
+      priorState === "booking_ask_count" ||
+      priorState === "booking_ask_timing" ||
+      priorState === "awaiting_customer_area" ||
+      priorState === "presented_nearest_pool" ||
+      priorState === "schedule_handoff"
+    ) {
       state = priorState;
     } else if (priorState === "awaiting_fear_of_water") {
       state = "awaiting_fear_of_water";
@@ -399,13 +471,14 @@ export function buildSalesConciergeTurn(input) {
     language,
     detectedIntent: state,
     draftReply,
-    nextIntent: formatIntent(state),
+    nextIntent: formatIntent(state, preferredPoolId),
     nextService: service,
     nextStage,
     nextScore: score,
     nextFearOfWater: fearOfWater,
     humanHandoff,
     outboundEnabled: false,
+    nearestPoolId: preferredPoolId || null,
   };
 }
 

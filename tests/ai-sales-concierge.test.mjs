@@ -137,14 +137,14 @@ test("location ask without area prompts once then resolves nearest pool", () => 
   assert.match(ask.draftReply, /منطقة/);
 
   const area = turn("البرشاء", { intent: ask.nextIntent, language: "ar" });
-  assert.equal(area.nextIntent, "concierge:presented_nearest_pool");
+  assert.match(area.nextIntent, /^concierge:presented_nearest_pool__/);
   assert.match(area.draftReply, /ICS|مشرف|الفلاح|نجدة|maps\.app\.goo\.gl/i);
   assert.doesNotMatch(area.draftReply, /dubai marina|jbr|invent/i);
 });
 
 test("english area resolves a real pool map link", () => {
   const result = turn("I'm in JVC, what's the nearest location?");
-  assert.equal(result.nextIntent, "concierge:presented_nearest_pool");
+  assert.match(result.nextIntent, /^concierge:presented_nearest_pool__/);
   assert.match(result.draftReply, /Abu Dhabi/);
   assert.match(result.draftReply, /maps\.app\.goo\.gl/);
 });
