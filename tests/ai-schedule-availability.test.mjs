@@ -28,6 +28,9 @@ function turn(messageBody, overrides = {}) {
 
 test("discovery records no live slot inventory", () => {
   assert.equal(SCHEDULE_SOURCE.slotInventory, null);
+  assert.equal(SCHEDULE_SOURCE.googleCalendarCredential.connection, "VALID");
+  assert.equal(SCHEDULE_SOURCE.googleCalendarCredential.realLessonEventsFound, false);
+  assert.equal(SCHEDULE_SOURCE.recommendedSource, "GOOGLE_CALENDAR");
   assert.ok(PUBLISHED_HOURS.weekend.open);
   assert.ok(PUBLISHED_HOURS.weekday.open);
 });
