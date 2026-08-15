@@ -22,6 +22,8 @@ a:focus-visible {
 
 .skip-link:focus { transform: translateY(0); }
 
+.push-install-bar { display: flex; align-items: center; gap: 10px; }
+.push-install-bar .text-button { font-size: .78rem; white-space: nowrap; }
 .attention-bell { position: relative; }
 .bell-toggle { position: relative; display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid #dbe3ee; border-radius: 12px; background: #fff; cursor: pointer; }
 .bell-count { position: absolute; top: -6px; inset-inline-end: -6px; min-width: 18px; padding: 2px 5px; border-radius: 999px; background: #64748b; color: #fff; font-size: .68rem; font-weight: 900; text-align: center; }

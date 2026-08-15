@@ -2,23 +2,19 @@ export const en = {
   common: {
     loading: "Loading securely...",
     refresh: "Refresh",
-    save: "Save changes",
     saving: "Saving...",
     of: "of",
     noResults: "No matching results.",
     noData: "No data available right now.",
     search: "Search",
     status: "Status",
-    all: "All",
     readOnlyNote: "Your role has read-only access.",
-    savingReviewed: "Saving reviewed change...",
     unlinked: "Not linked",
     unavailable: "Not available",
     createdAt: "Created",
     updatedAt: "Last updated",
     manage: "Manage",
     systemConnected: "System connected",
-    advancedDetails: "Advanced details",
   },
   nav: {
     dashboard: "Command Center",
@@ -58,7 +54,6 @@ export const en = {
     eyebrow: "INTERNAL OPERATIONS",
     controlledWrite: "CONTROLLED WRITE",
     readOnly: "READ ONLY",
-    panelHeading: "Live operational data",
     panelSubheading: "Supabase RPC secured by staff identity and permissions.",
     loadError: "This module could not be loaded securely.",
     attentionBellLabel: "Needs attention",
@@ -90,7 +85,6 @@ export const en = {
     attentionDefaultHint: "Open for details",
   },
   inbox: {
-    writeBannerTitle: "Controlled conversation control",
     writeBannerSubtitle: "Protected · every change is logged",
     listAriaLabel: "Conversation list",
     noMessages: "No messages",
@@ -106,7 +100,6 @@ export const en = {
     invalidFormat: "Unexpected data format; no write performed.",
   },
   crm: {
-    writeBannerTitle: "Controlled writes",
     writeBannerSubtitle: "Protected · every change is logged",
     noLeads: "No leads right now.",
     invalidFormat: "Unexpected data format; no write performed.",
@@ -121,7 +114,6 @@ export const en = {
     invalidFollowUp: "Follow-up time is invalid; no change was made.",
   },
   content: {
-    writeBannerTitle: "Content Studio, controlled",
     writeBannerSubtitle: "Protected · needs approval before publishing",
     invalidFormat: "Unexpected data format; no write performed.",
     searchPlaceholder: "Topic, text, platform...",
@@ -158,7 +150,6 @@ export const en = {
     scheduleMustBeFuture: "Scheduled time must be in the future.",
   },
   media: {
-    bannerSubtitle: "Private files · view only",
     allLabel: "All",
     searchPlaceholder: "File name, provider, description...",
     sourceLabel: "Source",
@@ -268,12 +259,8 @@ export const en = {
     bannerText: "Reflects the latest recorded snapshot; no action is triggered here.",
     empty: "No automation status yet.",
     invalidFormat: "Unexpected data format.",
-    idLabel: "ID",
-    recordLabel: "Record",
-    itemsLabel: "items",
   },
   planner: {
-    writeBannerTitle: "Booking operations",
     writeBannerSubtitle: "Protected · every change is logged",
     totalLabel: "Total",
     searchLabel: "Search bookings",
@@ -294,7 +281,6 @@ export const en = {
     fearOfWaterAlert: "Alert: the client indicated a fear of water.",
     updateStatusLabel: "Update status",
     savingChange: "Saving reviewed change...",
-    invalidFollowUpTime: "Invalid follow-up time; no change was made.",
   },
 };
 

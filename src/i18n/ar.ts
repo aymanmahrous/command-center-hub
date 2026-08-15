@@ -4,23 +4,19 @@ export const ar: Dictionary = {
   common: {
     loading: "جاري التحميل الآمن...",
     refresh: "تحديث",
-    save: "حفظ التغييرات",
     saving: "جاري الحفظ...",
     of: "من",
     noResults: "لا توجد نتائج مطابقة.",
     noData: "لا توجد بيانات متاحة حاليًا.",
     search: "بحث",
     status: "الحالة",
-    all: "الكل",
     readOnlyNote: "دورك يملك صلاحية القراءة فقط.",
-    savingReviewed: "جاري حفظ التغيير المراجع...",
     unlinked: "غير مرتبط",
     unavailable: "غير متاح",
     createdAt: "تاريخ الإنشاء",
     updatedAt: "آخر تحديث",
     manage: "إدارة",
     systemConnected: "النظام متصل",
-    advancedDetails: "تفاصيل متقدمة",
   },
   nav: {
     dashboard: "مركز التحكم",
@@ -60,7 +56,6 @@ export const ar: Dictionary = {
     eyebrow: "العمليات الداخلية",
     controlledWrite: "كتابة مضبوطة",
     readOnly: "قراءة فقط",
-    panelHeading: "بيانات تشغيل حقيقية",
     panelSubheading: "Supabase RPC محمي بهوية الموظف وصلاحيات قاعدة البيانات.",
     loadError: "تعذر تحميل هذه الوحدة بأمان.",
     attentionBellLabel: "يحتاج انتباه",
@@ -92,7 +87,6 @@ export const ar: Dictionary = {
     attentionDefaultHint: "افتح للتفاصيل",
   },
   inbox: {
-    writeBannerTitle: "تحكم مضبوط في المحادثات",
     writeBannerSubtitle: "محمي · كل تغيير مسجّل",
     listAriaLabel: "قائمة المحادثات",
     noMessages: "لا توجد رسائل",
@@ -108,7 +102,6 @@ export const ar: Dictionary = {
     invalidFormat: "صيغة بيانات AI Inbox غير متوافقة؛ لم يتم تنفيذ أي كتابة.",
   },
   crm: {
-    writeBannerTitle: "كتابة مضبوطة",
     writeBannerSubtitle: "محمي · كل تغيير مسجّل",
     noLeads: "لا توجد عملاء محتملون حاليًا.",
     invalidFormat: "صيغة بيانات CRM غير متوافقة؛ لم يتم تنفيذ أي كتابة.",
@@ -123,7 +116,6 @@ export const ar: Dictionary = {
     invalidFollowUp: "موعد المتابعة غير صالح؛ لم يتم تنفيذ أي تغيير.",
   },
   content: {
-    writeBannerTitle: "Content Studio مضبوط",
     writeBannerSubtitle: "محمي · يحتاج اعتماد قبل النشر",
     invalidFormat: "صيغة بيانات Content Studio غير متوافقة؛ لم يتم تنفيذ أي كتابة.",
     searchPlaceholder: "الموضوع، النص، المنصة...",
@@ -160,7 +152,6 @@ export const ar: Dictionary = {
     scheduleMustBeFuture: "وقت الجدولة يجب أن يكون في المستقبل.",
   },
   media: {
-    bannerSubtitle: "ملفات خاصة · للعرض فقط",
     allLabel: "الكل",
     searchPlaceholder: "اسم الملف، المزود، الوصف...",
     sourceLabel: "المصدر",
@@ -270,12 +261,8 @@ export const ar: Dictionary = {
     bannerText: "تعكس آخر لقطة مسجلة لحالة الأتمتة من الخادم؛ لا يتم تنفيذ أي إجراء أتمتة من هذه الشاشة.",
     empty: "لا توجد بيانات حالة أتمتة حاليًا.",
     invalidFormat: "بيانات حالة الأتمتة غير متاحة بالصيغة المتوقعة.",
-    idLabel: "المعرّف",
-    recordLabel: "سجل",
-    itemsLabel: "عناصر",
   },
   planner: {
-    writeBannerTitle: "تشغيل الحجوزات",
     writeBannerSubtitle: "محمي · كل تغيير مسجّل",
     totalLabel: "الإجمالي",
     searchLabel: "بحث في الحجوزات",
@@ -296,6 +283,5 @@ export const ar: Dictionary = {
     fearOfWaterAlert: "تنبيه: العميل أشار إلى وجود خوف من الماء.",
     updateStatusLabel: "تحديث الحالة",
     savingChange: "جاري حفظ التغيير المراجع...",
-    invalidFollowUpTime: "موعد المتابعة غير صالح؛ لم يتم تنفيذ أي تغيير.",
   },
 };

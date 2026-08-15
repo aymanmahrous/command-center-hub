@@ -4,13 +4,16 @@ import { gzipSync } from "node:zlib";
 
 const distDirectory = resolve(process.env.PERFORMANCE_DIST_DIR ?? "dist");
 const indexPath = resolve(distDirectory, "index.html");
-// Owner Mobile Usability Final Pass: only the JS raw ceiling needed a tiny
-// (~0.2%) nudge after real trimming (dropped the intent "__detail" parsing,
-// merged the compact-banner CSS selectors, replaced the status-pill
-// pseudo-element with an inline glyph). CSS stayed within its existing
-// budget and was not raised this pass.
+// Final Phone App Pass: added the full Web Push client (subscribe/unsubscribe,
+// service worker registration, push-tap routing) and the install-prompt
+// control — genuinely new, explicitly requested functionality, not slack.
+// Trimmed first: push.ts no longer duplicates Supabase fetch/env logic (it
+// now takes the app's existing callRpc instead), 14 dead i18n keys left over
+// from earlier passes were removed (panelHeading, 4x writeBannerTitle, etc.),
+// and PushInstallBar's install-prompt effect/state was condensed. Remaining
+// gap after that trimming is ~0.4% raw / ~0.7% gzip. CSS was not raised.
 const budgets = {
-  js: { raw: 346_700, gzip: 100_900 },
+  js: { raw: 348_300, gzip: 101_700 },
   css: { raw: 27_000, gzip: 6_000 },
 };
 
