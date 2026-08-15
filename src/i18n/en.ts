@@ -16,6 +16,9 @@ export const en = {
     unavailable: "Not available",
     createdAt: "Created",
     updatedAt: "Last updated",
+    manage: "Manage",
+    systemConnected: "System connected",
+    advancedDetails: "Advanced details",
   },
   nav: {
     dashboard: "Command Center",
@@ -88,7 +91,7 @@ export const en = {
   },
   inbox: {
     writeBannerTitle: "Controlled conversation control",
-    writeBannerSubtitle: "RPC only · RBAC + confirmation + Audit Log",
+    writeBannerSubtitle: "Protected · every change is logged",
     listAriaLabel: "Conversation list",
     noMessages: "No messages",
     selectConversation: "Select a conversation",
@@ -104,7 +107,7 @@ export const en = {
   },
   crm: {
     writeBannerTitle: "Controlled writes",
-    writeBannerSubtitle: "RBAC + locking + validation + Audit Log",
+    writeBannerSubtitle: "Protected · every change is logged",
     noLeads: "No leads right now.",
     invalidFormat: "Unexpected data format; no write performed.",
     noPhone: "No phone",
@@ -119,11 +122,12 @@ export const en = {
   },
   content: {
     writeBannerTitle: "Content Studio, controlled",
-    writeBannerSubtitle: "RPC only · human approval · locking · Audit Log",
+    writeBannerSubtitle: "Protected · needs approval before publishing",
     invalidFormat: "Unexpected data format; no write performed.",
     searchPlaceholder: "Topic, text, platform...",
     allStatuses: "All statuses",
     noItems: "No content items yet.",
+    failedAlert: "{n} post(s) failed to publish — see below to retry.",
     untitled: "Untitled content",
     topicLabel: "Topic",
     hookLabel: "Hook",
@@ -154,7 +158,7 @@ export const en = {
     scheduleMustBeFuture: "Scheduled time must be in the future.",
   },
   media: {
-    bannerSubtitle: "Authenticated RPC · private files · read-only",
+    bannerSubtitle: "Private files · view only",
     allLabel: "All",
     searchPlaceholder: "File name, provider, description...",
     sourceLabel: "Source",
@@ -270,7 +274,7 @@ export const en = {
   },
   planner: {
     writeBannerTitle: "Booking operations",
-    writeBannerSubtitle: "Status update via RPC · RBAC + confirmation + Audit Log",
+    writeBannerSubtitle: "Protected · every change is logged",
     totalLabel: "Total",
     searchLabel: "Search bookings",
     searchPlaceholder: "Name, phone, category, location...",

@@ -18,6 +18,9 @@ export const ar: Dictionary = {
     unavailable: "غير متاح",
     createdAt: "تاريخ الإنشاء",
     updatedAt: "آخر تحديث",
+    manage: "إدارة",
+    systemConnected: "النظام متصل",
+    advancedDetails: "تفاصيل متقدمة",
   },
   nav: {
     dashboard: "مركز التحكم",
@@ -90,7 +93,7 @@ export const ar: Dictionary = {
   },
   inbox: {
     writeBannerTitle: "تحكم مضبوط في المحادثات",
-    writeBannerSubtitle: "RPC فقط · RBAC + تأكيد + منع التكرار + Audit Log",
+    writeBannerSubtitle: "محمي · كل تغيير مسجّل",
     listAriaLabel: "قائمة المحادثات",
     noMessages: "لا توجد رسائل",
     selectConversation: "اختر محادثة",
@@ -106,7 +109,7 @@ export const ar: Dictionary = {
   },
   crm: {
     writeBannerTitle: "كتابة مضبوطة",
-    writeBannerSubtitle: "CRM workflow فقط · RBAC + locking + validation + Audit Log",
+    writeBannerSubtitle: "محمي · كل تغيير مسجّل",
     noLeads: "لا توجد عملاء محتملون حاليًا.",
     invalidFormat: "صيغة بيانات CRM غير متوافقة؛ لم يتم تنفيذ أي كتابة.",
     noPhone: "بدون هاتف",
@@ -121,11 +124,12 @@ export const ar: Dictionary = {
   },
   content: {
     writeBannerTitle: "Content Studio مضبوط",
-    writeBannerSubtitle: "RPC فقط · اعتماد بشري · قفل ضد التكرار · Audit Log",
+    writeBannerSubtitle: "محمي · يحتاج اعتماد قبل النشر",
     invalidFormat: "صيغة بيانات Content Studio غير متوافقة؛ لم يتم تنفيذ أي كتابة.",
     searchPlaceholder: "الموضوع، النص، المنصة...",
     allStatuses: "جميع الحالات",
     noItems: "لا توجد عناصر محتوى حاليًا.",
+    failedAlert: "{n} منشور(ات) فشل نشرها — راجع الأسفل لإعادة المحاولة.",
     untitled: "محتوى بدون عنوان",
     topicLabel: "الموضوع",
     hookLabel: "Hook",
@@ -156,7 +160,7 @@ export const ar: Dictionary = {
     scheduleMustBeFuture: "وقت الجدولة يجب أن يكون في المستقبل.",
   },
   media: {
-    bannerSubtitle: "RPC مصادق · ملفات خاصة · لا رفع أو حذف أو توليد من هذه الواجهة",
+    bannerSubtitle: "ملفات خاصة · للعرض فقط",
     allLabel: "الكل",
     searchPlaceholder: "اسم الملف، المزود، الوصف...",
     sourceLabel: "المصدر",
@@ -272,7 +276,7 @@ export const ar: Dictionary = {
   },
   planner: {
     writeBannerTitle: "تشغيل الحجوزات",
-    writeBannerSubtitle: "الكتابة الوحيدة: تحديث الحالة عبر RPC · RBAC + تأكيد + Audit Log",
+    writeBannerSubtitle: "محمي · كل تغيير مسجّل",
     totalLabel: "الإجمالي",
     searchLabel: "بحث في الحجوزات",
     searchPlaceholder: "الاسم، الهاتف، الفئة، الموقع...",

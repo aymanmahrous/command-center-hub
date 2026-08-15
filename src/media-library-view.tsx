@@ -175,7 +175,7 @@ export function MediaLibraryView({ value, session, onSessionExpired }: { value: 
   if (!parsed.success) return <div className="error-box">{copy.invalidFormat}</div>;
 
   return <>
-    <div className="media-security-banner"><strong>{language === "ar" ? "مكتبة وسائط خاصة للقراءة فقط" : "Private read-only media library"}</strong><span>{copy.bannerSubtitle}</span></div>
+    <div className="media-security-banner compact"><span>{language === "ar" ? "مكتبة وسائط خاصة للقراءة فقط" : "Private read-only media library"}</span></div>
     <div className="media-summary" aria-label={language === "ar" ? "ملخص أنواع الوسائط" : "Media type summary"}>
       <button type="button" className={typeFilter === "all" ? "active" : ""} onClick={() => setTypeFilter("all")}><span>{copy.allLabel}</span><strong>{assets.length}</strong></button>
       {(Object.keys(typeLabels) as MediaAssetType[]).map((type) => <button type="button" key={type} className={typeFilter === type ? "active" : ""} onClick={() => setTypeFilter(type)}><span>{typeLabels[type]}</span><strong>{counts[type]}</strong></button>)}

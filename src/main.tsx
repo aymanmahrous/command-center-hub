@@ -487,7 +487,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
   }
 
   return <>
-    <div className="write-banner"><strong>{copy.writeBannerTitle}</strong><span>{copy.writeBannerSubtitle}</span></div>
+    <div className="write-banner compact"><span>{copy.writeBannerSubtitle}</span></div>
     {notice && <div className="notice-box" aria-live="polite">{notice}</div>}
     <div className="inbox-layout">
       <div className="conversation-list" aria-label={copy.listAriaLabel}>
@@ -499,7 +499,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
       </div>
       <section className="conversation-panel">
         <header>
-          <div><h3>{selected?.leadName ?? copy.selectConversation}</h3>{selected && <p>Score {selected.leadScore}/100 · {selected.intent}</p>}</div>
+          <div><h3>{selected?.leadName ?? copy.selectConversation}</h3>{selected && <p>{humanizeIntent(language, selected.intent, copy.selectConversation)} · {selected.leadScore}/100</p>}</div>
           {selected && <label>{copy.modeLabel}<select value={selected.mode} disabled={!canWrite || busyId !== null} onChange={(event) => void changeMode(selected, event.target.value as ConversationMode)}>{(Object.keys(modeLabels) as ConversationMode[]).map((mode) => <option key={mode} value={mode}>{modeLabels[mode]}</option>)}</select></label>}
         </header>
         {selected?.humanRequired && <div className="human-alert">{copy.humanRequiredAlert}</div>}
@@ -529,6 +529,7 @@ function CRMView({ value, session, onChanged, onSessionExpired }: { value: JsonV
   const stageLabels = leadStageLabels[language];
   const parsed = z.array(LeadSchema).safeParse(value);
   const [busyId, setBusyId] = useState<string | null>(null); const [notice, setNotice] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const canWrite = ["super_admin", "admin", "reception", "coach"].includes(session.role);
   if (!parsed.success) return <div className="error-box">{copy.invalidFormat}</div>;
   if (parsed.data.length === 0) return <p className="muted">{copy.noLeads}</p>;
@@ -559,9 +560,18 @@ function CRMView({ value, session, onChanged, onSessionExpired }: { value: JsonV
       setNotice(messages[code] ?? (language === "ar" ? "تعذر التحديث بأمان؛ لم يتم اعتماد أي تغيير غير مؤكد." : "Update failed safely; no change was made."));
     } finally { setBusyId(null); }
   }
-  return <><div className="write-banner"><strong>{copy.writeBannerTitle}</strong><span>{copy.writeBannerSubtitle}</span></div>{notice && <div className="notice-box" aria-live="polite">{notice}</div>}<div className="data-grid">{parsed.data.map((lead) => {
+  return <><div className="write-banner compact"><span>{copy.writeBannerSubtitle}</span></div>{notice && <div className="notice-box" aria-live="polite">{notice}</div>}<div className="data-grid">{parsed.data.map((lead) => {
     const followUpLocal = formatLocalDateTimeInput(lead.nextFollowUpAt ?? null);
-    return <article className="data-card booking-card" key={lead.id}><h3>{lead.name}</h3><p>{lead.phone ?? copy.noPhone} · {lead.channel ?? copy.unknownChannel}</p><p>{lead.intent ?? copy.unclassified} · Score: {lead.score ?? "—"}</p><form aria-busy={busyId === lead.id} onSubmit={(event) => { event.preventDefault(); void save(lead, event.currentTarget); }}><label>{copy.stageLabel}<select name="stage" defaultValue={lead.stage} disabled={!canWrite || busyId !== null}>{(["new", "contacted", "qualified", "booking_intent", "booked", "follow_up", "lost", "customer"] as const).map((stage) => <option key={stage} value={stage}>{stageLabels[stage]}</option>)}</select></label><label>{copy.nextFollowUpLabel}<input name="nextFollowUpAt" type="datetime-local" defaultValue={followUpLocal} disabled={!canWrite || busyId !== null} /></label><label><input name="humanRequired" type="checkbox" defaultChecked={lead.humanRequired} disabled={!canWrite || busyId !== null} /> {copy.humanRequiredLabel}</label><label><input name="doNotContact" type="checkbox" defaultChecked={lead.doNotContact} disabled={!canWrite || busyId !== null} /> {copy.doNotContactLabel}</label><button disabled={!canWrite || busyId !== null}>{busyId === lead.id ? t("common").saving : copy.saveButton}</button></form>{!canWrite && <small>{t("common").readOnlyNote}</small>}</article>;
+    const expanded = expandedId === lead.id;
+    return <article className="data-card booking-card" key={lead.id}>
+      <header className="lead-summary"><h3>{lead.name}</h3><span className={`content-status status-${lead.stage}`}>{stageLabels[lead.stage]}</span></header>
+      <p>{lead.channel ?? copy.unknownChannel} · {humanizeIntent(language, lead.intent, copy.unclassified)}</p>
+      {lead.humanRequired && <p className="human-alert">{copy.humanRequiredLabel}</p>}
+      <p className="muted">{lead.nextFollowUpAt ? `${copy.nextFollowUpLabel}: ${formatBookingDateTime(language, lead.nextFollowUpAt)}` : (lead.lastActivityAt ? formatBookingDateTime(language, lead.lastActivityAt) : "")}</p>
+      <button type="button" className="text-button" onClick={() => setExpandedId(expanded ? null : lead.id)}>{t("common").manage}</button>
+      {expanded && <form aria-busy={busyId === lead.id} onSubmit={(event) => { event.preventDefault(); void save(lead, event.currentTarget); }}><p>{lead.phone ?? copy.noPhone} · Score: {lead.score ?? "—"}</p><label>{copy.stageLabel}<select name="stage" defaultValue={lead.stage} disabled={!canWrite || busyId !== null}>{(["new", "contacted", "qualified", "booking_intent", "booked", "follow_up", "lost", "customer"] as const).map((stage) => <option key={stage} value={stage}>{stageLabels[stage]}</option>)}</select></label><label>{copy.nextFollowUpLabel}<input name="nextFollowUpAt" type="datetime-local" defaultValue={followUpLocal} disabled={!canWrite || busyId !== null} /></label><label><input name="humanRequired" type="checkbox" defaultChecked={lead.humanRequired} disabled={!canWrite || busyId !== null} /> {copy.humanRequiredLabel}</label><label><input name="doNotContact" type="checkbox" defaultChecked={lead.doNotContact} disabled={!canWrite || busyId !== null} /> {copy.doNotContactLabel}</label><button disabled={!canWrite || busyId !== null}>{busyId === lead.id ? t("common").saving : copy.saveButton}</button></form>}
+      {!canWrite && <small>{t("common").readOnlyNote}</small>}
+    </article>;
   })}</div></>;
 }
 
@@ -670,7 +680,8 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
   }
 
   return <>
-    <div className="write-banner"><strong>{copy.writeBannerTitle}</strong><span>{copy.writeBannerSubtitle}</span></div>
+    <div className="write-banner compact"><span>{copy.writeBannerSubtitle}</span></div>
+    {items.some((item) => item.status === "failed") && <p className="human-alert">{copy.failedAlert.replace("{n}", String(items.filter((item) => item.status === "failed").length))}</p>}
     {notice && <div className="notice-box" aria-live="polite">{notice}</div>}
     <div className="content-toolbar">
       <label>{t("common").search}<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={copy.searchPlaceholder} /></label>
@@ -921,6 +932,19 @@ const bookingStatusLabels: Record<Language, Record<BookingStatus, string>> = {
   en: { pending: "Pending", contacted: "Contacted", confirmed: "Confirmed", declined: "Declined", cancelled: "Cancelled" },
 };
 
+const intentLabels: Record<string, [string, string]> = {
+  schedule_need_location: ["Asking about location/timing", "يسأل عن الموقع والموعد"],
+  awaiting_student_details: ["Sharing student details", "يشارك بيانات الطالب"],
+  schedule_checked: ["Checked availability", "تحقق من التوفر"],
+  awaiting_offer_type: ["Choosing a program", "يختار البرنامج"],
+  presented_pricing: ["Asked about pricing", "سأل عن الأسعار"],
+};
+function humanizeIntent(language: Language, raw: string | null | undefined, fallback: string) {
+  if (!raw) return fallback;
+  const base = raw.replace(/^concierge:/, "").split("__")[0];
+  return intentLabels[base]?.[language === "ar" ? 1 : 0] ?? base.replaceAll("_", " ");
+}
+
 function formatBookingDateTime(language: Language, value: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString(language === "ar" ? "ar-AE" : "en-AE");
@@ -991,7 +1015,7 @@ function BookingView({ value, session, onChanged, onSessionExpired }: { value: J
   }
 
   return <>
-    <div className="write-banner"><strong>{copy.writeBannerTitle}</strong><span>{copy.writeBannerSubtitle}</span></div>
+    <div className="write-banner compact"><span>{copy.writeBannerSubtitle}</span></div>
     {notice && <div className="notice-box" aria-live="polite">{notice}</div>}
     <div className="booking-summary" aria-label={language === "ar" ? "ملخص حالات الحجوزات" : "Booking status summary"}>
       <button type="button" className={statusFilter === "all" ? "active" : ""} onClick={() => setStatusFilter("all")}><span>{copy.totalLabel}</span><strong>{bookings.length}</strong></button>
@@ -1066,10 +1090,11 @@ function AttentionBell({ items, language, copy, onNavigate }: { items: z.infer<t
 
 function cardCls(base: string, urgent: boolean) { return urgent ? base + " urgent" : base; }
 
-function greetingLabel(copy: Dictionary["dashboard"], displayName: string) {
+function greetingLabel(copy: Dictionary["dashboard"], displayName: string, language: Language) {
   const hour = new Date().getHours();
   const timeKey = hour < 12 ? "greetingMorning" : hour < 18 ? "greetingAfternoon" : "greetingEvening";
-  return `${copy[timeKey]} ${displayName}`.trim();
+  const name = language === "ar" && displayName.trim() === "Coach Ayman" ? "كوتش أيمن" : displayName;
+  return `${copy[timeKey]} ${name}`.trim();
 }
 
 function DashboardView({ value, attention, language, copy, onNavigate, displayName }: { value: JsonValue; attention: z.infer<typeof AttentionItemSchema>[]; language: Language; copy: Dictionary["dashboard"]; onNavigate: (section: SectionId) => void; displayName: string }) {
@@ -1092,7 +1117,7 @@ function DashboardView({ value, attention, language, copy, onNavigate, displayNa
     [copy.cardPostsFailed, metrics.postsFailed, "content", metrics.postsFailed > 0],
   ];
   return <>
-    <p className="dashboard-greeting">{greetingLabel(copy, displayName)}</p>
+    <p className="dashboard-greeting">{greetingLabel(copy, displayName, language)}</p>
     <p className="dashboard-greeting-sub">{attention.length > 0 ? `${copy.thingsNeedAttention} ${attention.length}` : copy.allClear}</p>
     <div className="primary-cards">
       <button type="button" className={cardCls("dashboard-card primary-card", customersCount > 0)} onClick={() => onNavigate(customersTarget)}>
@@ -1165,7 +1190,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   }, [session, reloadKey]);
   const modeLabel = active === "planner" || active === "crm" || active === "inbox" || active === "content" ? dashboardCopy.controlledWrite : dashboardCopy.readOnly;
   const goTo = (section: SectionId) => setActive(section);
-  return <div className="app-shell"><a className="skip-link" href="#main-workspace">{nav.skipToContent}</a><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><LanguageSwitcher onDark /><nav aria-label="وحدات Command Center" className="sidebar-nav">{sections.filter(([id]) => primaryNavIds.includes(id)).map(([id, , Icon]) => <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => setActive(id)}><Icon size={18} aria-hidden="true" />{nav[id]}</button>)}<p className="nav-group-label">{nav.navMore}</p>{sections.filter(([id]) => !primaryNavIds.includes(id)).map(([id, , Icon]) => <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => setActive(id)}><Icon size={18} aria-hidden="true" />{nav[id]}</button>)}</nav><button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button></aside><main className="workspace" id="main-workspace" tabIndex={-1}><div className="panel-heading"><div><p className="eyebrow">{dashboardCopy.eyebrow} · {modeLabel}</p><h1>{nav[current[0]]}</h1></div><AttentionBell items={attention} language={language} copy={dashboardCopy} onNavigate={goTo} /></div><section className="panel" aria-busy={status === "loading"}><div className="panel-heading"><div><h2>{dashboardCopy.panelHeading}</h2><p>{dashboardCopy.panelSubheading}</p></div><button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button></div>{status === "loading" && <p className="muted" role="status">{t("common").loading}</p>}{status === "error" && <div className="error-box" role="alert">{error}</div>}{status === "ready" && (active === "dashboard" ? <DashboardView value={data} attention={attention} language={language} copy={dashboardCopy} onNavigate={goTo} displayName={session.displayName} /> : active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MediaLibraryView value={data} session={session} onSessionExpired={onLogout} /></Suspense> : active === "analytics" ? <AnalyticsView value={data} /> : active === "integrations" ? <IntegrationsView value={data} /> : active === "automations" ? <AutomationsView value={data} /> : active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : <DataView value={data} />)}</section></main>
+  return <div className="app-shell"><a className="skip-link" href="#main-workspace">{nav.skipToContent}</a><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><LanguageSwitcher onDark /><nav aria-label="وحدات Command Center" className="sidebar-nav">{sections.filter(([id]) => primaryNavIds.includes(id)).map(([id, , Icon]) => <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => setActive(id)}><Icon size={18} aria-hidden="true" />{nav[id]}</button>)}<p className="nav-group-label">{nav.navMore}</p>{sections.filter(([id]) => !primaryNavIds.includes(id)).map(([id, , Icon]) => <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => setActive(id)}><Icon size={18} aria-hidden="true" />{nav[id]}</button>)}</nav><button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button></aside><main className="workspace" id="main-workspace" tabIndex={-1}><div className="panel-heading"><div><p className="eyebrow">{dashboardCopy.eyebrow} · {modeLabel}</p><h1>{nav[current[0]]}</h1></div><AttentionBell items={attention} language={language} copy={dashboardCopy} onNavigate={goTo} /></div><section className="panel" aria-busy={status === "loading"}><div className="status-row"><span className="status-pill" title={dashboardCopy.panelSubheading}>● {t("common").systemConnected}</span><button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button></div>{status === "loading" && <p className="muted" role="status">{t("common").loading}</p>}{status === "error" && <div className="error-box" role="alert">{error}</div>}{status === "ready" && (active === "dashboard" ? <DashboardView value={data} attention={attention} language={language} copy={dashboardCopy} onNavigate={goTo} displayName={session.displayName} /> : active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MediaLibraryView value={data} session={session} onSessionExpired={onLogout} /></Suspense> : active === "analytics" ? <AnalyticsView value={data} /> : active === "integrations" ? <IntegrationsView value={data} /> : active === "automations" ? <AutomationsView value={data} /> : active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : <DataView value={data} />)}</section></main>
     <BottomNav active={active} onNavigate={goTo} nav={nav} onMore={() => setMoreOpen(true)} />
     {moreOpen && <Sheet title={nav.navMore} ids={sections.filter(([id]) => !primaryNavIds.includes(id)).map(([id]) => id)} nav={nav} onNavigate={goTo} onClose={() => setMoreOpen(false)} extraLabel={nav.logout} onExtra={onLogout} />}
     <QuickAction onNavigate={goTo} nav={nav} />
