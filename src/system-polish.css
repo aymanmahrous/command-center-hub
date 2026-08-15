@@ -40,7 +40,31 @@ a:focus-visible {
 .dashboard-attention, .dashboard-priority { margin-top: 22px; }
 .content-receipts { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 4px; font-size: .85rem; color: #475569; }
 .content-actions button.danger { border-color: #fecaca; color: #be123c; }
+.attention-list em { font-style: normal; color: #0f8fa0; font-size: .82rem; font-weight: 700; }
+
+.dashboard-greeting { margin: 0; font-size: clamp(1.3rem, 3vw, 1.7rem); font-weight: 900; }
+.dashboard-greeting-sub { margin: 4px 0 20px; color: #64748b; }
+.primary-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 26px; }
+.primary-card { display: grid; gap: 6px; padding: 20px 18px; }
+.primary-card h3 { margin: 0; font-size: .95rem; color: #334155; }
+.primary-card strong { font-size: 2rem; }
+.primary-card span { font-size: .85rem; color: #0f8fa0; font-weight: 800; }
+.nav-group-label { margin: 10px 0 -2px; padding: 0 13px; font-size: .68rem; text-transform: uppercase; color: #64748b; }
+
+.bottom-nav { display: none; }
+.sheet-overlay { position: fixed; inset: 0; z-index: 60; background: rgba(15, 23, 42, .45); display: flex; align-items: flex-end; justify-content: center; }
+.sheet-panel { position: static; width: min(480px, 100%); max-height: 78vh; border-radius: 20px 20px 0 0; }
+.sheet-panel .attention-list button { display: flex; align-items: center; gap: 10px; }
+.quick-action-fab { position: fixed; z-index: 50; inset-inline-end: 20px; inset-block-end: 20px; width: 56px; height: 56px; border-radius: 999px; border: 0; background: #0f172a; color: #fff; font-size: 1.6rem; box-shadow: 0 12px 30px rgba(15,23,42,.3); cursor: pointer; }
+
 @media (max-width: 780px) {
   .bell-panel { position: fixed; inset: 64px 8px auto 8px; width: auto; }
   .dashboard-cards { grid-template-columns: repeat(2, 1fr); }
+  .primary-cards { grid-template-columns: 1fr; }
+  aside .sidebar-nav button, aside .nav-group-label, aside .logout { display: none; }
+  .bottom-nav { display: grid; grid-template-columns: repeat(4, 1fr); position: fixed; inset-inline: 0; inset-block-end: 0; z-index: 45; background: #0f172a; padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
+  .bottom-nav button { display: grid; justify-items: center; gap: 3px; border: 0; background: transparent; color: #94a3b8; padding: 8px 2px; border-radius: 12px; font-size: .68rem; }
+  .bottom-nav button.active { color: #5ee7e7; }
+  .workspace { padding-bottom: 88px; }
+  .quick-action-fab { inset-block-end: 76px; }
 }

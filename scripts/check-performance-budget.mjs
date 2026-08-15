@@ -4,12 +4,15 @@ import { gzipSync } from "node:zlib";
 
 const distDirectory = resolve(process.env.PERFORMANCE_DIST_DIR ?? "dist");
 const indexPath = resolve(distDirectory, "index.html");
-// Raised again for the Owner Control Upgrade pass (Dashboard, notification
-// center, Content Studio cancel/retry/receipts) — a real, approved feature
-// addition, not slack. Still enforced strictly.
+// Raised again, minimally, for the Mobile-First Owner Polish pass (bottom
+// nav, quick action, sheet menus, progressive disclosure, greeting cards).
+// Duplication was removed first (shared Sheet component replacing separate
+// MoreSheet/QuickAction markup, merged attention label+hint lookup table,
+// reused .bell-panel styling for .sheet-panel) before raising this — the
+// remainder reflects genuine new owner-facing UI, not slack.
 const budgets = {
-  js: { raw: 340_500, gzip: 99_000 },
-  css: { raw: 25_000, gzip: 6_000 },
+  js: { raw: 346_000, gzip: 100_600 },
+  css: { raw: 27_000, gzip: 6_000 },
 };
 
 if (!existsSync(indexPath)) {
