@@ -25,9 +25,12 @@ const sections = [
   ["media", "Media Library", Library, "get_staff_media_assets"],
   ["analytics", "Analytics", BarChart3, "get_staff_growth_analytics"],
   ["integrations", "Integrations", Settings2, "get_staff_operations_queue"],
+  ["radar", "Opportunity Radar", ShieldAlert, "get_staff_radar_opportunities"],
 ] as const;
 
 type SectionId = (typeof sections)[number][0];
+type RadarPriority = "HOT" | "WARM" | "LOW";
+type RadarStatus = "NEW" | "REVIEWED" | "ACTIONED" | "DISMISSED";
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 type Role = "super_admin" | "admin" | "reception" | "coach" | "content_manager";
 type Session = { accessToken: string; displayName: string; role: Role };
@@ -69,6 +72,14 @@ const ConversationSchema = z.object({
   unread: z.number().int().nonnegative(), lastMessage: z.string(), updatedAt: z.string(),
   leadScore: z.number().int(), intent: z.string(), humanRequired: z.boolean(),
 }).passthrough();
+const RadarOpportunitySchema = z.object({
+  id: z.string().uuid(), source: z.string(), sourceType: z.string(), sourceUrl: z.string().nullable().optional(),
+  discoveredAt: z.string(), textExcerpt: z.string(), language: z.string(),
+  locationHint: z.string().nullable().optional(), areaHint: z.string().nullable().optional(), serviceIntent: z.string().nullable().optional(),
+  buyerIntentScore: z.number().int(), priority: z.enum(["HOT", "WARM", "LOW"]), reason: z.string().nullable().optional(),
+  status: z.enum(["NEW", "REVIEWED", "ACTIONED", "DISMISSED"]), duplicateCount: z.number().int(),
+}).passthrough();
+const RadarStatusUpdateSchema = z.object({ success: z.boolean(), code: z.string().optional() });
 const MessageSchema = z.object({
   id: z.string().uuid(), conversationId: z.string().uuid(), direction: z.string(),
   authorType: z.string(), body: z.string(), safetyClassification: z.string().nullable().optional(),
@@ -253,6 +264,14 @@ async function getConversationMessages(session: Session, conversationId: string,
 async function setConversationMode(session: Session, conversationId: string, mode: ConversationMode) {
   const result = ConversationModeUpdateSchema.parse(await callRpc(session, "set_staff_conversation_mode", {
     p_conversation_id: conversationId, p_mode: mode,
+  }));
+  if (!result.success) throw new Error(result.code ?? "UPDATE_REJECTED");
+  return result;
+}
+
+async function setRadarOpportunityStatus(session: Session, opportunityId: string, status: RadarStatus) {
+  const result = RadarStatusUpdateSchema.parse(await callRpc(session, "set_staff_radar_opportunity_status", {
+    p_opportunity_id: opportunityId, p_status: status,
   }));
   if (!result.success) throw new Error(result.code ?? "UPDATE_REJECTED");
   return result;
@@ -745,6 +764,69 @@ function IntegrationsView({ value }: { value: JsonValue }) {
   </>;
 }
 
+const radarPriorityLabels: Record<Language, Record<RadarPriority, string>> = {
+  ar: { HOT: "🔥 ساخن", WARM: "دافئ", LOW: "منخفض" },
+  en: { HOT: "🔥 HOT", WARM: "WARM", LOW: "LOW" },
+};
+const radarStatusLabels: Record<Language, Record<RadarStatus, string>> = {
+  ar: { NEW: "جديد", REVIEWED: "تمت المراجعة", ACTIONED: "تم اتخاذ إجراء", DISMISSED: "مرفوض" },
+  en: { NEW: "New", REVIEWED: "Reviewed", ACTIONED: "Actioned", DISMISSED: "Dismissed" },
+};
+
+function RadarView({ value, session, onChanged, onSessionExpired }: { value: JsonValue; session: Session; onChanged: () => void; onSessionExpired: () => void }) {
+  const { language, t } = useLanguage();
+  const copy = t("radar");
+  const parsed = useMemo(() => z.array(RadarOpportunitySchema).safeParse(value), [value]);
+  const [priorityFilter, setPriorityFilter] = useState<RadarPriority | "all">("all");
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [notice, setNotice] = useState("");
+  const canWrite = ["super_admin", "admin", "reception", "coach"].includes(session.role);
+
+  if (!parsed.success) return <div className="error-box">{copy.invalidFormat}</div>;
+  const opportunities = parsed.data;
+  const counts = { HOT: 0, WARM: 0, LOW: 0 } as Record<RadarPriority, number>;
+  for (const opportunity of opportunities) counts[opportunity.priority] += 1;
+  const visible = priorityFilter === "all" ? opportunities : opportunities.filter((opportunity) => opportunity.priority === priorityFilter);
+
+  async function changeStatus(opportunity: z.infer<typeof RadarOpportunitySchema>, next: RadarStatus) {
+    if (!canWrite || busyId || opportunity.status === next) return;
+    setBusyId(opportunity.id); setNotice("");
+    try {
+      await setRadarOpportunityStatus(session, opportunity.id, next);
+      setNotice(copy.updateSuccess);
+      onChanged();
+    } catch (cause) {
+      const code = cause instanceof Error ? cause.message : "UPDATE_FAILED";
+      if (code === "SESSION_EXPIRED") { onSessionExpired(); return; }
+      setNotice(code === "STAFF_ACCESS_DENIED" ? copy.accessDenied : copy.updateFailed);
+    } finally { setBusyId(null); }
+  }
+
+  return <>
+    <div className="operations-boundary"><div><strong>{copy.boundaryTitle}</strong><p>{copy.boundaryBody}</p></div></div>
+    {notice && <div className="notice-box" aria-live="polite">{notice}</div>}
+    <div className="operations-summary">
+      <button type="button" className={priorityFilter === "all" ? "active" : ""} onClick={() => setPriorityFilter("all")}><span>{copy.totalRecords}</span><strong>{opportunities.length}</strong></button>
+      <button type="button" className={priorityFilter === "HOT" ? "active danger" : ""} onClick={() => setPriorityFilter("HOT")}><span>{radarPriorityLabels[language].HOT}</span><strong>{counts.HOT}</strong></button>
+      <button type="button" className={priorityFilter === "WARM" ? "active warning" : ""} onClick={() => setPriorityFilter("WARM")}><span>{radarPriorityLabels[language].WARM}</span><strong>{counts.WARM}</strong></button>
+      <button type="button" className={priorityFilter === "LOW" ? "active" : ""} onClick={() => setPriorityFilter("LOW")}><span>{radarPriorityLabels[language].LOW}</span><strong>{counts.LOW}</strong></button>
+    </div>
+    {visible.length === 0 && <p className="muted">{copy.noOpportunities}</p>}
+    <div className="operations-list">{visible.map((opportunity) => <article key={opportunity.id}>
+      <header><div><h4>{radarPriorityLabels[language][opportunity.priority]} · {opportunity.buyerIntentScore}/100</h4><small>{opportunity.source} ({opportunity.sourceType}) · {formatBookingDateTime(language, opportunity.discoveredAt)}</small></div><span className={`job-status job-${opportunity.status.toLowerCase()}`}>{radarStatusLabels[language][opportunity.status]}</span></header>
+      <p dir={opportunity.language === "ar" ? "rtl" : "ltr"}>{opportunity.textExcerpt}</p>
+      <dl>
+        <div><dt>{copy.locationLabel}</dt><dd>{[opportunity.locationHint ?? opportunity.areaHint, opportunity.serviceIntent].filter(Boolean).join(" · ") || t("common").unlinked}</dd></div>
+        <div><dt>{copy.reasonLabel}</dt><dd>{opportunity.reason ?? t("common").unlinked}{opportunity.duplicateCount > 0 ? ` (${copy.seenAgain} ${opportunity.duplicateCount})` : ""}</dd></div>
+      </dl>
+      <p>
+        {opportunity.sourceUrl && <a href={opportunity.sourceUrl} target="_blank" rel="noreferrer" className="text-button">{copy.openSource}</a>}
+        {canWrite && (["REVIEWED", "ACTIONED", "DISMISSED"] as RadarStatus[]).map((next) => <button type="button" key={next} disabled={busyId !== null || opportunity.status === next} onClick={() => void changeStatus(opportunity, next)}>{radarStatusLabels[language][next]}</button>)}
+      </p>
+    </article>)}</div>
+  </>;
+}
+
 const bookingStatusLabels: Record<Language, Record<BookingStatus, string>> = {
   ar: { pending: "قيد الانتظار", contacted: "تم التواصل", confirmed: "مؤكد", declined: "مرفوض", cancelled: "ملغي" },
   en: { pending: "Pending", contacted: "Contacted", confirmed: "Confirmed", declined: "Declined", cancelled: "Cancelled" },
@@ -862,7 +944,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   useEffect(() => { document.title = `${nav[current[0]]} · ${nav.dashboard}`; }, [current, nav]);
   useEffect(() => { const controller = new AbortController(); setStatus("loading"); setError(""); callRpc(session, current[3], {}, controller.signal).then((result) => { setData(result); setStatus("ready"); }).catch((cause) => { if (cause instanceof DOMException && cause.name === "AbortError") return; const message = cause instanceof Error ? cause.message : "LOAD_FAILED"; if (message === "SESSION_EXPIRED") onLogout(); else { setError(dashboardCopy.loadError); setStatus("error"); } }); return () => controller.abort(); }, [current, dashboardCopy.loadError, onLogout, reloadKey, session]);
   const modeLabel = active === "planner" || active === "crm" || active === "inbox" || active === "content" ? dashboardCopy.controlledWrite : dashboardCopy.readOnly;
-  return <div className="app-shell"><a className="skip-link" href="#main-workspace">{nav.skipToContent}</a><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><LanguageSwitcher onDark /><nav aria-label="وحدات Command Center">{sections.map(([id, , Icon]) => <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => setActive(id)}><Icon size={18} aria-hidden="true" />{nav[id]}</button>)}</nav><button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button></aside><main className="workspace" id="main-workspace" tabIndex={-1}><p className="eyebrow">{dashboardCopy.eyebrow} · {modeLabel}</p><h1>{nav[current[0]]}</h1><section className="panel" aria-busy={status === "loading"}><div className="panel-heading"><div><h2>{dashboardCopy.panelHeading}</h2><p>{dashboardCopy.panelSubheading}</p></div><button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button></div>{status === "loading" && <p className="muted" role="status">{t("common").loading}</p>}{status === "error" && <div className="error-box" role="alert">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MediaLibraryView value={data} session={session} onSessionExpired={onLogout} /></Suspense> : active === "analytics" ? <AnalyticsView value={data} /> : active === "integrations" ? <IntegrationsView value={data} /> : active === "automations" ? <AutomationsView value={data} /> : <DataView value={data} />)}</section></main></div>;
+  return <div className="app-shell"><a className="skip-link" href="#main-workspace">{nav.skipToContent}</a><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><LanguageSwitcher onDark /><nav aria-label="وحدات Command Center">{sections.map(([id, , Icon]) => <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => setActive(id)}><Icon size={18} aria-hidden="true" />{nav[id]}</button>)}</nav><button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button></aside><main className="workspace" id="main-workspace" tabIndex={-1}><p className="eyebrow">{dashboardCopy.eyebrow} · {modeLabel}</p><h1>{nav[current[0]]}</h1><section className="panel" aria-busy={status === "loading"}><div className="panel-heading"><div><h2>{dashboardCopy.panelHeading}</h2><p>{dashboardCopy.panelSubheading}</p></div><button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button></div>{status === "loading" && <p className="muted" role="status">{t("common").loading}</p>}{status === "error" && <div className="error-box" role="alert">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MediaLibraryView value={data} session={session} onSessionExpired={onLogout} /></Suspense> : active === "analytics" ? <AnalyticsView value={data} /> : active === "integrations" ? <IntegrationsView value={data} /> : active === "automations" ? <AutomationsView value={data} /> : active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : <DataView value={data} />)}</section></main></div>;
 }
 
 function App() {
