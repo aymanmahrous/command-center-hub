@@ -27,7 +27,7 @@ test("performance budget accepts bounded assets and rejects an oversized entry",
   });
   assert.equal(bounded.status, 0, bounded.stderr);
 
-  await writeFile(join(fixture, "assets", "app.js"), Buffer.alloc(330_001, "x"));
+  await writeFile(join(fixture, "assets", "app.js"), Buffer.alloc(332_501, "x"));
   const oversized = spawnSync(process.execPath, [budgetScript], {
     encoding: "utf8",
     env: { ...process.env, PERFORMANCE_DIST_DIR: fixture },

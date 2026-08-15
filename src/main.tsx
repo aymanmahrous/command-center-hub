@@ -30,7 +30,9 @@ const sections = [
 
 type SectionId = (typeof sections)[number][0];
 type RadarPriority = "HOT" | "WARM" | "LOW";
-type RadarStatus = "NEW" | "REVIEWED" | "ACTIONED" | "DISMISSED";
+type RadarStatus = "NEW" | "REVIEWED" | "ACTIONED" | "DISMISSED"
+  | "CONTACTED" | "CUSTOMER_REPLIED" | "BOOKING_REQUEST" | "BOOKED" | "PAID_CUSTOMER"
+  | "NOT_RELEVANT" | "UNREACHABLE" | "LOST";
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 type Role = "super_admin" | "admin" | "reception" | "coach" | "content_manager";
 type Session = { accessToken: string; displayName: string; role: Role };
@@ -77,10 +79,14 @@ const RadarOpportunitySchema = z.object({
   discoveredAt: z.string(), textExcerpt: z.string(), language: z.string(),
   locationHint: z.string().nullable().optional(), areaHint: z.string().nullable().optional(), serviceIntent: z.string().nullable().optional(),
   buyerIntentScore: z.number().int(), priority: z.enum(["HOT", "WARM", "LOW"]), reason: z.string().nullable().optional(),
-  status: z.enum(["NEW", "REVIEWED", "ACTIONED", "DISMISSED"]), duplicateCount: z.number().int(),
+  status: z.enum(["NEW", "REVIEWED", "ACTIONED", "DISMISSED", "CONTACTED", "CUSTOMER_REPLIED", "BOOKING_REQUEST", "BOOKED", "PAID_CUSTOMER", "NOT_RELEVANT", "UNREACHABLE", "LOST"]), duplicateCount: z.number().int(),
   recommendedAction: z.string().nullable().optional(),
 }).passthrough();
 const RadarStatusUpdateSchema = z.object({ success: z.boolean(), code: z.string().optional() });
+const RadarSourcePerformanceSchema = z.object({
+  source: z.string(), total: z.number().int(), qualified_leads: z.number().int(),
+  booking_requests: z.number().int(), paid_customers: z.number().int(), conversion_rate_pct: z.number(),
+}).passthrough();
 const MessageSchema = z.object({
   id: z.string().uuid(), conversationId: z.string().uuid(), direction: z.string(),
   authorType: z.string(), body: z.string(), safetyClassification: z.string().nullable().optional(),
@@ -276,6 +282,10 @@ async function setRadarOpportunityStatus(session: Session, opportunityId: string
   }));
   if (!result.success) throw new Error(result.code ?? "UPDATE_REJECTED");
   return result;
+}
+
+async function getRadarSourcePerformance(session: Session, signal?: AbortSignal) {
+  return z.array(RadarSourcePerformanceSchema).parse(await callRpc(session, "get_staff_radar_source_performance", {}, signal));
 }
 
 async function updateContentItem(session: Session, contentItemId: string, fields: { topic: string; hook: string; caption: string; cta: string; hashtags: string[]; visualPrompt: string }) {
@@ -770,9 +780,20 @@ const radarPriorityLabels: Record<Language, Record<RadarPriority, string>> = {
   en: { HOT: "🔥 HOT", WARM: "WARM", LOW: "LOW" },
 };
 const radarStatusLabels: Record<Language, Record<RadarStatus, string>> = {
-  ar: { NEW: "جديد", REVIEWED: "تمت المراجعة", ACTIONED: "تم اتخاذ إجراء", DISMISSED: "مرفوض" },
-  en: { NEW: "New", REVIEWED: "Reviewed", ACTIONED: "Actioned", DISMISSED: "Dismissed" },
+  ar: {
+    NEW: "جديد", REVIEWED: "تمت المراجعة", ACTIONED: "تم اتخاذ إجراء", DISMISSED: "مرفوض",
+    CONTACTED: "تم التواصل", CUSTOMER_REPLIED: "رد العميل", BOOKING_REQUEST: "طلب حجز",
+    BOOKED: "تم الحجز", PAID_CUSTOMER: "عميل مدفوع", NOT_RELEVANT: "غير ذي صلة",
+    UNREACHABLE: "تعذر الوصول", LOST: "فقدت",
+  },
+  en: {
+    NEW: "New", REVIEWED: "Reviewed", ACTIONED: "Actioned", DISMISSED: "Dismissed",
+    CONTACTED: "Contacted", CUSTOMER_REPLIED: "Customer replied", BOOKING_REQUEST: "Booking request",
+    BOOKED: "Booked", PAID_CUSTOMER: "Paid customer", NOT_RELEVANT: "Not relevant",
+    UNREACHABLE: "Unreachable", LOST: "Lost",
+  },
 };
+const radarFunnelOrder = Object.keys(radarStatusLabels.en) as RadarStatus[];
 
 function RadarView({ value, session, onChanged, onSessionExpired }: { value: JsonValue; session: Session; onChanged: () => void; onSessionExpired: () => void }) {
   const { language, t } = useLanguage();
@@ -781,7 +802,14 @@ function RadarView({ value, session, onChanged, onSessionExpired }: { value: Jso
   const [priorityFilter, setPriorityFilter] = useState<RadarPriority | "all">("all");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  const [sourcePerf, setSourcePerf] = useState<z.infer<typeof RadarSourcePerformanceSchema>[] | null>(null);
   const canWrite = ["super_admin", "admin", "reception", "coach"].includes(session.role);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    getRadarSourcePerformance(session, controller.signal).then(setSourcePerf).catch(() => setSourcePerf(null));
+    return () => controller.abort();
+  }, [session, value]);
 
   if (!parsed.success) return <div className="error-box">{copy.invalidFormat}</div>;
   const opportunities = parsed.data;
@@ -823,9 +851,25 @@ function RadarView({ value, session, onChanged, onSessionExpired }: { value: Jso
       </dl>
       <p>
         {opportunity.sourceUrl && <a href={opportunity.sourceUrl} target="_blank" rel="noreferrer" className="text-button">{copy.openSource}</a>}
-        {canWrite && (["REVIEWED", "ACTIONED", "DISMISSED"] as RadarStatus[]).map((next) => <button type="button" key={next} disabled={busyId !== null || opportunity.status === next} onClick={() => void changeStatus(opportunity, next)}>{radarStatusLabels[language][next]}</button>)}
+        {canWrite && (
+          <select
+            aria-label={copy.funnelStatusLabel}
+            disabled={busyId !== null}
+            value={opportunity.status}
+            onChange={(event) => void changeStatus(opportunity, event.target.value as RadarStatus)}
+          >
+            {radarFunnelOrder.map((next) => <option key={next} value={next}>{radarStatusLabels[language][next]}</option>)}
+          </select>
+        )}
       </p>
     </article>)}</div>
+    {sourcePerf && sourcePerf.length > 0 && <>
+      <h3>{copy.sourcePerformanceTitle}</h3>
+      <div className="operations-list">{sourcePerf.map((row) => <article key={row.source}>
+        <header><div><h4>{row.source}</h4><small>{row.total} {copy.totalRecords.toLowerCase()}</small></div></header>
+        <p>{copy.qualifiedLabel} {row.qualified_leads} · {copy.bookingRequestsLabel} {row.booking_requests} · {copy.paidLabel} {row.paid_customers} · {copy.conversionLabel} {row.conversion_rate_pct}%</p>
+      </article>)}</div>
+    </>}
   </>;
 }
 
