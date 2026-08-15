@@ -201,11 +201,12 @@ export const en = {
   },
   radar: {
     boundaryTitle: "Discovery + prioritization only",
-    boundaryBody: "Candidate buyer-intent signals from free/public sources. No automatic contact — a human decides.",
+    boundaryBody: "Candidate buyer-intent signals from public sources. No automatic contact.",
     totalRecords: "Total records",
     noOpportunities: "No matching opportunities.",
     locationLabel: "Location / intent",
     reasonLabel: "Why AI flagged this",
+    nextActionLabel: "Next action",
     seenAgain: "seen again ×",
     openSource: "Open source",
     updateSuccess: "Status updated and recorded.",

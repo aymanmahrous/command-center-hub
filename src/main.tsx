@@ -78,6 +78,7 @@ const RadarOpportunitySchema = z.object({
   locationHint: z.string().nullable().optional(), areaHint: z.string().nullable().optional(), serviceIntent: z.string().nullable().optional(),
   buyerIntentScore: z.number().int(), priority: z.enum(["HOT", "WARM", "LOW"]), reason: z.string().nullable().optional(),
   status: z.enum(["NEW", "REVIEWED", "ACTIONED", "DISMISSED"]), duplicateCount: z.number().int(),
+  recommendedAction: z.string().nullable().optional(),
 }).passthrough();
 const RadarStatusUpdateSchema = z.object({ success: z.boolean(), code: z.string().optional() });
 const MessageSchema = z.object({
@@ -818,6 +819,7 @@ function RadarView({ value, session, onChanged, onSessionExpired }: { value: Jso
       <dl>
         <div><dt>{copy.locationLabel}</dt><dd>{[opportunity.locationHint ?? opportunity.areaHint, opportunity.serviceIntent].filter(Boolean).join(" · ") || t("common").unlinked}</dd></div>
         <div><dt>{copy.reasonLabel}</dt><dd>{opportunity.reason ?? t("common").unlinked}{opportunity.duplicateCount > 0 ? ` (${copy.seenAgain} ${opportunity.duplicateCount})` : ""}</dd></div>
+        {opportunity.recommendedAction && <div><dt>{copy.nextActionLabel}</dt><dd>{opportunity.recommendedAction}</dd></div>}
       </dl>
       <p>
         {opportunity.sourceUrl && <a href={opportunity.sourceUrl} target="_blank" rel="noreferrer" className="text-button">{copy.openSource}</a>}

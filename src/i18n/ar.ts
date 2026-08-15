@@ -203,11 +203,12 @@ export const ar: Dictionary = {
   },
   radar: {
     boundaryTitle: "اكتشاف وترتيب أولوية فقط",
-    boundaryBody: "إشارات نية شراء محتملة من مصادر عامة مجانية. لا تواصل تلقائي — القرار للموظف.",
+    boundaryBody: "إشارات نية شراء من مصادر عامة. لا تواصل تلقائي.",
     totalRecords: "إجمالي السجلات",
     noOpportunities: "لا توجد فرص مطابقة.",
     locationLabel: "الموقع / النية",
     reasonLabel: "سبب الترشيح",
+    nextActionLabel: "الإجراء المقترح",
     seenAgain: "تكرر ×",
     openSource: "فتح المصدر",
     updateSuccess: "تم تحديث الحالة وتسجيل العملية.",
