@@ -21,3 +21,26 @@ a:focus-visible {
 }
 
 .skip-link:focus { transform: translateY(0); }
+
+.attention-bell { position: relative; }
+.bell-toggle { position: relative; display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid #dbe3ee; border-radius: 12px; background: #fff; cursor: pointer; }
+.bell-count { position: absolute; top: -6px; inset-inline-end: -6px; min-width: 18px; padding: 2px 5px; border-radius: 999px; background: #64748b; color: #fff; font-size: .68rem; font-weight: 900; text-align: center; }
+.bell-count.urgent { background: #be123c; }
+.bell-panel { position: absolute; z-index: 40; inset-inline-end: 0; top: 48px; width: min(360px, 90vw); max-height: 70vh; overflow-y: auto; background: #fff; border: 1px solid #dbe3ee; border-radius: 16px; box-shadow: 0 20px 60px rgba(15,23,42,.18); padding: 14px; }
+.bell-panel header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.attention-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.attention-list button { width: 100%; display: grid; gap: 4px; text-align: start; padding: 10px 12px; border-radius: 12px; border: 1px solid #e2e8f0; background: #f8fafc; cursor: pointer; color: inherit; }
+.attention-urgent button { border-color: #fecaca; background: #fff1f2; }
+.attention-warning button { border-color: #fde68a; background: #fffbeb; }
+.attention-list small { color: #64748b; }
+.dashboard-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.dashboard-card { display: grid; gap: 6px; padding: 16px; border: 1px solid #dbe3ee; border-radius: 16px; background: #fff; text-align: start; cursor: pointer; }
+.dashboard-card strong { font-size: 1.6rem; }
+.dashboard-card.urgent { border-color: #fecaca; background: #fff1f2; }
+.dashboard-attention, .dashboard-priority { margin-top: 22px; }
+.content-receipts { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 4px; font-size: .85rem; color: #475569; }
+.content-actions button.danger { border-color: #fecaca; color: #be123c; }
+@media (max-width: 780px) {
+  .bell-panel { position: fixed; inset: 64px 8px auto 8px; width: auto; }
+  .dashboard-cards { grid-template-columns: repeat(2, 1fr); }
+}

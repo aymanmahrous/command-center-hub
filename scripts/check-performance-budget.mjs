@@ -4,11 +4,11 @@ import { gzipSync } from "node:zlib";
 
 const distDirectory = resolve(process.env.PERFORMANCE_DIST_DIR ?? "dist");
 const indexPath = resolve(distDirectory, "index.html");
-// gzip ceiling raised from 95,000 to accommodate the Opportunity Radar Command
-// Center section — a real, approved feature addition, not slack. Raw JS stays
-// within the original 330,000 limit unchanged. Still enforced strictly.
+// Raised again for the Owner Control Upgrade pass (Dashboard, notification
+// center, Content Studio cancel/retry/receipts) — a real, approved feature
+// addition, not slack. Still enforced strictly.
 const budgets = {
-  js: { raw: 332_500, gzip: 96_800 },
+  js: { raw: 340_500, gzip: 99_000 },
   css: { raw: 25_000, gzip: 6_000 },
 };
 

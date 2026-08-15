@@ -39,8 +39,10 @@ type Session = { accessToken: string; displayName: string; role: Role };
 type BookingStatus = "pending" | "contacted" | "confirmed" | "declined" | "cancelled";
 type LeadStage = "new" | "contacted" | "qualified" | "booking_intent" | "booked" | "follow_up" | "lost" | "customer";
 type ConversationMode = "ai_active" | "human_required" | "human_takeover" | "paused";
-type ContentStatus = "idea" | "draft" | "generated" | "needs_review" | "approved" | "scheduled" | "published" | "failed";
-type ContentAction = "approve" | "return_to_review" | "schedule" | "unschedule";
+type ContentStatus = "idea" | "draft" | "generated" | "needs_review" | "approved" | "scheduled" | "published" | "failed" | "cancelled";
+type ContentAction = "approve" | "return_to_review" | "schedule" | "unschedule" | "cancel" | "retry";
+type AttentionSeverity = "urgent" | "warning" | "info";
+type AttentionCategory = "radar_hot" | "booking_new" | "handoff" | "publish_failed" | "publish_awaiting_approval" | "job_failed";
 type MediaAssetType = "image" | "video" | "logo" | "other";
 type MediaSource = "upload" | "ai_generated" | "external";
 type JobStatus = "queued" | "processing" | "completed" | "failed" | "retrying" | "dead";
@@ -96,17 +98,39 @@ const ConversationModeUpdateSchema = z.object({
   success: z.boolean(), code: z.string().optional(), conversationId: z.string().uuid().optional(),
   mode: z.enum(["ai_active", "human_required", "human_takeover", "paused"]).optional(),
 });
+const ContentStatusEnum = ["idea", "draft", "generated", "needs_review", "approved", "scheduled", "published", "failed", "cancelled"] as const;
+const ReceiptSchema = z.object({
+  platform: z.string(), status: z.string(), externalPostId: z.string().nullable().optional(),
+  externalContainerId: z.string().nullable().optional(), plainLanguageReason: z.string().nullable().optional(), updatedAt: z.string(),
+}).passthrough();
 const ContentItemSchema = z.object({
   id: z.string().uuid(), scheduledFor: z.string().nullable(), platform: z.string(), contentType: z.string(),
   topic: z.string(), hook: z.string(), caption: z.string(), cta: z.string(), hashtags: z.array(z.string()),
-  visualPrompt: z.string(), status: z.enum(["idea", "draft", "generated", "needs_review", "approved", "scheduled", "published", "failed"]),
+  visualPrompt: z.string(), status: z.enum(ContentStatusEnum),
   providerExternalId: z.string().nullable(), publishedAt: z.string().nullable(), createdAt: z.string(), updatedAt: z.string(),
+  receipts: z.array(ReceiptSchema).optional(),
 }).passthrough();
 const ContentMutationSchema = z.object({
   success: z.boolean(), code: z.string().optional(), contentItemId: z.string().uuid().optional(),
-  status: z.enum(["idea", "draft", "generated", "needs_review", "approved", "scheduled", "published", "failed"]).optional(),
+  status: z.enum(ContentStatusEnum).optional(),
   scheduledFor: z.string().nullable().optional(), updatedAt: z.string().optional(),
 });
+const CommandCenterSchema = z.object({
+  metrics: z.object({
+    newLeads: z.number().int(), hotLeads: z.number().int(), humanReplies: z.number().int(), followUpsDue: z.number().int(),
+    postsScheduled: z.number().int(), hotRadarOpportunities: z.number().int(), postsAwaitingApproval: z.number().int(), postsFailed: z.number().int(),
+  }).passthrough(),
+  priorityQueue: z.array(z.object({
+    id: z.string().uuid(), name: z.string(), intent: z.string(), channel: z.string().nullable().optional(),
+    score: z.number().nullable().optional(), humanRequired: z.boolean(), nextFollowUpAt: z.string().nullable().optional(),
+  }).passthrough()),
+  generatedAt: z.string(),
+}).passthrough();
+const AttentionItemSchema = z.object({
+  id: z.string(), category: z.string(), severity: z.enum(["urgent", "warning", "info"]),
+  title: z.string(), detail: z.string().nullable().optional(), occurredAt: z.string(),
+  targetSection: z.string(), targetId: z.string().nullable().optional(),
+}).passthrough();
 const MediaAssetSchema = z.object({
   id: z.string().uuid(), createdBy: z.string().uuid(), contentItemId: z.string().uuid().nullable(),
   assetType: z.enum(["image", "video", "logo", "other"]), source: z.enum(["upload", "ai_generated", "external"]),
@@ -286,6 +310,10 @@ async function setRadarOpportunityStatus(session: Session, opportunityId: string
 
 async function getRadarSourcePerformance(session: Session, signal?: AbortSignal) {
   return z.array(RadarSourcePerformanceSchema).parse(await callRpc(session, "get_staff_radar_source_performance", {}, signal));
+}
+
+async function getAttentionItems(session: Session, signal?: AbortSignal) {
+  return z.array(AttentionItemSchema).parse(await callRpc(session, "get_staff_attention_center", {}, signal));
 }
 
 async function updateContentItem(session: Session, contentItemId: string, fields: { topic: string; hook: string; caption: string; cta: string; hashtags: string[]; visualPrompt: string }) {
@@ -538,15 +566,15 @@ function CRMView({ value, session, onChanged, onSessionExpired }: { value: JsonV
 }
 
 const contentStatusLabels: Record<Language, Record<ContentStatus, string>> = {
-  ar: { idea: "فكرة", draft: "مسودة", generated: "مولّد", needs_review: "بانتظار المراجعة", approved: "معتمد", scheduled: "مجدول", published: "منشور", failed: "فشل" },
-  en: { idea: "Idea", draft: "Draft", generated: "Generated", needs_review: "Needs review", approved: "Approved", scheduled: "Scheduled", published: "Published", failed: "Failed" },
+  ar: { idea: "فكرة", draft: "مسودة", generated: "مولّد", needs_review: "بانتظار المراجعة", approved: "معتمد", scheduled: "مجدول", published: "منشور", failed: "فشل", cancelled: "ملغى" },
+  en: { idea: "Idea", draft: "Draft", generated: "Generated", needs_review: "Needs review", approved: "Approved", scheduled: "Scheduled", published: "Published", failed: "Failed", cancelled: "Cancelled" },
 };
 
 const contentActionLabels: Record<ContentAction, string> = {
-  approve: "اعتماد المحتوى", return_to_review: "إعادة للمراجعة", schedule: "جدولة", unschedule: "إلغاء الجدولة",
+  approve: "اعتماد المحتوى", return_to_review: "إعادة للمراجعة", schedule: "جدولة", unschedule: "إلغاء الجدولة", cancel: "إلغاء المنشور نهائيًا", retry: "إعادة محاولة النشر",
 };
 const contentActionLabelsEn: Record<ContentAction, string> = {
-  approve: "Approve content", return_to_review: "Return to review", schedule: "Schedule", unschedule: "Unschedule",
+  approve: "Approve content", return_to_review: "Return to review", schedule: "Schedule", unschedule: "Unschedule", cancel: "Cancel post permanently", retry: "Retry publishing",
 };
 
 function contentErrorMessage(language: Language, code: string) {
@@ -577,6 +605,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
   const [notice, setNotice] = useState("");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ContentStatus | "all">("all");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const canWrite = ["super_admin", "admin", "content_manager"].includes(session.role);
   const items = parsed.success ? parsed.data : [];
   const filteredItems = useMemo(() => {
@@ -653,8 +682,19 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
     <div className="content-list">{filteredItems.map((item) => {
       const scheduledLocal = formatLocalDateTimeInput(item.scheduledFor);
       const locked = busyId !== null || !canWrite || item.status === "published";
+      const expanded = expandedId === item.id;
+      const canCancel = canWrite && !["published", "cancelled"].includes(item.status);
       return <article className="content-card" key={item.id}>
-        <header><div><span>{item.platform} · {item.contentType}</span><h3>{item.topic || copy.untitled}</h3></div><span className={`content-status status-${item.status}`}>{statusLabels[item.status]}</span></header>
+        <header><div><span>{item.platform} · {item.contentType}</span><h3>{item.topic || copy.untitled}</h3><small>{item.scheduledFor ? formatBookingDateTime(language, item.scheduledFor) : copy.notScheduledLabel}</small></div><span className={`content-status status-${item.status}`}>{statusLabels[item.status]}</span></header>
+        {item.receipts && item.receipts.length > 0 && <ul className="content-receipts">{item.receipts.map((receipt, index) => <li key={index}>
+          <strong>{receipt.platform}</strong> · {receipt.status}
+          {receipt.plainLanguageReason && <span> — {receipt.plainLanguageReason}</span>}
+          {receipt.externalPostId && (/^https?:\/\//.test(receipt.externalPostId)
+            ? <a href={receipt.externalPostId} target="_blank" rel="noreferrer">{copy.viewPost}</a>
+            : <span> · {copy.receiptRef} {receipt.externalPostId}</span>)}
+        </li>)}</ul>}
+        <button type="button" className="text-button" onClick={() => setExpandedId(expanded ? null : item.id)}>{expanded ? copy.collapseButton : copy.manageButton}</button>
+        {expanded && <>
         <form onSubmit={(event) => { event.preventDefault(); void save(item, event.currentTarget); }}>
           <div className="content-fields"><label>{copy.topicLabel}<input name="topic" defaultValue={item.topic} maxLength={300} disabled={locked} /></label><label>{copy.hookLabel}<input name="hook" defaultValue={item.hook} maxLength={500} disabled={locked} /></label></div>
           <label>{copy.captionLabel}<textarea name="caption" defaultValue={item.caption} minLength={2} maxLength={5000} rows={6} required disabled={locked} /></label>
@@ -669,8 +709,11 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
             {["draft", "generated", "approved", "scheduled", "failed"].includes(item.status) && <button type="button" className="secondary" disabled={!canWrite || busyId !== null} onClick={(event) => void transition(item, "return_to_review", event.currentTarget.form!)}>{copy.returnToReviewButton}</button>}
             {["approved", "scheduled"].includes(item.status) && <button type="button" disabled={!canWrite || busyId !== null} onClick={(event) => void transition(item, "schedule", event.currentTarget.form!)}>{item.status === "scheduled" ? copy.rescheduleButton : copy.scheduleButton}</button>}
             {item.status === "scheduled" && <button type="button" className="secondary" disabled={!canWrite || busyId !== null} onClick={(event) => void transition(item, "unschedule", event.currentTarget.form!)}>{copy.unscheduleButton}</button>}
+            {item.status === "failed" && <button type="button" disabled={!canWrite || busyId !== null} onClick={(event) => void transition(item, "retry", event.currentTarget.form!)}>{copy.retryButton}</button>}
+            {canCancel && <button type="button" className="secondary danger" disabled={busyId !== null} onClick={(event) => void transition(item, "cancel", event.currentTarget.form!)}>{copy.cancelButton}</button>}
           </div>
         </form>
+        </>}
         <footer><span>{copy.lastUpdated}: {formatBookingDateTime(language, item.updatedAt)}</span>{item.publishedAt && <span>{copy.published}: {formatBookingDateTime(language, item.publishedAt)}</span>}{!canWrite && <span>{t("common").readOnlyNote}</span>}{item.status === "published" && <span>{copy.publishedLocked}</span>}</footer>
       </article>;
     })}</div>
@@ -981,16 +1024,87 @@ function BookingView({ value, session, onChanged, onSessionExpired }: { value: J
   </>;
 }
 
+const attentionCategoryLabels: Record<Language, Record<string, string>> = {
+  ar: {
+    radar_hot: "فرصة رادار ساخنة", booking_new: "طلب حجز جديد", handoff: "عميل بانتظار رد",
+    publish_failed: "فشل نشر منشور", publish_awaiting_approval: "منشور بانتظار الموافقة", job_failed: "مهمة تحتاج مراجعة",
+  },
+  en: {
+    radar_hot: "Hot Radar opportunity", booking_new: "New booking request", handoff: "Customer waiting for reply",
+    publish_failed: "Post failed to publish", publish_awaiting_approval: "Post awaiting approval", job_failed: "Task needs review",
+  },
+};
+
+function AttentionList({ items, language, copy, onNavigate, limit }: { items: z.infer<typeof AttentionItemSchema>[]; language: Language; copy: Dictionary["dashboard"]; onNavigate: (section: SectionId) => void; limit?: number }) {
+  const visible = limit ? items.slice(0, limit) : items;
+  if (visible.length === 0) return <p className="muted">{copy.attentionEmpty}</p>;
+  return <ul className="attention-list">{visible.map((item) => <li key={item.id} className={`attention-${item.severity}`}>
+    <button type="button" onClick={() => onNavigate(item.targetSection as SectionId)}>
+      <strong>{attentionCategoryLabels[language][item.category] ?? item.category}</strong>
+      <span>{item.detail || item.title}</span>
+      <small>{formatBookingDateTime(language, item.occurredAt)}</small>
+    </button>
+  </li>)}</ul>;
+}
+
+function AttentionBell({ items, language, copy, onNavigate }: { items: z.infer<typeof AttentionItemSchema>[]; language: Language; copy: Dictionary["dashboard"]; onNavigate: (section: SectionId) => void }) {
+  const [open, setOpen] = useState(false);
+  const urgentCount = items.filter((item) => item.severity === "urgent").length;
+  return <div className="attention-bell">
+    <button type="button" className="bell-toggle" aria-label={copy.attentionBellLabel} onClick={() => setOpen((value) => !value)}>
+      <ShieldAlert size={18} aria-hidden="true" />
+      {items.length > 0 && <b className={urgentCount > 0 ? "bell-count urgent" : "bell-count"}>{items.length}</b>}
+    </button>
+    {open && <div className="bell-panel"><header><strong>{copy.attentionTitle}</strong><button type="button" className="text-button" onClick={() => setOpen(false)}>{copy.closeLabel}</button></header>
+      <AttentionList items={items} language={language} copy={copy} onNavigate={(section) => { onNavigate(section); setOpen(false); }} limit={12} />
+    </div>}
+  </div>;
+}
+
+function DashboardView({ value, attention, language, copy, onNavigate }: { value: JsonValue; attention: z.infer<typeof AttentionItemSchema>[]; language: Language; copy: Dictionary["dashboard"]; onNavigate: (section: SectionId) => void }) {
+  const parsed = CommandCenterSchema.safeParse(value);
+  if (!parsed.success) return <div className="error-box">{copy.loadError}</div>;
+  const { metrics, priorityQueue } = parsed.data;
+  const cards: Array<[string, number, SectionId, boolean]> = [
+    [copy.cardNewLeads, metrics.newLeads, "crm", false],
+    [copy.cardHotLeads, metrics.hotLeads, "crm", metrics.hotLeads > 0],
+    [copy.cardHumanReplies, metrics.humanReplies, "inbox", metrics.humanReplies > 0],
+    [copy.cardFollowUpsDue, metrics.followUpsDue, "crm", metrics.followUpsDue > 0],
+    [copy.cardHotRadar, metrics.hotRadarOpportunities, "radar", metrics.hotRadarOpportunities > 0],
+    [copy.cardPostsScheduled, metrics.postsScheduled, "content", false],
+    [copy.cardPostsAwaitingApproval, metrics.postsAwaitingApproval, "content", metrics.postsAwaitingApproval > 0],
+    [copy.cardPostsFailed, metrics.postsFailed, "content", metrics.postsFailed > 0],
+  ];
+  return <>
+    <div className="dashboard-cards">{cards.map(([label, count, section, urgent]) => <button type="button" key={label} className={urgent ? "dashboard-card urgent" : "dashboard-card"} onClick={() => onNavigate(section)}>
+      <strong>{count}</strong><span>{label}</span>
+    </button>)}</div>
+    <section className="dashboard-attention"><h2>{copy.attentionTitle}</h2><AttentionList items={attention} language={language} copy={copy} onNavigate={onNavigate} /></section>
+    {priorityQueue.length > 0 && <section className="dashboard-priority"><h2>{copy.priorityTitle}</h2><ul className="attention-list">{priorityQueue.map((lead) => <li key={lead.id} className={lead.humanRequired ? "attention-urgent" : "attention-info"}>
+      <button type="button" onClick={() => onNavigate("crm")}><strong>{lead.name}</strong><span>{lead.intent}{lead.score != null ? ` · ${lead.score}/100` : ""}</span></button>
+    </li>)}</ul></section>}
+  </>;
+}
+
 function Dashboard({ session, onLogout }: { session: Session; onLogout: () => void }) {
   const { language, t } = useLanguage();
   const nav = t("nav");
   const dashboardCopy = t("dashboard");
   const [active, setActive] = useState<SectionId>("dashboard"); const [reloadKey, setReloadKey] = useState(0); const [data, setData] = useState<JsonValue>(null); const [status, setStatus] = useState<"loading" | "ready" | "error">("loading"); const [error, setError] = useState("");
+  const [attention, setAttention] = useState<z.infer<typeof AttentionItemSchema>[]>([]);
   const current = useMemo(() => sections.find(([id]) => id === active)!, [active]);
   useEffect(() => { document.title = `${nav[current[0]]} · ${nav.dashboard}`; }, [current, nav]);
   useEffect(() => { const controller = new AbortController(); setStatus("loading"); setError(""); callRpc(session, current[3], {}, controller.signal).then((result) => { setData(result); setStatus("ready"); }).catch((cause) => { if (cause instanceof DOMException && cause.name === "AbortError") return; const message = cause instanceof Error ? cause.message : "LOAD_FAILED"; if (message === "SESSION_EXPIRED") onLogout(); else { setError(dashboardCopy.loadError); setStatus("error"); } }); return () => controller.abort(); }, [current, dashboardCopy.loadError, onLogout, reloadKey, session]);
+  useEffect(() => {
+    const controller = new AbortController();
+    const load = () => getAttentionItems(session, controller.signal).then(setAttention).catch(() => {});
+    load();
+    const interval = window.setInterval(load, 60_000);
+    return () => { controller.abort(); window.clearInterval(interval); };
+  }, [session, reloadKey]);
   const modeLabel = active === "planner" || active === "crm" || active === "inbox" || active === "content" ? dashboardCopy.controlledWrite : dashboardCopy.readOnly;
-  return <div className="app-shell"><a className="skip-link" href="#main-workspace">{nav.skipToContent}</a><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><LanguageSwitcher onDark /><nav aria-label="وحدات Command Center">{sections.map(([id, , Icon]) => <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => setActive(id)}><Icon size={18} aria-hidden="true" />{nav[id]}</button>)}</nav><button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button></aside><main className="workspace" id="main-workspace" tabIndex={-1}><p className="eyebrow">{dashboardCopy.eyebrow} · {modeLabel}</p><h1>{nav[current[0]]}</h1><section className="panel" aria-busy={status === "loading"}><div className="panel-heading"><div><h2>{dashboardCopy.panelHeading}</h2><p>{dashboardCopy.panelSubheading}</p></div><button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button></div>{status === "loading" && <p className="muted" role="status">{t("common").loading}</p>}{status === "error" && <div className="error-box" role="alert">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MediaLibraryView value={data} session={session} onSessionExpired={onLogout} /></Suspense> : active === "analytics" ? <AnalyticsView value={data} /> : active === "integrations" ? <IntegrationsView value={data} /> : active === "automations" ? <AutomationsView value={data} /> : active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : <DataView value={data} />)}</section></main></div>;
+  const goTo = (section: SectionId) => setActive(section);
+  return <div className="app-shell"><a className="skip-link" href="#main-workspace">{nav.skipToContent}</a><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><LanguageSwitcher onDark /><nav aria-label="وحدات Command Center">{sections.map(([id, , Icon]) => <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => setActive(id)}><Icon size={18} aria-hidden="true" />{nav[id]}</button>)}</nav><button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button></aside><main className="workspace" id="main-workspace" tabIndex={-1}><div className="panel-heading"><div><p className="eyebrow">{dashboardCopy.eyebrow} · {modeLabel}</p><h1>{nav[current[0]]}</h1></div><AttentionBell items={attention} language={language} copy={dashboardCopy} onNavigate={goTo} /></div><section className="panel" aria-busy={status === "loading"}><div className="panel-heading"><div><h2>{dashboardCopy.panelHeading}</h2><p>{dashboardCopy.panelSubheading}</p></div><button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button></div>{status === "loading" && <p className="muted" role="status">{t("common").loading}</p>}{status === "error" && <div className="error-box" role="alert">{error}</div>}{status === "ready" && (active === "dashboard" ? <DashboardView value={data} attention={attention} language={language} copy={dashboardCopy} onNavigate={goTo} /> : active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MediaLibraryView value={data} session={session} onSessionExpired={onLogout} /></Suspense> : active === "analytics" ? <AnalyticsView value={data} /> : active === "integrations" ? <IntegrationsView value={data} /> : active === "automations" ? <AutomationsView value={data} /> : active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : <DataView value={data} />)}</section></main></div>;
 }
 
 function App() {
