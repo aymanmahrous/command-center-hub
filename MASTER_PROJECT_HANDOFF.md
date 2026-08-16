@@ -90,9 +90,9 @@
 - Instagram: نشر يومي تلقائي يعمل فعليًا (آخر نشر مؤكَّد 2026-08-15، عبر pg_cron `relax-fix-content-automation-pulse` بعد إعادة تفعيله).
 - اختبار استمرارية Facebook الثاني (efa19b22) لم يُنشر بعد رغم أن المالك نفّذ Manual Trigger ووافق أكثر من مرة؛ السبب الجذري (تعارض مع RPC عامة غير مرتبطة بالمنصة) تم تشخيصه وإصلاحه في 2026-08-16. لم يحدث أي نشر مكرر ولم يُنشأ أي محتوى مكرر.
 
-## 10. الخطوة الحالية (NEXT)
+## 10. الخطوة الحالية (NEXT) — محدَّث 2026-08-16 (فحص إضافي)
 
-المالك ينفّذ Manual Trigger مرة واحدة على workflow `Relax Fix - Content Scheduler` (`xNwYPSXQiUyzDSyZ`) ثم يوافق على نموذج Owner Approval عندما يظهر. الـjob (`3e6b396c-8158-4601-8667-af11a2d82ba8`) والتفويض (`64846a26-5639-42cc-835b-ca098f4bb886`) جاهزان ومُجدَّدان، ولم يعد يوجد مسار تلقائي منافس يسحب Facebook job قبل أن يصل المالك إليه. بعد النشر: تسجيل Facebook Post ID، رابط المنشور، execution ID، وreceipt status هنا.
+نفّذ المالك "Manual Trigger" وظهرت علامة صح خضراء بعنصر واحد، لكن Owner Approval لم يظهر. تم فحص الربط الكامل للمسار (`Manual Trigger → Authorized Facebook Config → Claim Authorized Facebook Job → Normalize Claim Result → Claimed? → Owner Approval → Post-Approval Claim Context`) وهو **سليم بالكامل، كل عقدة مفعّلة، لا يوجد أي قطع اتصال**. كما لم يُسجَّل أي execution جديد لهذا الـworkflow بعد آخر تجديد للتفويض — ما يطابق تمامًا سلوك اختبار عقدة Manual Trigger منفردة (زر "Test step" الخاص بالعقدة نفسها) بدل تشغيل الـworkflow كاملًا (زر "Execute workflow" العلوي). **لا يوجد عطل تقني ولا حاجة لأي تعديل على n8n** — العنصر (`efa19b22`)، الـjob (`3e6b396c`)، والتفويض (`64846a26`, صالح حتى 09:25:51 UTC) جاهزون تمامًا للمطالبة الفورية. المطلوب فقط: تشغيل الـworkflow كاملًا (وليس اختبار عقدة واحدة) ثم إكمال نموذج الموافقة الذي سيظهر.
 
 ## 11. تذكير إلزامي لكل Agent
 
