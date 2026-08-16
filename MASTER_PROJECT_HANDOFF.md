@@ -289,3 +289,15 @@ pages_manage_posts as an admin with sufficient administrative permission
 **رابط الموافقة الحي**: `https://relaxfixuae.app.n8n.cloud/form-waiting/1192?signature=095a2a23fb55636764021c247dfb71747f03928a23bf03ea3df60cc773e88147`
 
 لم يُنشر أي شيء بعد، لم تُنشأ أي سجلات جديدة، لم يُلمس Instagram أو أي منطق آخر.
+
+## 10.15 محدَّث 2026-08-16 (تشخيص فقط — نفس خطأ #200 رغم نجاح فحوصات القراءة)
+
+المالك وافق (18:45:07 UTC). التنفيذ سار بنجاح حتى استدعاء Meta الفعلي عبر Meta Publish — Facebook (Text) — **لكن رجع نفس الخطأ #200 تمامًا** رغم أن فحصي المعزول للقراءة فقط (قبل هذا التنفيذ بدقائق قليلة، بنفس بيانات الاعتماد) أظهر مصادقة ناجحة ووصول للصفحة الصحيحة وكل الصلاحيات المطلوبة "granted" في `/me/permissions`.
+
+**ملاحظة تقنية مهمة**: عقدة `Meta Publish — Facebook (Text)` (وشقيقتها Photo) لا تحمل ربط بيانات اعتماد صريح (`credentials` فارغ في تعريف العقدة) — تعتمد على الحل التلقائي لبيانات الاعتماد الوحيدة من نوع `facebookGraphApi` في الحساب (`Relax Fix Graph API`، نفس التي تحقّقتُ منها). هذا لم يتغيّر، ولا يبدو سبب التفاوت.
+
+**التفسير الأرجح**: الفارق بين نجاح القراءة (`GET /page`, `GET /me/permissions`) وفشل الكتابة (`POST /page/feed`) رغم ظهور `pages_manage_posts`/`pages_read_engagement` كـ"granted" على مستوى إذن التطبيق (OAuth scope) — يطابق تمامًا سيناريو معروف لدى Meta: **صلاحية OAuth الممنوحة للتطبيق لا تكفي وحدها**؛ يلزم أيضًا أن يملك حساب المستخدم (الذي وافق في Graph API Explorer) **دور Admin/Task كافٍ فعليًا على صفحة Facebook نفسها** داخل Meta Business Suite (وليس فقط موافقة الصلاحية على مستوى التطبيق). نص خطأ Meta نفسه يذكر ذلك حرفيًا: *"as an admin with sufficient administrative permission"*.
+
+**الحالة النهائية**: لا نشر، لا provider_external_id، الإيصال `ambiguous`، الـjob `dead`. لا تكرار. لا لمس لـInstagram أو أي نظام آخر. لم يُطبَّق أي إصلاح أو إعادة محاولة هذه الجولة (تحقُّق للقراءة فقط بناءً على طلب صريح).
+
+**الخطوة التالية المقترحة (ليست منفَّذة)**: التحقق من Meta Business Suite → Page Access (Business Settings → People / Page roles) لصفحة "Relax Fix UAE Coach Ayman" — والتأكد أن الحساب المستخدم في إعادة التفويض يملك دور **Admin أو Editor** فعليًا على مهام الصفحة (Page tasks)، وليس فقط "Facebook Access" جزئيًا. هذا قرار/تحقق للمالك على مستوى Meta، وليس تعديلًا تقنيًا في هذا المستودع.
