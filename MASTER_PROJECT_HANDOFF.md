@@ -258,3 +258,13 @@ pages_manage_posts as an admin with sufficient administrative permission
 - **Supabase**: جداول `conversations`/`leads`/`knowledge_entries` جاهزة هيكليًا للمرحلة 8 لكنها فارغة (0 صف).
 - لا يوجد اتصال حي مؤكد بـ WhatsApp Business API أو Facebook Messenger أو Instagram Messaging (لا Webhooks، لا بيانات مسجَّلة).
 - **Vercel Production / الدومين / Google Search Console / Google Business Profile**: BLOCKED_BY_ACCESS أو UNVERIFIED — لم تُفحص مباشرة في هذا الجرد؛ تتطلب دخول المالك عند وصول دور المرحلة المعنية فقط.
+
+## 10.12 محدَّث 2026-08-16 (استعادة توكن Meta — بانتظار إجراء المالك الأخير)
+
+بدأ المالك إعادة التفويض عبر Graph API Explorer (App ID: 980385998373405) وتأكَّد Meta من التعرف على الصفحة الصحيحة وإظهار الصلاحيات المطلوبة (`pages_manage_posts`, `pages_read_engagement`, `pages_show_list`). لم يُطبَّق أي تغيير على بيانات الاعتماد بعد — لا أداة متاحة لي تكتب قيم الأسرار في بيانات اعتماد n8n، ولا ينبغي أن تكون كذلك؛ يجب إدخال التوكن الجديد مباشرة في واجهة n8n من قبل المالك، وليس عبر المحادثة.
+
+**نوع بيانات الاعتماد**: `facebookGraphApi` في n8n — حقل "Access Token" يُدخَل يدويًا، وليس تدفق OAuth تلقائي داخل n8n.
+
+**الإجراء الوحيد المطلوب من المالك**: نسخ Page Access Token (وليس User Token) لصفحة "Relax Fix UAE Coach Ayman" من Graph API Explorer، ولصقه في بيانات اعتماد n8n "Relax Fix Graph API" (حقل Access Token) مباشرة، ثم الحفظ.
+
+**الخطوة التالية بعد ذلك**: تنفيذ فحص Graph API آمن للقراءة فقط (معزول تمامًا عن مسار النشر والموافقة والإيصال) للتحقق من صلاحية التوكن الجديد قبل أي إعادة محاولة نشر فعلية. لم يُنشر أي شيء، لم يُعَد تشغيل أي workflow، لم يتغيّر Instagram أو أي كود.
