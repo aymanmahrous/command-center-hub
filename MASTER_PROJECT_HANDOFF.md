@@ -301,3 +301,16 @@ pages_manage_posts as an admin with sufficient administrative permission
 **الحالة النهائية**: لا نشر، لا provider_external_id، الإيصال `ambiguous`، الـjob `dead`. لا تكرار. لا لمس لـInstagram أو أي نظام آخر. لم يُطبَّق أي إصلاح أو إعادة محاولة هذه الجولة (تحقُّق للقراءة فقط بناءً على طلب صريح).
 
 **الخطوة التالية المقترحة (ليست منفَّذة)**: التحقق من Meta Business Suite → Page Access (Business Settings → People / Page roles) لصفحة "Relax Fix UAE Coach Ayman" — والتأكد أن الحساب المستخدم في إعادة التفويض يملك دور **Admin أو Editor** فعليًا على مهام الصفحة (Page tasks)، وليس فقط "Facebook Access" جزئيًا. هذا قرار/تحقق للمالك على مستوى Meta، وليس تعديلًا تقنيًا في هذا المستودع.
+
+## 10.16 محدَّث 2026-08-16 (السبب الجذري الحقيقي مؤكَّد — User Token وليس Page Token)
+
+فحص معزول للقراءة فقط (trigger + عقدتان GET، أُزيلتا فورًا بعد الفحص، لا صلة بمسار النشر):
+
+1. `GET /me` → `{"id":"122132532195348469","name":"Ayman Mahrous"}` — **هذا حساب شخصي (User)، وليس Page** — تأكيد قاطع أن بيانات الاعتماد الحالية تحمل **User Access Token**.
+2. `GET /me/accounts` → أعادت صفحة "Relax Fix UAE Coach Ayman" (نفس Page ID) مع قائمة مهام كاملة: `["ADVERTISE","ANALYZE","CREATE_CONTENT","MESSAGING","MODERATE","MANAGE","VIEW_MONETIZATION_INSIGHTS"]` — **يملك الحساب فعليًا صلاحية Admin كاملة على الصفحة (MANAGE + CREATE_CONTENT)**، فلا يوجد أي نقص في دور الصفحة كما افتُرض سابقًا.
+
+**السبب الجذري الحقيقي**: Meta تتطلب لاستخدام `/{page-id}/feed` (النشر) **Page Access Token مخصص** (وهو حقل `access_token` مختلف داخل كل عنصر في استجابة `/me/accounts`) — **وليس** الـUser Access Token مباشرة، حتى لو كان صاحب هذا التوكن يملك صلاحيات Admin/CREATE_CONTENT كاملة على الصفحة. هذا يفسر بدقة لماذا نجحت كل عمليات القراءة (GET) بهذا التوكن، بينما رفضت Meta باستمرار عملية الكتابة (POST) بخطأ #200 بالضبط.
+
+لم يُعرَض أو يُخزَّن أي توكن في المحادثة — تم تجنّب طلب حقل `access_token` عمدًا أثناء الفحص.
+
+**الإصلاح المطلوب (لم يُنفَّذ بعد، بانتظار توجيه)**: استبدال قيمة بيانات اعتماد n8n "Relax Fix Graph API" بـ Page Access Token الخاص بالصفحة (1164107840123575) — يُستخرَج من نفس استجابة `/me/accounts` (حقل `access_token` لعنصر هذه الصفحة تحديدًا)، وليس بإعادة استخدام الـUser Token الحالي. الأفضل استخراج نسخة طويلة الأمد (long-lived) منه إن أمكن.
