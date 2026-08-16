@@ -204,7 +204,24 @@
 
 **النتيجة**: تشغيل واحد (execution **1100**) وصل بنجاح إلى Owner Approval وهو **منتظر الآن** (لا مهلة زمنية)، مع الإصلاح الحقيقي (المتحقَّق منه بالقراءة المباشرة) نافذًا هذه المرة.
 
-**رابط الموافقة الحي**: `https://relaxfixuae.app.n8n.cloud/form-waiting/1100?signature=a3e4450b38018bb7ff5b900ceb5d87a8b4e9816b37f5c14094c8b50af5593aa3`
+**رابط الموافقة الحي**: `https://relaxfixuae.app.n8n.cloud/form-waiting/1100?signature=a3e4450b38018bb7ff5b900ceb5d87a8b4e9816b37f5c14094c8b50af5593aa3` — **لم يعد صالحًا** (execution 1100 اكتمل، انظر النتيجة أدناه).
+
+## 10.10 محدَّث 2026-08-16 (تقدُّم حاسم: الطلب وصل فعليًا لـMeta — عائق أذونات حقيقي)
+
+المالك وافق (12:50:12 UTC). هذه المرة **وصل الطلب فعليًا إلى Meta لأول مرة** (إصلاح JSON.stringify يعمل بشكل صحيح ومؤكَّد). Meta ردّت بخطأ **حقيقي وغير غامض إطلاقًا**:
+
+```
+(#200) If posting to a page, requires both pages_read_engagement and
+pages_manage_posts as an admin with sufficient administrative permission
+```
+
+هذا **ليس خطأ غموض** بل رفض إذن واضح ومحدد من Meta — لكن عقدة "Classify Meta Publish Error" صنّفته خطأً كـ"ambiguous_result" (نفس القصور في التصنيف الذي ظهر سابقًا مع أخطاء بناء JSON المحلية). **لم يُنشر أي منشور، ولا يوجد أي احتمال تكرار** — الرفض حدث قبل إنشاء أي منشور.
+
+**السبب الجذري**: بيانات اعتماد Meta Graph API المستخدمة (`Relax Fix Graph API` في n8n) لا تملك صلاحيات `pages_manage_posts` و`pages_read_engagement` الكافية كمسؤول (admin) على صفحة Facebook. هذا عائق **خارج نطاق الكود بالكامل** — يتطلب إعادة منح/تحديث صلاحيات Access Token على مستوى Meta Business/Facebook Page نفسها، وليس أي تعديل على n8n أو Supabase.
+
+**الحالة النهائية**: لا نشر، لا provider_external_id، الإيصال `ambiguous` (تصنيف غير دقيق لخطأ إذن حقيقي)، الـjob `dead`. لا تكرار. لا لمس لـInstagram. لم يُطبَّق أي إصلاح أو إعادة محاولة هذه الجولة (تحقُّق للقراءة فقط بناءً على طلب صريح).
+
+**الخطوة التالية الفعلية**: هذا قرار/إجراء يخص المالك على مستوى Meta Business Suite (وليس تقنيًا داخل هذا المستودع) — منح صلاحيات `pages_manage_posts` و`pages_read_engagement` الكافية للتطبيق/التوكن المستخدم على صفحة Relax Fix Facebook، ثم إعادة تفويض/توليد Access Token جديد إذا لزم.
 
 ## 11. تذكير إلزامي لكل Agent
 
