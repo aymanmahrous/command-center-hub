@@ -62,7 +62,12 @@ self.addEventListener("push", (event) => {
   if (!event.data) return;
   let payload;
   try { payload = event.data.json(); } catch { return; }
-  const { title, body, section, tag } = payload;
+  const { title, body, section, tag, eventId } = payload;
+  // handoff_<conversation_uuid> is the only eventId shape that carries a
+  // navigable target today; anything else is left unset rather than guessed.
+  const conversationId = typeof eventId === "string" && eventId.startsWith("handoff_")
+    ? eventId.slice("handoff_".length)
+    : null;
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
@@ -70,7 +75,7 @@ self.addEventListener("push", (event) => {
       renotify: false,
       icon: "/icon-192.png",
       badge: "/icon-192.png",
-      data: { section: section || "dashboard" },
+      data: { section: section || "dashboard", conversationId },
     })
   );
 });
@@ -78,15 +83,17 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const section = event.notification.data?.section || "dashboard";
+  const conversationId = event.notification.data?.conversationId || null;
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
       for (const client of clients) {
         if ("focus" in client) {
-          client.postMessage({ type: "rf-push-navigate", section });
+          client.postMessage({ type: "rf-push-navigate", section, conversationId });
           return client.focus();
         }
       }
-      return self.clients.openWindow(`/?section=${section}`);
+      const url = conversationId ? `/?section=${section}&conversation=${conversationId}` : `/?section=${section}`;
+      return self.clients.openWindow(url);
     })
   );
 });
