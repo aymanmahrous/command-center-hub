@@ -1002,11 +1002,23 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   return <div className="app-shell"><a className="skip-link" href="#main-workspace">{nav.skipToContent}</a><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><LanguageSwitcher onDark /><nav aria-label="وحدات Command Center">{sections.map(([id, , Icon]) => <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => setActive(id)}><Icon size={18} aria-hidden="true" />{nav[id]}</button>)}</nav><button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button></aside><main className="workspace" id="main-workspace" tabIndex={-1}><p className="eyebrow">{dashboardCopy.eyebrow} · {modeLabel}</p><h1>{nav[current[0]]}</h1><section className="panel" aria-busy={status === "loading"}><div className="panel-heading"><div><h2>{dashboardCopy.panelHeading}</h2><p>{dashboardCopy.panelSubheading}</p></div><div className="panel-heading-actions"><PushInstallBar session={session} language={language} /><button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button></div></div>{status === "loading" && <p className="muted" role="status">{t("common").loading}</p>}{status === "error" && <div className="error-box" role="alert">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MediaLibraryView value={data} session={session} onSessionExpired={onLogout} /></Suspense> : active === "analytics" ? <AnalyticsView value={data} /> : active === "integrations" ? <IntegrationsView value={data} /> : active === "automations" ? <AutomationsView value={data} /> : active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : <DataView value={data} />)}</section></main></div>;
 }
 
+async function sendTestPushSelf(session: Session) {
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/send-push-notifications`, {
+    method: "POST",
+    headers: { apikey: SUPABASE_PUBLIC_KEY, Authorization: `Bearer ${session.accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ mode: "TEST_PUSH_SELF" }),
+  });
+  const result = (await response.json().catch(() => ({}))) as { success?: boolean; code?: string };
+  if (!response.ok || !result.success) throw new Error(result.code ?? `TEST_PUSH_FAILED_${response.status}`);
+}
+
 function PushInstallBar({ session, language }: { session: Session; language: Language }) {
   const [subscribed, setSubscribed] = useState<boolean | null>(null);
   const [installEvent, setInstallEvent] = useState<{ prompt: () => void } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [testBusy, setTestBusy] = useState(false);
+  const [testResult, setTestResult] = useState<"idle" | "success" | "error">("idle");
   useEffect(() => {
     if (pushSupported()) getPushSubscription().then((sub) => setSubscribed(Boolean(sub))).catch(() => setSubscribed(false));
     else setSubscribed(false);
@@ -1026,15 +1038,32 @@ function PushInstallBar({ session, language }: { session: Session; language: Lan
     } finally { setBusy(false); }
   }
 
+  async function sendTest() {
+    setTestBusy(true); setTestResult("idle");
+    try {
+      await sendTestPushSelf(session);
+      setTestResult("success");
+    } catch {
+      setTestResult("error");
+    } finally { setTestBusy(false); }
+  }
+
   return <div className="push-install-bar">
     {pushSupported() && subscribed !== null && (
       <button type="button" disabled={busy} onClick={() => void toggle()}>
         {subscribed ? (language === "ar" ? "إيقاف إشعارات الجوال" : "Disable phone notifications") : (language === "ar" ? "تفعيل إشعارات الجوال" : "Enable phone notifications")}
       </button>
     )}
+    {session.role === "super_admin" && subscribed && (
+      <button type="button" disabled={testBusy} onClick={() => void sendTest()}>
+        إرسال إشعار تجريبي / Send test notification
+      </button>
+    )}
     {installEvent && (
       <button type="button" onClick={() => { installEvent.prompt(); setInstallEvent(null); }}>{language === "ar" ? "تثبيت التطبيق" : "Install Command Center"}</button>
     )}
+    {testResult === "success" && <small className="operation-success">{language === "ar" ? "تم إرسال الإشعار التجريبي." : "Test notification sent."}</small>}
+    {testResult === "error" && <small className="operation-error">{language === "ar" ? "تعذر إرسال الإشعار التجريبي." : "Couldn't send the test notification."}</small>}
     {error && <small className="operation-error">{error}</small>}
   </div>;
 }

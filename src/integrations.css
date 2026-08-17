@@ -33,9 +33,10 @@
 .job-completed { background: #dcfce7; color: #166534; }
 .job-retrying, .job-queued { background: #fef3c7; color: #92400e; }
 .job-failed, .job-dead { background: #ffe4e6; color: #be123c; }
-.operation-warning, .operation-error { margin: 12px 0 0; padding: 9px 10px; border-radius: 10px; font-size: .8rem; overflow-wrap: anywhere; }
+.operation-warning, .operation-error, .operation-success { margin: 12px 0 0; padding: 9px 10px; border-radius: 10px; font-size: .8rem; overflow-wrap: anywhere; }
 .operation-warning { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
 .operation-error { background: #fff1f2; color: #9f1239; border: 1px solid #fecdd3; }
+.operation-success { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
 .operations-generated { margin: 16px 0 0; font-size: .78rem; color: #64748b; }
 
 @media (max-width: 1150px) {
