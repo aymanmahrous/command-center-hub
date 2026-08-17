@@ -40,10 +40,20 @@ self.addEventListener("fetch", (event) => {
   // for page navigations while offline.
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request).then((response) => {
-        caches.open(SHELL_CACHE).then((cache) => cache.put("/", response.clone()));
+      fetch(request).then(async (response) => {
+        if (response.ok) {
+          const cache = await caches.open(SHELL_CACHE);
+          await cache.put("/", response.clone());
+        }
         return response;
-      }).catch(() => caches.match("/"))
+      }).catch(async () => {
+        const cached = await caches.match("/");
+        return cached || new Response("Offline", {
+          status: 503,
+          statusText: "Service Unavailable",
+          headers: { "Content-Type": "text/plain; charset=utf-8" },
+        });
+      })
     );
   }
 });
