@@ -29,13 +29,17 @@ export async function getPushSubscription() {
 export async function enablePush(callRpc: Rpc) {
   if (!pushSupported()) throw new Error("UNSUPPORTED");
   if ((await Notification.requestPermission()) !== "granted") throw new Error("PERMISSION_DENIED");
+  await registerServiceWorker();
   const registration = await navigator.serviceWorker.ready;
   const subscription = await registration.pushManager.subscribe({
     userVisibleOnly: true,
     applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
   });
   const json = subscription.toJSON();
-  await callRpc("register_staff_push_subscription", { p_endpoint: json.endpoint, p_p256dh: json.keys?.p256dh, p_auth: json.keys?.auth });
+  const p256dh = json.keys?.p256dh;
+  const auth = json.keys?.auth;
+  if (!json.endpoint || !p256dh || !auth) throw new Error("SUBSCRIPTION_KEYS_MISSING");
+  await callRpc("register_staff_push_subscription", { p_endpoint: json.endpoint, p_p256dh: p256dh, p_auth: auth });
   return subscription;
 }
 
