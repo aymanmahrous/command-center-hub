@@ -30,6 +30,8 @@ export const en = {
     radar: "Opportunity Radar",
     logout: "Logout",
     skipToContent: "Skip to main content",
+    navMore: "More",
+    quickAction: "Quick action",
   },
   language: {
     switchLabel: "Language",
@@ -53,6 +55,11 @@ export const en = {
     panelHeading: "Live operational data",
     panelSubheading: "Supabase RPC secured by staff identity and permissions.",
     loadError: "This module could not be loaded securely.",
+    attentionTitle: "Needs attention",
+    attentionEmpty: "Nothing needs attention right now.",
+    attentionDefaultHint: "Open for details",
+    attentionBellLabel: "Attention alerts",
+    closeLabel: "Close",
   },
   inbox: {
     writeBannerTitle: "Controlled conversation control",

@@ -1,4 +1,4 @@
-import React, { FormEvent, lazy, Suspense, useEffect, useMemo, useState } from "react";
+import React, { FormEvent, lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, LayoutDashboard, Library, LogOut, Settings2, ShieldAlert, Workflow } from "lucide-react";
 import { z } from "zod";
@@ -80,6 +80,11 @@ const RadarStatusUpdateSchema = z.object({ success: z.boolean(), code: z.string(
 const RadarSourcePerformanceSchema = z.object({
   source: z.string(), total: z.number().int(), qualified_leads: z.number().int(),
   booking_requests: z.number().int(), paid_customers: z.number().int(), conversion_rate_pct: z.number(),
+}).passthrough();
+const AttentionItemSchema = z.object({
+  id: z.string(), category: z.string(), severity: z.enum(["urgent", "warning", "info"]),
+  title: z.string(), detail: z.string().nullable().optional(), occurredAt: z.string(),
+  targetSection: z.string(), targetId: z.string().nullable().optional(),
 }).passthrough();
 const ConversationSchema = z.object({
   id: z.string().uuid(), leadId: z.string().uuid(), leadName: z.string(),
@@ -289,6 +294,10 @@ async function getRadarSourcePerformance(session: Session, signal?: AbortSignal)
   return z.array(RadarSourcePerformanceSchema).parse(await callRpc(session, "get_staff_radar_source_performance", {}, signal));
 }
 
+async function getAttentionItems(session: Session, signal?: AbortSignal) {
+  return z.array(AttentionItemSchema).parse(await callRpc(session, "get_staff_attention_center", {}, signal));
+}
+
 async function updateContentItem(session: Session, contentItemId: string, fields: { topic: string; hook: string; caption: string; cta: string; hashtags: string[]; visualPrompt: string }) {
   const result = ContentMutationSchema.parse(await callRpc(session, "update_staff_content_item", {
     p_content_item_id: contentItemId, p_topic: fields.topic, p_hook: fields.hook, p_caption: fields.caption,
@@ -404,9 +413,14 @@ function AIInboxView({ value, session, onChanged, onSessionExpired, targetConver
   const [messageStatus, setMessageStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const canWrite = ["super_admin", "admin", "reception", "coach"].includes(session.role);
   const conversations = parsed.success ? parsed.data : [];
   const selected = conversations.find((conversation) => conversation.id === selectedId) ?? null;
+
+  useEffect(() => {
+    if (messageStatus === "ready") messagesEndRef.current?.scrollIntoView({ block: "end" });
+  }, [messageStatus, messages]);
 
   useEffect(() => {
     if (!parsed.success) return;
@@ -488,6 +502,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired, targetConver
           {messages.map((message) => <article key={message.id} className={`message-bubble ${message.direction === "outbound" ? "outbound" : "inbound"}`}>
             <p>{message.body}</p><small>{message.authorType}{message.safetyClassification ? ` · ${message.safetyClassification}` : ""} · {new Date(message.createdAt).toLocaleString(language === "ar" ? "ar-AE" : "en-AE")}</small>
           </article>)}
+          <div ref={messagesEndRef} />
         </div>
         {!canWrite && <p className="read-only-note">{copy.readOnlyNote}</p>}
         {busyId === selected?.id && <p className="muted">{copy.savingChange}</p>}
@@ -987,6 +1002,79 @@ function BookingView({ value, session, onChanged, onSessionExpired }: { value: J
   </>;
 }
 
+const attentionMeta: Record<Language, Record<string, [string, string]>> = {
+  ar: {
+    radar_hot: ["فرصة رادار ساخنة", "افتح الرادار وتواصل يدويًا"], booking_new: ["طلب حجز جديد", "راجع الطلب وأكّد الموعد"],
+    handoff: ["عميل بانتظار رد", "افتح المحادثة ورد على العميل"], publish_failed: ["فشل نشر منشور", "افتح Content Studio وأعد المحاولة"],
+    publish_awaiting_approval: ["منشور بانتظار الموافقة", "راجع أداة النشر للموافقة"], job_failed: ["مهمة تحتاج مراجعة", "افتح Integrations للتفاصيل"],
+  },
+  en: {
+    radar_hot: ["Hot Radar opportunity", "Open Radar and reach out"], booking_new: ["New booking request", "Review and confirm the slot"],
+    handoff: ["Customer waiting for reply", "Open the conversation and reply"], publish_failed: ["Post failed to publish", "Open Content Studio and retry"],
+    publish_awaiting_approval: ["Post awaiting approval", "Check the publishing tool to approve"], job_failed: ["Task needs review", "Open Integrations for details"],
+  },
+};
+
+// BUG FIX vs the historical AttentionList: it called onNavigate(item.targetSection) and
+// silently dropped item.targetId, so a handoff alert opened AI Inbox on whatever conversation
+// happened to be selected already, not the customer that actually needed a reply.
+// onNavigate here always receives targetId too, so callers can select the exact conversation.
+function AttentionList({ items, language, copy, onNavigate, limit }: { items: z.infer<typeof AttentionItemSchema>[]; language: Language; copy: Dictionary["dashboard"]; onNavigate: (section: SectionId, targetId?: string | null) => void; limit?: number }) {
+  const visible = limit ? items.slice(0, limit) : items;
+  if (visible.length === 0) return <p className="muted">{copy.attentionEmpty}</p>;
+  return <ul className="attention-list">{visible.map((item) => { const [label, hint] = attentionMeta[language][item.category] ?? [item.category, copy.attentionDefaultHint]; return <li key={item.id} className={`attention-${item.severity}`}>
+    <button type="button" onClick={() => onNavigate(item.targetSection as SectionId, item.targetId)}>
+      <strong>{label}</strong>
+      <span>{item.detail || item.title}</span>
+      <em>{hint}</em>
+      <small>{formatBookingDateTime(language, item.occurredAt)}</small>
+    </button>
+  </li>; })}</ul>;
+}
+
+function AttentionBell({ items, language, copy, onNavigate }: { items: z.infer<typeof AttentionItemSchema>[]; language: Language; copy: Dictionary["dashboard"]; onNavigate: (section: SectionId, targetId?: string | null) => void }) {
+  const [open, setOpen] = useState(false);
+  const urgentCount = items.filter((item) => item.severity === "urgent").length;
+  return <div className="attention-bell">
+    <button type="button" className="bell-toggle" aria-label={copy.attentionBellLabel} onClick={() => setOpen((value) => !value)}>
+      <ShieldAlert size={18} aria-hidden="true" />
+      {items.length > 0 && <b className={urgentCount > 0 ? "bell-count urgent" : "bell-count"}>{items.length}</b>}
+    </button>
+    {open && <div className="bell-panel"><header><strong>{copy.attentionTitle}</strong><button type="button" className="text-button" onClick={() => setOpen(false)}>{copy.closeLabel}</button></header>
+      <AttentionList items={items} language={language} copy={copy} onNavigate={(section, targetId) => { onNavigate(section, targetId); setOpen(false); }} limit={12} />
+    </div>}
+  </div>;
+}
+
+const bottomNavIds: SectionId[] = ["dashboard", "crm", "content"];
+
+function BottomNav({ active, onNavigate, nav, onMore }: { active: SectionId; onNavigate: (section: SectionId) => void; nav: Dictionary["nav"]; onMore: () => void }) {
+  const items: Array<[SectionId, string]> = bottomNavIds.map((id) => [id, nav[id]]);
+  return <nav className="bottom-nav" aria-label={nav.navMore}>
+    {items.map(([id, label]) => { const Icon = sections.find(([sid]) => sid === id)![2]; return <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => onNavigate(id)}><Icon size={20} aria-hidden="true" /><span>{label}</span></button>; })}
+    <button type="button" onClick={onMore}><Settings2 size={20} aria-hidden="true" /><span>{nav.navMore}</span></button>
+  </nav>;
+}
+
+function Sheet({ title, ids, nav, onNavigate, onClose, extraLabel, onExtra }: { title: string; ids: SectionId[]; nav: Dictionary["nav"]; onNavigate: (section: SectionId) => void; onClose: () => void; extraLabel?: string; onExtra?: () => void }) {
+  return <div className="sheet-overlay" onClick={onClose}><div className="bell-panel sheet-panel" onClick={(event) => event.stopPropagation()}>
+    <header><strong>{title}</strong><button type="button" className="text-button" onClick={onClose}>×</button></header>
+    <ul className="attention-list">{ids.map((id) => { const Icon = sections.find(([sid]) => sid === id)![2]; return <li key={id}><button type="button" onClick={() => { onNavigate(id); onClose(); }}><Icon size={18} aria-hidden="true" /><span>{nav[id]}</span></button></li>; })}
+      {onExtra && extraLabel && <li><button type="button" onClick={onExtra}><LogOut size={18} aria-hidden="true" /><span>{extraLabel}</span></button></li>}
+    </ul>
+  </div></div>;
+}
+
+const quickActionTargets: SectionId[] = ["inbox", "content", "radar", "planner"];
+
+function QuickAction({ onNavigate, nav }: { onNavigate: (section: SectionId) => void; nav: Dictionary["nav"] }) {
+  const [open, setOpen] = useState(false);
+  return <>
+    <button type="button" className="quick-action-fab" aria-label={nav.quickAction} onClick={() => setOpen((value) => !value)}>+</button>
+    {open && <Sheet title={nav.quickAction} ids={quickActionTargets} nav={nav} onNavigate={onNavigate} onClose={() => setOpen(false)} />}
+  </>;
+}
+
 function Dashboard({ session, onLogout }: { session: Session; onLogout: () => void }) {
   const { language, t } = useLanguage();
   const nav = t("nav");
@@ -995,6 +1083,8 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   const initialSection = (initialParams.get("section") ?? "") as SectionId;
   const [active, setActive] = useState<SectionId>(sections.some(([id]) => id === initialSection) ? initialSection : "dashboard"); const [reloadKey, setReloadKey] = useState(0); const [data, setData] = useState<JsonValue>(null); const [status, setStatus] = useState<"loading" | "ready" | "error">("loading"); const [error, setError] = useState("");
   const [targetConversationId, setTargetConversationId] = useState<string | null>(initialParams.get("conversation"));
+  const [attention, setAttention] = useState<z.infer<typeof AttentionItemSchema>[]>([]);
+  const [moreOpen, setMoreOpen] = useState(false);
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (event.data?.type !== "rf-push-navigate" || !sections.some(([id]) => id === event.data.section)) return;
@@ -1007,8 +1097,26 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   const current = useMemo(() => sections.find(([id]) => id === active)!, [active]);
   useEffect(() => { document.title = `${nav[current[0]]} · ${nav.dashboard}`; }, [current, nav]);
   useEffect(() => { const controller = new AbortController(); setStatus("loading"); setError(""); callRpc(session, current[3], {}, controller.signal).then((result) => { setData(result); setStatus("ready"); }).catch((cause) => { if (cause instanceof DOMException && cause.name === "AbortError") return; const message = cause instanceof Error ? cause.message : "LOAD_FAILED"; if (message === "SESSION_EXPIRED") onLogout(); else { setError(dashboardCopy.loadError); setStatus("error"); } }); return () => controller.abort(); }, [current, dashboardCopy.loadError, onLogout, reloadKey, session]);
+  useEffect(() => {
+    const controller = new AbortController();
+    const load = () => getAttentionItems(session, controller.signal).then(setAttention).catch(() => {});
+    load();
+    const interval = window.setInterval(load, 60_000);
+    return () => { controller.abort(); window.clearInterval(interval); };
+  }, [session, reloadKey]);
   const modeLabel = active === "planner" || active === "crm" || active === "inbox" || active === "content" ? dashboardCopy.controlledWrite : dashboardCopy.readOnly;
-  return <div className="app-shell"><a className="skip-link" href="#main-workspace">{nav.skipToContent}</a><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><LanguageSwitcher onDark /><nav aria-label="وحدات Command Center">{sections.map(([id, , Icon]) => <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => setActive(id)}><Icon size={18} aria-hidden="true" />{nav[id]}</button>)}</nav><button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button></aside><main className="workspace" id="main-workspace" tabIndex={-1}><p className="eyebrow">{dashboardCopy.eyebrow} · {modeLabel}</p><h1>{nav[current[0]]}</h1><section className="panel" aria-busy={status === "loading"}><div className="panel-heading"><div><h2>{dashboardCopy.panelHeading}</h2><p>{dashboardCopy.panelSubheading}</p></div><div className="panel-heading-actions"><PushInstallBar session={session} language={language} /><button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button></div></div>{status === "loading" && <p className="muted" role="status">{t("common").loading}</p>}{status === "error" && <div className="error-box" role="alert">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} targetConversationId={targetConversationId} onTargetConsumed={() => setTargetConversationId(null)} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MediaLibraryView value={data} session={session} onSessionExpired={onLogout} /></Suspense> : active === "analytics" ? <AnalyticsView value={data} /> : active === "integrations" ? <IntegrationsView value={data} /> : active === "automations" ? <AutomationsView value={data} /> : active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : <DataView value={data} />)}</section></main></div>;
+  // targetId is only meaningful for the "inbox" section today (a conversation UUID);
+  // other sections ignore it, matching what get_staff_attention_center actually populates.
+  const goTo = (section: SectionId, targetId?: string | null) => {
+    setActive(section);
+    if (section === "inbox" && targetId) setTargetConversationId(targetId);
+  };
+  const moreIds = sections.filter(([id]) => !bottomNavIds.includes(id)).map(([id]) => id);
+  return <div className="app-shell"><a className="skip-link" href="#main-workspace">{nav.skipToContent}</a><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><LanguageSwitcher onDark /><nav aria-label="وحدات Command Center" className="sidebar-nav">{sections.map(([id, , Icon]) => <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => setActive(id)}><Icon size={18} aria-hidden="true" />{nav[id]}</button>)}</nav><button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button></aside><main className="workspace" id="main-workspace" tabIndex={-1}><div className="panel-heading"><div><p className="eyebrow">{dashboardCopy.eyebrow} · {modeLabel}</p><h1>{nav[current[0]]}</h1></div><AttentionBell items={attention} language={language} copy={dashboardCopy} onNavigate={goTo} /></div><section className="panel" aria-busy={status === "loading"}><div className="panel-heading"><div><h2>{dashboardCopy.panelHeading}</h2><p>{dashboardCopy.panelSubheading}</p></div><div className="panel-heading-actions"><PushInstallBar session={session} language={language} /><button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button></div></div>{status === "loading" && <p className="muted" role="status">{t("common").loading}</p>}{status === "error" && <div className="error-box" role="alert">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} targetConversationId={targetConversationId} onTargetConsumed={() => setTargetConversationId(null)} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MediaLibraryView value={data} session={session} onSessionExpired={onLogout} /></Suspense> : active === "analytics" ? <AnalyticsView value={data} /> : active === "integrations" ? <IntegrationsView value={data} /> : active === "automations" ? <AutomationsView value={data} /> : active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : <DataView value={data} />)}</section></main>
+    <BottomNav active={active} onNavigate={goTo} nav={nav} onMore={() => setMoreOpen(true)} />
+    {moreOpen && <Sheet title={nav.navMore} ids={moreIds} nav={nav} onNavigate={goTo} onClose={() => setMoreOpen(false)} extraLabel={nav.logout} onExtra={onLogout} />}
+    <QuickAction onNavigate={goTo} nav={nav} />
+  </div>;
 }
 
 async function sendTestPushSelf(session: Session) {

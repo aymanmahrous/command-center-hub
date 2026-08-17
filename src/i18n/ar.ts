@@ -32,6 +32,8 @@ export const ar: Dictionary = {
     radar: "رادار الفرص",
     logout: "تسجيل الخروج",
     skipToContent: "تجاوز إلى المحتوى الرئيسي",
+    navMore: "المزيد",
+    quickAction: "إجراء سريع",
   },
   language: {
     switchLabel: "اللغة",
@@ -55,6 +57,11 @@ export const ar: Dictionary = {
     panelHeading: "بيانات تشغيل حقيقية",
     panelSubheading: "Supabase RPC محمي بهوية الموظف وصلاحيات قاعدة البيانات.",
     loadError: "تعذر تحميل هذه الوحدة بأمان.",
+    attentionTitle: "يحتاج انتباهك",
+    attentionEmpty: "لا يوجد ما يحتاج انتباهك الآن.",
+    attentionDefaultHint: "افتح للتفاصيل",
+    attentionBellLabel: "تنبيهات تحتاج انتباهك",
+    closeLabel: "إغلاق",
   },
   inbox: {
     writeBannerTitle: "تحكم مضبوط في المحادثات",
