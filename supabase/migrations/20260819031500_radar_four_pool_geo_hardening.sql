@@ -1,6 +1,6 @@
 -- Relax Fix Opportunity RADAR hardening
--- Scope: four approved Abu Dhabi pool focus only; no automatic outreach.
--- Distances are used only when public source metadata contains coordinates.
+-- Scope: focus opportunity priority on four approved Abu Dhabi pool locations only.
+-- Exact meter distance is used only when public source metadata supplies coordinates.
 
 alter table public.radar_opportunities
   add column if not exists is_test boolean not null default false,
@@ -56,8 +56,6 @@ declare
   v_opportunity_id uuid;
   v_pool_id text;
   v_pool_name text;
-  v_pool_lat double precision;
-  v_pool_lng double precision;
   v_source_lat double precision;
   v_source_lng double precision;
   v_distance_m integer;
@@ -80,13 +78,16 @@ begin
     else 'text:' || md5(v_norm)
   end;
 
+  -- Permanent unique fingerprint means a fingerprint must always be treated as the same opportunity.
   select id into v_existing_id
   from public.radar_opportunities
   where dedupe_fingerprint = v_fingerprint
   limit 1;
   if found then
     update public.radar_opportunities
-    set duplicate_count = duplicate_count + 1, last_seen_at = now(), updated_at = now()
+    set duplicate_count = duplicate_count + 1,
+        last_seen_at = now(),
+        updated_at = now()
     where id = v_existing_id;
     return jsonb_build_object('success', true, 'code', 'DUPLICATE', 'opportunityId', v_existing_id);
   end if;
@@ -105,16 +106,18 @@ begin
     v_location_hint := coalesce(v_area->>'labelAr', v_area->>'labelEn');
   end if;
 
+  -- Text-only area matching maps only to the four approved Relax Fix locations.
   if v_text ~* '(ICS[[:space:]]*Al[[:space:]]*Najda|Al[[:space:]]*Najda|Najda|النجدة|نجدة|Al[[:space:]]*Danah|الدانة)' or v_area_hint = 'najda' then
-    v_pool_id := 'najda-street'; v_pool_name := 'ICS Al Najda'; v_pool_lat := 24.4870375; v_pool_lng := 54.375390625; v_area_is_approved := true;
+    v_pool_id := 'najda-street'; v_pool_name := 'ICS Al Najda'; v_area_is_approved := true;
   elsif v_text ~* '(ICS[[:space:]]*Al[[:space:]]*Falah|Al[[:space:]]*Falah|الفلاح|فلاح)' or v_area_hint = 'al_falah' then
-    v_pool_id := 'ics-al-falah'; v_pool_name := 'ICS Al Falah'; v_pool_lat := 24.4371131; v_pool_lng := 54.7118179; v_area_is_approved := true;
+    v_pool_id := 'ics-al-falah'; v_pool_name := 'ICS Al Falah'; v_area_is_approved := true;
   elsif v_text ~* '(ICS[[:space:]]*Khalifa|Khalifa[[:space:]]*City|مدينة[[:space:]]*خليفة|خليفة[[:space:]]*سيتي)' or v_area_hint = 'khalifa_city' then
-    v_pool_id := 'ics-khalifa'; v_pool_name := 'ICS Khalifa'; v_pool_lat := 24.4201314; v_pool_lng := 54.5749535; v_area_is_approved := true;
+    v_pool_id := 'ics-khalifa'; v_pool_name := 'ICS Khalifa'; v_area_is_approved := true;
   elsif v_text ~* '(ICS[[:space:]]*(Al[[:space:]]*)?Mushrif|Al[[:space:]]*Mushrif|المشرف|مشرف)' or v_area_hint = 'al_mushrif' then
-    v_pool_id := 'ics-mushrif'; v_pool_name := 'ICS Al Mushrif'; v_pool_lat := 24.4410852; v_pool_lng := 54.3842182; v_area_is_approved := true;
+    v_pool_id := 'ics-mushrif'; v_pool_name := 'ICS Al Mushrif'; v_area_is_approved := true;
   end if;
 
+  -- Coordinates are optional and must originate in public source metadata. Never infer a home/private GPS point.
   begin
     if p_raw_metadata ? 'lat' and p_raw_metadata ? 'lng' then
       v_source_lat := (p_raw_metadata->>'lat')::double precision;
@@ -124,20 +127,27 @@ begin
       v_source_lng := (p_raw_metadata->>'longitude')::double precision;
     end if;
   exception when others then
-    v_source_lat := null; v_source_lng := null;
+    v_source_lat := null;
+    v_source_lng := null;
   end;
 
   if v_source_lat between -90 and 90 and v_source_lng between -180 and 180 then
-    select x.pool_id, x.pool_name, x.lat, x.lng,
-           round(6371000 * 2 * asin(sqrt(power(sin(radians(v_source_lat - x.lat)/2),2) + cos(radians(x.lat))*cos(radians(v_source_lat))*power(sin(radians(v_source_lng - x.lng)/2),2))))::integer
-      into v_pool_id, v_pool_name, v_pool_lat, v_pool_lng, v_distance_m
+    select x.pool_id, x.pool_name,
+           round(6371000 * 2 * asin(sqrt(
+             power(sin(radians(v_source_lat - x.lat)/2),2) +
+             cos(radians(x.lat))*cos(radians(v_source_lat))*power(sin(radians(v_source_lng - x.lng)/2),2)
+           )))::integer
+      into v_pool_id, v_pool_name, v_distance_m
     from (values
       ('najda-street','ICS Al Najda',24.4870375::double precision,54.375390625::double precision),
       ('ics-al-falah','ICS Al Falah',24.4371131::double precision,54.7118179::double precision),
       ('ics-khalifa','ICS Khalifa',24.4201314::double precision,54.5749535::double precision),
       ('ics-mushrif','ICS Al Mushrif',24.4410852::double precision,54.3842182::double precision)
     ) as x(pool_id,pool_name,lat,lng)
-    order by 6371000 * 2 * asin(sqrt(power(sin(radians(v_source_lat - x.lat)/2),2) + cos(radians(x.lat))*cos(radians(v_source_lat))*power(sin(radians(v_source_lng - x.lng)/2),2)))
+    order by 6371000 * 2 * asin(sqrt(
+      power(sin(radians(v_source_lat - x.lat)/2),2) +
+      cos(radians(x.lat))*cos(radians(v_source_lat))*power(sin(radians(v_source_lng - x.lng)/2),2)
+    ))
     limit 1;
   end if;
 
@@ -153,9 +163,16 @@ begin
 
   v_noise := v_text ~* '(championship|tournament|olympic|olympics|world record|swim meet|gala|final results|league|بطولة|منتخب|أولمبياد|رقم قياسي|نتائج نهائية|دوري)'
              and not (v_text ~* '(coach|lesson|class|private|book|price|cost|أسعار|سعر|حصة|حصص|درس|دروس|مدرب|احجز|حجز)');
+
   v_high_intent := v_text ~* '(looking for|need a|want a|any recommendation|recommend a|anyone know|private (swim|swimming)|swim(ming)? (lesson|lessons|class|classes|coach|coaching|instructor)|kids? swim|my (son|daughter|kid|child).*(swim|water|scared|afraid)|swim.*(price|cost|near me)|beginner.*(swim|lesson)|(available|availability|slots?|when can|do you have).*(swim|lesson|coach|class)|أبي مدرب|أبغى مدرب|حد يعرف مدرب|مين يعرف مدرب|مدرب سباحة|مدرس سباحة|دروس سباحة|حصص سباحة|كورس سباحة|تعليم سباحة|يخاف من الماء|خايف من المويه|ولدي يخاف|بنتي تخاف|أبحث عن مدرب|محتاج مدرب|ابغى حصص|عايز مدرب|عايزة مدرب|فيه أماكن|متاح|مواعيد متاحة|mudarrib|mudarrisa|kabtin mo?htaref|mo?htaref|coach sباحة|3andi tifl|3indi tifl|indi tifl|tifli|ibni|binti|waladi|5ayef|khayef|khayfa|5ayfa|min el moya|mnel moya|mn el mai|sibaha|se3a khasa|dorop|darsse sباحة)'
                   or (v_text ~* '(swim|سباح|عوم|sباح)' and v_text ~* '(price|cost|how much|بكام|سعر|أسعار|near|قريب|أقرب|b?kam)');
-  v_service_intent := case when v_text ~* '(private|خاص|فردي)' then 'private' when v_text ~* '(group|مجموعة|جماعي)' then 'group' when v_text ~* '(afraid|scared|fear|يخاف|خايف|خوف|5ayef|khayef)' then 'fear_of_water' else null end;
+
+  v_service_intent := case
+    when v_text ~* '(private|خاص|فردي)' then 'private'
+    when v_text ~* '(group|مجموعة|جماعي)' then 'group'
+    when v_text ~* '(afraid|scared|fear|يخاف|خايف|خوف|5ayef|khayef)' then 'fear_of_water'
+    else null
+  end;
 
   if v_noise and not v_high_intent then
     v_score := 5;
@@ -180,47 +197,50 @@ begin
   end if;
 
   v_score := least(v_score,100);
+  -- Strict owner-approved geo rule: HOT through 5 km (or trusted area match), WARM only 5-8 km, otherwise LOW.
   v_priority := case
     when v_high_intent and v_proximity_tier in ('VERY_CLOSE','NEAR','LOCAL','AREA_ONLY') and v_score >= 70 then 'HOT'
     when v_high_intent and v_proximity_tier = 'EXTENDED' then 'WARM'
-    when v_high_intent and v_score >= 40 then 'WARM'
     else 'LOW'
   end;
 
-  insert into public.radar_opportunities (source,source_type,source_url,external_id,published_at,text_excerpt,language,location_hint,area_hint,service_intent,buyer_intent_score,priority,reason,dedupe_fingerprint,raw_metadata,is_test,nearest_pool_id,nearest_pool_name,distance_m,proximity_tier)
-  values (p_source,p_source_type,p_source_url,p_external_id,p_published_at,left(v_text,2000),v_language,v_location_hint,v_area_hint,v_service_intent,v_score,v_priority,array_to_string(v_reason,' · '),v_fingerprint,p_raw_metadata,v_is_test,v_pool_id,v_pool_name,v_distance_m,v_proximity_tier)
-  returning id into v_opportunity_id;
+  insert into public.radar_opportunities (
+    source,source_type,source_url,external_id,published_at,text_excerpt,language,
+    location_hint,area_hint,service_intent,buyer_intent_score,priority,reason,dedupe_fingerprint,raw_metadata,
+    is_test,nearest_pool_id,nearest_pool_name,distance_m,proximity_tier
+  ) values (
+    p_source,p_source_type,p_source_url,p_external_id,p_published_at,left(v_text,2000),v_language,
+    v_location_hint,v_area_hint,v_service_intent,v_score,v_priority,array_to_string(v_reason,' · '),v_fingerprint,p_raw_metadata,
+    v_is_test,v_pool_id,v_pool_name,v_distance_m,v_proximity_tier
+  ) returning id into v_opportunity_id;
 
-  return jsonb_build_object('success',true,'code','INGESTED','opportunityId',v_opportunity_id,'priority',v_priority,'score',v_score,'nearestPoolId',v_pool_id,'nearestPoolName',v_pool_name,'distanceM',v_distance_m,'proximityTier',v_proximity_tier,'isTest',v_is_test);
-end;
-$function$;
-
-create or replace function public.get_staff_radar_source_performance()
-returns jsonb language plpgsql stable security definer set search_path=public,pg_temp
-as $function$
-begin
-  if not public.is_active_staff(array['super_admin','admin','reception','coach']) then raise exception 'STAFF_ACCESS_DENIED' using errcode='42501'; end if;
-  return coalesce((select jsonb_agg(row_to_json(s)) from (
-    select o.source,count(*) as total,count(*) filter(where o.priority in('HOT','WARM')) as qualified_leads,
-      count(*) filter(where o.status in('CONTACTED','CUSTOMER_REPLIED','BOOKING_REQUEST','BOOKED','PAID_CUSTOMER','ACTIONED')) as contacted,
-      count(*) filter(where o.status in('CUSTOMER_REPLIED','BOOKING_REQUEST','BOOKED','PAID_CUSTOMER')) as replied,
-      count(*) filter(where o.status in('BOOKING_REQUEST','BOOKED','PAID_CUSTOMER')) as booking_requests,
-      count(*) filter(where o.status in('BOOKED','PAID_CUSTOMER')) as booked,
-      count(*) filter(where o.status='PAID_CUSTOMER') as paid_customers,
-      case when count(*) filter(where o.priority in('HOT','WARM'))>0 then round(100.0*count(*) filter(where o.status='PAID_CUSTOMER')/count(*) filter(where o.priority in('HOT','WARM')),1) else 0 end as conversion_rate_pct
-    from public.radar_opportunities o where not o.is_test group by o.source order by qualified_leads desc
-  ) s),'[]'::jsonb);
+  -- No redundant radar_hot_opportunity job is created. Attention Center and Push read HOT rows directly.
+  return jsonb_build_object(
+    'success',true,'code','INGESTED','opportunityId',v_opportunity_id,'priority',v_priority,'score',v_score,
+    'nearestPoolId',v_pool_id,'nearestPoolName',v_pool_name,'distanceM',v_distance_m,'proximityTier',v_proximity_tier,'isTest',v_is_test
+  );
 end;
 $function$;
 
 create or replace function public.set_staff_radar_opportunity_status(p_opportunity_id uuid,p_status text)
-returns jsonb language plpgsql security definer set search_path=public,pg_temp
+returns jsonb
+language plpgsql
+security definer
+set search_path=public,pg_temp
 as $function$
-declare v_old_status text;
+declare
+  v_old_status text;
 begin
-  if not public.is_active_staff(array['super_admin','admin','reception','coach']) then raise exception 'STAFF_ACCESS_DENIED' using errcode='42501'; end if;
-  if p_status not in('NEW','REVIEWED','ACTIONED','DISMISSED','CONTACTED','CUSTOMER_REPLIED','BOOKING_REQUEST','BOOKED','PAID_CUSTOMER','NOT_RELEVANT','UNREACHABLE','LOST') then return jsonb_build_object('success',false,'code','INVALID_STATUS'); end if;
-  select status::text into v_old_status from public.radar_opportunities where id=p_opportunity_id for update;
+  if not public.is_active_staff(array['super_admin','admin','reception','coach']) then
+    raise exception 'STAFF_ACCESS_DENIED' using errcode='42501';
+  end if;
+  if p_status not in('NEW','REVIEWED','ACTIONED','DISMISSED','CONTACTED','CUSTOMER_REPLIED','BOOKING_REQUEST','BOOKED','PAID_CUSTOMER','NOT_RELEVANT','UNREACHABLE','LOST') then
+    return jsonb_build_object('success',false,'code','INVALID_STATUS');
+  end if;
+  select status::text into v_old_status
+  from public.radar_opportunities
+  where id=p_opportunity_id
+  for update;
   if not found then return jsonb_build_object('success',false,'code','NOT_FOUND'); end if;
   if v_old_status=p_status then return jsonb_build_object('success',true,'code','UNCHANGED','opportunityId',p_opportunity_id,'status',p_status); end if;
   update public.radar_opportunities set status=p_status::public.radar_status,updated_at=now() where id=p_opportunity_id;
