@@ -15,14 +15,22 @@ const APPROVED_PRICING = {
 
 const HUMAN_HANDOFF_PATTERN =
   /(human|person|coach|ayman|speak to someone|talk to someone|موظف|بشري|كوتش|أيمن|مدرب|تحدث مع)/i;
-const PRICING_PATTERN = /(price|cost|how much|fee|aed|dirham|سعر|كم|تكلفة|درهم)/i;
-const PRIVATE_PATTERN = /(private|individual|one[\s-]?on[\s-]?one|خاص|فردي|حصة خاصة)/i;
+const MEDICAL_PATTERN =
+  /(sick|ill|medical|doctor|health|injury|pain|hospital|مريض|مرض|دكتور|صحة|ألم|جرح|مستشفى|تعبان)/i;
+const LOCATION_PATTERN =
+  /(where|location|address|map|place|are you located|فين|وين|موقع|عنوان|مكان|الموقع)/i;
+const PRICING_PATTERN = /(price|cost|how much|fee|aed|dirham|سعر|اسعار|الأسعار|الاسعار|تكلفة|درهم|كم\s*ال)/i;
+const PRIVATE_PATTERN = /(private|individual|one[\s-]?on[\s-]?one|خاص|فردي|حصة خاصة|بريفت|برايفت)/i;
 const GROUP_PATTERN = /(group|family|up to 5|مجموعة|عائلة|جماعي)/i;
 const SIBLING_PATTERN = /(sibling|brother|sister|brothers|sisters|إخوة|أخوات|أشقاء|أخ|أخت)/i;
 const BOOKING_PATTERN = /(book|booking|reserve|appointment|subscribe|حجز|موعد|اشتراك|أحجز|احجز)/i;
-const AFFIRMATIVE_PATTERN = /^(yes|yep|yeah|sure|ok|okay|نعم|أيوه|ايوه|تمام|موافق)\b/i;
+const AFFIRMATIVE_PATTERN = /^(?:yes|yep|yeah|sure|ok|okay)\b|^(?:نعم|أيوه|ايوه|تمام|موافق)(?:\s|$)/i;
 const NEGATIVE_FEAR_PATTERN = /(fear|afraid|scared|خوف|خايف|خائف)/i;
 const COMFORTABLE_PATTERN = /(comfortable|fine|no fear|not afraid|مرتاح|ما في خوف|لا خوف)/i;
+const GREETING_PATTERN =
+  /^(?:hi|hello|hey|good morning|good evening|good night)\b|^(?:السلام عليكم|عليكم السلام|سلام|مرحبا|مرحبًا|صباح الخير|مساء الخير|أهلا|اهلا|أهلان)(?:\s|$)/i;
+const LEARN_PATTERN =
+  /(learn|swim|lesson|training|class|أتعلم|اتعلم|تعلم|سباح|أعوم|اعوم|حصة|دورة|مش بعرف اعوم|ما بعرف اعوم|ما اعرف اعوم)/i;
 
 export function detectLanguage(text) {
   return /[ء-ي]/.test(text) ? "ar" : "en";
@@ -41,12 +49,29 @@ function formatIntent(state) {
   return `concierge:${state}`;
 }
 
-function pricingBlock(language, offerType) {
-  const lines = [APPROVED_PRICING[offerType][language]];
-  if (offerType !== "private") lines.unshift(APPROVED_PRICING.private[language]);
-  if (offerType !== "group") lines.push(APPROVED_PRICING.group[language]);
-  if (offerType !== "siblings") lines.push(APPROVED_PRICING.siblings[language]);
-  return lines.join("\n");
+function pricingBlock(language) {
+  return [
+    APPROVED_PRICING.private[language],
+    APPROVED_PRICING.group[language],
+    APPROVED_PRICING.siblings[language],
+  ].join("\n");
+}
+
+function handoffResult({ language, service, stage, score, fearOfWater, draftReply, state = "human_handoff" }) {
+  return {
+    processed: true,
+    skipped: false,
+    language,
+    detectedIntent: state,
+    draftReply,
+    nextIntent: formatIntent(state),
+    nextService: service,
+    nextStage: stage === "new" ? "contacted" : stage,
+    nextScore: score + 10,
+    nextFearOfWater: fearOfWater,
+    humanHandoff: true,
+    outboundEnabled: false,
+  };
 }
 
 export function buildSalesConciergeTurn(input) {
@@ -59,7 +84,8 @@ export function buildSalesConciergeTurn(input) {
   let fearOfWater = input.fearOfWater ?? null;
   let humanHandoff = false;
   let nextStage = stage;
-  let state = parseConciergeState(input.intent);
+  const priorState = parseConciergeState(input.intent);
+  let state = priorState;
 
   if (mode !== "ai_active") {
     return {
@@ -79,73 +105,106 @@ export function buildSalesConciergeTurn(input) {
     };
   }
 
+  // Current inbound message always wins over stale stored intent.
   if (HUMAN_HANDOFF_PATTERN.test(body)) {
-    humanHandoff = true;
-    nextStage = stage === "new" ? "contacted" : stage;
-    return {
-      processed: true,
-      skipped: false,
+    return handoffResult({
       language,
-      detectedIntent: "human_handoff",
+      service,
+      stage,
+      score,
+      fearOfWater,
       draftReply: t(
         language,
         "I'll connect you with Coach Ayman for personal follow-up. He will reply shortly.",
         "سأوصلك بالكوتش أيمن للمتابعة الشخصية. سيرد عليك قريبًا.",
       ),
-      nextIntent: formatIntent("human_handoff"),
-      nextService: service,
-      nextStage,
-      nextScore: score + 10,
-      nextFearOfWater: fearOfWater,
-      humanHandoff: true,
-      outboundEnabled: false,
-    };
+    });
   }
 
-  if (state === "greeting") {
-    if (PRICING_PATTERN.test(body)) state = "presented_pricing";
-    else if (PRIVATE_PATTERN.test(body)) {
-      service = "private";
-      state = "awaiting_fear_of_water";
-    } else if (SIBLING_PATTERN.test(body)) {
-      service = "siblings";
-      state = "presented_pricing";
-    } else if (GROUP_PATTERN.test(body)) {
-      service = "group";
-      state = "awaiting_fear_of_water";
-    } else if (BOOKING_PATTERN.test(body)) state = "booking_guidance";
-    else state = "awaiting_offer_type";
+  if (MEDICAL_PATTERN.test(body)) {
+    return handoffResult({
+      language,
+      service,
+      stage,
+      score,
+      fearOfWater,
+      draftReply: t(
+        language,
+        "For health or medical concerns, Coach Ayman will follow up personally. I won't give medical advice.",
+        "لأي أمر صحي أو طبي، سيتابع معك الكوتش أيمن شخصيًا. لن أقدّم نصيحة طبية.",
+      ),
+    });
+  }
+
+  if (LOCATION_PATTERN.test(body)) {
+    return handoffResult({
+      language,
+      service,
+      stage,
+      score,
+      fearOfWater,
+      draftReply: t(
+        language,
+        "I'll connect you with Coach Ayman for the exact training location details.",
+        "سأوصلك بالكوتش أيمن لتفاصيل موقع التدريب الدقيقة.",
+      ),
+    });
+  }
+
+  if (PRICING_PATTERN.test(body)) {
+    state = "presented_pricing";
     nextStage = stage === "new" ? "contacted" : stage;
-  } else if (state === "awaiting_offer_type") {
-    if (PRIVATE_PATTERN.test(body)) {
-      service = "private";
-      state = "awaiting_fear_of_water";
-      nextStage = "qualified";
-      score += 10;
-    } else if (SIBLING_PATTERN.test(body)) {
-      service = "siblings";
-      state = "presented_pricing";
-      nextStage = "qualified";
-      score += 10;
-    } else if (GROUP_PATTERN.test(body)) {
-      service = "group";
-      state = "awaiting_fear_of_water";
-      nextStage = "qualified";
-      score += 10;
-    }
-  } else if (state === "awaiting_fear_of_water") {
+    if (PRIVATE_PATTERN.test(body)) service = "private";
+    else if (GROUP_PATTERN.test(body)) service = "group";
+    else if (SIBLING_PATTERN.test(body)) service = "siblings";
+  } else if (
+    BOOKING_PATTERN.test(body) ||
+    (AFFIRMATIVE_PATTERN.test(body) &&
+      (priorState === "presented_pricing" || priorState === "booking_guidance"))
+  ) {
+    state = "booking_guidance";
+    nextStage = "booking_intent";
+    score += 20;
+  } else if (PRIVATE_PATTERN.test(body)) {
+    service = "private";
+    state = "awaiting_fear_of_water";
+    nextStage = stage === "new" || stage === "contacted" ? "qualified" : stage;
+    score += 10;
+  } else if (SIBLING_PATTERN.test(body)) {
+    service = "siblings";
+    state = "presented_pricing";
+    nextStage = stage === "new" || stage === "contacted" ? "qualified" : stage;
+    score += 10;
+  } else if (GROUP_PATTERN.test(body)) {
+    service = "group";
+    state = "awaiting_fear_of_water";
+    nextStage = stage === "new" || stage === "contacted" ? "qualified" : stage;
+    score += 10;
+  } else if (priorState === "awaiting_fear_of_water") {
     if (NEGATIVE_FEAR_PATTERN.test(body)) fearOfWater = true;
     else if (COMFORTABLE_PATTERN.test(body) || AFFIRMATIVE_PATTERN.test(body)) fearOfWater = false;
     state = "presented_pricing";
     score += 10;
     nextStage = nextStage === "new" || nextStage === "contacted" ? "qualified" : nextStage;
-  } else if (state === "presented_pricing" && BOOKING_PATTERN.test(body)) {
-    state = "booking_guidance";
-    nextStage = "booking_intent";
-    score += 20;
-  } else if (state === "booking_guidance" && AFFIRMATIVE_PATTERN.test(body)) {
-    nextStage = "booking_intent";
-    score += 20;
+  } else if (GREETING_PATTERN.test(body) || LEARN_PATTERN.test(body) || priorState === "greeting") {
+    state = "awaiting_offer_type";
+    nextStage = stage === "new" ? "contacted" : stage;
+  } else if (priorState === "awaiting_offer_type") {
+    // Stay on offer-type prompt for unclear follow-ups in this state only.
+    state = "awaiting_offer_type";
+  } else {
+    return handoffResult({
+      language,
+      service,
+      stage,
+      score,
+      fearOfWater,
+      draftReply: t(
+        language,
+        "I'll connect you with Coach Ayman so he can answer this accurately.",
+        "سأوصلك بالكوتش أيمن ليجيبك بدقة على هذا السؤال.",
+      ),
+    });
   }
 
   let draftReply = null;
@@ -162,9 +221,8 @@ export function buildSalesConciergeTurn(input) {
       "سؤال سريع: هل السبّاح مرتاح في الماء، أم يوجد خوف من الماء؟",
     );
   } else if (state === "presented_pricing") {
-    const offerType = service === "private" ? "private" : service === "siblings" ? "siblings" : service === "group" ? "group" : "private";
     draftReply = [
-      pricingBlock(language, offerType),
+      pricingBlock(language),
       t(language, "Would you like to proceed with booking?", "هل تود المتابعة للحجز؟"),
     ].join("\n\n");
   } else if (state === "booking_guidance") {
@@ -173,14 +231,6 @@ export function buildSalesConciergeTurn(input) {
       "Great — I can guide you toward booking with Coach Ayman. Reply yes to continue.",
       "ممتاز — يمكنني توجيهك للحجز مع الكوتش أيمن. اكتب نعم للمتابعة.",
     );
-  } else {
-    draftReply = t(
-      language,
-      "Welcome to Relax Fix UAE. I can help with private or group swimming lessons. What would you like?",
-      "أهلًا بك في Relax Fix UAE. أستطيع مساعدتك في الحصص الخاصة أو الجماعية. ماذا تفضّل؟",
-    );
-    state = "awaiting_offer_type";
-    nextStage = stage === "new" ? "contacted" : stage;
   }
 
   return {
