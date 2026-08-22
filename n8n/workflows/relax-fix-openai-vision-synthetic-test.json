@@ -1,0 +1,31 @@
+{
+  "name": "Relax Fix - OpenAI Vision Synthetic Test",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "content": "INACTIVE synthetic Vision test only.\nUse existing n8n credential: \"n8n free OpenAI API credits\".\nDo not attach to WhatsApp webhook.\nDo not enable outbound messaging.\nKnown blocker on free n8n AI credits: gpt-4o-mini / standard vision models may be disallowed (free_ai_credits_request_error).",
+        "height": 220,
+        "width": 420
+      },
+      "id": "note",
+      "name": "Phase 6E Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-40, -240]
+    }
+  ],
+  "connections": {},
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "versionId": "phase-6e-vision-synth-inactive",
+  "meta": { "templateCredsSetupCompleted": false },
+  "tags": []
+}
