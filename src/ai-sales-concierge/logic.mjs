@@ -23,6 +23,14 @@ const BOOKING_PATTERN = /(book|booking|reserve|appointment|subscribe|حجز|مو
 const AFFIRMATIVE_PATTERN = /^(yes|yep|yeah|sure|ok|okay|نعم|أيوه|ايوه|تمام|موافق)\b/i;
 const NEGATIVE_FEAR_PATTERN = /(fear|afraid|scared|خوف|خايف|خائف)/i;
 const COMFORTABLE_PATTERN = /(comfortable|fine|no fear|not afraid|مرتاح|ما في خوف|لا خوف)/i;
+const IMAGE_PLACEHOLDER = /^\[Customer sent an image\]$/i;
+const AUDIO_PLACEHOLDER = /^\[Customer sent a voice note\]$/i;
+
+export function resolveMediaKind(safetyClassification) {
+  if (safetyClassification === "whatsapp_image") return "image";
+  if (safetyClassification === "whatsapp_audio") return "audio";
+  return "text";
+}
 
 export function detectLanguage(text) {
   return /[ء-ي]/.test(text) ? "ar" : "en";
@@ -50,6 +58,7 @@ function pricingBlock(language, offerType) {
 }
 
 export function buildSalesConciergeTurn(input) {
+  const mediaKind = resolveMediaKind(input.safetyClassification ?? null);
   const language = detectLanguage(input.messageBody);
   const body = input.messageBody.trim();
   const mode = input.mode;
@@ -67,12 +76,59 @@ export function buildSalesConciergeTurn(input) {
       skipped: true,
       skipReason: "CONVERSATION_NOT_AI_ACTIVE",
       language,
+      mediaKind,
       detectedIntent: state,
       draftReply: null,
       nextIntent: input.intent ?? formatIntent(state),
       nextService: service,
       nextStage: stage,
       nextScore: score,
+      nextFearOfWater: fearOfWater,
+      humanHandoff: false,
+      outboundEnabled: false,
+    };
+  }
+
+  if (mediaKind === "audio" || AUDIO_PLACEHOLDER.test(body)) {
+    nextStage = stage === "new" ? "contacted" : stage;
+    return {
+      processed: true,
+      skipped: false,
+      language,
+      mediaKind: "audio",
+      detectedIntent: "awaiting_audio_followup",
+      draftReply: t(
+        language,
+        "I received your voice note. Please send your question in a short text message, or reply \"Coach Ayman\" and I will connect you for personal follow-up.",
+        "استلمت رسالتك الصوتية. أرسل سؤالك في رسالة نصية قصيرة، أو اكتب \"كوتش أيمن\" وسأوصلك للمتابعة الشخصية.",
+      ),
+      nextIntent: formatIntent("awaiting_audio_followup"),
+      nextService: service,
+      nextStage,
+      nextScore: score + 5,
+      nextFearOfWater: fearOfWater,
+      humanHandoff: false,
+      outboundEnabled: false,
+    };
+  }
+
+  if (mediaKind === "image" && IMAGE_PLACEHOLDER.test(body)) {
+    nextStage = stage === "new" ? "contacted" : stage;
+    return {
+      processed: true,
+      skipped: false,
+      language,
+      mediaKind: "image",
+      detectedIntent: "awaiting_image_context",
+      draftReply: t(
+        language,
+        "Thanks for the image. What would you like help with — private lessons, group lessons, siblings discount, or pricing?",
+        "شكرًا على الصورة. بماذا تود المساعدة — حصص خاصة، مجموعات، خصم الإخوة، أم الأسعار؟",
+      ),
+      nextIntent: formatIntent("awaiting_image_context"),
+      nextService: service,
+      nextStage,
+      nextScore: score + 5,
       nextFearOfWater: fearOfWater,
       humanHandoff: false,
       outboundEnabled: false,
@@ -86,6 +142,7 @@ export function buildSalesConciergeTurn(input) {
       processed: true,
       skipped: false,
       language,
+      mediaKind,
       detectedIntent: "human_handoff",
       draftReply: t(
         language,
@@ -102,7 +159,40 @@ export function buildSalesConciergeTurn(input) {
     };
   }
 
-  if (state === "greeting") {
+  if (state === "awaiting_image_context") {
+    if (PRICING_PATTERN.test(body)) state = "presented_pricing";
+    else if (PRIVATE_PATTERN.test(body)) {
+      service = "private";
+      state = "awaiting_fear_of_water";
+      nextStage = "qualified";
+      score += 10;
+    } else if (SIBLING_PATTERN.test(body)) {
+      service = "siblings";
+      state = "presented_pricing";
+      nextStage = "qualified";
+      score += 10;
+    } else if (GROUP_PATTERN.test(body)) {
+      service = "group";
+      state = "awaiting_fear_of_water";
+      nextStage = "qualified";
+      score += 10;
+    } else if (BOOKING_PATTERN.test(body)) state = "booking_guidance";
+    else state = "awaiting_offer_type";
+    score += 5;
+  } else if (state === "awaiting_audio_followup") {
+    if (HUMAN_HANDOFF_PATTERN.test(body)) {
+      humanHandoff = true;
+      state = "human_handoff";
+      nextStage = stage === "new" ? "contacted" : stage;
+      score += 10;
+    } else if (PRICING_PATTERN.test(body)) {
+      state = "presented_pricing";
+      score += 10;
+    } else {
+      state = "awaiting_offer_type";
+      score += 5;
+    }
+  } else if (state === "greeting") {
     if (PRICING_PATTERN.test(body)) state = "presented_pricing";
     else if (PRIVATE_PATTERN.test(body)) {
       service = "private";
@@ -173,6 +263,12 @@ export function buildSalesConciergeTurn(input) {
       "Great — I can guide you toward booking with Coach Ayman. Reply yes to continue.",
       "ممتاز — يمكنني توجيهك للحجز مع الكوتش أيمن. اكتب نعم للمتابعة.",
     );
+  } else if (humanHandoff || state === "human_handoff") {
+    draftReply = t(
+      language,
+      "I'll connect you with Coach Ayman for personal follow-up. He will reply shortly.",
+      "سأوصلك بالكوتش أيمن للمتابعة الشخصية. سيرد عليك قريبًا.",
+    );
   } else {
     draftReply = t(
       language,
@@ -187,6 +283,7 @@ export function buildSalesConciergeTurn(input) {
     processed: true,
     skipped: false,
     language,
+    mediaKind,
     detectedIntent: state,
     draftReply,
     nextIntent: formatIntent(state),
