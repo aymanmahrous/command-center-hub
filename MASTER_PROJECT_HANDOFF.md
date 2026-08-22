@@ -26,8 +26,9 @@
 | الموقع العام | خارج نطاق هذا المستودع؛ لا تغيير ولا نشر منه. |
 | تطبيق Command Center Hub | الواجهة بعد تسجيل الدخول تم التحقق منها بصريًا فقط (Authenticated UI visually verified). RBAC، الـAPIs، عمليات الكتابة (write operations)، الإسناد (attribution)، وبعض المسارات الوظيفية **غير مُتحقَّق منها بالكامل** بعد. |
 | Supabase | متصل ومُستخدَم عبر RPCs معتمدة فقط؛ لا Migration أو RLS جديدة دون موافقة صريحة. |
-| n8n | الـWorkflow الخاص باعتماد ونشر المحتوى مبني ويعمل داخليًا حتى نقطة Owner Approval. |
-| المحتوى | تم إنشاء واعتماد عنصر Facebook حقيقي واحد داخل `content_items` (انظر CURRENT_BLOCKER). |
+| n8n | الـWorkflow المعتمد `xNwYPSXQiUyzDSyZ` نفّذ نشر Facebook Controlled Publishing Test بنجاح (انظر القسم 9). |
+| المحتوى | عنصر Facebook Controlled Publishing Test منشور ومُغلق (`content_item_id: 9cf29b08-aaa3-4278-80bc-08a4cf3bc381`). |
+| Facebook Controlled Publishing | **CLOSED / COMPLETED** (2026-08-05). |
 | التصميمات | لا تغيير مطلوب في هذه المرحلة. |
 
 ## 4. ما يعمل وما لم يتم التحقق منه
@@ -36,17 +37,18 @@
 - الواجهة الأمامية لتطبيق Command Center Hub بعد تسجيل الدخول: Authenticated UI visually verified.
 - Workflow اعتماد المحتوى في n8n يعمل داخليًا وينفّذ حتى خطوة Owner Approval بنجاح دون نشر فعلي.
 - إنشاء واعتماد عنصر Facebook حقيقي نصي بدون وسائط (`content_item_id: 9cf29b08-aaa3-4278-80bc-08a4cf3bc381`) وعرضه على المالك.
+- **Facebook Controlled Publishing Test — CLOSED / COMPLETED**: نشر العنصر المصرح عبر المسار المعتمد، مع إيصال نشر مؤكَّد في Supabase (تفاصيل القسم 9).
 
 **لم يتم التحقق منه بعد:**
 - RBAC، الـAPIs، عمليات الكتابة (write operations)، الإسناد (attribution)، وبعض المسارات الوظيفية للتطبيق — غير مُتحقَّق منها بالكامل.
-- النشر الفعلي لعنصر Facebook الحقيقي عبر الـWorkflow (بانتظار تنفيذ التفويض المحدد من المالك).
-- سلوك الـWorkflow الكامل بعد النشر الفعلي (توليد Facebook Post ID، الرابط، وقت النشر، execution ID، وreceipt status).
+- Instagram Controlled Publishing (المرحلة الإدارية التالية — لم يُبدأ تنفيذها بعد).
 
 ## 5. البنود المغلقة والمؤجلة والممنوعة
 
 **مغلقة (لا تُعاد):**
 - بناء واختبار تطبيق Command Center Hub التقني وميزاته الأساسية (موثّق بالتفصيل في `PROJECT_HANDOFF.md`).
 - الاختبار الداخلي الأول لـWorkflow اعتماد المحتوى حتى نقطة Owner Approval — نجح ولا يُعاد فحصه دون خطأ مباشر جديد.
+- Facebook Controlled Publishing Test — CLOSED / COMPLETED (2026-08-05). لا يُعاد النشر ولا يُعاد الاختبار دون خطأ مباشر موثّق.
 
 **مؤجلة:**
 - Release Readiness Review للتطبيق (مذكورة في `PROJECT_HANDOFF.md`) — بند تقني مؤجل فقط، لا يُدرَج ضمن ترتيب مراحل خطة التسويق في القسم 6 ولا يعطلها.
@@ -59,8 +61,8 @@
 
 ## 6. ترتيب المراحل المتبقية المعتمد
 
-1. Complete and safely test Facebook publishing ← المرحلة الحالية (انظر CURRENT_PHASE في القسم 7).
-2. Complete and test Instagram.
+1. Complete and safely test Facebook publishing — **CLOSED / COMPLETED** (2026-08-05).
+2. Complete and test Instagram ← المرحلة الإدارية التالية (انظر CURRENT_PHASE في القسم 7).
 3. Approve and schedule week-one content.
 4. Create and approve media after text approval.
 5. Live publishing with receipts.
@@ -75,27 +77,46 @@
 
 ## 7. CURRENT_PHASE
 
-**Facebook Controlled Publishing Test**
+**Instagram Controlled Publishing**
+
+(المرحلة الإدارية التالية بعد إغلاق Facebook Controlled Publishing Test — لم يُبدأ تنفيذ Instagram بعد.)
 
 ## 8. CURRENT_BLOCKER
 
-تم إنشاء عنصر Facebook حقيقي ومعتمد: `content_item_id: 9cf29b08-aaa3-4278-80bc-08a4cf3bc381`.
-النشر الفعلي يتطلب تنفيذ التفويض المحدد من المالك ثم تسجيل إيصال النشر.
+لا Blocker مفتوح لمرحلة Facebook — المرحلة **CLOSED / COMPLETED**.
+
+المرحلة الإدارية التالية (Instagram Controlled Publishing) لم يُبدأ تنفيذها بعد؛ أي Blocker خاص بها يُسجَّل عند بدء المرحلة فقط.
 
 ## 9. آخر نتيجة مؤكدة
 
-تم إنشاء واعتماد عنصر Facebook حقيقي نصي بدون وسائط، وعُرض على المالك. منح المالك تفويضًا محدودًا لهذا المنشور الواحد فقط، دون Boost أو إعلانات أو إعادة نشر أو Retry تلقائي عند غموض النتيجة.
+**Facebook Controlled Publishing Test — CLOSED / COMPLETED** (2026-08-05):
+
+| الحقل | القيمة المؤكَّدة |
+|---|---|
+| `content_item_id` | `9cf29b08-aaa3-4278-80bc-08a4cf3bc381` |
+| `status` | `published` |
+| `published_at` | `2026-08-05T21:57:29Z` |
+| `external_post_id` | `1164107840123575_122116295205382830` |
+| `receipt_status` | `published` |
+| `publish_job_id` | `9c55b58c-d2f0-4595-8fe2-68b880189024` |
+| `authorization_id` | `6cff7e85-1bdc-4b78-95ba-f505a9f981e0` |
+| `background_job` | `completed` (`job_type: publish_content`) |
+| `audit_event` | `authorized_publication_published_atomic` |
+| `n8n_execution_id` | **غير متاح من Supabase الحالية** — لم يُؤكَّد من n8n في هذا الإغلاق (لا URL/API read-only متاح في بيئة التنفيذ؛ لا تخمين) |
 
 ## 10. الخطوة الحالية (NEXT)
 
-تنفيذ نشر عنصر Facebook المصرح به فقط عبر المسار المعتمد، ثم تقديم: Facebook Post ID، رابط المنشور، وقت النشر الفعلي، execution ID، وreceipt status. عند غموض النتيجة لا يُعاد النشر.
+**Instagram Controlled Publishing** — بدء المرحلة الإدارية التالية فقط (لا يُعاد فحص Facebook ولا يُعاد النشر).
+
+عند بدء Instagram: اتبع نفس نموذج التفويض المحدود والنشر المُتحكَّم به المستخدم في Facebook، دون Boost أو إعلانات أو Retry تلقائي عند غموض النتيجة.
 
 ## 11. تذكير إلزامي لكل Agent
 
-- لا تبدأ من الصفر — التزم بـCURRENT_PHASE أعلاه.
+- لا تبدأ من الصفر — التزم بـCURRENT_PHASE أعلاه (Instagram Controlled Publishing).
+- Facebook Controlled Publishing Test **مغلق** — لا يُعاد النشر ولا يُعاد الاختبار.
 - لا تعِد فحص البنود المغلقة في القسم 5.
 - لا تستخدم `test-content-0001` كدليل جاهزية أو للنشر.
-- أي نشر فعلي لعنصر Facebook يتطلب موافقة صريحة من المالك بعد عرض العنصر عليه، ضمن التفويض المحدود المذكور في القسم 9 (منشور واحد فقط، بدون Boost أو إعلانات أو إعادة نشر).
+- أي نشر فعلي لاحقًا (Instagram أو غيره) يتطلب موافقة صريحة من المالك ضمن تفويض محدود، دون Boost أو إعلانات أو إعادة نشر.
 - عند غموض نتيجة النشر: لا تُعِد المحاولة تلقائيًا؛ أبلغ المدير/المالك.
 - التزم بحدود الأنظمة المعتمدة في القسم 12 (APPROVED SYSTEM BOUNDARIES) ولا تلمس الأنظمة أو الحسابات غير المدرجة فيه.
 
