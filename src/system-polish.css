@@ -21,3 +21,9 @@ a:focus-visible {
 }
 
 .skip-link:focus { transform: translateY(0); }
+
+.panel-heading-actions { display: flex; align-items: center; gap: 10px; }
+.push-install-bar { display: flex; align-items: center; gap: 10px; }
+.push-install-bar button { border: 0; background: transparent; color: #0f172a; font-weight: 800; font-size: .78rem; white-space: nowrap; cursor: pointer; padding: 6px 10px; border-radius: 10px; }
+.push-install-bar button:hover { background: #eef2f7; }
+.push-install-bar button:disabled { opacity: .55; cursor: not-allowed; }
