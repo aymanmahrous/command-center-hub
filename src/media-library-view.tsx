@@ -145,7 +145,7 @@ function MediaAssetPreview({
   </div>;
 }
 
-export function MediaLibraryView({ value, session, onSessionExpired }: { value: JsonValue; session: MediaLibrarySession; onSessionExpired: () => void }) {
+export default function MediaLibraryView({ value, session, onSessionExpired }: { value: JsonValue; session: MediaLibrarySession; onSessionExpired: () => void }) {
   const { language, t } = useLanguage();
   const copy = t("media");
   const typeLabels = mediaTypeLabels[language];

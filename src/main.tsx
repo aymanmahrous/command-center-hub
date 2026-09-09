@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, LayoutDashboard, Library, LogOut, Settings2, ShieldAlert, Workflow } from "lucide-react";
 import { z } from "zod";
 import { LanguageProvider, useLanguage } from "./i18n";
-import type { Dictionary, Language } from "./i18n";
+import type { Language } from "./i18n";
 import { pushSupported, registerServiceWorker, getPushSubscription, enablePush, disablePush } from "./push";
 import "./styles.css";
 import "./ai-inbox.css";
@@ -14,19 +14,21 @@ import "./analytics.css";
 import "./integrations.css";
 import "./system-polish.css";
 
-const MediaLibraryView = lazy(() => import("./media-library-view").then((module) => ({ default: module.MediaLibraryView })));
+const MediaLibraryView = lazy(() => import("./media-library-view"));
+const M = lazy(() => import("./massive-archive-view"));
 
 const sections = [
-  ["dashboard", "Command Center", LayoutDashboard, "get_staff_command_center"],
-  ["inbox", "AI Inbox", Inbox, "get_staff_inbox"],
-  ["crm", "CRM", ContactRound, "get_staff_crm_leads"],
-  ["automations", "Automations", Workflow, "get_staff_content_automation_status"],
-  ["content", "AI Content Studio", Bot, "get_staff_content_items"],
-  ["planner", "30-Day Planner", CalendarDays, "get_staff_bookings"],
-  ["media", "Media Library", Library, "get_staff_media_assets"],
-  ["analytics", "Analytics", BarChart3, "get_staff_growth_analytics"],
-  ["integrations", "Integrations", Settings2, "get_staff_operations_queue"],
-  ["radar", "Opportunity Radar", ShieldAlert, "get_staff_radar_opportunities"],
+  ["dashboard", LayoutDashboard, "get_staff_command_center"],
+  ["inbox", Inbox, "get_staff_inbox"],
+  ["crm", ContactRound, "get_staff_crm_leads"],
+  ["automations", Workflow, "get_staff_content_automation_status"],
+  ["content", Bot, "get_staff_content_items"],
+  ["planner", CalendarDays, "get_staff_bookings"],
+  ["media", Library, "get_staff_media_assets"],
+  ["archive", Library, "x"],
+  ["analytics", BarChart3, "get_staff_growth_analytics"],
+  ["integrations", Settings2, "get_staff_operations_queue"],
+  ["radar", ShieldAlert, "get_staff_radar_opportunities"],
 ] as const;
 
 type SectionId = (typeof sections)[number][0];
@@ -997,9 +999,9 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   }, []);
   const current = useMemo(() => sections.find(([id]) => id === active)!, [active]);
   useEffect(() => { document.title = `${nav[current[0]]} · ${nav.dashboard}`; }, [current, nav]);
-  useEffect(() => { const controller = new AbortController(); setStatus("loading"); setError(""); callRpc(session, current[3], {}, controller.signal).then((result) => { setData(result); setStatus("ready"); }).catch((cause) => { if (cause instanceof DOMException && cause.name === "AbortError") return; const message = cause instanceof Error ? cause.message : "LOAD_FAILED"; if (message === "SESSION_EXPIRED") onLogout(); else { setError(dashboardCopy.loadError); setStatus("error"); } }); return () => controller.abort(); }, [current, dashboardCopy.loadError, onLogout, reloadKey, session]);
+  useEffect(() => { const controller = new AbortController(); if (current[0] === "archive") { setStatus("ready"); return () => controller.abort(); } setStatus("loading"); setError(""); callRpc(session, current[2], {}, controller.signal).then((result) => { setData(result); setStatus("ready"); }).catch((cause) => { if (cause instanceof DOMException && cause.name === "AbortError") return; const message = cause instanceof Error ? cause.message : "LOAD_FAILED"; if (message === "SESSION_EXPIRED") onLogout(); else { setError(dashboardCopy.loadError); setStatus("error"); } }); return () => controller.abort(); }, [current, dashboardCopy.loadError, onLogout, reloadKey, session]);
   const modeLabel = active === "planner" || active === "crm" || active === "inbox" || active === "content" ? dashboardCopy.controlledWrite : dashboardCopy.readOnly;
-  return <div className="app-shell"><a className="skip-link" href="#main-workspace">{nav.skipToContent}</a><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><LanguageSwitcher onDark /><nav aria-label="وحدات Command Center">{sections.map(([id, , Icon]) => <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => setActive(id)}><Icon size={18} aria-hidden="true" />{nav[id]}</button>)}</nav><button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button></aside><main className="workspace" id="main-workspace" tabIndex={-1}><p className="eyebrow">{dashboardCopy.eyebrow} · {modeLabel}</p><h1>{nav[current[0]]}</h1><section className="panel" aria-busy={status === "loading"}><div className="panel-heading"><div><h2>{dashboardCopy.panelHeading}</h2><p>{dashboardCopy.panelSubheading}</p></div><div className="panel-heading-actions"><PushInstallBar session={session} language={language} /><button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button></div></div>{status === "loading" && <p className="muted" role="status">{t("common").loading}</p>}{status === "error" && <div className="error-box" role="alert">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MediaLibraryView value={data} session={session} onSessionExpired={onLogout} /></Suspense> : active === "analytics" ? <AnalyticsView value={data} /> : active === "integrations" ? <IntegrationsView value={data} /> : active === "automations" ? <AutomationsView value={data} /> : active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : <DataView value={data} />)}</section></main></div>;
+  return <div className="app-shell"><a className="skip-link" href="#main-workspace">{nav.skipToContent}</a><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><LanguageSwitcher onDark /><nav aria-label="وحدات Command Center">{sections.map(([id, Icon]) => <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => setActive(id)}><Icon size={18} aria-hidden="true" />{nav[id]}</button>)}</nav><button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button></aside><main className="workspace" id="main-workspace" tabIndex={-1}><p className="eyebrow">{dashboardCopy.eyebrow} · {modeLabel}</p><h1>{nav[current[0]]}</h1><section className="panel" aria-busy={status === "loading"}><div className="panel-heading"><div><h2>{dashboardCopy.panelHeading}</h2><p>{dashboardCopy.panelSubheading}</p></div><div className="panel-heading-actions"><PushInstallBar session={session} language={language} /><button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button></div></div>{status === "loading" && <p className="muted" role="status">{t("common").loading}</p>}{status === "error" && <div className="error-box" role="alert">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MediaLibraryView value={data} session={session} onSessionExpired={onLogout} /></Suspense> : active === "archive" ? <Suspense><M /></Suspense> : active === "analytics" ? <AnalyticsView value={data} /> : active === "integrations" ? <IntegrationsView value={data} /> : active === "automations" ? <AutomationsView value={data} /> : active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : <DataView value={data} />)}</section></main></div>;
 }
 
 async function sendTestPushSelf(session: Session) {

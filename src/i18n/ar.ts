@@ -27,6 +27,7 @@ export const ar: Dictionary = {
     content: "استوديو المحتوى الذكي",
     planner: "مخطط 30 يومًا",
     media: "مكتبة الوسائط",
+    archive: "الأرشيف الضخم",
     analytics: "التحليلات",
     integrations: "التكاملات",
     radar: "رادار الفرص",
