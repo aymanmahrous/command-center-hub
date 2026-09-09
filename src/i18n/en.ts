@@ -25,7 +25,7 @@ export const en = {
     content: "AI Content Studio",
     planner: "30-Day Planner",
     media: "Media Library",
-    archive: "",
+    archive: "Massive Archive",
     analytics: "Analytics",
     integrations: "Integrations",
     radar: "Opportunity Radar",
