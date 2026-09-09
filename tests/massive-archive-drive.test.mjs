@@ -19,8 +19,8 @@ test("massive archive launches Google Drive directly without iframe or processin
 });
 
 test("hub keeps archive section alongside media library", () => {
-  assert.match(main, /\["archive", "", Library/);
-  assert.match(main, /\["media", "Media Library", Library/);
+  assert.match(main, /\["archive", Library/);
+  assert.match(main, /\["media", Library/);
   assert.match(main, /lazy\(\(\) => import\("\.\/massive-archive-view"\)\)/);
 });
 
