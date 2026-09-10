@@ -1,0 +1,270 @@
+{
+  "id": "ruZe4C5RR4dSUVNk",
+  "name": "Radar - Google Alerts RSS Ingest",
+  "description": "Polls 4 Google Alerts RSS feeds every 3 hours. Merges items, filters empties, and ingests via ingest_radar_candidate (scoring + dedupe in Supabase). Talkwalker removed to save execution quota.",
+  "active": true,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 3
+            }
+          ]
+        }
+      },
+      "id": "ea0dbff2-2091-43c8-9c5a-ffc96909006f",
+      "name": "Every 3 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://www.google.com/alerts/feeds/07638153460552591008/3513884590913967217",
+        "options": {}
+      },
+      "id": "3e4a571c-c8cd-4985-b313-96055ec766c0",
+      "name": "Read Google Alerts Feed 1",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://www.google.com/alerts/feeds/07638153460552591008/3513884590913968243",
+        "options": {}
+      },
+      "id": "f645b11c-22fc-471f-9865-7d5c0c9ac2a4",
+      "name": "Read Google Alerts Feed 2",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://www.google.com/alerts/feeds/07638153460552591008/4353947492454425572",
+        "options": {}
+      },
+      "id": "a4d7c365-39fb-4969-8bda-ce7936d7d8d6",
+      "name": "Read Google Alerts Feed 3",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://www.google.com/alerts/feeds/07638153460552591008/3505130924510451572",
+        "options": {}
+      },
+      "id": "fc4951f2-431a-4f86-8c0f-0bb619e98304",
+      "name": "Read Google Alerts Feed 4",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "Merge RSS Items",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        520,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.link || '' }}",
+              "operator": {
+                "operation": "notEquals",
+                "type": "string"
+              },
+              "rightValue": ""
+            },
+            {
+              "leftValue": "={{ ($json.title || '').trim() }}",
+              "operator": {
+                "operation": "notEquals",
+                "type": "string"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          }
+        },
+        "options": {
+          "ignoreCase": true
+        }
+      },
+      "id": "f1e2d3c4-b5a6-9780-1234-567890abcdef",
+      "name": "Filter Empty RSS Items",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        720,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://nmzxrjdxvmmzzmajrskm.supabase.co/rest/v1/rpc/ingest_radar_candidate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n        \"p_source\": \"google_alerts\",\n        \"p_source_type\": \"rss\",\n        \"p_text_excerpt\": ($json.title || '').replace(/<[^>]*>/g, ' ').trim(),\n        \"p_source_url\": $json.link || null,\n        \"p_external_id\": $json.guid || $json.link || null,\n        \"p_published_at\": $json.isoDate || $json.pubDate || null\n      } }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "d97db579-b3e9-445a-a12b-b387a3a2f372",
+      "name": "Ingest Radar Candidate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        920,
+        260
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "aHx2dFf02hQpEztj",
+          "name": "Supabase account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every 3 Hours": {
+      "main": [
+        [
+          {
+            "node": "Read Google Alerts Feed 1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read Google Alerts Feed 2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read Google Alerts Feed 3",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read Google Alerts Feed 4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Google Alerts Feed 1": {
+      "main": [
+        [
+          {
+            "node": "Merge RSS Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Google Alerts Feed 2": {
+      "main": [
+        [
+          {
+            "node": "Merge RSS Items",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Read Google Alerts Feed 3": {
+      "main": [
+        [
+          {
+            "node": "Merge RSS Items",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Read Google Alerts Feed 4": {
+      "main": [
+        [
+          {
+            "node": "Merge RSS Items",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Merge RSS Items": {
+      "main": [
+        [
+          {
+            "node": "Filter Empty RSS Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Empty RSS Items": {
+      "main": [
+        [
+          {
+            "node": "Ingest Radar Candidate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "binaryMode": "separate"
+  }
+}
