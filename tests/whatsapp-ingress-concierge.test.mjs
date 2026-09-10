@@ -3,6 +3,15 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const workflow = JSON.parse(await readFile(new URL("../n8n/workflows/relax-fix-whatsapp-webhook-ingress.json", import.meta.url), "utf8"));
+const phoneIdMigration = await readFile(
+  new URL("../supabase/migrations/20260811205000_whatsapp_phone_number_id_update.sql", import.meta.url),
+  "utf8",
+);
+
+test("whatsapp ingress phone number gate matches confirmed Meta Phone Number ID", () => {
+  assert.match(phoneIdMigration, /1227466847119021/);
+  assert.doesNotMatch(phoneIdMigration, /100566230597045/);
+});
 
 test("whatsapp ingress preserves meta verification branches", () => {
   assert.equal(workflow.nodes.find((node) => node.name === "WhatsApp Meta Webhook")?.parameters?.path, "whatsapp-meta-webhook");
