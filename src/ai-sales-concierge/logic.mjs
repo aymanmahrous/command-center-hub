@@ -152,8 +152,8 @@ export function buildSalesConciergeTurn(input) {
   if (state === "awaiting_offer_type") {
     draftReply = t(
       language,
-      "Welcome to Relax Fix UAE. Would you like a private lesson or a group lesson (up to 5 people)?",
-      "أهلًا بك في Relax Fix UAE. هل تفضّل حصة خاصة أم مجموعة (حتى 5 أشخاص)؟",
+      "Hello, welcome to Relax Fix UAE. Would you like a private lesson or a group lesson (up to 5 people)?",
+      "أهلًا وسهلًا في Relax Fix UAE. هل تفضّل حصة خاصة أم مجموعة (حتى 5 أشخاص)؟",
     );
   } else if (state === "awaiting_fear_of_water") {
     draftReply = t(
