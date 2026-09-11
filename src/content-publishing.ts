@@ -61,7 +61,7 @@ export const FACEBOOK_PAGE_ID = "1164107840123575";
 export const INSTAGRAM_ACCOUNT_ID = "17841439747493221";
 export const AUTHORIZED_FACEBOOK_PUBLISH_ITEM_ID = "9cf29b08-aaa3-4278-80bc-08a4cf3bc381";
 /** Set after the owner approves one Instagram test post for controlled n8n publish. */
-export const AUTHORIZED_INSTAGRAM_PUBLISH_ITEM_ID: string | null = null;
+export const AUTHORIZED_INSTAGRAM_PUBLISH_ITEM_ID = "ffb9f795-c359-43c5-861c-5594eda75eef";
 
 export type PublishChannel = "facebook" | "instagram";
 
@@ -185,7 +185,7 @@ function resolveNextAction(
   if (authorizedItem && authorizedStage !== "published_live") return "publish_via_n8n";
   if (channel === "instagram" && !authorizedPublishItemId("instagram")) {
     if (channelItems.some((item) => REVIEW_STATUSES.has(item.status))) return "review";
-    if (channelItems.some((item) => item.status === "approved")) return "approve";
+    if (approvedCount > 0) return "publish_via_n8n";
     if (failedCount > 0) return "verify_receipt";
     return "continue_batch";
   }

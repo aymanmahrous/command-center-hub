@@ -84,6 +84,23 @@ test("instagram readiness asks for batch generation when nothing is reviewable",
   assert.equal(readiness.approvedCount, 0);
 });
 
+test("instagram readiness moves to n8n after approval", () => {
+  const readiness = summarizeLivePublishingReadiness([
+    {
+      id: "44444444-4444-4444-8444-444444444444",
+      status: "approved",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      platform: "instagram",
+      contentType: "post",
+      caption: "ready",
+      topic: "instagram test post",
+      scheduledFor: null,
+    },
+  ], "instagram");
+  assert.equal(readiness.nextAction, "publish_via_n8n");
+  assert.equal(readiness.approvedCount, 1);
+});
+
 test("facebook audit flags manual public verification when receipt is published", () => {
   const audit = buildFacebookPublishAudit([
     {
