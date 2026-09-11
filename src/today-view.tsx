@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, Library, Workflow } from "lucide-react";
 import { z } from "zod";
+import type { ContentBatchItem } from "./content-batch";
+import { summarizePipeline } from "./content-growth";
+import { buildDayNineReminder } from "./content-batch";
 import { useLanguage } from "./i18n";
 import type { Language } from "./i18n";
 import "./today-view.css";
@@ -27,7 +30,7 @@ const ConversationSchema = z.object({
   humanRequired: z.boolean(),
 }).passthrough();
 const ContentItemSchema = z.object({
-  id: z.string().uuid(), topic: z.string(),
+  id: z.string().uuid(), topic: z.string(), createdAt: z.string(),
   status: z.enum(["idea", "draft", "generated", "needs_review", "approved", "scheduled", "published", "failed"]),
 }).passthrough();
 const FollowUpJobSchema = z.object({
@@ -66,6 +69,13 @@ const todayCopy = {
     followUpsHint: "CRM + طابور المتابعة",
     contentReviewLabel: "مراجعة المحتوى",
     contentReviewHint: "مسودة / مولّد / بانتظار المراجعة",
+    contentPipelineEyebrow: "عمليات المحتوى",
+    contentPipelineTitle: "مسار محتوى السباحة",
+    contentApproved: "معتمد",
+    contentScheduled: "مجدول",
+    contentPublished: "منشور",
+    contentFailed: "فشل",
+    dayNineToday: "تذكير مراجعة اليوم 9 نشط — افتح Content Studio لاعتماد الدفعة.",
     healthEyebrow: "صحة التشغيل",
     healthTitle: "صحة النظام",
     automationSnapshotTitle: "لقطة حالة الأتمتة",
@@ -98,6 +108,13 @@ const todayCopy = {
     followUpsHint: "Queued CRM + jobs",
     contentReviewLabel: "Content review",
     contentReviewHint: "Draft / generated / needs review",
+    contentPipelineEyebrow: "Content operations",
+    contentPipelineTitle: "Swimming content pipeline",
+    contentApproved: "Approved",
+    contentScheduled: "Scheduled",
+    contentPublished: "Published",
+    contentFailed: "Failed",
+    dayNineToday: "Day-9 review reminder active — open Content Studio to approve the batch.",
     healthEyebrow: "Operations health",
     healthTitle: "System health",
     automationSnapshotTitle: "Automation status snapshot",
@@ -222,6 +239,8 @@ export default function TodayOperationsView({
 
   const metrics = useMemo(() => {
     const reviewContent = contentItems.filter((item) => ["needs_review", "generated", "draft"].includes(item.status));
+    const pipeline = summarizePipeline(contentItems as ContentBatchItem[]);
+    const dayNine = buildDayNineReminder(contentItems as ContentBatchItem[]);
     const pendingBookings = bookings.filter((booking) => ["pending", "contacted"].includes(booking.status));
     const humanConversations = inbox.filter((conversation) => conversation.mode === "human_required" || conversation.humanRequired);
     const crmFollowUps = leads.filter((lead) => lead.stage === "follow_up" || lead.humanRequired || isDueNow(lead.nextFollowUpAt, nowMs));
@@ -232,6 +251,8 @@ export default function TodayOperationsView({
 
     return {
       reviewContent,
+      pipeline,
+      dayNine,
       pendingBookings,
       humanConversations,
       crmFollowUps,
@@ -282,6 +303,13 @@ export default function TodayOperationsView({
       {snapshotAt && <span>{copy.snapshotLabel}: {formatDateTime(language, snapshotAt)}</span>}
     </div>
 
+    {metrics.dayNine?.show && (
+      <div className="today-day-nine-banner" role="status">
+        <strong>{copy.dayNineToday}</strong>
+        <button type="button" className="today-quick-action" onClick={() => onNavigate("content")}>{nav.content}</button>
+      </div>
+    )}
+
     <section className="today-section">
       <header><p>{copy.attentionEyebrow}</p><h3>{copy.attentionTitle}</h3></header>
       {totalAttention === 0 ? <p className="muted">{copy.allClear}</p> : (
@@ -306,6 +334,19 @@ export default function TodayOperationsView({
         <div className="summary-alert"><span>{copy.confirmedLabel}</span><strong>{metrics.confirmedToday.length}</strong><small>{copy.confirmedHint}</small></div>
         <div className="summary-alert"><span>{copy.followUpsLabel}</span><strong>{metrics.followUpJobs.length + metrics.crmFollowUps.length}</strong><small>{copy.followUpsHint}</small></div>
         <div className="summary-alert"><span>{copy.contentReviewLabel}</span><strong>{metrics.reviewContent.length}</strong><small>{copy.contentReviewHint}</small></div>
+      </div>
+    </section>
+
+    <section className="today-section">
+      <header><p>{copy.contentPipelineEyebrow}</p><h3>{copy.contentPipelineTitle}</h3></header>
+      <div className="operations-summary today-numbers" aria-label={copy.contentPipelineTitle}>
+        <button type="button" className="today-attention-item" onClick={() => onNavigate("content")}>
+          <span>{copy.contentReviewLabel}</span><strong>{metrics.pipeline.needsReview}</strong>
+        </button>
+        <div className="summary-alert"><span>{copy.contentApproved}</span><strong>{metrics.pipeline.approved}</strong></div>
+        <div className="summary-alert"><span>{copy.contentScheduled}</span><strong>{metrics.pipeline.scheduled}</strong></div>
+        <div className="summary-alert"><span>{copy.contentPublished}</span><strong>{metrics.pipeline.published}</strong></div>
+        <div className="summary-alert"><span>{copy.contentFailed}</span><strong>{metrics.pipeline.failed}</strong></div>
       </div>
     </section>
 

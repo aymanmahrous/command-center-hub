@@ -11,6 +11,10 @@ export type ContentBatchItem = {
   contentType: string;
   caption: string;
   topic: string;
+  hook?: string;
+  cta?: string;
+  hashtags?: string[];
+  visualPrompt?: string;
   scheduledFor: string | null;
   [key: string]: unknown;
 };
@@ -160,4 +164,23 @@ export function approveAllCandidates(items: ContentBatchItem[]): ContentBatchIte
 
 export function approveAllWouldChange(items: ContentBatchItem[]): boolean {
   return approveAllCandidates(items).length > 0;
+}
+
+export const REVIEW_REMINDER_DAY = 9;
+
+export type DayNineReminder = {
+  show: boolean;
+  batchId: string;
+  cycleDay: number;
+  reviewableCount: number;
+};
+
+export function buildDayNineReminder(items: ContentBatchItem[], now = new Date()): DayNineReminder | null {
+  const batch = selectPrimaryBatch(groupContentBatches(items));
+  if (!batch) return null;
+  const diffMs = now.getTime() - new Date(batch.createdAt).getTime();
+  const cycleDay = Math.max(1, Math.floor(diffMs / (24 * 60 * 60 * 1000)) + 1);
+  const reviewableCount = batch.items.filter((item) => REVIEWABLE_FOR_APPROVAL.has(item.status)).length;
+  if (cycleDay < REVIEW_REMINDER_DAY || reviewableCount === 0) return null;
+  return { show: true, batchId: batch.batchId, cycleDay, reviewableCount };
 }

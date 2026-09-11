@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   approveAllCandidates,
   approveAllWouldChange,
+  buildDayNineReminder,
   canApproveContentItem,
   groupContentBatches,
   isDuplicateScheduleCandidate,
@@ -10,6 +11,8 @@ import {
   selectPrimaryBatch,
   shouldSkipApprove,
 } from "../src/content-batch.ts";
+import { computeCycleDay, readIntegrationStatuses, scheduleDuplicateBlocked } from "../src/content-growth.ts";
+import { DEFAULT_BATCH_MIX, buildPerformanceInsights } from "../src/content-strategy.ts";
 
 function item(overrides) {
   return {
@@ -73,4 +76,36 @@ test("selectPrimaryBatch prefers the batch with the most needs_review items", ()
   ]);
   const primary = selectPrimaryBatch(batches);
   assert.equal(primary?.batchId, "current");
+});
+
+test("computeCycleDay tracks the 10-day content cycle", () => {
+  const start = new Date("2026-09-01T10:00:00.000Z");
+  assert.equal(computeCycleDay("2026-09-01T10:00:00.000Z", start), 1);
+  assert.equal(computeCycleDay("2026-09-01T10:00:00.000Z", new Date("2026-09-09T10:00:00.000Z")), 9);
+});
+
+test("day nine reminder appears only when reviewable items remain", () => {
+  const items = [
+    item({
+      id: "1",
+      createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+    }),
+  ];
+  assert.ok(buildDayNineReminder(items, new Date())?.show);
+});
+
+test("integration status parser stays conservative without explicit flags", () => {
+  const statuses = readIntegrationStatuses(null);
+  assert.equal(statuses.length, 7);
+  assert.ok(statuses.every((entry) => entry.connected === false));
+});
+
+test("default batch mix contains 10 strategy slots", () => {
+  assert.equal(DEFAULT_BATCH_MIX.length, 10);
+});
+
+test("performance insights stay conservative with small samples", () => {
+  const insights = buildPerformanceInsights([]);
+  assert.equal(insights.length, 1);
+  assert.match(insights[0].reason, /Not enough published performance data/i);
 });

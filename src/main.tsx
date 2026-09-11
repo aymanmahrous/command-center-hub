@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, LayoutDashboard, Library, LogOut, Settings2, ShieldAlert, Workflow } from "lucide-react";
 import { z } from "zod";
 import { canApproveContentItem, type ContentBatchItem } from "./content-batch";
+import { appendChangeRequest, buildChangeRequestNote, type ChangeRequestKind } from "./content-growth";
 import { LanguageProvider, useLanguage } from "./i18n";
 import type { Language } from "./i18n";
 import { pushSupported, registerServiceWorker, getPushSubscription, enablePush, disablePush } from "./push";
@@ -17,7 +18,7 @@ import "./system-polish.css";
 
 const MediaLibraryView = lazy(() => import("./media-library-view"));
 const TodayView = lazy(() => import("./today-view"));
-const ContentBatchReviewPanel = lazy(() => import("./content-batch-review-panel").then((module) => ({ default: module.ContentBatchReviewPanel })));
+const ContentGrowthHub = lazy(() => import("./content-growth-hub"));
 const M = lazy(() => import("./massive-archive-view"));
 
 const sections = [
@@ -657,13 +658,25 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
     await runMutation(item.id, () => transitionContentItem(session, item.id, "approve"), language === "ar" ? "تم اعتماد العنصر وتسجيل العملية." : "Item approved and recorded.");
   }
 
-  async function requestBatchChanges(item: ContentBatchItem) {
+  async function requestBatchChanges(item: ContentBatchItem, kind: ChangeRequestKind, note: string) {
     if (!canWrite || busyId || batchBusy || item.status === "needs_review") return;
     const confirmMessage = language === "ar"
       ? `تأكيد طلب تعديل «${item.topic || "محتوى بدون عنوان"}» وإعادته للمراجعة؟`
       : `Request changes and return "${item.topic || copy.untitled}" to review?`;
     if (!window.confirm(confirmMessage)) return;
-    await runMutation(item.id, () => transitionContentItem(session, item.id, "return_to_review"), language === "ar" ? "تم إعادة العنصر للمراجعة." : "Returned to review.");
+    const changeNote = buildChangeRequestNote(kind, note);
+    const nextVisualPrompt = appendChangeRequest(String(item.visualPrompt ?? ""), changeNote);
+    await runMutation(item.id, async () => {
+      await updateContentItem(session, item.id, {
+        topic: item.topic,
+        hook: String(item.hook ?? ""),
+        caption: item.caption,
+        cta: String(item.cta ?? ""),
+        hashtags: Array.isArray(item.hashtags) ? item.hashtags : [],
+        visualPrompt: nextVisualPrompt,
+      });
+      await transitionContentItem(session, item.id, "return_to_review");
+    }, language === "ar" ? "تم إرسال طلب التعديل وإعادة العنصر للمراجعة." : "Change request sent and item returned to review.");
   }
 
   async function approveAllBatch(candidates: ContentBatchItem[]) {
@@ -708,8 +721,9 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
     <div className="write-banner"><strong>{copy.writeBannerTitle}</strong><span>{copy.writeBannerSubtitle}</span></div>
     {notice && <div className="notice-box" aria-live="polite">{notice}</div>}
     <Suspense fallback={null}>
-      <ContentBatchReviewPanel
+      <ContentGrowthHub
         items={items}
+        session={session}
         canWrite={canWrite}
         busy={panelBusy}
         onApproveItem={approveBatchItem}

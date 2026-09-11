@@ -113,6 +113,30 @@
 .batch-status-failed { border-color: #f87171; color: #fca5a5; }
 .batch-status-mixed { border-color: #64748b; color: #cbd5e1; }
 
+.change-request-form {
+  display: grid;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #263449;
+}
+
+.change-request-form select,
+.change-request-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  background: #0f172a;
+  color: #f8fafc;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.change-request-form textarea {
+  resize: vertical;
+  min-height: 72px;
+}
+
 @media (max-width: 720px) {
   .content-batch-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
