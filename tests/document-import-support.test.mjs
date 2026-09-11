@@ -6,7 +6,7 @@ const app = await readFile(new URL("../src/main.tsx", import.meta.url), "utf8");
 const mediaView = await readFile(new URL("../src/media-library-view.tsx", import.meta.url), "utf8");
 const css = await readFile(new URL("../src/media-library.css", import.meta.url), "utf8");
 
-test("Media Library keeps private read-only boundary for documents", () => {
+test("Media Library keeps private RPC boundary for documents", () => {
   assert.match(app, /get_staff_media_assets/);
   assert.match(app, /import\("\.\/media-library-view"\)/);
   assert.match(mediaView, /fetchStaffMediaBlob/);

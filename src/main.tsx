@@ -2,6 +2,8 @@ import React, { FormEvent, lazy, Suspense, useEffect, useMemo, useState } from "
 import { createRoot } from "react-dom/client";
 import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, LayoutDashboard, Library, LogOut, Settings2, ShieldAlert, Workflow } from "lucide-react";
 import { z } from "zod";
+import { canApproveContentItem, sharedDatabaseBatchId, type ContentBatchItem } from "./content-batch";
+import { appendChangeRequest, buildChangeRequestNote, type ChangeRequestKind } from "./content-growth";
 import { LanguageProvider, useLanguage } from "./i18n";
 import type { Language } from "./i18n";
 import { pushSupported, registerServiceWorker, getPushSubscription, enablePush, disablePush } from "./push";
@@ -15,6 +17,8 @@ import "./integrations.css";
 import "./system-polish.css";
 
 const MediaLibraryView = lazy(() => import("./media-library-view"));
+const TodayView = lazy(() => import("./today-view"));
+const ContentGrowthHub = lazy(() => import("./content-growth-hub"));
 const M = lazy(() => import("./massive-archive-view"));
 
 const sections = [
@@ -110,6 +114,14 @@ const ContentMutationSchema = z.object({
   status: z.enum(["idea", "draft", "generated", "needs_review", "approved", "scheduled", "published", "failed"]).optional(),
   scheduledFor: z.string().nullable().optional(), updatedAt: z.string().optional(),
 });
+const ContentBatchApprovalSchema = z.object({
+  success: z.boolean(),
+  code: z.string().optional(),
+  batchId: z.string().uuid().optional(),
+  approvedCount: z.number().int().nonnegative().optional(),
+  alreadyApprovedCount: z.number().int().nonnegative().optional(),
+  skippedCount: z.number().int().nonnegative().optional(),
+}).passthrough();
 const MediaAssetSchema = z.object({
   id: z.string().uuid(), createdBy: z.string().uuid(), contentItemId: z.string().uuid().nullable(),
   assetType: z.enum(["image", "video", "logo", "other"]), source: z.enum(["upload", "ai_generated", "external"]),
@@ -303,6 +315,14 @@ async function updateContentItem(session: Session, contentItemId: string, fields
 async function transitionContentItem(session: Session, contentItemId: string, action: ContentAction, scheduledFor: string | null = null) {
   const result = ContentMutationSchema.parse(await callRpc(session, "transition_staff_content_item", {
     p_content_item_id: contentItemId, p_action: action, p_scheduled_for: scheduledFor,
+  }));
+  if (!result.success) throw new Error(result.code ?? "UPDATE_REJECTED");
+  return result;
+}
+
+async function approveStaffContentBatch(session: Session, batchId: string) {
+  const result = ContentBatchApprovalSchema.parse(await callRpc(session, "approve_staff_content_batch", {
+    p_batch_id: batchId,
   }));
   if (!result.success) throw new Error(result.code ?? "UPDATE_REJECTED");
   return result;
@@ -577,6 +597,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
   const statusLabels = contentStatusLabels[language];
   const parsed = useMemo(() => z.array(ContentItemSchema).safeParse(value), [value]);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [batchBusy, setBatchBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ContentStatus | "all">("all");
@@ -595,7 +616,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
   if (!parsed.success) return <div className="error-box">{copy.invalidFormat}</div>;
 
   async function runMutation(itemId: string, operation: () => Promise<unknown>, successMessage: string) {
-    if (!canWrite || busyId) return;
+    if (!canWrite || busyId || batchBusy) return;
     setBusyId(itemId); setNotice("");
     try { await operation(); setNotice(successMessage); onChanged(); }
     catch (cause) {
@@ -606,7 +627,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
   }
 
   async function save(item: z.infer<typeof ContentItemSchema>, form: HTMLFormElement) {
-    if (!canWrite || busyId || item.status === "published") return;
+    if (!canWrite || busyId || batchBusy || item.status === "published") return;
     const data = new FormData(form);
     const fields = {
       topic: String(data.get("topic") ?? "").trim(), hook: String(data.get("hook") ?? "").trim(),
@@ -626,7 +647,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
   }
 
   async function transition(item: z.infer<typeof ContentItemSchema>, action: ContentAction, form: HTMLFormElement) {
-    if (!canWrite || busyId) return;
+    if (!canWrite || busyId || batchBusy) return;
     let scheduledFor: string | null = null;
     if (action === "schedule") {
       const localValue = String(new FormData(form).get("scheduledFor") ?? "").trim();
@@ -643,9 +664,111 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
     await runMutation(item.id, () => transitionContentItem(session, item.id, action, scheduledFor), language === "ar" ? `تم تنفيذ «${contentActionLabels[action]}» وتسجيل العملية بنجاح.` : `"${contentActionLabelsEn[action]}" completed and recorded.`);
   }
 
+  async function approveBatchItem(item: ContentBatchItem) {
+    if (!canWrite || busyId || batchBusy || item.status === "approved") return;
+    if (!canApproveContentItem(item)) return;
+    const confirmMessage = language === "ar"
+      ? `تأكيد اعتماد «${item.topic || "محتوى بدون عنوان"}»؟ لن يتم الجدولة أو النشر من هذه الشاشة.`
+      : `Approve "${item.topic || copy.untitled}"? Nothing will be scheduled or published from this screen.`;
+    if (!window.confirm(confirmMessage)) return;
+    await runMutation(item.id, () => transitionContentItem(session, item.id, "approve"), language === "ar" ? "تم اعتماد العنصر وتسجيل العملية." : "Item approved and recorded.");
+  }
+
+  async function requestBatchChanges(item: ContentBatchItem, kind: ChangeRequestKind, note: string) {
+    if (!canWrite || busyId || batchBusy || item.status === "needs_review") return;
+    const confirmMessage = language === "ar"
+      ? `تأكيد طلب تعديل «${item.topic || "محتوى بدون عنوان"}» وإعادته للمراجعة؟`
+      : `Request changes and return "${item.topic || copy.untitled}" to review?`;
+    if (!window.confirm(confirmMessage)) return;
+    const changeNote = buildChangeRequestNote(kind, note);
+    const nextVisualPrompt = appendChangeRequest(String(item.visualPrompt ?? ""), changeNote);
+    await runMutation(item.id, async () => {
+      await updateContentItem(session, item.id, {
+        topic: item.topic,
+        hook: String(item.hook ?? ""),
+        caption: item.caption,
+        cta: String(item.cta ?? ""),
+        hashtags: Array.isArray(item.hashtags) ? item.hashtags : [],
+        visualPrompt: nextVisualPrompt,
+      });
+      await transitionContentItem(session, item.id, "return_to_review");
+    }, language === "ar" ? "تم إرسال طلب التعديل وإعادة العنصر للمراجعة." : "Change request sent and item returned to review.");
+  }
+
+  async function approveAllBatch(candidates: ContentBatchItem[]) {
+    if (!canWrite || busyId || batchBusy) return;
+    const pending = candidates.filter(canApproveContentItem);
+    if (pending.length === 0) {
+      setNotice(t("contentBatch").batchNothingToApprove);
+      return;
+    }
+    const databaseBatchId = sharedDatabaseBatchId(candidates);
+    setBatchBusy(true);
+    setNotice("");
+    try {
+      if (databaseBatchId) {
+        try {
+          const result = await approveStaffContentBatch(session, databaseBatchId);
+          const approvedCount = result.approvedCount ?? 0;
+          const alreadyApprovedCount = result.alreadyApprovedCount ?? 0;
+          if (approvedCount > 0 || alreadyApprovedCount > 0) {
+            setNotice(approvedCount > 0 ? t("contentBatch").batchApprovedNotice : t("contentBatch").batchNothingToApprove);
+            onChanged();
+          } else {
+            setNotice(t("contentBatch").batchNothingToApprove);
+          }
+        } catch (cause) {
+          const code = cause instanceof Error ? cause.message : "UPDATE_FAILED";
+          if (code === "SESSION_EXPIRED") { onSessionExpired(); return; }
+          setNotice(contentErrorMessage(language, code));
+        }
+        return;
+      }
+
+      let approvedCount = 0;
+      let failed = false;
+      for (const item of pending) {
+        if (!canApproveContentItem(item)) continue;
+        try {
+          await transitionContentItem(session, item.id, "approve");
+          approvedCount += 1;
+        } catch (cause) {
+          failed = true;
+          const code = cause instanceof Error ? cause.message : "UPDATE_FAILED";
+          if (code === "SESSION_EXPIRED") { onSessionExpired(); return; }
+          setNotice(contentErrorMessage(language, code));
+          break;
+        }
+      }
+      if (approvedCount > 0) {
+        setNotice(failed ? t("contentBatch").batchPartialFailure : t("contentBatch").batchApprovedNotice);
+        onChanged();
+      } else if (!failed) {
+        setNotice(t("contentBatch").batchNothingToApprove);
+      }
+    } finally {
+      setBatchBusy(false);
+    }
+  }
+
+  const panelBusy = busyId !== null || batchBusy;
+
   return <>
     <div className="write-banner"><strong>{copy.writeBannerTitle}</strong><span>{copy.writeBannerSubtitle}</span></div>
     {notice && <div className="notice-box" aria-live="polite">{notice}</div>}
+    <Suspense fallback={null}>
+      <ContentGrowthHub
+        items={items}
+        session={session}
+        canWrite={canWrite}
+        busy={panelBusy}
+        onApproveItem={approveBatchItem}
+        onRequestChanges={requestBatchChanges}
+        onApproveAll={approveAllBatch}
+        onBatchCreated={onChanged}
+        onSessionExpired={onSessionExpired}
+      />
+    </Suspense>
     <div className="content-toolbar">
       <label>{t("common").search}<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={copy.searchPlaceholder} /></label>
       <label>{t("common").status}<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as ContentStatus | "all")}><option value="all">{copy.allStatuses}</option>{(Object.keys(statusLabels) as ContentStatus[]).map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}</select></label>
@@ -655,7 +778,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
     {items.length > 0 && filteredItems.length === 0 && <p className="muted">{t("common").noResults}</p>}
     <div className="content-list">{filteredItems.map((item) => {
       const scheduledLocal = formatLocalDateTimeInput(item.scheduledFor);
-      const locked = busyId !== null || !canWrite || item.status === "published";
+      const locked = panelBusy || !canWrite || item.status === "published";
       return <article className="content-card" key={item.id}>
         <header><div><span>{item.platform} · {item.contentType}</span><h3>{item.topic || copy.untitled}</h3></div><span className={`content-status status-${item.status}`}>{statusLabels[item.status]}</span></header>
         <form onSubmit={(event) => { event.preventDefault(); void save(item, event.currentTarget); }}>
@@ -999,9 +1122,9 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   }, []);
   const current = useMemo(() => sections.find(([id]) => id === active)!, [active]);
   useEffect(() => { document.title = `${nav[current[0]]} · ${nav.dashboard}`; }, [current, nav]);
-  useEffect(() => { const controller = new AbortController(); if (current[0] === "archive") { setStatus("ready"); return () => controller.abort(); } setStatus("loading"); setError(""); callRpc(session, current[2], {}, controller.signal).then((result) => { setData(result); setStatus("ready"); }).catch((cause) => { if (cause instanceof DOMException && cause.name === "AbortError") return; const message = cause instanceof Error ? cause.message : "LOAD_FAILED"; if (message === "SESSION_EXPIRED") onLogout(); else { setError(dashboardCopy.loadError); setStatus("error"); } }); return () => controller.abort(); }, [current, dashboardCopy.loadError, onLogout, reloadKey, session]);
-  const modeLabel = active === "planner" || active === "crm" || active === "inbox" || active === "content" ? dashboardCopy.controlledWrite : dashboardCopy.readOnly;
-  return <div className="app-shell"><a className="skip-link" href="#main-workspace">{nav.skipToContent}</a><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><LanguageSwitcher onDark /><nav aria-label="وحدات Command Center">{sections.map(([id, Icon]) => <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => setActive(id)}><Icon size={18} aria-hidden="true" />{nav[id]}</button>)}</nav><button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button></aside><main className="workspace" id="main-workspace" tabIndex={-1}><p className="eyebrow">{dashboardCopy.eyebrow} · {modeLabel}</p><h1>{nav[current[0]]}</h1><section className="panel" aria-busy={status === "loading"}><div className="panel-heading"><div><h2>{dashboardCopy.panelHeading}</h2><p>{dashboardCopy.panelSubheading}</p></div><div className="panel-heading-actions"><PushInstallBar session={session} language={language} /><button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button></div></div>{status === "loading" && <p className="muted" role="status">{t("common").loading}</p>}{status === "error" && <div className="error-box" role="alert">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MediaLibraryView value={data} session={session} onSessionExpired={onLogout} /></Suspense> : active === "archive" ? <Suspense><M /></Suspense> : active === "analytics" ? <AnalyticsView value={data} /> : active === "integrations" ? <IntegrationsView value={data} /> : active === "automations" ? <AutomationsView value={data} /> : active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : <DataView value={data} />)}</section></main></div>;
+  useEffect(() => { const controller = new AbortController(); if (["archive", "dashboard"].includes(current[0])) { setStatus("ready"); return () => controller.abort(); } setStatus("loading"); setError(""); callRpc(session, current[2], {}, controller.signal).then((result) => { setData(result); setStatus("ready"); }).catch((cause) => { if (cause instanceof DOMException && cause.name === "AbortError") return; const message = cause instanceof Error ? cause.message : "LOAD_FAILED"; if (message === "SESSION_EXPIRED") onLogout(); else { setError(dashboardCopy.loadError); setStatus("error"); } }); return () => controller.abort(); }, [current, dashboardCopy.loadError, onLogout, reloadKey, session]);
+  const modeLabel = active === "planner" || active === "crm" || active === "inbox" || active === "content" || active === "media" ? dashboardCopy.controlledWrite : dashboardCopy.readOnly;
+  return <div className="app-shell"><a className="skip-link" href="#main-workspace">{nav.skipToContent}</a><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><LanguageSwitcher onDark /><nav aria-label="وحدات Command Center">{sections.map(([id, Icon]) => <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => setActive(id)}><Icon size={18} aria-hidden="true" />{nav[id]}</button>)}</nav><button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button></aside><main className="workspace" id="main-workspace" tabIndex={-1}><p className="eyebrow">{dashboardCopy.eyebrow} · {modeLabel}</p><h1>{nav[current[0]]}</h1><section className="panel" aria-busy={status === "loading"}><div className="panel-heading"><div><h2>{dashboardCopy.panelHeading}</h2><p>{dashboardCopy.panelSubheading}</p></div><div className="panel-heading-actions"><PushInstallBar session={session} language={language} /><button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button></div></div>{status === "loading" && <p className="muted" role="status">{t("common").loading}</p>}{status === "error" && <div className="error-box" role="alert">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MediaLibraryView value={data} session={session} canWrite={["super_admin", "admin", "content_manager"].includes(session.role)} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /></Suspense> : active === "archive" ? <Suspense><M /></Suspense> : active === "analytics" ? <AnalyticsView value={data} /> : active === "integrations" ? <IntegrationsView value={data} /> : active === "automations" ? <AutomationsView value={data} /> : active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "dashboard" ? <Suspense><TodayView key={reloadKey} session={session} onNavigate={setActive} onSessionExpired={onLogout} /></Suspense> : null)}</section></main></div>;
 }
 
 async function sendTestPushSelf(session: Session) {

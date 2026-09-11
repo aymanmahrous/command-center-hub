@@ -6,6 +6,8 @@ const envExample = await readFile(new URL("../.env.example", import.meta.url), "
 const gitignore = await readFile(new URL("../.gitignore", import.meta.url), "utf8");
 const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
 const app = await readFile(new URL("../src/main.tsx", import.meta.url), "utf8");
+const growthHub = await readFile(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
+const growthCopyEn = await readFile(new URL("../src/i18n/en.ts", import.meta.url), "utf8");
 const mediaView = await readFile(new URL("../src/media-library-view.tsx", import.meta.url), "utf8");
 
 test("environment example contains the browser-safe configuration contract", () => {
@@ -118,21 +120,41 @@ test("Content Studio honors server status and action allowlists", () => {
   assert.match(app, /APPROVAL_REQUIRED/);
 });
 
-test("Media Library uses the staff RPC and exposes no storage or table mutation", () => {
+test("Content batch generation uses approved RPC and confirms before write", () => {
+  assert.match(growthHub, /create_staff_generated_content_batch/);
+  assert.match(growthHub, /window\.confirm\(copy\.generateConfirm\)/);
+  assert.match(growthCopyEn, /Nothing will be scheduled or published/i);
+  assert.doesNotMatch(growthHub, /graph\.facebook|buffer\.com/i);
+});
+
+test("Content batch review approves through approved RPCs only", () => {
+  assert.match(app, /ContentGrowthHub/);
+  assert.match(app, /approveAllBatch/);
+  assert.match(app, /approve_staff_content_batch/);
+  assert.match(app, /transition_staff_content_item/);
+  assert.match(app, /Nothing will be scheduled or published from this screen/);
+  assert.match(app, /canApproveContentItem/);
+  assert.match(app, /sharedDatabaseBatchId/);
+  assert.doesNotMatch(app, /graph\.facebook|facebook\.com\/v\d+/i);
+});
+
+test("Media Library uses staff RPCs and blocks direct table mutation", () => {
   assert.match(app, /get_staff_media_assets/);
   assert.match(app, /import\("\.\/media-library-view"\)/);
   assert.match(mediaView, /fetchStaffMediaBlob/);
   assert.match(mediaView, /openStaffMediaAsset/);
+  assert.match(mediaView, /MediaLibraryUploadPanel/);
+  assert.match(mediaView, /register_staff_media_upload|MediaLibraryUploadPanel/);
   assert.doesNotMatch(mediaView, /create_staff_media_asset_record|create_staff_video_generation_job|update_staff_video_generation_job/);
   assert.doesNotMatch(mediaView, /\/rest\/v1\/media_assets[^\n]*(PATCH|PUT|DELETE|POST)/i);
 });
 
-test("Media Library validates ownership-shaped records and remains private read-only", () => {
+test("Media Library validates ownership-shaped records and exposes review controls", () => {
   for (const field of ["createdBy", "contentItemId", "assetType", "source", "storagePath", "providerJobId", "metadata", "createdAt"]) assert.match(mediaView, new RegExp(field));
   for (const type of ["image", "video", "logo", "other"]) assert.match(mediaView, new RegExp(`"${type}"`));
   for (const source of ["upload", "ai_generated", "external"]) assert.match(mediaView, new RegExp(`"${source}"`));
-  assert.match(mediaView, /مكتبة وسائط خاصة للقراءة فقط/);
-  assert.match(mediaView, /privateExternalReference/);
+  assert.match(mediaView, /writeBannerTitle|مكتبة وسائط خاصة للقراءة فقط/);
+  assert.match(mediaView, /MediaAssetControls/);
   assert.match(mediaView, /typeFilter/);
   assert.match(mediaView, /sourceFilter/);
 });

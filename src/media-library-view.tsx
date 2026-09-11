@@ -3,6 +3,10 @@ import { Library } from "lucide-react";
 import { z } from "zod";
 import { useLanguage } from "./i18n";
 import type { Dictionary, Language } from "./i18n";
+import MediaLibraryUploadPanel from "./media-library-upload";
+import { MediaAssetControls, MediaProviderStrip, parseMediaAssetRecords } from "./media-library-controls";
+import type { MediaCategory } from "./media-types";
+import { MEDIA_CATEGORIES } from "./media-types";
 import { fetchStaffMediaBlob, openStaffMediaAsset } from "./staff-media-storage";
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
@@ -15,6 +19,10 @@ const MediaAssetSchema = z.object({
   assetType: z.enum(["image", "video", "logo", "other"]), source: z.enum(["upload", "ai_generated", "external"]),
   storagePath: z.string().nullable(), provider: z.string().nullable(), providerJobId: z.string().nullable(),
   prompt: z.string().nullable(), metadata: z.record(z.unknown()), createdAt: z.string(),
+  category: z.string().optional(), mediaStatus: z.string().optional(), aiAnalysisStatus: z.string().optional(),
+  publishabilityStatus: z.string().optional(), consentStatus: z.string().optional(),
+  suggestedPlatforms: z.array(z.string()).optional(), suggestedFormats: z.array(z.string()).optional(),
+  aiNotes: z.string().optional(), updatedAt: z.string().nullable().optional(),
 }).passthrough();
 
 const mediaTypeLabels: Record<Language, Record<MediaAssetType, string>> = {
@@ -45,8 +53,8 @@ function mediaPreviewHint(language: Language, copy: Dictionary["media"], assetTy
 }
 
 function mediaMetadataSummary(copy: Dictionary["media"], metadata: Record<string, unknown>, provider: string | null = null) {
-  const hiddenKeys = new Set(["drive_file_id", "driveFileId", "googleDriveFileId", "fileId"]);
-  const entries = Object.entries(metadata).filter(([key]) => !(provider === "google_drive" && hiddenKeys.has(key)));
+  const hiddenKeys = new Set(["drive_file_id", "driveFileId", "googleDriveFileId", "fileId", "analysis", "analysisProvider", "geminiConnected"]);
+  const entries = Object.entries(metadata).filter(([key]) => !(provider === "google_drive" && hiddenKeys.has(key)) && !hiddenKeys.has(key));
   if (entries.length === 0) return copy.noMetadata;
   return entries.slice(0, 6).map(([key, value]) => {
     const rendered = typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? String(value) : copy.compositeData;
@@ -145,37 +153,87 @@ function MediaAssetPreview({
   </div>;
 }
 
-export default function MediaLibraryView({ value, session, onSessionExpired }: { value: JsonValue; session: MediaLibrarySession; onSessionExpired: () => void }) {
+export default function MediaLibraryView({
+  value,
+  session,
+  canWrite,
+  busy = false,
+  onChanged,
+  onSessionExpired,
+}: {
+  value: JsonValue;
+  session: MediaLibrarySession;
+  canWrite: boolean;
+  busy?: boolean;
+  onChanged: () => void;
+  onSessionExpired: () => void;
+}) {
   const { language, t } = useLanguage();
   const copy = t("media");
   const typeLabels = mediaTypeLabels[language];
   const sourceLabels = mediaSourceLabels[language];
   const parsed = useMemo(() => z.array(MediaAssetSchema).safeParse(value), [value]);
+  const records = useMemo(() => parseMediaAssetRecords(value), [value]);
+  const recordById = useMemo(() => new Map(records.map((record) => [record.id, record])), [records]);
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<MediaAssetType | "all">("all");
   const [sourceFilter, setSourceFilter] = useState<MediaSource | "all">("all");
+  const [categoryFilter, setCategoryFilter] = useState<MediaCategory | "all">("all");
   const assets = parsed.success ? parsed.data : [];
   const counts = useMemo(() => {
     const initial: Record<MediaAssetType, number> = { image: 0, video: 0, logo: 0, other: 0 };
     for (const asset of assets) initial[asset.assetType] += 1;
     return initial;
   }, [assets]);
+  const categoryLabels = useMemo(() => Object.fromEntries(
+    MEDIA_CATEGORIES.map((category) => [category, copy[`category_${category}` as keyof typeof copy] ?? category]),
+  ), [copy]);
   const filteredAssets = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("ar");
     return assets.filter((asset) => {
+      const record = recordById.get(asset.id);
+      const category = record?.category ?? "unclassified";
       if (typeFilter !== "all" && asset.assetType !== typeFilter) return false;
       if (sourceFilter !== "all" && asset.source !== sourceFilter) return false;
+      if (categoryFilter !== "all" && category !== categoryFilter) return false;
       if (!normalized) return true;
-      return [mediaFileName(language, copy, asset.storagePath, asset.metadata), asset.provider, asset.prompt, asset.contentItemId, mediaMetadataSummary(copy, asset.metadata, asset.provider)]
+      return [mediaFileName(language, copy, asset.storagePath, asset.metadata), asset.provider, asset.prompt, asset.contentItemId, record?.publishabilityStatus, mediaMetadataSummary(copy, asset.metadata, asset.provider)]
         .filter((field): field is string => Boolean(field))
         .some((field) => field.toLocaleLowerCase("ar").includes(normalized));
     });
-  }, [assets, copy, language, query, sourceFilter, typeFilter]);
+  }, [assets, categoryFilter, copy, language, query, recordById, sourceFilter, typeFilter]);
+
+  const controlLabels = useMemo(() => ({
+    categoryLabel: copy.categoryLabel,
+    consentLabel: copy.consentLabel,
+    approveMedia: copy.approveMedia,
+    rejectMedia: copy.rejectMedia,
+    unsuitableMedia: copy.unsuitableMedia,
+    analyzeMedia: copy.analyzeMedia,
+    publishabilityLabel: copy.publishabilityLabel,
+    aiStatusLabel: copy.aiStatusLabel,
+    ...Object.fromEntries(MEDIA_CATEGORIES.map((category) => [`category_${category}`, categoryLabels[category]])),
+    ...Object.fromEntries(["unknown", "consent_required", "consent_confirmed", "no_consent"].map((status) => [`consent_${status}`, copy[`consent_${status}` as keyof typeof copy] ?? status])),
+  }), [categoryLabels, copy]);
 
   if (!parsed.success) return <div className="error-box">{copy.invalidFormat}</div>;
 
   return <>
-    <div className="media-security-banner"><strong>{language === "ar" ? "مكتبة وسائط خاصة للقراءة فقط" : "Private read-only media library"}</strong><span>{copy.bannerSubtitle}</span></div>
+    <div className="write-banner media-write-banner">
+      <strong>{canWrite ? copy.writeBannerTitle : (language === "ar" ? "مكتبة وسائط خاصة للقراءة فقط" : "Private read-only media library")}</strong>
+      <span>{copy.bannerSubtitle}</span>
+    </div>
+    <MediaProviderStrip />
+    <p className="media-marketing-note">{copy.marketingBlockedNote}</p>
+    {canWrite && (
+      <MediaLibraryUploadPanel
+        session={session}
+        canWrite={canWrite}
+        busy={busy}
+        onUploaded={onChanged}
+        onSessionExpired={onSessionExpired}
+      />
+    )}
     <div className="media-summary" aria-label={language === "ar" ? "ملخص أنواع الوسائط" : "Media type summary"}>
       <button type="button" className={typeFilter === "all" ? "active" : ""} onClick={() => setTypeFilter("all")}><span>{copy.allLabel}</span><strong>{assets.length}</strong></button>
       {(Object.keys(typeLabels) as MediaAssetType[]).map((type) => <button type="button" key={type} className={typeFilter === type ? "active" : ""} onClick={() => setTypeFilter(type)}><span>{typeLabels[type]}</span><strong>{counts[type]}</strong></button>)}
@@ -183,23 +241,43 @@ export default function MediaLibraryView({ value, session, onSessionExpired }: {
     <div className="media-toolbar">
       <label>{t("common").search}<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={copy.searchPlaceholder} /></label>
       <label>{copy.sourceLabel}<select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value as MediaSource | "all")}><option value="all">{copy.allSources}</option>{(Object.keys(sourceLabels) as MediaSource[]).map((source) => <option key={source} value={source}>{sourceLabels[source]}</option>)}</select></label>
+      <label>{copy.categoryLabel}<select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value as MediaCategory | "all")}><option value="all">{copy.allLabel}</option>{MEDIA_CATEGORIES.map((category) => <option key={category} value={category}>{categoryLabels[category]}</option>)}</select></label>
       <span>{filteredAssets.length} {t("common").of} {assets.length}</span>
     </div>
     {assets.length === 0 && <p className="muted">{copy.noAssets}</p>}
     {assets.length > 0 && filteredAssets.length === 0 && <p className="muted">{copy.noResults}</p>}
-    <div className="media-grid">{filteredAssets.map((asset) => <article className="media-card" key={asset.id}>
-      <MediaAssetPreview asset={asset} copy={copy} language={language} session={session} typeLabels={typeLabels} onSessionExpired={onSessionExpired} loadingLabel={t("common").loading} />
-      <div className="media-details">
-        <header><div><span>{sourceLabels[asset.source]}</span><h3>{mediaFileName(language, copy, asset.storagePath, asset.metadata)}</h3></div><span className="private-badge">{copy.privateBadge}</span></header>
-        <dl>
-          <div><dt>{copy.providerLabel}</dt><dd>{asset.provider || copy.internalUnspecified}</dd></div>
-          <div><dt>{copy.createdLabel}</dt><dd>{formatBookingDateTime(language, asset.createdAt)}</dd></div>
-          <div><dt>{copy.contentItemLabel}</dt><dd>{asset.contentItemId ?? t("common").unlinked}</dd></div>
-          <div><dt>{copy.providerJobLabel}</dt><dd>{mediaProviderJobLabel(copy, t("common").unavailable, asset.provider, asset.providerJobId)}</dd></div>
-        </dl>
-        {asset.prompt && <div className="media-prompt"><strong>{copy.generationDescription}</strong><p>{asset.prompt}</p></div>}
-        <p className="media-metadata">{mediaMetadataSummary(copy, asset.metadata, asset.provider)}</p>
-      </div>
-    </article>)}</div>
+    <div className="media-grid">{filteredAssets.map((asset) => {
+      const record = recordById.get(asset.id);
+      return <article className="media-card" key={asset.id}>
+        <MediaAssetPreview asset={asset} copy={copy} language={language} session={session} typeLabels={typeLabels} onSessionExpired={onSessionExpired} loadingLabel={t("common").loading} />
+        <div className="media-details">
+          <header><div><span>{sourceLabels[asset.source]}</span><h3>{mediaFileName(language, copy, asset.storagePath, asset.metadata)}</h3></div><span className="private-badge">{copy.privateBadge}</span></header>
+          {record && (
+            <p className="media-status-line">
+              {copy.categoryLabel}: {categoryLabels[record.category]} · {copy.publishabilityLabel}: {record.publishabilityStatus}
+            </p>
+          )}
+          <dl>
+            <div><dt>{copy.providerLabel}</dt><dd>{asset.provider || copy.internalUnspecified}</dd></div>
+            <div><dt>{copy.createdLabel}</dt><dd>{formatBookingDateTime(language, asset.createdAt)}</dd></div>
+            <div><dt>{copy.contentItemLabel}</dt><dd>{asset.contentItemId ?? t("common").unlinked}</dd></div>
+            <div><dt>{copy.providerJobLabel}</dt><dd>{mediaProviderJobLabel(copy, t("common").unavailable, asset.provider, asset.providerJobId)}</dd></div>
+          </dl>
+          {record && (
+            <MediaAssetControls
+              asset={record}
+              session={session}
+              canWrite={canWrite}
+              busy={busy}
+              labels={controlLabels}
+              onChanged={onChanged}
+              onSessionExpired={onSessionExpired}
+            />
+          )}
+          {asset.prompt && <div className="media-prompt"><strong>{copy.generationDescription}</strong><p>{asset.prompt}</p></div>}
+          <p className="media-metadata">{mediaMetadataSummary(copy, asset.metadata, asset.provider)}</p>
+        </div>
+      </article>;
+    })}</div>
   </>;
 }
