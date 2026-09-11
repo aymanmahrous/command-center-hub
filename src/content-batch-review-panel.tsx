@@ -8,7 +8,14 @@ import {
   type ContentBatchItem,
 } from "./content-batch";
 import type { ChangeRequestKind } from "./content-growth";
+import {
+  buildExternalPostLink,
+  latestReceiptForPlatform,
+  parsePublicationReceipts,
+  resolvePublishPipelineStage,
+} from "./content-publishing";
 import { readContentPillar, readTimeSlot } from "./content-strategy";
+import { readPublishingCopy } from "./content-publishing-copy";
 import { useLanguage } from "./i18n";
 import "./content-batch-review.css";
 
@@ -44,8 +51,10 @@ export function ContentBatchReviewPanel({
   const { language, t } = useLanguage();
   const copy = t("contentBatch");
   const growthCopy = t("contentGrowth");
+  const publishingCopy = readPublishingCopy(language);
   const itemStatusLabels = t("contentStatus");
   const batchStatusLabels = t("contentBatchStatus");
+  const pipelineStageLabels = publishingCopy.pipelineStages;
   const [changeTargetId, setChangeTargetId] = useState<string | null>(null);
   const [changeKind, setChangeKind] = useState<ChangeRequestKind>("caption");
   const [changeNote, setChangeNote] = useState("");
@@ -111,6 +120,10 @@ export function ContentBatchReviewPanel({
           const pillar = readContentPillar(item);
           const timeSlot = readTimeSlot(item);
           const showingForm = changeTargetId === item.id;
+          const pipelineStage = resolvePublishPipelineStage(item);
+          const receipts = parsePublicationReceipts(item);
+          const platformReceipt = latestReceiptForPlatform(item, item.platform);
+          const postLink = buildExternalPostLink(item.platform, platformReceipt?.externalPostId);
           return (
             <article className="content-batch-item" key={item.id}>
               <header>
@@ -133,6 +146,31 @@ export function ContentBatchReviewPanel({
                 </p>
               )}
               <p className="item-meta">{copy.scheduledFor}: {formatWhen(language, item.scheduledFor)}</p>
+              <div className="publish-pipeline-panel" aria-label={publishingCopy.pipelineAria}>
+                <p className="item-meta">
+                  {publishingCopy.pipelineLabel}: {pipelineStageLabels[pipelineStage] ?? pipelineStage}
+                </p>
+                {typeof item.publishedAt === "string" && item.publishedAt && (
+                  <p className="item-meta">{publishingCopy.publishedAtLabel}: {formatWhen(language, item.publishedAt)}</p>
+                )}
+                {receipts.length === 0 && pipelineStage === "approved_ready" && (
+                  <p className="publish-ready-note">{publishingCopy.awaitingN8nNote}</p>
+                )}
+                {receipts.map((receipt, index) => (
+                  <div className="publish-receipt" key={`${receipt.platform}-${receipt.updatedAt ?? index}`}>
+                    <strong>{receipt.platform.toUpperCase()} · {receipt.status}</strong>
+                    {receipt.plainLanguageReason && <span>{receipt.plainLanguageReason}</span>}
+                    {buildExternalPostLink(receipt.platform, receipt.externalPostId) && (
+                      <a href={buildExternalPostLink(receipt.platform, receipt.externalPostId) ?? "#"} target="_blank" rel="noopener noreferrer">
+                        {publishingCopy.openPostLink}
+                      </a>
+                    )}
+                  </div>
+                ))}
+                {postLink && pipelineStage === "published_live" && (
+                  <a className="publish-live-link" href={postLink} target="_blank" rel="noopener noreferrer">{publishingCopy.openLivePost}</a>
+                )}
+              </div>
               <footer>
                 {canApprove && (
                   <button type="button" disabled={itemLocked} onClick={() => void onApproveItem(item)}>

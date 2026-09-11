@@ -36,9 +36,12 @@ test("coach ayman batch passes safety validation", async () => {
   const items = await buildCoachAyman2026BatchItems(new Date("2026-09-11T00:00:00.000Z"), "validation-nonce");
   const result = validateCoachAymanBatch(items);
   assert.equal(result.valid, true, result.errors.join("; "));
-  assert.match(items[0]?.caption ?? "", /058 821 9130/);
-  assert.match(items[0]?.caption ?? "", /055 137 8660/);
+  assert.match(items[0]?.caption ?? "", /058 821 9130 — messages & booking/);
+  assert.match(items[0]?.caption ?? "", /055 137 8660 — admin team \(phone calls only\)/);
   assert.match(items[0]?.caption ?? "", /Free initial assessment/);
+  assert.match(items.map((item) => item.caption).join("\n"), /Relax Fix UAE/i);
+  assert.equal(items.filter((item) => item.platform === "facebook").every((item) => item.hashtags.length === 1), true);
+  assert.equal(items.every((item) => item.hashtags[0] === "#RelaxFixUAE"), true);
   assert.doesNotMatch(items.map((item) => item.caption).join("\n"), /guarantee|testimonial|award-winning/i);
 });
 
@@ -64,5 +67,5 @@ test("content growth hub links media-aware batch generation", async () => {
 
 test("provider id is stable for automation handoff", () => {
   assert.equal(COACH_AYMAN_PROVIDER_ID, "command-center-coach-ayman-2026");
-  assert.match(CONFIRMED_CTA, /058 821 9130/);
+  assert.match(CONFIRMED_CTA, /058 821 9130 — messages & booking/);
 });
