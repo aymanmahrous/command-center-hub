@@ -1,7 +1,9 @@
 import { z } from "zod";
-import { analyzeMediaLocally } from "./media-ai-analysis";
+import type { AiSuitabilityVerdict, MediaAssetRecord, MediaCategory, ConsentStatus } from "./media-types";
+import { displayMediaWorkflowStatus } from "./media-types";
+import { analyzeMediaWithProvider } from "./media-gemini-adapter";
+import type { MediaAnalysisResult } from "./media-ai-analysis";
 import { readMediaProviderStatuses } from "./media-providers";
-import type { MediaAssetRecord, MediaCategory, ConsentStatus } from "./media-types";
 import { normalizeMediaCategory } from "./media-types";
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
@@ -108,12 +110,12 @@ export function MediaAssetControls({
 
   async function runAnalysis() {
     if (!canWrite || busy || asset.category !== "swimming_business") return;
-    const analysis = analyzeMediaLocally(asset);
+    const result = await analyzeMediaWithProvider(asset);
     try {
       await callRpc(session, "save_staff_media_ai_analysis", {
         p_media_asset_id: asset.id,
-        p_analysis: analysis,
-        p_provider: "local_heuristic",
+        p_analysis: result.analysis,
+        p_provider: result.provider,
       });
       onChanged();
     } catch (cause) {
@@ -121,8 +123,16 @@ export function MediaAssetControls({
     }
   }
 
+  const workflowStatus = displayMediaWorkflowStatus(asset);
+  const analysis = (asset.metadata.analysis ?? null) as MediaAnalysisResult | null;
+
   return (
     <div className="media-asset-controls">
+      <p className="media-status-line">
+        {labels.workflowStatusLabel}: {labels[`workflow_${workflowStatus}`] ?? workflowStatus}
+        {" · "}{labels.publishabilityLabel}: {asset.publishabilityStatus}
+        {" · "}{labels.aiStatusLabel}: {asset.aiAnalysisStatus}
+      </p>
       <label>{labels.categoryLabel}
         <select
           disabled={!canWrite || busy}
@@ -151,8 +161,25 @@ export function MediaAssetControls({
         <button type="button" className="secondary" disabled={!canWrite || busy} onClick={() => void update({ media_status: "unsuitable" })}>{labels.unsuitableMedia}</button>
         <button type="button" disabled={!canWrite || busy || asset.category !== "swimming_business"} onClick={() => void runAnalysis()}>{labels.analyzeMedia}</button>
       </div>
-      <p className="media-status-line">{labels.publishabilityLabel}: {asset.publishabilityStatus} · {labels.aiStatusLabel}: {asset.aiAnalysisStatus}</p>
-      {asset.aiNotes && <p className="media-ai-notes">{asset.aiNotes}</p>}
+      {analysis && (
+        <div className="media-ai-review-panel" aria-label={labels.aiReviewTitle}>
+          <strong>{labels.aiReviewTitle}</strong>
+          <p>{labels.aiVerdictLabel}: {labels[`aiVerdict_${analysis.suitabilityVerdict}`] ?? analysis.suitabilityVerdict}</p>
+          <p>{labels.recommendedPlatformLabel}: {(analysis.suggestedFormats.length ? analysis.suggestedFormats : analysis.suggestedPlatforms).join(" · ")}</p>
+          <dl>
+            <div><dt>{labels.suggestedHookLabel}</dt><dd>{analysis.hook}</dd></div>
+            <div><dt>{labels.onScreenTextLabel}</dt><dd>{analysis.onScreenText}</dd></div>
+            <div><dt>{labels.suggestedCaptionLabel}</dt><dd>{analysis.captionIdea}</dd></div>
+            <div><dt>{labels.suggestedCtaLabel}</dt><dd>{analysis.cta}</dd></div>
+            <div><dt>{labels.suggestedCropLabel}</dt><dd>{analysis.cropSuggestion}</dd></div>
+            <div><dt>{labels.suggestedEditLabel}</dt><dd>{analysis.editSuggestion}</dd></div>
+            {analysis.bestReelSegment && (
+              <div><dt>{labels.reelSegmentLabel}</dt><dd>{analysis.bestReelSegment.startSec}s–{analysis.bestReelSegment.endSec}s · {analysis.bestReelSegment.reason}</dd></div>
+            )}
+          </dl>
+          {analysis.notes && <p className="media-ai-notes">{analysis.notes}</p>}
+        </div>
+      )}
     </div>
   );
 }

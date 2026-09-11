@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { groupContentBatches, isDatabaseBatchId, selectPrimaryBatch, buildNextBatchReadyNotice, type ContentBatchItem } from "./content-batch";
 import { COACH_AYMAN_PROVIDER_ID } from "./content-batch-generator";
 import { buildCoachAyman2026BatchWithMedia } from "./media-batch-link";
-import { parseMediaAssetRecords } from "./media-library-controls";
+import { parseMediaAssetRecords, MediaProviderStrip } from "./media-library-controls";
 import {
   readIntegrationStatuses,
   summarizePipeline,
@@ -192,6 +192,7 @@ export default function ContentGrowthHub({
           ))}
         </div>
         <p className="batch-meta">{copy.integrationsNote}</p>
+        <MediaProviderStrip />
       </section>
 
       <section className="content-growth-section" aria-labelledby="strategy-mix-heading">

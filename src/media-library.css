@@ -101,6 +101,11 @@
 .media-control-actions button { border: 1px solid #0891b2; border-radius: 999px; padding: 7px 12px; background: #0891b2; color: #fff; font-size: 0.76rem; font-weight: 800; cursor: pointer; }
 .media-control-actions button.secondary { border-color: #cbd5e1; background: #fff; color: #334155; }
 .media-control-actions button:disabled { opacity: 0.65; cursor: not-allowed; }
+.media-ai-review-panel { margin-top: 10px; padding: 12px; border-radius: 12px; border: 1px solid #bae6fd; background: #f0f9ff; display: grid; gap: 8px; }
+.media-ai-review-panel dl { display: grid; gap: 8px; margin: 0; }
+.media-ai-review-panel dt { color: #64748b; font-size: 0.72rem; font-weight: 800; }
+.media-ai-review-panel dd { margin: 2px 0 0; font-size: 0.82rem; overflow-wrap: anywhere; }
+
 .media-status-line { margin: 0; font-size: 0.78rem; color: #64748b; }
 .media-ai-notes { margin: 0; font-size: 0.78rem; color: #334155; }
 

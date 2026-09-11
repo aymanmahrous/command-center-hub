@@ -7,6 +7,8 @@ const batchLink = await readFile(new URL("../src/media-batch-link.ts", import.me
 
 test("local analysis stays heuristic and flags Gemini NOT CONNECTED", () => {
   assert.match(analysis, /providerConnected: false/);
+  assert.match(analysis, /suitabilityVerdict/);
+  assert.match(analysis, /editSuggestion/);
   assert.match(analysis, /Gemini API NOT CONNECTED/);
   assert.match(analysis, /containsChildrenGuess/);
   assert.match(analysis, /Consent Required/);

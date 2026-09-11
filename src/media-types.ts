@@ -15,6 +15,7 @@ export const MARKETING_BLOCKED_CATEGORIES = new Set<MediaCategory>([
 ]);
 
 export type ConsentStatus = "unknown" | "consent_required" | "consent_confirmed" | "no_consent";
+export type AiSuitabilityVerdict = "good" | "needs_review" | "unsuitable";
 export type AiAnalysisStatus = "not_started" | "pending" | "completed" | "failed";
 export type PublishabilityStatus = "blocked" | "consent_required" | "ready_for_review" | "unsuitable";
 export type MediaWorkflowStatus = "unclassified" | "approved" | "rejected" | "unsuitable";
@@ -49,6 +50,16 @@ export function normalizeMediaCategory(value: unknown): MediaCategory {
 
 export function isMarketingEligibleCategory(category: MediaCategory): boolean {
   return category === "swimming_business" || category === "other_business";
+}
+
+export function displayMediaWorkflowStatus(
+  asset: Pick<MediaAssetRecord, "mediaStatus" | "aiAnalysisStatus">,
+): "pending_review" | "reviewed" | "approved" | "rejected" | "unsuitable" {
+  if (asset.mediaStatus === "approved") return "approved";
+  if (asset.mediaStatus === "rejected") return "rejected";
+  if (asset.mediaStatus === "unsuitable") return "unsuitable";
+  if (asset.aiAnalysisStatus === "completed") return "reviewed";
+  return "pending_review";
 }
 
 export function canUseInMarketingBatch(asset: Pick<MediaAssetRecord, "category" | "consentStatus" | "publishabilityStatus" | "mediaStatus">): boolean {
