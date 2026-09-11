@@ -1,9 +1,10 @@
-import type { MediaAssetRecord, MediaCategory } from "./media-types";
+import type { MediaAssetRecord, MediaCategory, AiSuitabilityVerdict } from "./media-types";
 import { derivePublishability } from "./media-types";
 
 export type MediaAnalysisResult = {
   provider: "local_heuristic";
   providerConnected: false;
+  suitabilityVerdict: AiSuitabilityVerdict;
   qualityScore: number;
   clarityScore: number;
   swimmingFitScore: number;
@@ -15,6 +16,7 @@ export type MediaAnalysisResult = {
   captionIdea: string;
   cta: string;
   cropSuggestion: string;
+  editSuggestion: string;
   videoSegments?: Array<{ startSec: number; endSec: number; label: string }>;
   bestReelSegment?: { startSec: number; endSec: number; reason: string };
   notes: string;
@@ -43,9 +45,16 @@ export function analyzeMediaLocally(asset: Pick<MediaAssetRecord, "assetType" | 
     ? ["instagram_reel", "facebook_reel", "tiktok"]
     : ["instagram_post", "instagram_carousel", "facebook_post"];
 
+  const suitabilityVerdict: AiSuitabilityVerdict = swimmingFitScore >= 75 && clarityScore >= 70
+    ? "good"
+    : swimmingFitScore < 45 || category !== "swimming_business"
+      ? "unsuitable"
+      : "needs_review";
+
   return {
     provider: "local_heuristic",
     providerConnected: false,
+    suitabilityVerdict,
     qualityScore,
     clarityScore,
     swimmingFitScore,
@@ -57,6 +66,7 @@ export function analyzeMediaLocally(asset: Pick<MediaAssetRecord, "assetType" | 
     captionIdea: "Educational swimming guidance — no guarantees, no fabricated results.",
     cta: "WhatsApp 058 821 9130 · Call 055 137 8660 · Free initial assessment.",
     cropSuggestion: isVideo ? "Keep coach and learner visible; avoid tight face crops of children." : "Center subject with pool context; leave space for CTA overlay.",
+    editSuggestion: isVideo ? "Trim to 15–20s vertical; add captions in first 2 seconds." : "Light contrast boost; keep logo clear; avoid heavy filters.",
     videoSegments: isVideo
       ? [{ startSec: 0, endSec: 3, label: "Hook" }, { startSec: 3, endSec: 12, label: "Teaching moment" }, { startSec: 12, endSec: 18, label: "CTA card" }]
       : undefined,

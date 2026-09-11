@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   canUseInMarketingBatch,
   derivePublishability,
+  displayMediaWorkflowStatus,
   isMarketingEligibleCategory,
   normalizeMediaCategory,
 } from "../src/media-types.ts";
@@ -28,4 +29,10 @@ test("swimming business requires consent_confirmed for batch use", () => {
 test("normalizeMediaCategory defaults to unclassified", () => {
   assert.equal(normalizeMediaCategory(null), "unclassified");
   assert.equal(normalizeMediaCategory("swimming_business"), "swimming_business");
+});
+
+test("displayMediaWorkflowStatus maps analysis completion to reviewed", () => {
+  assert.equal(displayMediaWorkflowStatus({ mediaStatus: "unclassified", aiAnalysisStatus: "not_started" }), "pending_review");
+  assert.equal(displayMediaWorkflowStatus({ mediaStatus: "unclassified", aiAnalysisStatus: "completed" }), "reviewed");
+  assert.equal(displayMediaWorkflowStatus({ mediaStatus: "approved", aiAnalysisStatus: "completed" }), "approved");
 });

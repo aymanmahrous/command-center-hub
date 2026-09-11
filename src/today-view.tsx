@@ -3,7 +3,7 @@ import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, Library, Workflow } 
 import { z } from "zod";
 import type { ContentBatchItem } from "./content-batch";
 import { summarizePipeline } from "./content-growth";
-import { buildDayNineReminder } from "./content-batch";
+import { buildDayNineReminder, buildNextBatchReadyNotice } from "./content-batch";
 import { useLanguage } from "./i18n";
 import type { Language } from "./i18n";
 import "./today-view.css";
@@ -75,7 +75,9 @@ const todayCopy = {
     contentScheduled: "مجدول",
     contentPublished: "منشور",
     contentFailed: "فشل",
-    dayNineToday: "تذكير مراجعة اليوم 9 نشط — افتح Content Studio لاعتماد الدفعة.",
+    dayNineToday: "تذكير مراجعة اليوم 9 نشط — افتح Content Growth Hub لاعتماد الدفعة.",
+    batchReadyToday: "دفعة الـ10 أيام التالية جاهزة للمراجعة.",
+    openGrowthHubButton: "فتح Content Growth Hub",
     healthEyebrow: "صحة التشغيل",
     healthTitle: "صحة النظام",
     automationSnapshotTitle: "لقطة حالة الأتمتة",
@@ -114,7 +116,9 @@ const todayCopy = {
     contentScheduled: "Scheduled",
     contentPublished: "Published",
     contentFailed: "Failed",
-    dayNineToday: "Day-9 review reminder active — open Content Studio to approve the batch.",
+    dayNineToday: "Day-9 review reminder active — open Content Growth Hub to approve the batch.",
+    batchReadyToday: "Next 10-Day Batch Ready for Review.",
+    openGrowthHubButton: "Open Content Growth Hub",
     healthEyebrow: "Operations health",
     healthTitle: "System health",
     automationSnapshotTitle: "Automation status snapshot",
@@ -241,6 +245,7 @@ export default function TodayOperationsView({
     const reviewContent = contentItems.filter((item) => ["needs_review", "generated", "draft"].includes(item.status));
     const pipeline = summarizePipeline(contentItems as ContentBatchItem[]);
     const dayNine = buildDayNineReminder(contentItems as ContentBatchItem[]);
+    const batchReady = buildNextBatchReadyNotice(contentItems as ContentBatchItem[]);
     const pendingBookings = bookings.filter((booking) => ["pending", "contacted"].includes(booking.status));
     const humanConversations = inbox.filter((conversation) => conversation.mode === "human_required" || conversation.humanRequired);
     const crmFollowUps = leads.filter((lead) => lead.stage === "follow_up" || lead.humanRequired || isDueNow(lead.nextFollowUpAt, nowMs));
@@ -253,6 +258,7 @@ export default function TodayOperationsView({
       reviewContent,
       pipeline,
       dayNine,
+      batchReady,
       pendingBookings,
       humanConversations,
       crmFollowUps,
@@ -303,10 +309,17 @@ export default function TodayOperationsView({
       {snapshotAt && <span>{copy.snapshotLabel}: {formatDateTime(language, snapshotAt)}</span>}
     </div>
 
+    {metrics.batchReady?.show && (
+      <div className="today-day-nine-banner batch-ready-banner" role="status">
+        <strong>{copy.batchReadyToday}</strong>
+        <button type="button" className="today-quick-action" onClick={() => onNavigate("content")}>{copy.openGrowthHubButton}</button>
+      </div>
+    )}
+
     {metrics.dayNine?.show && (
       <div className="today-day-nine-banner" role="status">
         <strong>{copy.dayNineToday}</strong>
-        <button type="button" className="today-quick-action" onClick={() => onNavigate("content")}>{nav.content}</button>
+        <button type="button" className="today-quick-action" onClick={() => onNavigate("content")}>{copy.openGrowthHubButton}</button>
       </div>
     )}
 
