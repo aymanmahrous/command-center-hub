@@ -192,7 +192,7 @@ export default function ContentGrowthHub({
           ))}
         </div>
         <p className="batch-meta">{copy.integrationsNote}</p>
-        <MediaProviderStrip />
+        <MediaProviderStrip session={session} canWrite={canWrite} />
       </section>
 
       <section className="content-growth-section" aria-labelledby="strategy-mix-heading">

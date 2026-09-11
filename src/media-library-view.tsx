@@ -236,7 +236,7 @@ export default function MediaLibraryView({
       <strong>{canWrite ? copy.writeBannerTitle : (language === "ar" ? "مكتبة وسائط خاصة للقراءة فقط" : "Private read-only media library")}</strong>
       <span>{copy.bannerSubtitle}</span>
     </div>
-    <MediaProviderStrip />
+    <MediaProviderStrip session={session} canWrite={canWrite} />
     <p className="media-marketing-note">{copy.marketingBlockedNote}</p>
     {canWrite && (
       <MediaLibraryUploadPanel
