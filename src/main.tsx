@@ -2,6 +2,7 @@ import React, { FormEvent, lazy, Suspense, useEffect, useMemo, useState } from "
 import { createRoot } from "react-dom/client";
 import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, LayoutDashboard, Library, LogOut, Settings2, ShieldAlert, Workflow } from "lucide-react";
 import { z } from "zod";
+import { canApproveContentItem, type ContentBatchItem } from "./content-batch";
 import { LanguageProvider, useLanguage } from "./i18n";
 import type { Language } from "./i18n";
 import { pushSupported, registerServiceWorker, getPushSubscription, enablePush, disablePush } from "./push";
@@ -16,6 +17,7 @@ import "./system-polish.css";
 
 const MediaLibraryView = lazy(() => import("./media-library-view"));
 const TodayView = lazy(() => import("./today-view"));
+const ContentBatchReviewPanel = lazy(() => import("./content-batch-review-panel").then((module) => ({ default: module.ContentBatchReviewPanel })));
 const M = lazy(() => import("./massive-archive-view"));
 
 const sections = [
@@ -578,6 +580,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
   const statusLabels = contentStatusLabels[language];
   const parsed = useMemo(() => z.array(ContentItemSchema).safeParse(value), [value]);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [batchBusy, setBatchBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ContentStatus | "all">("all");
@@ -596,7 +599,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
   if (!parsed.success) return <div className="error-box">{copy.invalidFormat}</div>;
 
   async function runMutation(itemId: string, operation: () => Promise<unknown>, successMessage: string) {
-    if (!canWrite || busyId) return;
+    if (!canWrite || busyId || batchBusy) return;
     setBusyId(itemId); setNotice("");
     try { await operation(); setNotice(successMessage); onChanged(); }
     catch (cause) {
@@ -607,7 +610,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
   }
 
   async function save(item: z.infer<typeof ContentItemSchema>, form: HTMLFormElement) {
-    if (!canWrite || busyId || item.status === "published") return;
+    if (!canWrite || busyId || batchBusy || item.status === "published") return;
     const data = new FormData(form);
     const fields = {
       topic: String(data.get("topic") ?? "").trim(), hook: String(data.get("hook") ?? "").trim(),
@@ -627,7 +630,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
   }
 
   async function transition(item: z.infer<typeof ContentItemSchema>, action: ContentAction, form: HTMLFormElement) {
-    if (!canWrite || busyId) return;
+    if (!canWrite || busyId || batchBusy) return;
     let scheduledFor: string | null = null;
     if (action === "schedule") {
       const localValue = String(new FormData(form).get("scheduledFor") ?? "").trim();
@@ -644,9 +647,76 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
     await runMutation(item.id, () => transitionContentItem(session, item.id, action, scheduledFor), language === "ar" ? `تم تنفيذ «${contentActionLabels[action]}» وتسجيل العملية بنجاح.` : `"${contentActionLabelsEn[action]}" completed and recorded.`);
   }
 
+  async function approveBatchItem(item: ContentBatchItem) {
+    if (!canWrite || busyId || batchBusy || item.status === "approved") return;
+    if (!canApproveContentItem(item)) return;
+    const confirmMessage = language === "ar"
+      ? `تأكيد اعتماد «${item.topic || "محتوى بدون عنوان"}»؟ لن يتم الجدولة أو النشر من هذه الشاشة.`
+      : `Approve "${item.topic || copy.untitled}"? Nothing will be scheduled or published from this screen.`;
+    if (!window.confirm(confirmMessage)) return;
+    await runMutation(item.id, () => transitionContentItem(session, item.id, "approve"), language === "ar" ? "تم اعتماد العنصر وتسجيل العملية." : "Item approved and recorded.");
+  }
+
+  async function requestBatchChanges(item: ContentBatchItem) {
+    if (!canWrite || busyId || batchBusy || item.status === "needs_review") return;
+    const confirmMessage = language === "ar"
+      ? `تأكيد طلب تعديل «${item.topic || "محتوى بدون عنوان"}» وإعادته للمراجعة؟`
+      : `Request changes and return "${item.topic || copy.untitled}" to review?`;
+    if (!window.confirm(confirmMessage)) return;
+    await runMutation(item.id, () => transitionContentItem(session, item.id, "return_to_review"), language === "ar" ? "تم إعادة العنصر للمراجعة." : "Returned to review.");
+  }
+
+  async function approveAllBatch(candidates: ContentBatchItem[]) {
+    if (!canWrite || busyId || batchBusy) return;
+    const pending = candidates.filter(canApproveContentItem);
+    if (pending.length === 0) {
+      setNotice(t("contentBatch").batchNothingToApprove);
+      return;
+    }
+    setBatchBusy(true);
+    setNotice("");
+    let approvedCount = 0;
+    let failed = false;
+    try {
+      for (const item of pending) {
+        if (!canApproveContentItem(item)) continue;
+        try {
+          await transitionContentItem(session, item.id, "approve");
+          approvedCount += 1;
+        } catch (cause) {
+          failed = true;
+          const code = cause instanceof Error ? cause.message : "UPDATE_FAILED";
+          if (code === "SESSION_EXPIRED") { onSessionExpired(); return; }
+          setNotice(contentErrorMessage(language, code));
+          break;
+        }
+      }
+      if (approvedCount > 0) {
+        setNotice(failed ? t("contentBatch").batchPartialFailure : t("contentBatch").batchApprovedNotice);
+        onChanged();
+      } else if (!failed) {
+        setNotice(t("contentBatch").batchNothingToApprove);
+      }
+    } finally {
+      setBatchBusy(false);
+    }
+  }
+
+  const panelBusy = busyId !== null || batchBusy;
+
   return <>
     <div className="write-banner"><strong>{copy.writeBannerTitle}</strong><span>{copy.writeBannerSubtitle}</span></div>
     {notice && <div className="notice-box" aria-live="polite">{notice}</div>}
+    <Suspense fallback={null}>
+      <ContentBatchReviewPanel
+        items={items}
+        canWrite={canWrite}
+        busy={panelBusy}
+        onApproveItem={approveBatchItem}
+        onRequestChanges={requestBatchChanges}
+        onApproveAll={approveAllBatch}
+      />
+    </Suspense>
     <div className="content-toolbar">
       <label>{t("common").search}<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={copy.searchPlaceholder} /></label>
       <label>{t("common").status}<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as ContentStatus | "all")}><option value="all">{copy.allStatuses}</option>{(Object.keys(statusLabels) as ContentStatus[]).map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}</select></label>
@@ -656,7 +726,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
     {items.length > 0 && filteredItems.length === 0 && <p className="muted">{t("common").noResults}</p>}
     <div className="content-list">{filteredItems.map((item) => {
       const scheduledLocal = formatLocalDateTimeInput(item.scheduledFor);
-      const locked = busyId !== null || !canWrite || item.status === "published";
+      const locked = panelBusy || !canWrite || item.status === "published";
       return <article className="content-card" key={item.id}>
         <header><div><span>{item.platform} · {item.contentType}</span><h3>{item.topic || copy.untitled}</h3></div><span className={`content-status status-${item.status}`}>{statusLabels[item.status]}</span></header>
         <form onSubmit={(event) => { event.preventDefault(); void save(item, event.currentTarget); }}>

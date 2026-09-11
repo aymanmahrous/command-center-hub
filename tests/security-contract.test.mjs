@@ -118,6 +118,14 @@ test("Content Studio honors server status and action allowlists", () => {
   assert.match(app, /APPROVAL_REQUIRED/);
 });
 
+test("Content batch review approves only through existing transition RPC", () => {
+  assert.match(app, /ContentBatchReviewPanel/);
+  assert.match(app, /approveAllBatch/);
+  assert.match(app, /Nothing will be scheduled or published from this screen/);
+  assert.match(app, /canApproveContentItem/);
+  assert.doesNotMatch(app, /buffer|canva|runway|facebook\.com|graph\.facebook/i);
+});
+
 test("Media Library uses the staff RPC and exposes no storage or table mutation", () => {
   assert.match(app, /get_staff_media_assets/);
   assert.match(app, /import\("\.\/media-library-view"\)/);
