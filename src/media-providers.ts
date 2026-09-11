@@ -4,16 +4,55 @@ export type ProviderStatus = {
   key: ProviderKey;
   connected: boolean;
   detail: string;
+  optional?: boolean;
+  manual?: boolean;
 };
 
+export const SERVER_PROVIDER_CREDENTIALS = {
+  runway: "RUNWAY_API_KEY",
+  buffer: "BUFFER_ACCESS_TOKEN",
+  n8n: "N8N_WEBHOOK_URL",
+} as const;
+
 const DEFAULT_STATUSES: Record<ProviderKey, ProviderStatus> = {
-  gemini: { key: "gemini", connected: false, detail: "Gemini — NEEDS CREDENTIAL (set GEMINI_API_KEY in Supabase Edge Function secrets)" },
-  canva: { key: "canva", connected: false, detail: "Canva — NOT CONNECTED (adapter ready for future OAuth)" },
-  runway: { key: "runway", connected: false, detail: "Runway — NOT CONNECTED (adapter ready for future API key)" },
-  capcut: { key: "capcut", connected: false, detail: "CapCut — manual workflow only (no API connected)" },
-  buffer: { key: "buffer", connected: false, detail: "Buffer — NOT CONNECTED (publishing blocked in this phase)" },
-  n8n: { key: "n8n", connected: false, detail: "n8n — design-only hooks (no live execution from Media Library)" },
+  gemini: { key: "gemini", connected: false, detail: "Gemini — server-side media review via Edge Function" },
+  canva: {
+    key: "canva",
+    connected: false,
+    optional: true,
+    detail: "Canva — OPTIONAL / NOT CONNECTED (manual design via canvaBrief; Team account has no Developer access yet)",
+  },
+  runway: {
+    key: "runway",
+    connected: false,
+    detail: `Runway — NOT CONNECTED (future ${SERVER_PROVIDER_CREDENTIALS.runway} server-side only)`,
+  },
+  capcut: { key: "capcut", connected: false, manual: true, detail: "CapCut — MANUAL workflow via capcutBrief (no API)" },
+  buffer: {
+    key: "buffer",
+    connected: false,
+    detail: `Buffer — NOT CONNECTED (future ${SERVER_PROVIDER_CREDENTIALS.buffer} server-side only; publishing blocked)`,
+  },
+  n8n: {
+    key: "n8n",
+    connected: false,
+    detail: `n8n — NOT CONNECTED (future ${SERVER_PROVIDER_CREDENTIALS.n8n} webhook-only; no polling)`,
+  },
 };
+
+export function displayProviderStatus(
+  provider: ProviderStatus,
+  geminiIntegration?: "CONNECTED" | "NOT CONNECTED" | "NEEDS CREDENTIAL",
+): string {
+  if (provider.key === "gemini") {
+    if (geminiIntegration === "CONNECTED" || provider.connected) return "CONNECTED";
+    if (geminiIntegration === "NEEDS CREDENTIAL") return "NEEDS CREDENTIAL";
+    return "NOT CONNECTED";
+  }
+  if (provider.key === "canva") return "OPTIONAL / NOT CONNECTED";
+  if (provider.key === "capcut") return "MANUAL";
+  return provider.connected ? "CONNECTED" : "NOT CONNECTED";
+}
 
 export function readMediaProviderStatuses(flags: Partial<Record<ProviderKey, boolean>> = {}): ProviderStatus[] {
   return (Object.keys(DEFAULT_STATUSES) as ProviderKey[]).map((key) => {
@@ -43,6 +82,6 @@ export function buildFallbackAssetPlan(contentType: string, topic: string): Fall
     runwayBrief: isVideo ? `Optional b-roll generation for: ${topic}` : undefined,
     capcutBrief: isVideo ? `Vertical edit with hook in first 2 seconds for: ${topic}` : "Not required for static post",
     geminiBrief: "Gemini API NOT CONNECTED — use local analysis only",
-    note: "No suitable Swimming Business media found. Fallback asset plan prepared; external providers remain NOT CONNECTED.",
+    note: "No suitable Swimming Business media found. Manual Canva/CapCut briefs prepared; optional providers remain NOT CONNECTED and do not block batch creation.",
   };
 }
