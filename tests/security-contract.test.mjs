@@ -114,7 +114,7 @@ test("Content Studio mutations are role-gated, confirmed, audited, and duplicate
 });
 
 test("Content Studio honors server status and action allowlists", () => {
-  for (const status of ["idea", "draft", "generated", "needs_review", "approved", "scheduled", "published", "failed"]) assert.match(app, new RegExp(`"${status}"`));
+  for (const status of ["idea", "draft", "generated", "needs_review", "approved", "scheduled", "published", "failed", "cancelled"]) assert.match(app, new RegExp(`"${status}"`));
   for (const action of ["approve", "return_to_review", "schedule", "unschedule"]) assert.match(app, new RegExp(`"${action}"`));
   assert.match(app, /PUBLISHED_CONTENT_IMMUTABLE/);
   assert.match(app, /APPROVAL_REQUIRED/);
