@@ -3,9 +3,11 @@ import test from "node:test";
 import {
   AUTHORIZED_FACEBOOK_PUBLISH_ITEM_ID,
   buildExternalPostLink,
+  buildFacebookPublishAudit,
   buildTrackedCta,
   buildWhatsAppLeadUrl,
   hashtagsForPlatform,
+  normalizeFacebookPostId,
   resolvePublishPipelineStage,
   summarizeLivePublishingReadiness,
 } from "../src/content-publishing.ts";
@@ -40,6 +42,14 @@ test("published receipt resolves to published_live", () => {
   assert.equal(buildExternalPostLink("facebook", "1234567890"), "https://www.facebook.com/1164107840123575/posts/1234567890");
 });
 
+test("facebook post links normalize pageId_postId receipts", () => {
+  assert.equal(normalizeFacebookPostId("1164107840123575_122116295205382830"), "122116295205382830");
+  assert.equal(
+    buildExternalPostLink("facebook", "1164107840123575_122116295205382830"),
+    "https://www.facebook.com/1164107840123575/posts/122116295205382830",
+  );
+});
+
 test("readiness prioritizes authorized facebook publish item", () => {
   const readiness = summarizeLivePublishingReadiness([
     {
@@ -52,9 +62,51 @@ test("readiness prioritizes authorized facebook publish item", () => {
       topic: "authorized facebook test",
       scheduledFor: null,
     },
-  ]);
+  ], "facebook");
   assert.equal(readiness.nextAction, "publish_via_n8n");
   assert.equal(readiness.authorizedItem?.topic, "authorized facebook test");
+});
+
+test("instagram readiness asks for batch generation when nothing is reviewable", () => {
+  const readiness = summarizeLivePublishingReadiness([
+    {
+      id: "33333333-3333-4333-8333-333333333333",
+      status: "cancelled",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      platform: "instagram",
+      contentType: "post",
+      caption: "old",
+      topic: "old instagram item",
+      scheduledFor: null,
+    },
+  ], "instagram");
+  assert.equal(readiness.nextAction, "continue_batch");
+  assert.equal(readiness.approvedCount, 0);
+});
+
+test("facebook audit flags manual public verification when receipt is published", () => {
+  const audit = buildFacebookPublishAudit([
+    {
+      id: AUTHORIZED_FACEBOOK_PUBLISH_ITEM_ID,
+      status: "published",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      platform: "facebook",
+      contentType: "post",
+      caption: "authorized",
+      topic: "authorized facebook test",
+      scheduledFor: null,
+      publishedAt: "2026-08-05T21:57:29.690Z",
+      receipts: [{
+        platform: "facebook",
+        status: "published",
+        externalPostId: "1164107840123575_122116295205382830",
+        updatedAt: "2026-08-05T21:57:29.690Z",
+      }],
+    },
+  ]);
+  assert.ok(audit);
+  assert.equal(audit.needsManualPublicCheck, true);
+  assert.match(audit.postUrl ?? "", /122116295205382830/);
 });
 
 test("tracked cta includes whatsapp attribution without secrets", () => {

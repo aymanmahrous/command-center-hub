@@ -58,7 +58,12 @@ export function buildWhatsAppLeadUrl(options: {
 }
 
 export const FACEBOOK_PAGE_ID = "1164107840123575";
+export const INSTAGRAM_ACCOUNT_ID = "17841439747493221";
 export const AUTHORIZED_FACEBOOK_PUBLISH_ITEM_ID = "9cf29b08-aaa3-4278-80bc-08a4cf3bc381";
+/** Set after the owner approves one Instagram test post for controlled n8n publish. */
+export const AUTHORIZED_INSTAGRAM_PUBLISH_ITEM_ID: string | null = null;
+
+export type PublishChannel = "facebook" | "instagram";
 
 export type PublicationReceipt = {
   platform: string;
@@ -79,6 +84,7 @@ export type PublishPipelineStage =
   | "other";
 
 export type LivePublishingReadiness = {
+  channel: PublishChannel;
   approvedCount: number;
   awaitingN8nCount: number;
   publishedLiveCount: number;
@@ -86,6 +92,16 @@ export type LivePublishingReadiness = {
   authorizedItem: ContentBatchItem | null;
   authorizedStage: PublishPipelineStage | null;
   nextAction: "review" | "approve" | "publish_via_n8n" | "verify_receipt" | "continue_batch";
+};
+
+export type FacebookPublishAudit = {
+  itemId: string;
+  topic: string;
+  externalPostId: string | null;
+  publishedAt: string | null;
+  postUrl: string | null;
+  receiptStatus: string | null;
+  needsManualPublicCheck: boolean;
 };
 
 const PUBLISH_PLATFORMS = new Set(["facebook", "instagram", "tiktok"]);
@@ -116,12 +132,21 @@ export function latestReceiptForPlatform(item: ContentBatchItem, platform: strin
   return receipts[0] ?? null;
 }
 
+export function normalizeFacebookPostId(externalPostId: string): string {
+  const trimmed = externalPostId.trim();
+  const separator = trimmed.indexOf("_");
+  if (separator > 0 && /^\d+_\d+$/.test(trimmed)) return trimmed.slice(separator + 1);
+  return trimmed;
+}
+
 export function buildExternalPostLink(platform: string, externalPostId: string | null | undefined): string | null {
   if (!externalPostId?.trim()) return null;
   const id = externalPostId.trim();
   if (/^https?:\/\//i.test(id)) return id;
   const normalized = platform.toLowerCase();
-  if (normalized === "facebook") return `https://www.facebook.com/${FACEBOOK_PAGE_ID}/posts/${id}`;
+  if (normalized === "facebook") {
+    return `https://www.facebook.com/${FACEBOOK_PAGE_ID}/posts/${normalizeFacebookPostId(id)}`;
+  }
   if (normalized === "instagram") return `https://www.instagram.com/p/${id.replace(/^\/+/, "")}/`;
   return null;
 }
@@ -143,13 +168,45 @@ export function resolvePublishPipelineStage(item: ContentBatchItem): PublishPipe
   return "other";
 }
 
-export function summarizeLivePublishingReadiness(items: ContentBatchItem[]): LivePublishingReadiness {
+function authorizedPublishItemId(channel: PublishChannel): string | null {
+  return channel === "facebook" ? AUTHORIZED_FACEBOOK_PUBLISH_ITEM_ID : AUTHORIZED_INSTAGRAM_PUBLISH_ITEM_ID;
+}
+
+function resolveNextAction(
+  channelItems: ContentBatchItem[],
+  allItems: ContentBatchItem[],
+  channel: PublishChannel,
+  authorizedItem: ContentBatchItem | null,
+  authorizedStage: PublishPipelineStage | null,
+  failedCount: number,
+  approvedCount: number,
+  publishedLiveCount: number,
+): LivePublishingReadiness["nextAction"] {
+  if (authorizedItem && authorizedStage !== "published_live") return "publish_via_n8n";
+  if (channel === "instagram" && !authorizedPublishItemId("instagram")) {
+    if (channelItems.some((item) => REVIEW_STATUSES.has(item.status))) return "review";
+    if (channelItems.some((item) => item.status === "approved")) return "approve";
+    if (failedCount > 0) return "verify_receipt";
+    return "continue_batch";
+  }
+  if (publishedLiveCount === 0 && approvedCount > 0) return "publish_via_n8n";
+  if (allItems.some((item) => REVIEW_STATUSES.has(item.status))) return "review";
+  if (allItems.some((item) => item.status === "approved")) return "approve";
+  if (failedCount > 0) return "verify_receipt";
+  return "continue_batch";
+}
+
+export function summarizeLivePublishingReadiness(
+  items: ContentBatchItem[],
+  channel: PublishChannel = "facebook",
+): LivePublishingReadiness {
+  const channelItems = items.filter((item) => String(item.platform).toLowerCase() === channel);
   let approvedCount = 0;
   let awaitingN8nCount = 0;
   let publishedLiveCount = 0;
   let failedCount = 0;
 
-  for (const item of items) {
+  for (const item of channelItems) {
     const stage = resolvePublishPipelineStage(item);
     if (stage === "approved_ready" || stage === "awaiting_n8n") approvedCount += 1;
     if (stage === "awaiting_n8n") awaitingN8nCount += 1;
@@ -157,17 +214,22 @@ export function summarizeLivePublishingReadiness(items: ContentBatchItem[]): Liv
     if (stage === "failed") failedCount += 1;
   }
 
-  const authorizedItem = items.find((item) => item.id === AUTHORIZED_FACEBOOK_PUBLISH_ITEM_ID) ?? null;
+  const authorizedId = authorizedPublishItemId(channel);
+  const authorizedItem = authorizedId ? items.find((item) => item.id === authorizedId) ?? null : null;
   const authorizedStage = authorizedItem ? resolvePublishPipelineStage(authorizedItem) : null;
-
-  let nextAction: LivePublishingReadiness["nextAction"] = "continue_batch";
-  if (authorizedItem && authorizedStage !== "published_live") nextAction = "publish_via_n8n";
-  else if (publishedLiveCount === 0 && approvedCount > 0) nextAction = "publish_via_n8n";
-  else if (items.some((item) => REVIEW_STATUSES.has(item.status))) nextAction = "review";
-  else if (items.some((item) => item.status === "approved")) nextAction = "approve";
-  else if (failedCount > 0) nextAction = "verify_receipt";
+  const nextAction = resolveNextAction(
+    channelItems,
+    items,
+    channel,
+    authorizedItem,
+    authorizedStage,
+    failedCount,
+    approvedCount,
+    publishedLiveCount,
+  );
 
   return {
+    channel,
     approvedCount,
     awaitingN8nCount,
     publishedLiveCount,
@@ -175,5 +237,22 @@ export function summarizeLivePublishingReadiness(items: ContentBatchItem[]): Liv
     authorizedItem,
     authorizedStage,
     nextAction,
+  };
+}
+
+export function buildFacebookPublishAudit(items: ContentBatchItem[]): FacebookPublishAudit | null {
+  const item = items.find((entry) => entry.id === AUTHORIZED_FACEBOOK_PUBLISH_ITEM_ID);
+  if (!item) return null;
+  const receipt = latestReceiptForPlatform(item, "facebook");
+  const externalPostId = receipt?.externalPostId ?? null;
+  const publishedAt = typeof item.publishedAt === "string" ? item.publishedAt : null;
+  return {
+    itemId: item.id,
+    topic: item.topic,
+    externalPostId,
+    publishedAt,
+    postUrl: buildExternalPostLink("facebook", externalPostId),
+    receiptStatus: receipt?.status ?? null,
+    needsManualPublicCheck: receipt?.status === "published",
   };
 }

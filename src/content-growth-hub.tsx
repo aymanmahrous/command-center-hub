@@ -8,7 +8,7 @@ import {
   summarizePipeline,
   type ChangeRequestKind,
 } from "./content-growth";
-import { summarizeLivePublishingReadiness } from "./content-publishing";
+import { AUTHORIZED_INSTAGRAM_PUBLISH_ITEM_ID, buildFacebookPublishAudit, summarizeLivePublishingReadiness } from "./content-publishing";
 import { readPublishingCopy } from "./content-publishing-copy";
 import { buildDayNineReminder } from "./content-batch";
 import {
@@ -67,7 +67,8 @@ export default function ContentGrowthHub({
 }: ContentGrowthHubProps) {
   const { language, t } = useLanguage();
   const copy = t("contentGrowth");
-  const publishCopy = readPublishingCopy(language);
+  const publishCopyFacebook = readPublishingCopy(language, "facebook");
+  const publishCopyInstagram = readPublishingCopy(language, "instagram");
   const batches = useMemo(() => groupContentBatches(items), [items]);
   const primaryBatch = useMemo(() => selectPrimaryBatch(batches), [batches]);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
@@ -79,7 +80,8 @@ export default function ContentGrowthHub({
   const dayNine = useMemo(() => buildDayNineReminder(items), [items]);
   const batchReady = useMemo(() => buildNextBatchReadyNotice(items), [items]);
   const insights = useMemo(() => buildPerformanceInsights(items), [items]);
-  const livePublishing = useMemo(() => summarizeLivePublishingReadiness(items), [items]);
+  const instagramPublishing = useMemo(() => summarizeLivePublishingReadiness(items, "instagram"), [items]);
+  const facebookAudit = useMemo(() => buildFacebookPublishAudit(items), [items]);
   const [automationStatus, setAutomationStatus] = useState<unknown>(null);
   const [generateNotice, setGenerateNotice] = useState("");
   const [generating, setGenerating] = useState(false);
@@ -99,13 +101,13 @@ export default function ContentGrowthHub({
 
   const batchItems = selectedBatch?.items ?? [];
   const panelBusy = busy || generating;
-  const nextStepCopy = {
-    review: publishCopy.livePublishNextReview,
-    approve: publishCopy.livePublishNextApprove,
-    publish_via_n8n: publishCopy.livePublishNextN8n,
-    verify_receipt: publishCopy.livePublishNextVerify,
-    continue_batch: publishCopy.livePublishNextContinue,
-  }[livePublishing.nextAction];
+  const instagramNextStepCopy = {
+    review: publishCopyInstagram.livePublishNextReview,
+    approve: publishCopyInstagram.livePublishNextApprove,
+    publish_via_n8n: publishCopyInstagram.livePublishNextN8n,
+    verify_receipt: publishCopyInstagram.livePublishNextVerify,
+    continue_batch: publishCopyInstagram.livePublishNextContinue,
+  }[instagramPublishing.nextAction];
 
   async function generateCoachAymanBatch() {
     if (!canWrite || panelBusy) return;
@@ -158,24 +160,51 @@ export default function ContentGrowthHub({
 
       {generateNotice && <div className="notice-box" aria-live="polite">{generateNotice}</div>}
 
+      {facebookAudit && (
+        <section className="content-growth-section facebook-audit-section" aria-labelledby="facebook-audit-heading">
+          <header>
+            <p>{copy.pipelineEyebrow}</p>
+            <h3 id="facebook-audit-heading">{publishCopyFacebook.facebookAuditTitle}</h3>
+          </header>
+          <p className="batch-meta">{publishCopyFacebook.facebookAuditBody}</p>
+          <div className="facebook-audit-grid" role="group" aria-label={publishCopyFacebook.facebookAuditTitle}>
+            <article><span>{publishCopyFacebook.facebookAuditPostId}</span><strong dir="ltr">{facebookAudit.externalPostId ?? copy.notConnected}</strong></article>
+            <article><span>{publishCopyFacebook.facebookAuditReceipt}</span><strong>{facebookAudit.receiptStatus ?? copy.notConnected}</strong></article>
+            <article><span>{publishCopyFacebook.publishedAtLabel}</span><strong>{facebookAudit.publishedAt ?? copy.notConnected}</strong></article>
+          </div>
+          <p className="batch-meta">{facebookAudit.topic}</p>
+          {facebookAudit.needsManualPublicCheck && (
+            <p className="facebook-audit-warning" role="status">{publishCopyFacebook.facebookAuditManualCheck}</p>
+          )}
+          {facebookAudit.postUrl && (
+            <a className="today-quick-action" href={facebookAudit.postUrl} target="_blank" rel="noreferrer noopener">
+              {publishCopyFacebook.openLivePost}
+            </a>
+          )}
+        </section>
+      )}
+
       <section className="content-growth-section live-publish-section" aria-labelledby="live-publish-heading">
         <header>
           <p>{copy.pipelineEyebrow}</p>
-          <h3 id="live-publish-heading">{publishCopy.livePublishTitle}</h3>
+          <h3 id="live-publish-heading">{publishCopyInstagram.livePublishTitle}</h3>
         </header>
-        <p className="batch-meta">{publishCopy.livePublishBody}</p>
-        <div className="live-publish-grid" aria-label={publishCopy.livePublishTitle}>
-          <article><span>{copy.approved}</span><strong>{livePublishing.approvedCount}</strong></article>
-          <article><span>{publishCopy.livePublishAwaiting}</span><strong>{livePublishing.awaitingN8nCount}</strong></article>
-          <article><span>{copy.published}</span><strong>{livePublishing.publishedLiveCount}</strong></article>
-          <article><span>{copy.failed}</span><strong>{livePublishing.failedCount}</strong></article>
+        <p className="batch-meta">{publishCopyInstagram.livePublishBody}</p>
+        {!AUTHORIZED_INSTAGRAM_PUBLISH_ITEM_ID && (
+          <p className="batch-meta">{publishCopyInstagram.instagramPickAuthorized}</p>
+        )}
+        <div className="live-publish-grid" aria-label={publishCopyInstagram.livePublishTitle}>
+          <article><span>{copy.approved}</span><strong>{instagramPublishing.approvedCount}</strong></article>
+          <article><span>{publishCopyInstagram.livePublishAwaiting}</span><strong>{instagramPublishing.awaitingN8nCount}</strong></article>
+          <article><span>{copy.published}</span><strong>{instagramPublishing.publishedLiveCount}</strong></article>
+          <article><span>{copy.failed}</span><strong>{instagramPublishing.failedCount}</strong></article>
         </div>
-        <p className="live-publish-next-step" role="status">{nextStepCopy}</p>
-        {livePublishing.authorizedItem && (
+        <p className="live-publish-next-step" role="status">{instagramNextStepCopy}</p>
+        {instagramPublishing.authorizedItem && (
           <div className="authorized-post-banner" role="status">
-            <strong>{publishCopy.authorizedPostTitle}</strong>
-            <span>{livePublishing.authorizedStage === "published_live" ? publishCopy.authorizedPostLive : publishCopy.authorizedPostPending}</span>
-            <span>{livePublishing.authorizedItem.topic}</span>
+            <strong>{publishCopyInstagram.authorizedPostTitle}</strong>
+            <span>{instagramPublishing.authorizedStage === "published_live" ? publishCopyInstagram.authorizedPostLive : publishCopyInstagram.authorizedPostPending}</span>
+            <span>{instagramPublishing.authorizedItem.topic}</span>
           </div>
         )}
       </section>
