@@ -9,6 +9,10 @@ export type ProviderStatus = {
 };
 
 export const SERVER_PROVIDER_CREDENTIALS = {
+  canvaClientId: "CANVA_CLIENT_ID",
+  canvaClientSecret: "CANVA_CLIENT_SECRET",
+  canvaRedirectUri: "CANVA_REDIRECT_URI",
+  commandCenterReturnUrl: "COMMAND_CENTER_RETURN_URL",
   runway: "RUNWAY_API_KEY",
   buffer: "BUFFER_ACCESS_TOKEN",
   n8n: "N8N_WEBHOOK_URL",
@@ -20,7 +24,7 @@ const DEFAULT_STATUSES: Record<ProviderKey, ProviderStatus> = {
     key: "canva",
     connected: false,
     optional: true,
-    detail: "Canva — OPTIONAL / NOT CONNECTED (manual design via canvaBrief; Team account has no Developer access yet)",
+    detail: "Canva — OPTIONAL / NOT CONNECTED (OAuth via Connect API; manual canvaBrief always available)",
   },
   runway: {
     key: "runway",
@@ -42,14 +46,21 @@ const DEFAULT_STATUSES: Record<ProviderKey, ProviderStatus> = {
 
 export function displayProviderStatus(
   provider: ProviderStatus,
-  geminiIntegration?: "CONNECTED" | "NOT CONNECTED" | "NEEDS CREDENTIAL",
+  options?: {
+    geminiIntegration?: "CONNECTED" | "NOT CONNECTED" | "NEEDS CREDENTIAL";
+    canvaConnected?: boolean;
+  },
 ): string {
+  const geminiIntegration = options?.geminiIntegration;
   if (provider.key === "gemini") {
     if (geminiIntegration === "CONNECTED" || provider.connected) return "CONNECTED";
     if (geminiIntegration === "NEEDS CREDENTIAL") return "NEEDS CREDENTIAL";
     return "NOT CONNECTED";
   }
-  if (provider.key === "canva") return "OPTIONAL / NOT CONNECTED";
+  if (provider.key === "canva") {
+    if (options?.canvaConnected || provider.connected) return "CONNECTED";
+    return "OPTIONAL / NOT CONNECTED";
+  }
   if (provider.key === "capcut") return "MANUAL";
   return provider.connected ? "CONNECTED" : "NOT CONNECTED";
 }
