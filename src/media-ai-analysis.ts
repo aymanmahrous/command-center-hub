@@ -64,7 +64,7 @@ export function analyzeMediaLocally(asset: Pick<MediaAssetRecord, "assetType" | 
     hook: isVideo ? "One calm pool habit parents can copy today." : "Simple swimming tip for Abu Dhabi parents.",
     onScreenText: isVideo ? "Calm breath · Small steps · Coach Ayman" : "Relax Fix UAE · Swimming Academy",
     captionIdea: "Educational swimming guidance — no guarantees, no fabricated results.",
-    cta: "WhatsApp 058 821 9130 · Call 055 137 8660 · Free initial assessment.",
+    cta: "WhatsApp 058 821 9130 — messages & booking · Call 055 137 8660 — admin team (phone calls only) · Free initial assessment.",
     cropSuggestion: isVideo ? "Keep coach and learner visible; avoid tight face crops of children." : "Center subject with pool context; leave space for CTA overlay.",
     editSuggestion: isVideo ? "Trim to 15–20s vertical; add captions in first 2 seconds." : "Light contrast boost; keep logo clear; avoid heavy filters.",
     videoSegments: isVideo

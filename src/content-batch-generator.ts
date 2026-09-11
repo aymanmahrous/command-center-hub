@@ -10,8 +10,8 @@ const WHATSAPP = "058 821 9130";
 const PHONE = "055 137 8660";
 
 export const CONFIRMED_CTA = [
-  `WhatsApp ${WHATSAPP}`,
-  `Call ${PHONE}`,
+  `WhatsApp ${WHATSAPP} — messages & booking`,
+  `Call ${PHONE} — admin team (phone calls only)`,
   "Free initial assessment.",
 ].join("\n");
 
@@ -186,7 +186,7 @@ const SLOT_TEMPLATES: SlotTemplate[] = [
     cta: CONFIRMED_CTA,
     hashtags: [],
     visualPrompt: visualBrief({
-      canva: "Conversion post with calendar/assessment icon, WhatsApp + phone visible, no fabricated reviews.",
+      canva: "Conversion post with WhatsApp icon on 058 821 9130 only, phone/call icon on 055 137 8660 (calls only), no fabricated reviews.",
       capcut: "15s CTA reel with contact overlay.",
     }),
   },
@@ -361,7 +361,7 @@ const SLOT_TEMPLATES: SlotTemplate[] = [
     cta: CONFIRMED_CTA,
     hashtags: [],
     visualPrompt: visualBrief({
-      canva: "Clean booking CTA graphic, WhatsApp + phone icons, brand colors, no discount claims beyond approved offers.",
+      canva: "Clean booking CTA graphic: WhatsApp 058 821 9130 for messages, phone 055 137 8660 for admin calls only.",
       capcut: "Optional 10s CTA bumper with contact details on screen.",
     }),
   },
@@ -398,10 +398,10 @@ function buildBatchTrackedCta(platform: string, pillar: string): string {
   const leadUrl = `https://wa.me/971588219130?${params.toString()}`;
   return [
     BRAND_LINE,
-    "WhatsApp 058 821 9130",
-    "Call 055 137 8660",
+    "WhatsApp 058 821 9130 — messages & booking",
+    "Call 055 137 8660 — admin team (phone calls only)",
     "Free initial assessment.",
-    `Tracked booking link: ${leadUrl}`,
+    `WhatsApp link: ${leadUrl}`,
   ].join("\n");
 }
 
@@ -444,6 +444,9 @@ export function validateCoachAymanBatch(items: GeneratedBatchItem[]): { valid: b
     planned.add(item.plannedFor);
     if (item.contentPillar === "offer_booking") conversionCount += 1;
     if (!item.cta.includes(WHATSAPP) || !item.cta.includes(PHONE)) errors.push("missing confirmed CTA");
+    if (!/messages & booking/i.test(item.caption)) errors.push("missing whatsapp role label");
+    if (!/phone calls only/i.test(item.caption)) errors.push("missing call role label");
+    if (/wa\.me\/971551378660/i.test(item.caption)) errors.push("8660 must not be used as whatsapp link");
     if (!/relax fix uae/i.test(item.caption)) errors.push("missing Relax Fix UAE brand lead");
     if (item.hashtags[0] !== "#RelaxFixUAE") errors.push("primary hashtag must be RelaxFixUAE");
     if (item.platform === "facebook" && item.hashtags.length > 1) errors.push("facebook should use at most one hashtag");

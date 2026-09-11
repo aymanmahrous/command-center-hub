@@ -1,10 +1,30 @@
 import type { ContentBatchItem } from "./content-batch";
 
 export const RELAXFIX_WHATSAPP_E164 = "971588219130";
+export const RELAXFIX_CALL_E164 = "971551378660";
+export const RELAXFIX_WHATSAPP_DISPLAY = "058 821 9130";
+export const RELAXFIX_CALL_DISPLAY = "055 137 8660";
 export const RELAXFIX_BRAND_LINE = "Relax Fix UAE Swimming Academy";
 export const RELAXFIX_BRAND_WITH_COACH = "Relax Fix UAE Swimming Academy — Coach Ayman";
 export const RELAXFIX_WHATSAPP_OPENER =
   "Hi Relax Fix UAE — I saw Coach Ayman's swimming content and would like a free initial assessment.";
+export const RELAXFIX_WHATSAPP_CTA_LINE = `WhatsApp ${RELAXFIX_WHATSAPP_DISPLAY} — messages & booking`;
+export const RELAXFIX_CALL_CTA_LINE = `Call ${RELAXFIX_CALL_DISPLAY} — admin team (phone calls only)`;
+export const RELAXFIX_ASSESSMENT_CTA_LINE = "Free initial assessment.";
+
+export function buildPublicContactCta(): string {
+  return [RELAXFIX_WHATSAPP_CTA_LINE, RELAXFIX_CALL_CTA_LINE, RELAXFIX_ASSESSMENT_CTA_LINE].join("\n");
+}
+
+export function buildTrackedCta(platform: string, pillar?: string | null): string {
+  const leadUrl = buildWhatsAppLeadUrl({ platform, pillar });
+  return [
+    RELAXFIX_WHATSAPP_CTA_LINE,
+    RELAXFIX_CALL_CTA_LINE,
+    RELAXFIX_ASSESSMENT_CTA_LINE,
+    `WhatsApp link: ${leadUrl}`,
+  ].join("\n");
+}
 
 export function ensureRelaxFixBrandLead(caption: string): string {
   if (/relax fix uae/i.test(caption)) return caption;
@@ -35,16 +55,6 @@ export function buildWhatsAppLeadUrl(options: {
   const text = options.message ?? RELAXFIX_WHATSAPP_OPENER;
   params.set("text", text);
   return `https://wa.me/${RELAXFIX_WHATSAPP_E164}?${params.toString()}`;
-}
-
-export function buildTrackedCta(platform: string, pillar?: string | null): string {
-  const leadUrl = buildWhatsAppLeadUrl({ platform, pillar });
-  return [
-    "WhatsApp 058 821 9130",
-    "Call 055 137 8660",
-    "Free initial assessment.",
-    `Tracked booking link: ${leadUrl}`,
-  ].join("\n");
 }
 
 export const FACEBOOK_PAGE_ID = "1164107840123575";

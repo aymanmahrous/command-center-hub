@@ -59,7 +59,8 @@ test("readiness prioritizes authorized facebook publish item", () => {
 
 test("tracked cta includes whatsapp attribution without secrets", () => {
   const cta = buildTrackedCta("instagram", "swimming_education");
-  assert.match(cta, /WhatsApp 058 821 9130/);
+  assert.match(cta, /WhatsApp 058 821 9130 — messages & booking/);
+  assert.match(cta, /Call 055 137 8660 — admin team \(phone calls only\)/);
   assert.match(cta, /wa\.me\/971588219130/);
   assert.match(buildWhatsAppLeadUrl({ platform: "facebook", pillar: "conversion" }), /utm_source=facebook/);
   assert.match(buildWhatsAppLeadUrl({ platform: "facebook" }), /Relax\+Fix\+UAE/);

@@ -14,7 +14,9 @@ export const BRAND = {
   offers: ["Private coaching", "Small groups up to 4 learners", "Free initial assessment"],
   locations: ["Abu Dhabi", "ICS locations"],
   whatsapp: "058 821 9130",
+  whatsappRole: "messages & booking",
   phone: "055 137 8660",
+  phoneRole: "admin team — phone calls only",
 } as const;
 
 export const RELAXFIX_WHATSAPP_E164 = "971588219130";
