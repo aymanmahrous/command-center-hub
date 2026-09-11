@@ -185,3 +185,4 @@ function aggregateScores<T extends { score: number }>(entries: T[], pick: (entry
 function pickTop(entries: Array<{ key: string; avg: number }>) {
   return entries.sort((left, right) => right.avg - left.avg)[0] ?? null;
 }
+

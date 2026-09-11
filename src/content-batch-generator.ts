@@ -356,11 +356,31 @@ export async function contentFingerprint(seed: string): Promise<string> {
   return [...new Uint8Array(hash)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+function buildBatchTrackedCta(platform: string, pillar: string): string {
+  const params = new URLSearchParams();
+  params.set("utm_source", platform.toLowerCase());
+  params.set("utm_medium", "social");
+  params.set("utm_campaign", "relaxfix-content-batch");
+  params.set("utm_content", pillar);
+  params.set(
+    "text",
+    "Hi Coach Ayman, I saw your swimming content and would like a free initial assessment.",
+  );
+  const leadUrl = `https://wa.me/971588219130?${params.toString()}`;
+  return [
+    "WhatsApp 058 821 9130",
+    "Call 055 137 8660",
+    "Free initial assessment.",
+    `Tracked booking link: ${leadUrl}`,
+  ].join("\n");
+}
+
 export async function buildCoachAyman2026BatchItems(start = new Date(), batchNonce = start.toISOString()): Promise<GeneratedBatchItem[]> {
   const items: GeneratedBatchItem[] = [];
   for (let index = 0; index < SLOT_TEMPLATES.length; index += 1) {
     const slot = SLOT_TEMPLATES[index];
     const fingerprintSeed = `${COACH_AYMAN_PROVIDER_ID}:${batchNonce}:${index}:${slot.platform}:${slot.topic}`;
+    const trackedCta = buildBatchTrackedCta(slot.platform, slot.contentPillar);
     items.push({
       platform: slot.platform,
       contentType: slot.contentType,
@@ -370,8 +390,8 @@ export async function buildCoachAyman2026BatchItems(start = new Date(), batchNon
       plannedFor: gstSlotUtc(slot.dayOffset, slot.slotHourGst, start),
       topic: slot.topic,
       hook: slot.hook,
-      caption: slot.caption,
-      cta: slot.cta,
+      caption: slot.caption.includes("wa.me/") ? slot.caption : `${slot.caption}\n\n${trackedCta}`,
+      cta: trackedCta,
       hashtags: slot.hashtags,
       visualPrompt: slot.visualPrompt,
       contentFingerprint: await contentFingerprint(fingerprintSeed),
