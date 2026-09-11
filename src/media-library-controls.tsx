@@ -1,9 +1,10 @@
+import { useEffect, useState } from "react";
 import { z } from "zod";
 import type { AiSuitabilityVerdict, MediaAssetRecord, MediaCategory, ConsentStatus } from "./media-types";
 import { displayMediaWorkflowStatus } from "./media-types";
-import { analyzeMediaWithProvider } from "./media-gemini-adapter";
+import { analyzeMediaWithProvider, fetchGeminiIntegrationStatus, type GeminiIntegrationStatus } from "./media-gemini-adapter";
 import type { MediaAnalysisResult } from "./media-ai-analysis";
-import { readMediaProviderStatuses } from "./media-providers";
+import { displayProviderStatus, readMediaProviderStatuses } from "./media-providers";
 import { normalizeMediaCategory } from "./media-types";
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
@@ -63,13 +64,26 @@ export function parseMediaAssetRecords(value: unknown): MediaAssetRecord[] {
   }));
 }
 
-export function MediaProviderStrip() {
+export function MediaProviderStrip({ session }: { session?: ControlSession } = {}) {
+  const [geminiStatus, setGeminiStatus] = useState<GeminiIntegrationStatus | null>(null);
+  useEffect(() => {
+    if (!session) return;
+    const controller = new AbortController();
+    fetchGeminiIntegrationStatus(session)
+      .then((status) => { if (!controller.signal.aborted) setGeminiStatus(status.integrationStatus); })
+      .catch(() => { if (!controller.signal.aborted) setGeminiStatus("NOT CONNECTED"); });
+    return () => controller.abort();
+  }, [session]);
   const providers = readMediaProviderStatuses();
   return (
     <div className="media-provider-strip" aria-label="Media provider status">
       {providers.map((provider) => (
-        <span key={provider.key} className={provider.connected ? "connected" : "disconnected"}>
-          {provider.key}: {provider.connected ? "CONNECTED" : "NOT CONNECTED"}
+        <span
+          key={provider.key}
+          className={(provider.connected || (geminiStatus === "CONNECTED" && provider.key === "gemini")) ? "connected" : provider.optional ? "optional" : provider.manual ? "manual" : "disconnected"}
+          title={provider.detail}
+        >
+          {provider.key}: {displayProviderStatus(provider, geminiStatus ?? undefined)}
         </span>
       ))}
     </div>

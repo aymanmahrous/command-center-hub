@@ -184,15 +184,15 @@ export default function ContentGrowthHub({
         </header>
         <div className="integration-grid">
           {integrations.map((integration) => (
-            <article key={integration.key} className={integration.connected ? "connected" : "disconnected"}>
+            <article key={integration.key} className={integration.connected ? "connected" : integration.key === "canva" ? "optional" : "disconnected"}>
               <strong>{copy.integrationLabels[integration.key]}</strong>
-              <small>{integration.connected ? copy.connected : copy.notConnected}</small>
+              <small>{integration.key === "canva" ? copy.optionalNotConnected : integration.connected ? copy.connected : copy.notConnected}</small>
               <small>{integration.detail}</small>
             </article>
           ))}
         </div>
         <p className="batch-meta">{copy.integrationsNote}</p>
-        <MediaProviderStrip />
+        <MediaProviderStrip session={session} />
       </section>
 
       <section className="content-growth-section" aria-labelledby="strategy-mix-heading">

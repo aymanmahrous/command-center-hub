@@ -115,6 +115,11 @@
   color: #6ee7b7;
 }
 
+.integration-grid .optional {
+  border-color: #f59e0b;
+  color: #fcd34d;
+}
+
 .integration-grid .disconnected {
   border-color: #64748b;
   color: #cbd5e1;
