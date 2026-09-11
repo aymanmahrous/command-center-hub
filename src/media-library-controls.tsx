@@ -110,7 +110,7 @@ export function MediaAssetControls({
 
   async function runAnalysis() {
     if (!canWrite || busy || asset.category !== "swimming_business") return;
-    const result = await analyzeMediaWithProvider(asset);
+    const result = await analyzeMediaWithProvider(asset, session);
     try {
       await callRpc(session, "save_staff_media_ai_analysis", {
         p_media_asset_id: asset.id,

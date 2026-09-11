@@ -2,8 +2,8 @@ import type { MediaAssetRecord, MediaCategory, AiSuitabilityVerdict } from "./me
 import { derivePublishability } from "./media-types";
 
 export type MediaAnalysisResult = {
-  provider: "local_heuristic";
-  providerConnected: false;
+  provider: "local_heuristic" | "gemini";
+  providerConnected: boolean;
   suitabilityVerdict: AiSuitabilityVerdict;
   qualityScore: number;
   clarityScore: number;
