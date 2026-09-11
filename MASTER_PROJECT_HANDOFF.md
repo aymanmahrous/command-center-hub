@@ -75,20 +75,23 @@
 
 ## 7. CURRENT_PHASE
 
-**Facebook Controlled Publishing Test**
+**Operating — Scheduling ACTIVE + WhatsApp AI live**
 
 ## 8. CURRENT_BLOCKER
 
-تم إنشاء عنصر Facebook حقيقي ومعتمد: `content_item_id: 9cf29b08-aaa3-4278-80bc-08a4cf3bc381`.
-النشر الفعلي يتطلب تنفيذ التفويض المحدد من المالك ثم تسجيل إيصال النشر.
+لا Blocker مفتوح للجدولة.
 
 ## 9. آخر نتيجة مؤكدة
 
-تم إنشاء واعتماد عنصر Facebook حقيقي نصي بدون وسائط، وعُرض على المالك. منح المالك تفويضًا محدودًا لهذا المنشور الواحد فقط، دون Boost أو إعلانات أو إعادة نشر أو Retry تلقائي عند غموض النتيجة.
+- Instagram Controlled Publishing PASS: `external_post_id=18117977944493017`, receipt `published`.
+- Live Instagram Account ID: `17841400516801494` (`@relaxfixuae`).
+- **20-day scheduling ACTIVE**: 16 Instagram items armed with aligned `publish_content` jobs; due-time Owner Authorization via `authorize_next_due_scheduled_instagram_publish` on workflow `xNwYPSXQiUyzDSyZ` (no 20-day pre-auth; no early publish — live RPC returns `NO_DUE_CANDIDATE` until due).
+- First due: `ec1d4726-7143-45b0-ad1d-e72b2a953061` at `2026-08-15T08:00:00Z`.
+- WhatsApp ingress workflow `BqHXNlpbhq63pRK6` ACTIVE; real inbound today ingested with AI draft path; Generate AI Reply model set to GPT-5-MINI after nano empty `finish_reason=length`.
 
 ## 10. الخطوة الحالية (NEXT)
 
-تنفيذ نشر عنصر Facebook المصرح به فقط عبر المسار المعتمد، ثم تقديم: Facebook Post ID، رابط المنشور، وقت النشر الفعلي، execution ID، وreceipt status. عند غموض النتيجة لا يُعاد النشر.
+مراقبة أول نشر مجدول في `2026-08-15T08:00:00Z`، والإبقاء على WhatsApp AI Concierge (draft/inbound) دون توسيع outbound غير المعتمد.
 
 ## 11. تذكير إلزامي لكل Agent
 
@@ -106,7 +109,8 @@
 - Approved n8n workflow only: `xNwYPSXQiUyzDSyZ`
 - Old workflows must remain inactive and untouched: `7OVKtZ2TAZsrDIXc`, `Vj8Xh4UQ534LYist`
 - Facebook Page ID: `1164107840123575`
-- Instagram Account ID: `17841439747493221`
+- Instagram Account ID (live, Graph-verified `@relaxfixuae`): `17841400516801494`
+- Obsolete Instagram Account ID (do not use): `17841439747493221`
 - Never expose tokens or secrets in documentation.
 
 ## 13. FUTURE PHASE ASSETS — DO NOT REBUILD
