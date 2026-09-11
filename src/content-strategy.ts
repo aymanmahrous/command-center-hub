@@ -3,7 +3,12 @@ export const REVIEW_REMINDER_DAY = 9;
 
 export const BRAND = {
   name: "Relax Fix UAE — Swimming Academy",
+  publicLine: "Relax Fix UAE Swimming Academy",
+  withCoach: "Relax Fix UAE Swimming Academy — Coach Ayman",
   coach: "Coach Ayman",
+  primaryHashtag: "#RelaxFixUAE",
+  whatsappOpener:
+    "Hi Relax Fix UAE — I saw Coach Ayman's swimming content and would like a free initial assessment.",
   audience: "Parents in Abu Dhabi",
   experience: "15+ years swimming coaching experience",
   offers: ["Private coaching", "Small groups up to 4 learners", "Free initial assessment"],
@@ -11,6 +16,23 @@ export const BRAND = {
   whatsapp: "058 821 9130",
   phone: "055 137 8660",
 } as const;
+
+export const RELAXFIX_WHATSAPP_E164 = "971588219130";
+
+export function ensureRelaxFixBrandLead(caption: string): string {
+  if (/relax fix uae/i.test(caption)) return caption;
+  return `${BRAND.withCoach}\n\n${caption}`;
+}
+
+export function hashtagsForPlatform(platform: string, contentType?: string): string[] {
+  const normalized = platform.toLowerCase();
+  if (normalized === "facebook") return [BRAND.primaryHashtag];
+  if (normalized === "tiktok") return [BRAND.primaryHashtag, "#AbuDhabiSwimming", "#SwimTok"];
+  if (contentType?.toLowerCase() === "reel") {
+    return [BRAND.primaryHashtag, "#AbuDhabiSwimming", "#SwimReel", "#CoachAyman"];
+  }
+  return [BRAND.primaryHashtag, "#AbuDhabiSwimming", "#CoachAyman"];
+}
 
 export type ContentPillar =
   | "education"

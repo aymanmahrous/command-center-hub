@@ -5,6 +5,7 @@ import {
   buildExternalPostLink,
   buildTrackedCta,
   buildWhatsAppLeadUrl,
+  hashtagsForPlatform,
   resolvePublishPipelineStage,
   summarizeLivePublishingReadiness,
 } from "../src/content-publishing.ts";
@@ -61,5 +62,12 @@ test("tracked cta includes whatsapp attribution without secrets", () => {
   assert.match(cta, /WhatsApp 058 821 9130/);
   assert.match(cta, /wa\.me\/971588219130/);
   assert.match(buildWhatsAppLeadUrl({ platform: "facebook", pillar: "conversion" }), /utm_source=facebook/);
+  assert.match(buildWhatsAppLeadUrl({ platform: "facebook" }), /Relax\+Fix\+UAE/);
   assert.doesNotMatch(cta, /OPENAI|sk-/i);
+});
+
+test("hashtags follow Relax Fix UAE platform rules", () => {
+  assert.deepEqual(hashtagsForPlatform("facebook"), ["#RelaxFixUAE"]);
+  assert.deepEqual(hashtagsForPlatform("tiktok"), ["#RelaxFixUAE", "#AbuDhabiSwimming", "#SwimTok"]);
+  assert.equal(hashtagsForPlatform("instagram", "reel")[0], "#RelaxFixUAE");
 });

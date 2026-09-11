@@ -39,6 +39,9 @@ test("coach ayman batch passes safety validation", async () => {
   assert.match(items[0]?.caption ?? "", /058 821 9130/);
   assert.match(items[0]?.caption ?? "", /055 137 8660/);
   assert.match(items[0]?.caption ?? "", /Free initial assessment/);
+  assert.match(items.map((item) => item.caption).join("\n"), /Relax Fix UAE/i);
+  assert.equal(items.filter((item) => item.platform === "facebook").every((item) => item.hashtags.length === 1), true);
+  assert.equal(items.every((item) => item.hashtags[0] === "#RelaxFixUAE"), true);
   assert.doesNotMatch(items.map((item) => item.caption).join("\n"), /guarantee|testimonial|award-winning/i);
 });
 

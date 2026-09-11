@@ -1,6 +1,25 @@
 import type { ContentBatchItem } from "./content-batch";
 
 export const RELAXFIX_WHATSAPP_E164 = "971588219130";
+export const RELAXFIX_BRAND_LINE = "Relax Fix UAE Swimming Academy";
+export const RELAXFIX_BRAND_WITH_COACH = "Relax Fix UAE Swimming Academy — Coach Ayman";
+export const RELAXFIX_WHATSAPP_OPENER =
+  "Hi Relax Fix UAE — I saw Coach Ayman's swimming content and would like a free initial assessment.";
+
+export function ensureRelaxFixBrandLead(caption: string): string {
+  if (/relax fix uae/i.test(caption)) return caption;
+  return `${RELAXFIX_BRAND_WITH_COACH}\n\n${caption}`;
+}
+
+export function hashtagsForPlatform(platform: string, contentType?: string): string[] {
+  const normalized = platform.toLowerCase();
+  if (normalized === "facebook") return ["#RelaxFixUAE"];
+  if (normalized === "tiktok") return ["#RelaxFixUAE", "#AbuDhabiSwimming", "#SwimTok"];
+  if (contentType?.toLowerCase() === "reel") {
+    return ["#RelaxFixUAE", "#AbuDhabiSwimming", "#SwimReel", "#CoachAyman"];
+  }
+  return ["#RelaxFixUAE", "#AbuDhabiSwimming", "#CoachAyman"];
+}
 
 export function buildWhatsAppLeadUrl(options: {
   platform: string;
@@ -13,7 +32,7 @@ export function buildWhatsAppLeadUrl(options: {
   params.set("utm_medium", "social");
   params.set("utm_campaign", options.campaign ?? "relaxfix-content-batch");
   if (options.pillar) params.set("utm_content", options.pillar);
-  const text = options.message ?? "Hi Coach Ayman, I saw your swimming content and would like a free initial assessment.";
+  const text = options.message ?? RELAXFIX_WHATSAPP_OPENER;
   params.set("text", text);
   return `https://wa.me/${RELAXFIX_WHATSAPP_E164}?${params.toString()}`;
 }
