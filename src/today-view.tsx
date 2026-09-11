@@ -9,7 +9,9 @@ import type { Language } from "./i18n";
 import "./today-view.css";
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
-type TodaySession = { accessToken: string };
+type StaffRole = "super_admin" | "admin" | "reception" | "coach" | "content_manager";
+type TodaySession = { accessToken: string; role: StaffRole };
+const AUTOMATION_STATUS_ROLES = new Set<StaffRole>(["super_admin", "admin", "content_manager"]);
 type NavigateSection = "inbox" | "crm" | "planner" | "content" | "automations" | "analytics" | "archive";
 type JobStatus = "queued" | "processing" | "completed" | "failed" | "retrying" | "dead";
 
@@ -31,7 +33,7 @@ const ConversationSchema = z.object({
 }).passthrough();
 const ContentItemSchema = z.object({
   id: z.string().uuid(), topic: z.string(), createdAt: z.string(),
-  status: z.enum(["idea", "draft", "generated", "needs_review", "approved", "scheduled", "published", "failed"]),
+  status: z.enum(["idea", "draft", "generated", "needs_review", "approved", "scheduled", "published", "failed", "cancelled"]),
 }).passthrough();
 const FollowUpJobSchema = z.object({
   id: z.string().uuid(), leadName: z.string(), scheduledFor: z.string(), status: z.enum(["queued", "processing", "completed", "failed", "retrying", "dead"]),
@@ -204,13 +206,16 @@ export default function TodayOperationsView({
     const controller = new AbortController();
     setStatus("loading");
     setError("");
+    const automationPromise = AUTOMATION_STATUS_ROLES.has(session.role)
+      ? callRpc(session, "get_staff_content_automation_status", controller.signal)
+      : Promise.resolve(null);
     Promise.all([
       callRpc(session, "get_staff_inbox", controller.signal),
       callRpc(session, "get_staff_bookings", controller.signal),
       callRpc(session, "get_staff_crm_leads", controller.signal),
       callRpc(session, "get_staff_content_items", controller.signal),
       callRpc(session, "get_staff_operations_queue", controller.signal),
-      callRpc(session, "get_staff_content_automation_status", controller.signal),
+      automationPromise,
     ]).then(([inboxRaw, bookingsRaw, leadsRaw, contentRaw, operationsRaw, automationRaw]) => {
       const inboxParsed = z.array(ConversationSchema).safeParse(inboxRaw);
       const bookingsParsed = z.array(BookingSchema).safeParse(bookingsRaw);
