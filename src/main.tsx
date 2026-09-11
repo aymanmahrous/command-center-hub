@@ -765,6 +765,8 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
         onApproveItem={approveBatchItem}
         onRequestChanges={requestBatchChanges}
         onApproveAll={approveAllBatch}
+        onBatchCreated={onChanged}
+        onSessionExpired={onSessionExpired}
       />
     </Suspense>
     <div className="content-toolbar">

@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { groupContentBatches, selectPrimaryBatch, type ContentBatchItem } from "./content-batch";
+import { groupContentBatches, isDatabaseBatchId, selectPrimaryBatch, type ContentBatchItem } from "./content-batch";
+import {
+  buildCoachAyman2026BatchItems,
+  COACH_AYMAN_PROVIDER_ID,
+} from "./content-batch-generator";
 import {
   readIntegrationStatuses,
   summarizePipeline,
@@ -28,9 +32,11 @@ type ContentGrowthHubProps = {
   onApproveItem: (item: ContentBatchItem) => Promise<void>;
   onRequestChanges: (item: ContentBatchItem, kind: ChangeRequestKind, note: string) => Promise<void>;
   onApproveAll: (items: ContentBatchItem[]) => Promise<void>;
+  onBatchCreated?: () => void;
+  onSessionExpired?: () => void;
 };
 
-async function callRpc(session: GrowthSession, rpcName: string, signal?: AbortSignal) {
+async function callRpc(session: GrowthSession, rpcName: string, body: Record<string, unknown> = {}, signal?: AbortSignal) {
   const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${encodeURIComponent(rpcName)}`, {
     method: "POST",
     headers: {
@@ -39,9 +45,10 @@ async function callRpc(session: GrowthSession, rpcName: string, signal?: AbortSi
       "Content-Type": "application/json",
       Accept: "application/json",
     },
-    body: "{}",
+    body: JSON.stringify(body),
     signal,
   });
+  if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
   if (!response.ok) throw new Error(`RPC_FAILED_${response.status}`);
   return response.json();
 }
@@ -54,6 +61,8 @@ export default function ContentGrowthHub({
   onApproveItem,
   onRequestChanges,
   onApproveAll,
+  onBatchCreated,
+  onSessionExpired,
 }: ContentGrowthHubProps) {
   const { language, t } = useLanguage();
   const copy = t("contentGrowth");
@@ -68,11 +77,13 @@ export default function ContentGrowthHub({
   const dayNine = useMemo(() => buildDayNineReminder(items), [items]);
   const insights = useMemo(() => buildPerformanceInsights(items), [items]);
   const [automationStatus, setAutomationStatus] = useState<unknown>(null);
+  const [generateNotice, setGenerateNotice] = useState("");
+  const [generating, setGenerating] = useState(false);
   const integrations = useMemo(() => readIntegrationStatuses(automationStatus), [automationStatus]);
 
   useEffect(() => {
     const controller = new AbortController();
-    callRpc(session, "get_staff_content_automation_status", controller.signal)
+    callRpc(session, "get_staff_content_automation_status", {}, controller.signal)
       .then(setAutomationStatus)
       .catch(() => setAutomationStatus(null));
     return () => controller.abort();
@@ -83,6 +94,35 @@ export default function ContentGrowthHub({
   }, [primaryBatch, selectedBatchId]);
 
   const batchItems = selectedBatch?.items ?? [];
+  const panelBusy = busy || generating;
+
+  async function generateCoachAymanBatch() {
+    if (!canWrite || panelBusy) return;
+    if (!window.confirm(copy.generateConfirm)) return;
+    setGenerating(true);
+    setGenerateNotice("");
+    try {
+      const nonce = crypto.randomUUID();
+      const items = await buildCoachAyman2026BatchItems(new Date(), nonce);
+      const result = await callRpc(session, "create_staff_generated_content_batch", {
+        p_items: items,
+        p_provider_external_id: COACH_AYMAN_PROVIDER_ID,
+      }) as { success?: boolean; batchId?: string; code?: string };
+      if (!result.success || !result.batchId) throw new Error(result.code ?? "GENERATE_FAILED");
+      setGenerateNotice(copy.generateSuccess.replace("{batchId}", result.batchId));
+      setSelectedBatchId(result.batchId);
+      onBatchCreated?.();
+    } catch (cause) {
+      const code = cause instanceof Error ? cause.message : "GENERATE_FAILED";
+      if (code === "SESSION_EXPIRED") {
+        onSessionExpired?.();
+        return;
+      }
+      setGenerateNotice(copy.generateError);
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   return (
     <div className="content-growth-hub">
@@ -92,6 +132,23 @@ export default function ContentGrowthHub({
           <p>{copy.dayNineBody.replace("{count}", String(dayNine.reviewableCount)).replace("{day}", String(dayNine.cycleDay))}</p>
         </div>
       )}
+
+      {generateNotice && <div className="notice-box" aria-live="polite">{generateNotice}</div>}
+
+      <section className="content-growth-section" aria-labelledby="generate-batch-heading">
+        <header>
+          <p>{copy.generateEyebrow}</p>
+          <h3 id="generate-batch-heading">{copy.generateTitle}</h3>
+        </header>
+        <p className="batch-meta">{copy.generateBody}</p>
+        <p className="batch-meta">
+          {copy.activeBatchLabel}: {selectedBatch && isDatabaseBatchId(selectedBatch.batchId) ? selectedBatch.batchId : copy.notConnected}
+        </p>
+        <button type="button" className="primary-button" disabled={!canWrite || panelBusy} onClick={() => void generateCoachAymanBatch()}>
+          {generating ? copy.generateBusy : copy.generateButton}
+        </button>
+        <p className="batch-meta">{copy.generateMixNote}</p>
+      </section>
 
       <section className="content-growth-section" aria-labelledby="content-pipeline-heading">
         <header>
@@ -176,7 +233,7 @@ export default function ContentGrowthHub({
           items={batchItems}
           batch={selectedBatch}
           canWrite={canWrite}
-          busy={busy}
+          busy={panelBusy}
           onApproveItem={onApproveItem}
           onRequestChanges={onRequestChanges}
           onApproveAll={onApproveAll}

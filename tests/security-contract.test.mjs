@@ -6,6 +6,8 @@ const envExample = await readFile(new URL("../.env.example", import.meta.url), "
 const gitignore = await readFile(new URL("../.gitignore", import.meta.url), "utf8");
 const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
 const app = await readFile(new URL("../src/main.tsx", import.meta.url), "utf8");
+const growthHub = await readFile(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
+const growthCopyEn = await readFile(new URL("../src/i18n/en.ts", import.meta.url), "utf8");
 const mediaView = await readFile(new URL("../src/media-library-view.tsx", import.meta.url), "utf8");
 
 test("environment example contains the browser-safe configuration contract", () => {
@@ -116,6 +118,13 @@ test("Content Studio honors server status and action allowlists", () => {
   for (const action of ["approve", "return_to_review", "schedule", "unschedule"]) assert.match(app, new RegExp(`"${action}"`));
   assert.match(app, /PUBLISHED_CONTENT_IMMUTABLE/);
   assert.match(app, /APPROVAL_REQUIRED/);
+});
+
+test("Content batch generation uses approved RPC and confirms before write", () => {
+  assert.match(growthHub, /create_staff_generated_content_batch/);
+  assert.match(growthHub, /window\.confirm\(copy\.generateConfirm\)/);
+  assert.match(growthCopyEn, /Nothing will be scheduled or published/i);
+  assert.doesNotMatch(growthHub, /graph\.facebook|buffer\.com/i);
 });
 
 test("Content batch review approves through approved RPCs only", () => {
