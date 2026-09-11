@@ -38,6 +38,9 @@ export type GeneratedBatchItem = {
   hashtags: string[];
   visualPrompt: string;
   contentFingerprint: string;
+  mediaAssetId?: string | null;
+  mediaSource?: "real" | "ai_generated" | "pending";
+  mediaPlan?: Record<string, unknown> | null;
 };
 
 type SlotTemplate = Omit<GeneratedBatchItem, "plannedFor" | "contentFingerprint"> & {

@@ -200,3 +200,27 @@ export function buildDayNineReminder(items: ContentBatchItem[], now = new Date()
   if (cycleDay < REVIEW_REMINDER_DAY || reviewableCount === 0) return null;
   return { show: true, batchId: batch.batchId, cycleDay, reviewableCount };
 }
+
+export type NextBatchReadyNotice = {
+  show: boolean;
+  batchId: string;
+  reviewableCount: number;
+  pendingMediaCount: number;
+  realMediaCount: number;
+};
+
+export function buildNextBatchReadyNotice(items: ContentBatchItem[]): NextBatchReadyNotice | null {
+  const batch = selectPrimaryBatch(groupContentBatches(items));
+  if (!batch || !batch.isExplicitBatch || batch.items.length < BATCH_TARGET_SIZE) return null;
+  const reviewable = batch.items.filter((item) => REVIEWABLE_FOR_APPROVAL.has(item.status));
+  if (reviewable.length === 0) return null;
+  const pendingMediaCount = batch.items.filter((item) => item.mediaSource === "pending" || !item.mediaAssetId).length;
+  const realMediaCount = batch.items.filter((item) => item.mediaSource === "real" && item.mediaAssetId).length;
+  return {
+    show: true,
+    batchId: batch.batchId,
+    reviewableCount: reviewable.length,
+    pendingMediaCount,
+    realMediaCount,
+  };
+}

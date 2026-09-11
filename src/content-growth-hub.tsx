@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { groupContentBatches, isDatabaseBatchId, selectPrimaryBatch, type ContentBatchItem } from "./content-batch";
-import {
-  buildCoachAyman2026BatchItems,
-  COACH_AYMAN_PROVIDER_ID,
-} from "./content-batch-generator";
+import { groupContentBatches, isDatabaseBatchId, selectPrimaryBatch, buildNextBatchReadyNotice, type ContentBatchItem } from "./content-batch";
+import { COACH_AYMAN_PROVIDER_ID } from "./content-batch-generator";
+import { buildCoachAyman2026BatchWithMedia } from "./media-batch-link";
+import { parseMediaAssetRecords } from "./media-library-controls";
 import {
   readIntegrationStatuses,
   summarizePipeline,
@@ -75,6 +74,7 @@ export default function ContentGrowthHub({
   }, [batches, primaryBatch, selectedBatchId]);
   const pipeline = useMemo(() => summarizePipeline(items), [items]);
   const dayNine = useMemo(() => buildDayNineReminder(items), [items]);
+  const batchReady = useMemo(() => buildNextBatchReadyNotice(items), [items]);
   const insights = useMemo(() => buildPerformanceInsights(items), [items]);
   const [automationStatus, setAutomationStatus] = useState<unknown>(null);
   const [generateNotice, setGenerateNotice] = useState("");
@@ -103,7 +103,9 @@ export default function ContentGrowthHub({
     setGenerateNotice("");
     try {
       const nonce = crypto.randomUUID();
-      const items = await buildCoachAyman2026BatchItems(new Date(), nonce);
+      const mediaRaw = await callRpc(session, "get_staff_media_assets", {});
+      const assets = parseMediaAssetRecords(mediaRaw);
+      const items = await buildCoachAyman2026BatchWithMedia(assets, new Date(), nonce);
       const result = await callRpc(session, "create_staff_generated_content_batch", {
         p_items: items,
         p_provider_external_id: COACH_AYMAN_PROVIDER_ID,
@@ -126,6 +128,16 @@ export default function ContentGrowthHub({
 
   return (
     <div className="content-growth-hub">
+      {batchReady?.show && (
+        <div className="content-growth-banner batch-ready-banner" role="status">
+          <strong>{copy.batchReadyTitle}</strong>
+          <p>{copy.batchReadyBody
+            .replace("{count}", String(batchReady.reviewableCount))
+            .replace("{real}", String(batchReady.realMediaCount))
+            .replace("{pending}", String(batchReady.pendingMediaCount))}</p>
+        </div>
+      )}
+
       {dayNine?.show && (
         <div className="content-growth-banner" role="status">
           <strong>{copy.dayNineTitle}</strong>

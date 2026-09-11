@@ -125,6 +125,13 @@ export function ContentBatchReviewPanel({
                 <span className={`content-status status-${item.status}`}>{itemStatusLabels[item.status as keyof typeof itemStatusLabels] ?? item.status}</span>
               </header>
               <p className="item-caption">{item.caption.trim() || copy.noCaption}</p>
+              {(Boolean(item.mediaSource) || Boolean(item.mediaAssetId) || item.mediaPlan != null) && (
+                <p className="item-meta">
+                  {copy.mediaSourceLabel}: {String(item.mediaSource ?? "—").toUpperCase()}
+                  {item.mediaAssetId ? ` · ${copy.mediaLinked}` : ""}
+                  {item.mediaSource === "pending" ? ` · ${copy.mediaFallbackPending}` : ""}
+                </p>
+              )}
               <p className="item-meta">{copy.scheduledFor}: {formatWhen(language, item.scheduledFor)}</p>
               <footer>
                 {canApprove && (

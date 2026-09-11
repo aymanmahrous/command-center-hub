@@ -138,21 +138,23 @@ test("Content batch review approves through approved RPCs only", () => {
   assert.doesNotMatch(app, /graph\.facebook|facebook\.com\/v\d+/i);
 });
 
-test("Media Library uses the staff RPC and exposes no storage or table mutation", () => {
+test("Media Library uses staff RPCs and blocks direct table mutation", () => {
   assert.match(app, /get_staff_media_assets/);
   assert.match(app, /import\("\.\/media-library-view"\)/);
   assert.match(mediaView, /fetchStaffMediaBlob/);
   assert.match(mediaView, /openStaffMediaAsset/);
+  assert.match(mediaView, /MediaLibraryUploadPanel/);
+  assert.match(mediaView, /register_staff_media_upload|MediaLibraryUploadPanel/);
   assert.doesNotMatch(mediaView, /create_staff_media_asset_record|create_staff_video_generation_job|update_staff_video_generation_job/);
   assert.doesNotMatch(mediaView, /\/rest\/v1\/media_assets[^\n]*(PATCH|PUT|DELETE|POST)/i);
 });
 
-test("Media Library validates ownership-shaped records and remains private read-only", () => {
+test("Media Library validates ownership-shaped records and exposes review controls", () => {
   for (const field of ["createdBy", "contentItemId", "assetType", "source", "storagePath", "providerJobId", "metadata", "createdAt"]) assert.match(mediaView, new RegExp(field));
   for (const type of ["image", "video", "logo", "other"]) assert.match(mediaView, new RegExp(`"${type}"`));
   for (const source of ["upload", "ai_generated", "external"]) assert.match(mediaView, new RegExp(`"${source}"`));
-  assert.match(mediaView, /مكتبة وسائط خاصة للقراءة فقط/);
-  assert.match(mediaView, /privateExternalReference/);
+  assert.match(mediaView, /writeBannerTitle|مكتبة وسائط خاصة للقراءة فقط/);
+  assert.match(mediaView, /MediaAssetControls/);
   assert.match(mediaView, /typeFilter/);
   assert.match(mediaView, /sourceFilter/);
 });

@@ -55,6 +55,13 @@ test("coach ayman batch uses unique fingerprints and planned times", async () =>
   }
 });
 
+test("content growth hub links media-aware batch generation", async () => {
+  const hub = await readFile(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
+  assert.match(hub, /buildCoachAyman2026BatchWithMedia/);
+  assert.match(hub, /get_staff_media_assets/);
+  assert.match(hub, /buildNextBatchReadyNotice/);
+});
+
 test("provider id is stable for automation handoff", () => {
   assert.equal(COACH_AYMAN_PROVIDER_ID, "command-center-coach-ayman-2026");
   assert.match(CONFIRMED_CTA, /058 821 9130/);
