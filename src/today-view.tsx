@@ -1,0 +1,336 @@
+import { useEffect, useMemo, useState } from "react";
+import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, Library, Workflow } from "lucide-react";
+import { z } from "zod";
+import { useLanguage } from "./i18n";
+import type { Language } from "./i18n";
+import "./today-view.css";
+
+type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
+type TodaySession = { accessToken: string };
+type NavigateSection = "inbox" | "crm" | "planner" | "content" | "automations" | "analytics" | "archive";
+type JobStatus = "queued" | "processing" | "completed" | "failed" | "retrying" | "dead";
+
+const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
+const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
+
+const BookingSchema = z.object({
+  id: z.string().uuid(), full_name: z.string(), status: z.enum(["pending", "contacted", "confirmed", "declined", "cancelled"]),
+  created_at: z.string(), updated_at: z.string().nullable().optional(),
+}).passthrough();
+const LeadSchema = z.object({
+  id: z.string().uuid(), name: z.string(), stage: z.enum(["new", "contacted", "qualified", "booking_intent", "booked", "follow_up", "lost", "customer"]),
+  humanRequired: z.boolean(), nextFollowUpAt: z.string().nullable().optional(),
+}).passthrough();
+const ConversationSchema = z.object({
+  id: z.string().uuid(), leadName: z.string(),
+  mode: z.enum(["ai_active", "human_required", "human_takeover", "paused"]),
+  humanRequired: z.boolean(),
+}).passthrough();
+const ContentItemSchema = z.object({
+  id: z.string().uuid(), topic: z.string(),
+  status: z.enum(["idea", "draft", "generated", "needs_review", "approved", "scheduled", "published", "failed"]),
+}).passthrough();
+const FollowUpJobSchema = z.object({
+  id: z.string().uuid(), leadName: z.string(), scheduledFor: z.string(), status: z.enum(["queued", "processing", "completed", "failed", "retrying", "dead"]),
+}).passthrough();
+const BackgroundJobSchema = z.object({
+  id: z.string().uuid(), jobType: z.string(), status: z.enum(["queued", "processing", "completed", "failed", "retrying", "dead"]),
+}).passthrough();
+const OperationsQueueSchema = z.object({
+  followUps: z.array(FollowUpJobSchema), backgroundJobs: z.array(BackgroundJobSchema), generatedAt: z.string(),
+}).passthrough();
+
+const todayCopy = {
+  ar: {
+    boundaryTitle: "لوحة عمليات اليوم",
+    boundaryBody: "تجميع للقراءة فقط من RPCs الحالية: Inbox، CRM، Bookings، Content، Automations، Integrations.",
+    snapshotLabel: "اللقطة",
+    loadError: "تعذر تحميل لوحة اليوم بأمان.",
+    attentionEyebrow: "أولوية التنفيذ",
+    attentionTitle: "يتطلب انتباهًا",
+    allClear: "لا توجد عناصر تتطلب انتباهًا فوريًا في آخر لقطة.",
+    attentionHumanConversations: "محادثات تتطلب تدخلًا بشريًا",
+    attentionBookingActions: "إجراءات حجز معلّقة",
+    attentionAutomation: "فشل / إعادة محاولة في الأتمتة",
+    attentionCrmFollowUps: "متابعات CRM",
+    attentionContentReview: "محتوى بانتظار المراجعة",
+    numbersEyebrow: "أرقام أساسية",
+    numbersTitle: "أرقام اليوم الأساسية",
+    leadsLabel: "العملاء المحتملون",
+    leadsHint: "إجمالي مسار CRM",
+    bookingsLabel: "طلبات الحجز",
+    bookingsHint: "طلبات أُنشئت اليوم",
+    confirmedLabel: "حجوزات مؤكدة",
+    confirmedHint: "مؤكدة اليوم",
+    followUpsLabel: "المتابعات",
+    followUpsHint: "CRM + طابور المتابعة",
+    contentReviewLabel: "مراجعة المحتوى",
+    contentReviewHint: "مسودة / مولّد / بانتظار المراجعة",
+    healthEyebrow: "صحة التشغيل",
+    healthTitle: "صحة النظام",
+    automationSnapshotTitle: "لقطة حالة الأتمتة",
+    automationRecordsLabel: "سجل",
+    actionsEyebrow: "تنقل",
+    actionsTitle: "إجراءات سريعة",
+  },
+  en: {
+    boundaryTitle: "Today operations dashboard",
+    boundaryBody: "Read-only aggregation from existing Inbox, CRM, Bookings, Content, Automations, and Integrations RPCs.",
+    snapshotLabel: "Snapshot",
+    loadError: "Today dashboard could not be loaded securely.",
+    attentionEyebrow: "Priority queue",
+    attentionTitle: "Requires attention",
+    allClear: "Nothing flagged for immediate attention in the latest snapshot.",
+    attentionHumanConversations: "Human-required conversations",
+    attentionBookingActions: "Booking actions pending",
+    attentionAutomation: "Automation failures / retries",
+    attentionCrmFollowUps: "CRM follow-ups",
+    attentionContentReview: "Content requiring review",
+    numbersEyebrow: "Key counts",
+    numbersTitle: "Today's key numbers",
+    leadsLabel: "Leads",
+    leadsHint: "CRM pipeline total",
+    bookingsLabel: "Bookings",
+    bookingsHint: "Requests created today",
+    confirmedLabel: "Confirmed bookings",
+    confirmedHint: "Confirmed today",
+    followUpsLabel: "Follow-ups",
+    followUpsHint: "Queued CRM + jobs",
+    contentReviewLabel: "Content review",
+    contentReviewHint: "Draft / generated / needs review",
+    healthEyebrow: "Operations health",
+    healthTitle: "System health",
+    automationSnapshotTitle: "Automation status snapshot",
+    automationRecordsLabel: "records",
+    actionsEyebrow: "Navigation",
+    actionsTitle: "Quick actions",
+  },
+} as const;
+
+const jobStatusLabels: Record<Language, Record<JobStatus, string>> = {
+  ar: { queued: "في الانتظار", processing: "قيد التنفيذ", completed: "مكتملة", failed: "فشلت", retrying: "إعادة محاولة", dead: "متوقفة نهائيًا" },
+  en: { queued: "Queued", processing: "Processing", completed: "Completed", failed: "Failed", retrying: "Retrying", dead: "Dead" },
+};
+
+function rpcHeaders(session: TodaySession) {
+  return { apikey: SUPABASE_PUBLIC_KEY, Authorization: `Bearer ${session.accessToken}`, "Content-Type": "application/json", Accept: "application/json" };
+}
+
+async function callRpc(session: TodaySession, rpcName: string, signal?: AbortSignal): Promise<JsonValue> {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${encodeURIComponent(rpcName)}`, {
+    method: "POST", headers: rpcHeaders(session), body: "{}", signal,
+  });
+  if (response.status === 401) throw new Error("SESSION_EXPIRED");
+  if (response.status === 403) throw new Error("STAFF_ACCESS_DENIED");
+  if (!response.ok) throw new Error(`RPC_FAILED_${response.status}`);
+  return (await response.json()) as JsonValue;
+}
+
+function formatDateTime(language: Language, value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString(language === "ar" ? "ar-AE" : "en-AE");
+}
+
+function isSameLocalDay(value: string, reference: Date) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+  return date.getFullYear() === reference.getFullYear()
+    && date.getMonth() === reference.getMonth()
+    && date.getDate() === reference.getDate();
+}
+
+function isDueNow(value: string | null | undefined, now: number) {
+  if (!value) return false;
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) && timestamp <= now;
+}
+
+function quickActionIcon(section: NavigateSection) {
+  if (section === "inbox") return Inbox;
+  if (section === "crm") return ContactRound;
+  if (section === "planner") return CalendarDays;
+  if (section === "content") return Bot;
+  if (section === "automations") return Workflow;
+  if (section === "analytics") return BarChart3;
+  return Library;
+}
+
+export default function TodayOperationsView({
+  session,
+  onNavigate,
+  onSessionExpired,
+}: {
+  session: TodaySession;
+  onNavigate: (section: NavigateSection) => void;
+  onSessionExpired: () => void;
+}) {
+  const { language, t } = useLanguage();
+  const copy = todayCopy[language];
+  const nav = t("nav");
+  const common = t("common");
+  const statusLabels = jobStatusLabels[language];
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [error, setError] = useState("");
+  const [snapshotAt, setSnapshotAt] = useState("");
+  const [inbox, setInbox] = useState<z.infer<typeof ConversationSchema>[]>([]);
+  const [bookings, setBookings] = useState<z.infer<typeof BookingSchema>[]>([]);
+  const [leads, setLeads] = useState<z.infer<typeof LeadSchema>[]>([]);
+  const [contentItems, setContentItems] = useState<z.infer<typeof ContentItemSchema>[]>([]);
+  const [operations, setOperations] = useState<z.infer<typeof OperationsQueueSchema> | null>(null);
+  const [automationStatus, setAutomationStatus] = useState<JsonValue>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setStatus("loading");
+    setError("");
+    Promise.all([
+      callRpc(session, "get_staff_inbox", controller.signal),
+      callRpc(session, "get_staff_bookings", controller.signal),
+      callRpc(session, "get_staff_crm_leads", controller.signal),
+      callRpc(session, "get_staff_content_items", controller.signal),
+      callRpc(session, "get_staff_operations_queue", controller.signal),
+      callRpc(session, "get_staff_content_automation_status", controller.signal),
+    ]).then(([inboxRaw, bookingsRaw, leadsRaw, contentRaw, operationsRaw, automationRaw]) => {
+      const inboxParsed = z.array(ConversationSchema).safeParse(inboxRaw);
+      const bookingsParsed = z.array(BookingSchema).safeParse(bookingsRaw);
+      const leadsParsed = z.array(LeadSchema).safeParse(leadsRaw);
+      const contentParsed = z.array(ContentItemSchema).safeParse(contentRaw);
+      const operationsParsed = OperationsQueueSchema.safeParse(operationsRaw);
+      if (!inboxParsed.success || !bookingsParsed.success || !leadsParsed.success || !contentParsed.success || !operationsParsed.success) {
+        throw new Error("INVALID_FORMAT");
+      }
+      setInbox(inboxParsed.data);
+      setBookings(bookingsParsed.data);
+      setLeads(leadsParsed.data);
+      setContentItems(contentParsed.data);
+      setOperations(operationsParsed.data);
+      setAutomationStatus(automationRaw);
+      setSnapshotAt(operationsParsed.data.generatedAt);
+      setStatus("ready");
+    }).catch((cause) => {
+      if (cause instanceof DOMException && cause.name === "AbortError") return;
+      const message = cause instanceof Error ? cause.message : "LOAD_FAILED";
+      if (message === "SESSION_EXPIRED") { onSessionExpired(); return; }
+      setError(copy.loadError);
+      setStatus("error");
+    });
+    return () => controller.abort();
+  }, [copy.loadError, onSessionExpired, session]);
+
+  const now = useMemo(() => new Date(), [status]);
+  const nowMs = now.getTime();
+
+  const metrics = useMemo(() => {
+    const reviewContent = contentItems.filter((item) => ["needs_review", "generated", "draft"].includes(item.status));
+    const pendingBookings = bookings.filter((booking) => ["pending", "contacted"].includes(booking.status));
+    const humanConversations = inbox.filter((conversation) => conversation.mode === "human_required" || conversation.humanRequired);
+    const crmFollowUps = leads.filter((lead) => lead.stage === "follow_up" || lead.humanRequired || isDueNow(lead.nextFollowUpAt, nowMs));
+    const followUpJobs = operations?.followUps.filter((job) => ["queued", "retrying", "processing"].includes(job.status)) ?? [];
+    const automationIssues = operations?.backgroundJobs.filter((job) => ["failed", "retrying", "dead"].includes(job.status)) ?? [];
+    const bookingsToday = bookings.filter((booking) => isSameLocalDay(booking.created_at, now));
+    const confirmedToday = bookings.filter((booking) => booking.status === "confirmed" && isSameLocalDay(booking.updated_at ?? booking.created_at, now));
+
+    return {
+      reviewContent,
+      pendingBookings,
+      humanConversations,
+      crmFollowUps,
+      followUpJobs,
+      automationIssues,
+      bookingsToday,
+      confirmedToday,
+    };
+  }, [bookings, contentItems, inbox, leads, now, nowMs, operations]);
+
+  const healthCounts = useMemo(() => {
+    const jobs = [...(operations?.followUps ?? []), ...(operations?.backgroundJobs ?? [])];
+    return jobs.reduce<Record<JobStatus, number>>((result, job) => {
+      result[job.status] += 1;
+      return result;
+    }, { queued: 0, processing: 0, completed: 0, failed: 0, retrying: 0, dead: 0 });
+  }, [operations]);
+
+  const attentionItems = useMemo(() => ([
+    { key: "humanConversations", count: metrics.humanConversations.length, label: copy.attentionHumanConversations, section: "inbox" as const },
+    { key: "bookingActions", count: metrics.pendingBookings.length, label: copy.attentionBookingActions, section: "planner" as const },
+    { key: "automationIssues", count: metrics.automationIssues.length + metrics.followUpJobs.filter((job) => ["failed", "retrying", "dead"].includes(job.status)).length, label: copy.attentionAutomation, section: "automations" as const },
+    { key: "crmFollowUps", count: metrics.crmFollowUps.length, label: copy.attentionCrmFollowUps, section: "crm" as const },
+    { key: "contentReview", count: metrics.reviewContent.length, label: copy.attentionContentReview, section: "content" as const },
+  ]), [copy, metrics]);
+
+  const quickActions: Array<{ section: NavigateSection; label: string }> = [
+    { section: "inbox", label: nav.inbox },
+    { section: "crm", label: nav.crm },
+    { section: "planner", label: nav.planner },
+    { section: "content", label: nav.content },
+    { section: "automations", label: nav.automations },
+    { section: "analytics", label: nav.analytics },
+    { section: "archive", label: nav.archive },
+  ];
+
+  if (status === "loading") return <p className="muted" role="status">{common.loading}</p>;
+  if (status === "error") return <div className="error-box" role="alert">{error}</div>;
+
+  const totalAttention = attentionItems.reduce((sum, item) => sum + item.count, 0);
+
+  return <div className="today-operations" aria-busy={false}>
+    <div className="operations-boundary">
+      <div>
+        <strong>{copy.boundaryTitle}</strong>
+        <p>{copy.boundaryBody}</p>
+      </div>
+      {snapshotAt && <span>{copy.snapshotLabel}: {formatDateTime(language, snapshotAt)}</span>}
+    </div>
+
+    <section className="today-section">
+      <header><p>{copy.attentionEyebrow}</p><h3>{copy.attentionTitle}</h3></header>
+      {totalAttention === 0 ? <p className="muted">{copy.allClear}</p> : (
+        <ul className="today-attention-list">
+          {attentionItems.filter((item) => item.count > 0).map((item) => (
+            <li key={item.key}>
+              <button type="button" className="today-attention-item" onClick={() => onNavigate(item.section)}>
+                <span>{item.label}</span>
+                <strong>{item.count}</strong>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+
+    <section className="today-section">
+      <header><p>{copy.numbersEyebrow}</p><h3>{copy.numbersTitle}</h3></header>
+      <div className="operations-summary today-numbers" aria-label={copy.numbersTitle}>
+        <div className="summary-alert"><span>{copy.leadsLabel}</span><strong>{leads.length}</strong><small>{copy.leadsHint}</small></div>
+        <div className="summary-alert"><span>{copy.bookingsLabel}</span><strong>{metrics.bookingsToday.length}</strong><small>{copy.bookingsHint}</small></div>
+        <div className="summary-alert"><span>{copy.confirmedLabel}</span><strong>{metrics.confirmedToday.length}</strong><small>{copy.confirmedHint}</small></div>
+        <div className="summary-alert"><span>{copy.followUpsLabel}</span><strong>{metrics.followUpJobs.length + metrics.crmFollowUps.length}</strong><small>{copy.followUpsHint}</small></div>
+        <div className="summary-alert"><span>{copy.contentReviewLabel}</span><strong>{metrics.reviewContent.length}</strong><small>{copy.contentReviewHint}</small></div>
+      </div>
+    </section>
+
+    <section className="today-section">
+      <header><p>{copy.healthEyebrow}</p><h3>{copy.healthTitle}</h3></header>
+      <div className="status-grid today-health">
+        {(Object.keys(statusLabels) as JobStatus[]).map((jobStatus) => (
+          <article key={jobStatus}><span>{statusLabels[jobStatus]}</span><strong>{healthCounts[jobStatus]}</strong></article>
+        ))}
+      </div>
+      {automationStatus !== null && (
+        <p className="today-automation-note">
+          {copy.automationSnapshotTitle}: {Array.isArray(automationStatus) ? automationStatus.length : typeof automationStatus === "object" ? Object.keys(automationStatus).length : 1} {copy.automationRecordsLabel}
+        </p>
+      )}
+    </section>
+
+    <section className="today-section">
+      <header><p>{copy.actionsEyebrow}</p><h3>{copy.actionsTitle}</h3></header>
+      <div className="today-quick-actions">
+        {quickActions.map(({ section, label }) => {
+          const Icon = quickActionIcon(section);
+          return <button type="button" key={section} className="today-quick-action" onClick={() => onNavigate(section)}><Icon size={18} aria-hidden="true" />{label}</button>;
+        })}
+      </div>
+    </section>
+  </div>;
+}
