@@ -2,7 +2,7 @@ import React, { FormEvent, lazy, Suspense, useEffect, useMemo, useState } from "
 import { createRoot } from "react-dom/client";
 import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, LayoutDashboard, Library, LogOut, Settings2, ShieldAlert, Workflow } from "lucide-react";
 import { z } from "zod";
-import { canApproveContentItem, type ContentBatchItem } from "./content-batch";
+import { canApproveContentItem, sharedDatabaseBatchId, type ContentBatchItem } from "./content-batch";
 import { appendChangeRequest, buildChangeRequestNote, type ChangeRequestKind } from "./content-growth";
 import { LanguageProvider, useLanguage } from "./i18n";
 import type { Language } from "./i18n";
@@ -114,6 +114,14 @@ const ContentMutationSchema = z.object({
   status: z.enum(["idea", "draft", "generated", "needs_review", "approved", "scheduled", "published", "failed"]).optional(),
   scheduledFor: z.string().nullable().optional(), updatedAt: z.string().optional(),
 });
+const ContentBatchApprovalSchema = z.object({
+  success: z.boolean(),
+  code: z.string().optional(),
+  batchId: z.string().uuid().optional(),
+  approvedCount: z.number().int().nonnegative().optional(),
+  alreadyApprovedCount: z.number().int().nonnegative().optional(),
+  skippedCount: z.number().int().nonnegative().optional(),
+}).passthrough();
 const MediaAssetSchema = z.object({
   id: z.string().uuid(), createdBy: z.string().uuid(), contentItemId: z.string().uuid().nullable(),
   assetType: z.enum(["image", "video", "logo", "other"]), source: z.enum(["upload", "ai_generated", "external"]),
@@ -307,6 +315,14 @@ async function updateContentItem(session: Session, contentItemId: string, fields
 async function transitionContentItem(session: Session, contentItemId: string, action: ContentAction, scheduledFor: string | null = null) {
   const result = ContentMutationSchema.parse(await callRpc(session, "transition_staff_content_item", {
     p_content_item_id: contentItemId, p_action: action, p_scheduled_for: scheduledFor,
+  }));
+  if (!result.success) throw new Error(result.code ?? "UPDATE_REJECTED");
+  return result;
+}
+
+async function approveStaffContentBatch(session: Session, batchId: string) {
+  const result = ContentBatchApprovalSchema.parse(await callRpc(session, "approve_staff_content_batch", {
+    p_batch_id: batchId,
   }));
   if (!result.success) throw new Error(result.code ?? "UPDATE_REJECTED");
   return result;
@@ -686,11 +702,31 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
       setNotice(t("contentBatch").batchNothingToApprove);
       return;
     }
+    const databaseBatchId = sharedDatabaseBatchId(candidates);
     setBatchBusy(true);
     setNotice("");
-    let approvedCount = 0;
-    let failed = false;
     try {
+      if (databaseBatchId) {
+        try {
+          const result = await approveStaffContentBatch(session, databaseBatchId);
+          const approvedCount = result.approvedCount ?? 0;
+          const alreadyApprovedCount = result.alreadyApprovedCount ?? 0;
+          if (approvedCount > 0 || alreadyApprovedCount > 0) {
+            setNotice(approvedCount > 0 ? t("contentBatch").batchApprovedNotice : t("contentBatch").batchNothingToApprove);
+            onChanged();
+          } else {
+            setNotice(t("contentBatch").batchNothingToApprove);
+          }
+        } catch (cause) {
+          const code = cause instanceof Error ? cause.message : "UPDATE_FAILED";
+          if (code === "SESSION_EXPIRED") { onSessionExpired(); return; }
+          setNotice(contentErrorMessage(language, code));
+        }
+        return;
+      }
+
+      let approvedCount = 0;
+      let failed = false;
       for (const item of pending) {
         if (!canApproveContentItem(item)) continue;
         try {

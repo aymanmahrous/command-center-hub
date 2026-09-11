@@ -38,6 +38,22 @@ export type BatchSummary = {
 };
 
 const BATCH_ID_KEYS = ["batchId", "batch_id", "batchID"] as const;
+const DATABASE_BATCH_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function isDatabaseBatchId(batchId: string): boolean {
+  return DATABASE_BATCH_ID_RE.test(batchId.trim());
+}
+
+export function sharedDatabaseBatchId(items: ContentBatchItem[]): string | null {
+  const ids = new Set<string>();
+  for (const item of items) {
+    const batchId = readBatchId(item);
+    if (batchId) ids.add(batchId);
+  }
+  if (ids.size !== 1) return null;
+  const [batchId] = ids;
+  return batchId && isDatabaseBatchId(batchId) ? batchId : null;
+}
 const REVIEW_DEADLINE_KEYS = ["reviewDeadline", "review_deadline", "reviewDate", "review_date"] as const;
 
 export function readBatchId(item: Record<string, unknown>): string | null {

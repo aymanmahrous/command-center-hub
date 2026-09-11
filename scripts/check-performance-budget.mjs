@@ -5,7 +5,7 @@ import { gzipSync } from "node:zlib";
 const distDirectory = resolve(process.env.PERFORMANCE_DIST_DIR ?? "dist");
 const indexPath = resolve(distDirectory, "index.html");
 const budgets = {
-  js: { raw: 351_000, gzip: 103_000 },
+  js: { raw: 352_000, gzip: 104_000 },
   css: { raw: 25_000, gzip: 6_000 },
 };
 
