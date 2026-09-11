@@ -7,7 +7,7 @@ export type ProviderStatus = {
 };
 
 const DEFAULT_STATUSES: Record<ProviderKey, ProviderStatus> = {
-  gemini: { key: "gemini", connected: false, detail: "Gemini API — NOT CONNECTED (billing/credentials not verified in Command Center)" },
+  gemini: { key: "gemini", connected: false, detail: "Gemini — NEEDS CREDENTIAL (set GEMINI_API_KEY in Supabase Edge Function secrets)" },
   canva: { key: "canva", connected: false, detail: "Canva — NOT CONNECTED (adapter ready for future OAuth)" },
   runway: { key: "runway", connected: false, detail: "Runway — NOT CONNECTED (adapter ready for future API key)" },
   capcut: { key: "capcut", connected: false, detail: "CapCut — manual workflow only (no API connected)" },
