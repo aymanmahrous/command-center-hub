@@ -1,0 +1,25 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+const adapter = await readFile(new URL("../src/canva-design-adapter.ts", import.meta.url), "utf8");
+const edge = await readFile(new URL("../supabase/functions/canva-design/index.ts", import.meta.url), "utf8");
+const panel = await readFile(new URL("../src/content-batch-review-panel.tsx", import.meta.url), "utf8");
+
+test("canva design adapter stays server-side", () => {
+  assert.match(adapter, /functions\/v1\/canva-design/);
+  assert.match(adapter, /generateCanvaDesignForContentItem/);
+  assert.doesNotMatch(adapter, /CANVA_CLIENT_SECRET|VITE_CANVA/i);
+});
+
+test("canva design edge function uses brand template autofill and export", () => {
+  assert.match(edge, /CANVA_BRAND_TEMPLATE_ID/);
+  assert.match(edge, /\/autofills/);
+  assert.match(edge, /\/exports/);
+  assert.match(edge, /media_asset_id/);
+});
+
+test("batch review panel exposes generate Canva design action", () => {
+  assert.match(panel, /generateCanvaDesignForContentItem/);
+  assert.match(panel, /generateDesignButton/);
+});

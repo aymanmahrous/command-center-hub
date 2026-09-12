@@ -17,6 +17,7 @@ import {
 import { readContentPillar, readTimeSlot } from "./content-strategy";
 import { readPublishingCopy } from "./content-publishing-copy";
 import { ContentBatchMediaPreview } from "./content-batch-media-preview";
+import { canvaDesignErrorMessage, generateCanvaDesignForContentItem } from "./canva-design-adapter";
 import type { MediaAssetRecord } from "./media-types";
 import { useLanguage } from "./i18n";
 import "./content-batch-review.css";
@@ -28,6 +29,7 @@ type ContentBatchReviewPanelProps = {
   busy: boolean;
   session?: { accessToken: string };
   mediaAssets?: MediaAssetRecord[];
+  onMediaLinked?: () => void;
   onApproveItem: (item: ContentBatchItem) => Promise<void>;
   onRequestChanges: (item: ContentBatchItem, kind: ChangeRequestKind, note: string) => Promise<void>;
   onApproveAll: (items: ContentBatchItem[]) => Promise<void>;
@@ -50,6 +52,7 @@ export function ContentBatchReviewPanel({
   busy,
   session,
   mediaAssets = [],
+  onMediaLinked,
   onApproveItem,
   onRequestChanges,
   onApproveAll,
@@ -64,6 +67,8 @@ export function ContentBatchReviewPanel({
   const [changeTargetId, setChangeTargetId] = useState<string | null>(null);
   const [changeKind, setChangeKind] = useState<ChangeRequestKind>("caption");
   const [changeNote, setChangeNote] = useState("");
+  const [designBusyId, setDesignBusyId] = useState<string | null>(null);
+  const [designNotice, setDesignNotice] = useState("");
 
   const summary = useMemo(() => summarizeBatch(batch.items), [batch.items]);
   const batchStatus = overallBatchStatus(batch.items);
@@ -92,6 +97,22 @@ export function ContentBatchReviewPanel({
     setChangeTargetId(null);
     setChangeNote("");
     setChangeKind("caption");
+  }
+
+  async function handleGenerateDesign(item: ContentBatchItem) {
+    if (!session || !canWrite || busy || designBusyId) return;
+    setDesignBusyId(item.id);
+    setDesignNotice("");
+    try {
+      await generateCanvaDesignForContentItem(session, item);
+      setDesignNotice(copy.designGeneratedNotice);
+      onMediaLinked?.();
+    } catch (cause) {
+      if (cause instanceof Error && cause.message === "SESSION_EXPIRED") throw cause;
+      setDesignNotice(canvaDesignErrorMessage(cause instanceof Error ? cause.message : undefined));
+    } finally {
+      setDesignBusyId(null);
+    }
   }
 
   return (
@@ -124,6 +145,7 @@ export function ContentBatchReviewPanel({
         </button>
         {!canWrite && <small>{t("common").readOnlyNote}</small>}
       </div>
+      {designNotice && <p className="content-batch-design-notice" role="status">{designNotice}</p>}
 
       <div className="content-batch-grid">
         {items.map((item) => {
@@ -186,6 +208,16 @@ export function ContentBatchReviewPanel({
                 )}
               </div>
               <footer>
+                {!item.mediaAssetId && session && (
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={itemLocked || designBusyId === item.id}
+                    onClick={() => void handleGenerateDesign(item)}
+                  >
+                    {designBusyId === item.id ? copy.generateDesignBusy : copy.generateDesignButton}
+                  </button>
+                )}
                 {canApprove && (
                   <button type="button" disabled={itemLocked} onClick={() => void onApproveItem(item)}>
                     {copy.approveButton}

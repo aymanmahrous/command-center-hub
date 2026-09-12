@@ -324,6 +324,12 @@ export default function ContentGrowthHub({
           busy={panelBusy}
           session={session}
           mediaAssets={mediaAssets}
+          onMediaLinked={() => {
+            void callRpc(session, "get_staff_media_assets", {})
+              .then((raw) => setMediaAssets(parseMediaAssetRecords(raw)))
+              .catch(() => undefined);
+            onBatchCreated?.();
+          }}
           onApproveItem={onApproveItem}
           onRequestChanges={onRequestChanges}
           onApproveAll={onApproveAll}
