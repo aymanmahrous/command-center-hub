@@ -47,6 +47,7 @@
 .media-placeholder small { color: #64748b; }
 .media-preview { min-height: 240px; background: #0f172a; display: grid; place-items: center; padding: 12px; }
 .media-preview-image img { display: block; width: 100%; height: auto; min-height: 240px; max-height: 520px; object-fit: contain; }
+.media-preview-video video { display: block; width: 100%; height: auto; min-height: 240px; max-height: 520px; object-fit: contain; background: #000; }
 .media-document-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 4px; }
 .media-document-actions button { border: 1px solid #d97706; border-radius: 999px; padding: 7px 12px; background: #fff7ed; color: #9a3412; font-size: 0.78rem; font-weight: 800; cursor: pointer; }
 .media-document-actions button.secondary { border-color: #cbd5e1; background: #fff; color: #334155; }
@@ -70,7 +71,8 @@
   .media-toolbar, .media-card { grid-template-columns: 1fr; }
   .media-toolbar > span { padding-bottom: 0; }
   .media-placeholder { min-height: 150px; }
-  .media-preview-image img { min-height: 200px; max-height: 420px; }
+  .media-preview-image img,
+  .media-preview-video video { min-height: 200px; max-height: 420px; }
 }
 
 @media (max-width: 520px) {

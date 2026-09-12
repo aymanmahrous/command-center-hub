@@ -7,7 +7,7 @@ import MediaLibraryUploadPanel from "./media-library-upload";
 import { MediaAssetControls, MediaProviderStrip, parseMediaAssetRecords } from "./media-library-controls";
 import type { MediaCategory } from "./media-types";
 import { MEDIA_CATEGORIES } from "./media-types";
-import { fetchStaffMediaBlob, openStaffMediaAsset } from "./staff-media-storage";
+import { fetchStaffMediaSignedUrl, openStaffMediaAsset } from "./staff-media-storage";
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 type MediaAssetType = "image" | "video" | "logo" | "other";
@@ -91,20 +91,21 @@ function MediaAssetPreview({
   const [actionError, setActionError] = useState("");
   const fileName = mediaFileName(language, copy, asset.storagePath, asset.metadata);
   const canPreviewImage = Boolean(asset.storagePath) && (asset.assetType === "image" || asset.assetType === "logo");
+  const canPreviewVideo = Boolean(asset.storagePath) && asset.assetType === "video";
+  const canPreviewMedia = canPreviewImage || canPreviewVideo;
   const isDocument = asset.assetType === "other";
 
   useEffect(() => {
-    if (!canPreviewImage || !asset.storagePath) {
+    if (!canPreviewMedia || !asset.storagePath) {
       setPreviewUrl(null);
       setPreviewState("idle");
       return;
     }
     const controller = new AbortController();
     setPreviewState("loading");
-    fetchStaffMediaBlob(session, asset.storagePath, controller.signal)
-      .then((blob) => {
-        const objectUrl = URL.createObjectURL(blob);
-        setPreviewUrl(objectUrl);
+    fetchStaffMediaSignedUrl(session, asset.storagePath, 3600, controller.signal)
+      .then((signedUrl) => {
+        setPreviewUrl(signedUrl);
         setPreviewState("ready");
       })
       .catch((cause) => {
@@ -115,12 +116,9 @@ function MediaAssetPreview({
       });
     return () => {
       controller.abort();
-      setPreviewUrl((current) => {
-        if (current) URL.revokeObjectURL(current);
-        return null;
-      });
+      setPreviewUrl(null);
     };
-  }, [asset.id, asset.storagePath, canPreviewImage, onSessionExpired, session]);
+  }, [asset.id, asset.storagePath, canPreviewMedia, onSessionExpired, session]);
 
   async function handleDocumentAction(mode: "open" | "download") {
     if (!asset.storagePath || actionBusy) return;
@@ -137,14 +135,26 @@ function MediaAssetPreview({
     }
   }
 
+  if (canPreviewVideo && previewState === "ready" && previewUrl) {
+    return (
+      <div className="media-preview media-preview-video">
+        <video src={previewUrl} controls playsInline preload="metadata" aria-label={fileName} />
+      </div>
+    );
+  }
+
   if (canPreviewImage && previewState === "ready" && previewUrl) {
-    return <div className="media-preview media-preview-image"><img src={previewUrl} alt={fileName} loading="lazy" decoding="async" /></div>;
+    return (
+      <div className="media-preview media-preview-image">
+        <img src={previewUrl} alt={fileName} loading="lazy" decoding="async" onError={() => setPreviewState("error")} />
+      </div>
+    );
   }
 
   return <div className={`media-placeholder media-${asset.assetType}`}>
-    {canPreviewImage && previewState === "loading" ? <span>{loadingLabel}</span> : <Library size={26} />}
+    {canPreviewMedia && previewState === "loading" ? <span>{loadingLabel}</span> : <Library size={26} />}
     <span>{typeLabels[asset.assetType]}</span>
-    <small>{canPreviewImage && previewState === "error" ? copy.previewUnavailable : mediaPreviewHint(language, copy, asset.assetType)}</small>
+    <small>{canPreviewMedia && previewState === "error" ? copy.previewUnavailable : mediaPreviewHint(language, copy, asset.assetType)}</small>
     {isDocument && asset.storagePath && <div className="media-document-actions">
       <button type="button" disabled={actionBusy !== null} onClick={() => void handleDocumentAction("open")}>{actionBusy === "open" ? loadingLabel : copy.documentOpen}</button>
       <button type="button" className="secondary" disabled={actionBusy !== null} onClick={() => void handleDocumentAction("download")}>{actionBusy === "download" ? loadingLabel : copy.documentDownload}</button>
