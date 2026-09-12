@@ -51,7 +51,11 @@ async function callRpc(session: GrowthSession, rpcName: string, body: Record<str
     signal,
   });
   if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
-  if (!response.ok) throw new Error(`RPC_FAILED_${response.status}`);
+  if (!response.ok) {
+    const text = await response.text();
+    if (text.includes("CONTENT_SLOT_ALREADY_PLANNED")) throw new Error("CONTENT_SLOT_ALREADY_PLANNED");
+    throw new Error(`RPC_FAILED_${response.status}`);
+  }
   return response.json();
 }
 
@@ -121,23 +125,43 @@ export default function ContentGrowthHub({
     setGenerateNotice("");
     try {
       const nonce = crypto.randomUUID();
-      const start = new Date();
       const mediaRaw = await callRpc(session, "get_staff_media_assets", {});
       const assets = parseMediaAssetRecords(mediaRaw);
-      let items;
-      try {
-        const geminiItems = await generateCoachAymanBatchWithGemini(session, nonce, start);
-        items = geminiItems ? attachMediaToCoachAymanBatch(geminiItems, assets) : await buildCoachAyman2026BatchWithMedia(assets, start, nonce);
-      } catch {
-        items = await buildCoachAyman2026BatchWithMedia(assets, start, nonce);
+      let saved: { success?: boolean; batchId?: string; code?: string } | null = null;
+
+      for (let shiftDays = 0; shiftDays <= 14 && !saved; shiftDays += 1) {
+        const start = new Date();
+        start.setUTCDate(start.getUTCDate() + shiftDays);
+        const batchNonce = shiftDays === 0 ? nonce : `${nonce}-${shiftDays}`;
+        let items;
+        if (shiftDays === 0) {
+          try {
+            const geminiItems = await generateCoachAymanBatchWithGemini(session, batchNonce, start);
+            items = geminiItems
+              ? attachMediaToCoachAymanBatch(geminiItems, assets)
+              : await buildCoachAyman2026BatchWithMedia(assets, start, batchNonce);
+          } catch {
+            items = await buildCoachAyman2026BatchWithMedia(assets, start, batchNonce);
+          }
+        } else {
+          items = await buildCoachAyman2026BatchWithMedia(assets, start, batchNonce);
+        }
+
+        try {
+          saved = await callRpc(session, "create_staff_generated_content_batch", {
+            p_items: items,
+            p_provider_external_id: COACH_AYMAN_PROVIDER_ID,
+          }) as { success?: boolean; batchId?: string; code?: string };
+        } catch (cause) {
+          const code = cause instanceof Error ? cause.message : "GENERATE_FAILED";
+          if (code === "CONTENT_SLOT_ALREADY_PLANNED") continue;
+          throw cause;
+        }
       }
-      const result = await callRpc(session, "create_staff_generated_content_batch", {
-        p_items: items,
-        p_provider_external_id: COACH_AYMAN_PROVIDER_ID,
-      }) as { success?: boolean; batchId?: string; code?: string };
-      if (!result.success || !result.batchId) throw new Error(result.code ?? "GENERATE_FAILED");
-      setGenerateNotice(copy.generateSuccess.replace("{batchId}", result.batchId));
-      setSelectedBatchId(result.batchId);
+
+      if (!saved?.success || !saved.batchId) throw new Error(saved?.code ?? "GENERATE_FAILED");
+      setGenerateNotice(copy.generateSuccess.replace("{batchId}", saved.batchId));
+      setSelectedBatchId(saved.batchId);
       setMediaAssets(assets);
       onBatchCreated?.();
     } catch (cause) {
