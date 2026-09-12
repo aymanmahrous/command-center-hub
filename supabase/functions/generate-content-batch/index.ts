@@ -1,5 +1,19 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import {
+  COACH_AYMAN_BATCH_SIZE,
+  COACH_AYMAN_PROVIDER_ID,
+  COACH_AYMAN_SLOT_SPEC,
+  FORBIDDEN_CLAIMS,
+  PRIMARY_CTAS,
+  buildBatchTrackedCta,
+  buildHashtags,
+  contentFingerprint,
+  ensureMediaBrief,
+  ensureRelaxFixBrandLead,
+  gstSlotUtc,
+  primaryCtaForSlot,
+} from "./coach-ayman-slot-spec.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -58,52 +72,46 @@ async function requireStaff(supabase: ReturnType<typeof createClient>, token: st
   return { staffId: authData.user.id };
 }
 
-const SLOT_MIX = [
-  { platform: "instagram", contentType: "carousel", contentPillar: "swimming_education", contentSlot: "education_midday", dayOffset: 0, hourGst: 9 },
-  { platform: "facebook", contentType: "post", contentPillar: "swimming_education", contentSlot: "education_midday", dayOffset: 0, hourGst: 9 },
-  { platform: "instagram", contentType: "post", contentPillar: "safety_awareness", contentSlot: "trust_morning", dayOffset: 1, hourGst: 9 },
-  { platform: "facebook", contentType: "post", contentPillar: "parent_concerns", contentSlot: "trust_morning", dayOffset: 1, hourGst: 9 },
-  { platform: "instagram", contentType: "reel", contentPillar: "real_progress", contentSlot: "conversion_evening", dayOffset: 2, hourGst: 18 },
-  { platform: "tiktok", contentType: "video", contentPillar: "real_progress", contentSlot: "conversion_evening", dayOffset: 2, hourGst: 18 },
-  { platform: "instagram", contentType: "post", contentPillar: "coach_authority", contentSlot: "trust_morning", dayOffset: 3, hourGst: 9 },
-  { platform: "facebook", contentType: "post", contentPillar: "behind_the_scenes", contentSlot: "education_midday", dayOffset: 4, hourGst: 9 },
-  { platform: "facebook", contentType: "post", contentPillar: "offer_booking", contentSlot: "conversion_evening", dayOffset: 5, hourGst: 18 },
-  { platform: "instagram", contentType: "carousel", contentPillar: "water_fear", contentSlot: "trust_morning", dayOffset: 6, hourGst: 9 },
-];
-
-function gstSlotUtc(dayOffset: number, hourGst: number, start: Date): string {
-  const base = new Date(start);
-  base.setUTCHours(0, 0, 0, 0);
-  base.setUTCDate(base.getUTCDate() + dayOffset + 1);
-  base.setUTCHours(hourGst - 4, 0, 0, 0);
-  return base.toISOString();
-}
-
-async function contentFingerprint(seed: string): Promise<string> {
-  const data = new TextEncoder().encode(seed);
-  const hash = await crypto.subtle.digest("SHA-256", data);
-  return [...new Uint8Array(hash)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
 function buildPrompt(batchNonce: string, startIso: string) {
+  const slotInstructions = COACH_AYMAN_SLOT_SPEC.map((slot, index) => ({
+    index,
+    platform: slot.platform,
+    contentType: slot.contentType,
+    contentPillar: slot.contentPillar,
+    contentSlot: slot.contentSlot,
+    funnel: slot.funnel,
+    topicSeed: slot.topicSeed,
+    hookSeed: slot.hookSeed,
+    primaryCta: PRIMARY_CTAS[slot.primaryCtaKey],
+    topicHashtags: slot.topicHashtags,
+    arabicHint: slot.arabicHint ?? null,
+    briefFormat: slot.briefFormat,
+  }));
+
   return [
     "You generate a 10-item English social content batch for Relax Fix UAE Swimming Academy — Coach Ayman.",
     "Return strict JSON only: { \"items\": [ ... ] } with exactly 10 objects.",
-    "Each item keys: platform, contentType, language, contentPillar, contentSlot, topic, hook, caption, cta, hashtags, visualPrompt.",
-    "language must always be \"en\".",
+    "Each item keys: topic, hook, captionBody, visualPrompt.",
+    "Do NOT output platform/contentType/contentPillar/contentSlot/hashtags/cta — those are assigned server-side.",
     "Use these slot assignments in order (do not skip or reorder):",
-    JSON.stringify(SLOT_MIX),
-    "Brand rules:",
-    "- Lead captions with \"Relax Fix UAE Swimming Academy — Coach Ayman\" when missing.",
-    "- WhatsApp 058 821 9130 for messages & booking only. Phone 055 137 8660 for admin calls only.",
-    "- Free initial assessment. Audience: parents in Abu Dhabi.",
-    "- No guarantees, fake testimonials, #1 claims, or fabricated stats.",
-    "- Facebook: at most #RelaxFixUAE hashtag.",
-    "- Instagram/TikTok: 3-5 hashtags starting with #RelaxFixUAE.",
-    "- visualPrompt must include lines starting with CANVA:, RUNWAY: (if video/reel), and CAPCUT: with concrete design/edit briefs.",
-    "- cta must repeat WhatsApp/phone roles and free assessment.",
+    JSON.stringify(slotInstructions, null, 2),
+    "Brand and audience:",
+    "- Parents in Abu Dhabi considering kids swimming, water confidence, safety, and beginner guidance.",
+    "- Coach Ayman authority, real progress, private/group lessons, initial assessment.",
+    "- Lead captionBody with Relax Fix UAE Swimming Academy — Coach Ayman when missing.",
+    "Marketing funnel mix (already assigned per slot): attraction, education, trust, engagement, conversion.",
+    "Content type mix (already assigned per slot): carousel, story, reel, short_video, video, post.",
+    "Primary CTA per slot is provided — include that exact primary CTA line inside captionBody.",
+    "Do not repeat the same primary CTA wording across all 10 items.",
+    "Forbidden claims: guaranteed, #1, award-winning, 100% success, Olympic coach, world record, fake testimonials.",
+    "Arabic + English:",
+    "- When arabicHint is present, add one short Arabic parent line inside captionBody (caption-level only).",
+    "Media brief rules for visualPrompt:",
+    "- Must include lines starting with FORMAT:, VISUAL CONCEPT:, HEADLINE:, SUPPORTING TEXT:, SCENE IDEA:, CTA:, CANVA:, CAPCUT:.",
+    "- Add RUNWAY (optional): only for reel/short_video/video slots.",
+    "- Keep CANVA line concrete for Canva template work.",
     `Batch nonce for uniqueness: ${batchNonce}. Start date ISO: ${startIso}.`,
-    "Make topics fresh and varied within each pillar — do not repeat generic pool safety only.",
+    "Make topics fresh within each slot seed — do not copy slot seeds verbatim unless improved.",
   ].join("\n");
 }
 
@@ -131,25 +139,48 @@ async function callGemini(prompt: string) {
   }
 }
 
+function stripTrackedFooter(caption: string): string {
+  return caption
+    .replace(/\n*Relax Fix UAE Swimming Academy\nWhatsApp 058 821 9130 — messages & booking[\s\S]*$/i, "")
+    .trim();
+}
+
 async function normalizeItems(rawItems: unknown[], batchNonce: string, start: Date) {
   const items = [];
-  for (let index = 0; index < SLOT_MIX.length; index += 1) {
-    const slot = SLOT_MIX[index];
+  for (let index = 0; index < COACH_AYMAN_SLOT_SPEC.length; index += 1) {
+    const slot = COACH_AYMAN_SLOT_SPEC[index];
     const raw = (rawItems[index] ?? {}) as JsonObject;
-    const fingerprintSeed = `command-center-coach-ayman-2026:${batchNonce}:${index}:${slot.platform}:${String(raw.topic ?? slot.contentPillar)}`;
+    const primaryCta = primaryCtaForSlot(slot);
+    const trackedCta = buildBatchTrackedCta(slot.platform, slot.contentPillar);
+
+    const topic = String(raw.topic ?? slot.topicSeed).trim() || slot.topicSeed;
+    const hook = String(raw.hook ?? slot.hookSeed).trim() || slot.hookSeed;
+    const rawBody = String(raw.captionBody ?? raw.caption ?? "").trim();
+    const body = stripTrackedFooter(rawBody) || slot.topicSeed;
+    const brandedBody = ensureRelaxFixBrandLead(body);
+    const captionBody = brandedBody.includes(primaryCta) ? brandedBody : `${brandedBody}\n\n${primaryCta}`;
+    const caption = `${captionBody}\n\n${trackedCta}`;
+
+    const visualPrompt = ensureMediaBrief(String(raw.visualPrompt ?? "").trim(), slot, primaryCta);
+    const fingerprintSeed = `${COACH_AYMAN_PROVIDER_ID}:${batchNonce}:${index}:${slot.platform}:${topic}`;
+
+    if (FORBIDDEN_CLAIMS.test(`${topic} ${hook} ${caption}`)) {
+      throw new Error(`FORBIDDEN_CLAIM_LANGUAGE_AT_${index}`);
+    }
+
     items.push({
       platform: slot.platform,
-      contentType: String(raw.contentType ?? slot.contentType),
+      contentType: slot.contentType,
       language: "en",
       contentPillar: slot.contentPillar,
       contentSlot: slot.contentSlot,
       plannedFor: gstSlotUtc(slot.dayOffset, slot.hourGst, start),
-      topic: String(raw.topic ?? "").trim() || `Coach Ayman ${slot.contentPillar.replace(/_/g, " ")}`,
-      hook: String(raw.hook ?? "").trim(),
-      caption: String(raw.caption ?? "").trim(),
-      cta: String(raw.cta ?? "").trim(),
-      hashtags: Array.isArray(raw.hashtags) ? raw.hashtags.map(String) : ["#RelaxFixUAE"],
-      visualPrompt: String(raw.visualPrompt ?? "").trim(),
+      topic,
+      hook,
+      caption,
+      cta: trackedCta,
+      hashtags: buildHashtags(slot.platform, slot.topicHashtags),
+      visualPrompt,
       contentFingerprint: await contentFingerprint(fingerprintSeed),
     });
   }
@@ -198,6 +229,15 @@ Deno.serve(async (request) => {
   if ("error" in gemini && gemini.error) return gemini.error;
 
   const rawItems = Array.isArray(gemini.data?.items) ? gemini.data.items : [];
-  const items = await normalizeItems(rawItems, batchNonce, start);
-  return json({ success: true, provider: "gemini", items, batchNonce });
+  if (rawItems.length !== COACH_AYMAN_BATCH_SIZE) {
+    return json({ success: false, code: "GEMINI_ITEM_COUNT_MISMATCH", expected: COACH_AYMAN_BATCH_SIZE, received: rawItems.length }, 502);
+  }
+
+  try {
+    const items = await normalizeItems(rawItems, batchNonce, start);
+    return json({ success: true, provider: "gemini", items, batchNonce });
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : "GEMINI_NORMALIZE_FAILED";
+    return json({ success: false, code: message }, 502);
+  }
 });

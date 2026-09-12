@@ -27,8 +27,9 @@ test("coach ayman 2026 batch has 10 platform-specific items", async () => {
   assert.equal(items.length, COACH_AYMAN_BATCH_SIZE);
   const summary = summarizeCoachAymanBatch(items);
   assert.equal(summary.total, 10);
-  assert.equal(summary.conversion, 2);
-  assert.equal(summary.educational, 8);
+  assert.equal(summary.conversion, 1);
+  assert.equal(summary.educational, 9);
+  assert.ok(summary.contentTypes.length >= 5, "expected varied content types");
   assert.deepEqual(summary.platforms.sort(), ["facebook", "instagram", "tiktok"]);
 });
 
@@ -53,9 +54,16 @@ test("coach ayman batch uses unique fingerprints and planned times", async () =>
   assert.equal(planned.size, items.length);
   for (const item of items) {
     assert.match(item.contentFingerprint, /^[0-9a-f]{64}$/);
+    assert.match(item.visualPrompt, /FORMAT:/);
     assert.match(item.visualPrompt, /CANVA:/);
     assert.match(item.visualPrompt, /CAPCUT:/);
+    assert.ok(item.hashtags.length >= 1);
   }
+  const contentTypes = new Set(items.map((item) => item.contentType));
+  assert.ok(contentTypes.has("carousel"));
+  assert.ok(contentTypes.has("reel"));
+  assert.ok(contentTypes.has("story"));
+  assert.ok(contentTypes.has("short_video"));
 });
 
 test("content growth hub links media-aware batch generation", async () => {
