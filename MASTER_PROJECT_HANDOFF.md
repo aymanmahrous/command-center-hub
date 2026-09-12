@@ -79,7 +79,7 @@
 
 ## 8. CURRENT_BLOCKER
 
-لا يوجد عنصر Instagram معتمد حاليًا للاختبار المُتحكَّم فيه. **تم اعتماد** `ffb9f795-c359-43c5-861c-5594eda75eef` («3 calm breathing habits…») — الخطوة التالية: تشغيل n8n للنشر الحي (بدون Boost أو إعلانات أو إعادة نشر تلقائي).
+**Instagram Controlled Publishing Test — جاهز للنشر عبر n8n فقط.** عنصر الاختبار `ffb9f795-c359-43c5-861c-5594eda75eef` («3 calm breathing habits…»): محتوى **approved**، تصميم Canva **approved** + معاينة تعمل (PR #84)، `consent_confirmed`، `publishability_status=ready_for_review`، `ai_analysis_status=completed`. **المعوق الوحيد:** تشغيل n8n workflow `xNwYPSXQiUyzDSyZ` يدويًا (enqueue يتطلب `service_role` — خارج Hub). لا Boost ولا إعلانات ولا إعادة نشر تلقائي.
 
 ## 9. آخر نتيجة مؤكدة
 
@@ -92,11 +92,20 @@
 
 **Hub:** لوحة اليوم + Inbox + Content Studio يعملون بعد إصلاح حالة `cancelled` (PR #80).
 
+**Media Library + Canva (2026-09-12):**
+- معاينة الصور/الفيديو عبر signed URLs (PR #84، مدمج في `main`).
+- Canva Brand Template `EAHVAAahmjU` — Generate **PASS**؛ `media_asset_id`: `20e13023-11c0-4040-832d-f72bcd77a4a8`.
+- دفعة محتوى `batch_id`: `17ce0f07-219a-45a9-a52d-1a2c8b5af447` (10 عناصر؛ 6 Instagram).
+
+**Instagram prep (2026-09-12):**
+- `content_item_id`: `ffb9f795-c359-43c5-861c-5594eda75eef` — **approved** (مالك).
+- `media_asset_id`: `20e13023-11c0-4040-832d-f72bcd77a4a8` — **approved**, consent **confirmed**, publishability **ready_for_review**.
+
 ## 10. الخطوة الحالية (NEXT)
 
-1. إنشاء دفعة محتوى جديدة (10 عناصر) من Content Growth Hub إن لم تكن موجودة للمراجعة.
-2. اعتماد **منشور Instagram واحد** للاختبار المُتحكَّم فيه.
-3. تشغيل n8n للنشر الحي لذلك المنشور فقط.
+1. ~~إنشاء دفعة محتوى (10 عناصر)~~ — **مغلق** (`17ce0f07-…`).
+2. ~~اعتماد منشور Instagram واحد~~ — **مغلق** (`ffb9f795-…`).
+3. تشغيل n8n workflow `xNwYPSXQiUyzDSyZ` للنشر الحي لذلك المنشور فقط.
 4. تقديم: Instagram Post ID، رابط المنشور، وقت النشر، execution ID، receipt status.
 5. عند غموض النتيجة: لا إعادة نشر — إبلاغ المالك.
 
