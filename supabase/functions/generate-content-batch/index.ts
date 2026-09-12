@@ -18,7 +18,7 @@ import {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const GEMINI_API_KEY = (Deno.env.get("GEMINI_API_KEY") ?? "").trim();
-const GEMINI_MODEL = "gemini-2.0-flash";
+const GEMINI_MODEL = "gemini-3.6-flash";
 const ALLOWED_ROLES = new Set(["super_admin", "admin", "content_manager"]);
 const CORS_HEADERS = {
   "access-control-allow-origin": "*",
