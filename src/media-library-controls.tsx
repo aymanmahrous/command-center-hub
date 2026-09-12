@@ -4,7 +4,7 @@ import type { AiSuitabilityVerdict, MediaAssetRecord, MediaCategory, ConsentStat
 import { displayMediaWorkflowStatus } from "./media-types";
 import { analyzeMediaWithProvider, fetchGeminiIntegrationStatus, type GeminiIntegrationStatus } from "./media-gemini-adapter";
 import { CANVA_OPEN_URL, canvaConnectErrorMessage, fetchCanvaIntegrationStatus, readCanvaCallbackNotice, startCanvaConnect, type CanvaIntegrationStatus } from "./canva-adapter";
-import type { MediaAnalysisResult } from "./media-ai-analysis";
+import { readStoredMediaAnalysis, type MediaAnalysisResult } from "./media-ai-analysis";
 import { displayProviderStatus, readMediaProviderStatuses } from "./media-providers";
 import { normalizeMediaCategory } from "./media-types";
 
@@ -207,7 +207,7 @@ export function MediaAssetControls({
   }
 
   const workflowStatus = displayMediaWorkflowStatus(asset);
-  const analysis = (asset.metadata.analysis ?? null) as MediaAnalysisResult | null;
+  const analysis = readStoredMediaAnalysis(asset.metadata);
 
   return (
     <div className="media-asset-controls">
@@ -248,7 +248,7 @@ export function MediaAssetControls({
         <div className="media-ai-review-panel" aria-label={labels.aiReviewTitle}>
           <strong>{labels.aiReviewTitle}</strong>
           <p>{labels.aiVerdictLabel}: {labels[`aiVerdict_${analysis.suitabilityVerdict}`] ?? analysis.suitabilityVerdict}</p>
-          <p>{labels.recommendedPlatformLabel}: {(analysis.suggestedFormats.length ? analysis.suggestedFormats : analysis.suggestedPlatforms).join(" · ")}</p>
+          <p>{labels.recommendedPlatformLabel}: {(analysis.suggestedFormats.length ? analysis.suggestedFormats : analysis.suggestedPlatforms).join(" · ") || "—"}</p>
           <dl>
             <div><dt>{labels.suggestedHookLabel}</dt><dd>{analysis.hook}</dd></div>
             <div><dt>{labels.onScreenTextLabel}</dt><dd>{analysis.onScreenText}</dd></div>
