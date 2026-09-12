@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { groupContentBatches, isDatabaseBatchId, selectPrimaryBatch, buildNextBatchReadyNotice, type ContentBatchItem } from "./content-batch";
 import { COACH_AYMAN_PROVIDER_ID } from "./content-batch-generator";
-import { buildCoachAyman2026BatchWithMedia } from "./media-batch-link";
+import { attachMediaToCoachAymanBatch, buildCoachAyman2026BatchWithMedia } from "./media-batch-link";
+import { generateCoachAymanBatchWithGemini } from "./gemini-batch-adapter";
 import { parseMediaAssetRecords, MediaProviderStrip } from "./media-library-controls";
 import {
   readIntegrationStatuses,
@@ -85,6 +86,7 @@ export default function ContentGrowthHub({
   const [automationStatus, setAutomationStatus] = useState<unknown>(null);
   const [generateNotice, setGenerateNotice] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [mediaAssets, setMediaAssets] = useState<ReturnType<typeof parseMediaAssetRecords>>([]);
   const integrations = useMemo(() => readIntegrationStatuses(automationStatus), [automationStatus]);
 
   useEffect(() => {
@@ -92,6 +94,9 @@ export default function ContentGrowthHub({
     callRpc(session, "get_staff_content_automation_status", {}, controller.signal)
       .then(setAutomationStatus)
       .catch(() => setAutomationStatus(null));
+    callRpc(session, "get_staff_media_assets", {}, controller.signal)
+      .then((raw) => { if (!controller.signal.aborted) setMediaAssets(parseMediaAssetRecords(raw)); })
+      .catch(() => { if (!controller.signal.aborted) setMediaAssets([]); });
     return () => controller.abort();
   }, [session]);
 
@@ -116,9 +121,16 @@ export default function ContentGrowthHub({
     setGenerateNotice("");
     try {
       const nonce = crypto.randomUUID();
+      const start = new Date();
       const mediaRaw = await callRpc(session, "get_staff_media_assets", {});
       const assets = parseMediaAssetRecords(mediaRaw);
-      const items = await buildCoachAyman2026BatchWithMedia(assets, new Date(), nonce);
+      let items;
+      try {
+        const geminiItems = await generateCoachAymanBatchWithGemini(session, nonce, start);
+        items = geminiItems ? attachMediaToCoachAymanBatch(geminiItems, assets) : await buildCoachAyman2026BatchWithMedia(assets, start, nonce);
+      } catch {
+        items = await buildCoachAyman2026BatchWithMedia(assets, start, nonce);
+      }
       const result = await callRpc(session, "create_staff_generated_content_batch", {
         p_items: items,
         p_provider_external_id: COACH_AYMAN_PROVIDER_ID,
@@ -126,6 +138,7 @@ export default function ContentGrowthHub({
       if (!result.success || !result.batchId) throw new Error(result.code ?? "GENERATE_FAILED");
       setGenerateNotice(copy.generateSuccess.replace("{batchId}", result.batchId));
       setSelectedBatchId(result.batchId);
+      setMediaAssets(assets);
       onBatchCreated?.();
     } catch (cause) {
       const code = cause instanceof Error ? cause.message : "GENERATE_FAILED";
@@ -309,6 +322,8 @@ export default function ContentGrowthHub({
           batch={selectedBatch}
           canWrite={canWrite}
           busy={panelBusy}
+          session={session}
+          mediaAssets={mediaAssets}
           onApproveItem={onApproveItem}
           onRequestChanges={onRequestChanges}
           onApproveAll={onApproveAll}
