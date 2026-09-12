@@ -59,6 +59,32 @@ export async function fetchCanvaIntegrationStatus(session: CanvaSession): Promis
   }
 }
 
+export function canvaConnectErrorMessage(code: string | undefined): string {
+  switch (code) {
+    case "NEEDS_CREDENTIAL":
+      return "Canva OAuth is not configured on the server yet. Use Open Canva manually — connection is optional.";
+    case "METHOD_NOT_ALLOWED":
+      return "Canva link opened incorrectly. Use the Connect Canva button inside Media Library, not the server URL.";
+    case "AUTH_REQUIRED":
+    case "STAFF_ACCESS_DENIED":
+      return "Your session cannot authorize Canva. Sign in again with a content manager account.";
+    case "STATE_STORE_FAILED":
+    case "STATE_NOT_FOUND":
+    case "STATE_EXPIRED":
+      return "Canva authorization expired. Click Connect Canva again.";
+    case "TOKEN_EXCHANGE_FAILED":
+    case "TOKEN_RESPONSE_INVALID":
+    case "TOKEN_STORE_FAILED":
+      return "Canva approved the link but storing the token failed. Try Connect Canva once more.";
+    case "USE_CONNECT_BUTTON":
+      return "Open Command Center and use Connect Canva in Media Library — do not open the server link directly.";
+    default:
+      return code
+        ? `Canva connection failed (${code}). Command Center continues without Canva.`
+        : "Could not start Canva OAuth safely. Command Center continues without Canva.";
+  }
+}
+
 export async function startCanvaConnect(session: CanvaSession): Promise<{ authorizationUrl: string }> {
   const result = await callCanvaOAuthEdge(session, { mode: "authorize" });
   if (result.code === "NEEDS_CREDENTIAL") {

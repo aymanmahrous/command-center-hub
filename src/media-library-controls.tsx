@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { AiSuitabilityVerdict, MediaAssetRecord, MediaCategory, ConsentStatus } from "./media-types";
 import { displayMediaWorkflowStatus } from "./media-types";
 import { analyzeMediaWithProvider, fetchGeminiIntegrationStatus, type GeminiIntegrationStatus } from "./media-gemini-adapter";
-import { CANVA_OPEN_URL, fetchCanvaIntegrationStatus, readCanvaCallbackNotice, startCanvaConnect, type CanvaIntegrationStatus } from "./canva-adapter";
+import { CANVA_OPEN_URL, canvaConnectErrorMessage, fetchCanvaIntegrationStatus, readCanvaCallbackNotice, startCanvaConnect, type CanvaIntegrationStatus } from "./canva-adapter";
 import type { MediaAnalysisResult } from "./media-ai-analysis";
 import { displayProviderStatus, readMediaProviderStatuses } from "./media-providers";
 import { normalizeMediaCategory } from "./media-types";
@@ -95,8 +95,9 @@ export function MediaProviderStrip({ session, canWrite = false }: { session?: Co
   useEffect(() => {
     const callback = readCanvaCallbackNotice(window.location.search);
     if (!callback || !session) return;
+    const canvaCode = new URL(window.location.href).searchParams.get("canva_code") ?? undefined;
     if (callback === "connected") setCanvaNotice("Canva connected successfully.");
-    else setCanvaNotice("Canva connection did not complete. Command Center continues normally.");
+    else setCanvaNotice(canvaConnectErrorMessage(canvaCode));
     const url = new URL(window.location.href);
     url.searchParams.delete("canva");
     url.searchParams.delete("canva_code");
@@ -118,7 +119,8 @@ export function MediaProviderStrip({ session, canWrite = false }: { session?: Co
       window.location.assign(authorizationUrl);
     } catch (cause) {
       if (cause instanceof Error && cause.message === "SESSION_EXPIRED") throw cause;
-      setCanvaNotice("Could not start Canva OAuth safely. Command Center continues without Canva.");
+      const code = cause instanceof Error ? cause.message : undefined;
+      setCanvaNotice(canvaConnectErrorMessage(code));
     } finally {
       setCanvaBusy(false);
     }

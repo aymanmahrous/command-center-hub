@@ -9,7 +9,7 @@ const CANVA_REDIRECT_URI = (Deno.env.get("CANVA_REDIRECT_URI") ?? `${SUPABASE_UR
 const COMMAND_CENTER_RETURN_URL = (Deno.env.get("COMMAND_CENTER_RETURN_URL") ?? "https://command-center-hub-lilac.vercel.app").replace(/\/$/, "");
 const CANVA_AUTH_URL = "https://www.canva.com/api/oauth/authorize";
 const CANVA_TOKEN_URL = "https://api.canva.com/rest/v1/oauth/token";
-const CANVA_SCOPES = "profile:read design:meta:read design:content:read";
+const CANVA_SCOPES = "profile:read design:meta:read design:content:read design:content:write brandtemplate:meta:read brandtemplate:content:read";
 const ALLOWED_ROLES = new Set(["super_admin", "admin", "content_manager"]);
 const STATE_TTL_MS = 15 * 60 * 1000;
 const CORS_HEADERS = {
@@ -229,8 +229,18 @@ Deno.serve(async (request) => {
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
   const url = new URL(request.url);
 
-  if (request.method === "GET" && url.searchParams.get("action") === "callback") {
-    return handleCallback(request, supabase);
+  const isOAuthCallbackGet = request.method === "GET" && (
+    url.searchParams.get("action") === "callback"
+    || url.searchParams.has("code")
+    || url.searchParams.has("error")
+  );
+  if (isOAuthCallbackGet) return handleCallback(request, supabase);
+
+  if (request.method === "GET") {
+    return returnRedirect({
+      canva: "error",
+      canva_code: "USE_CONNECT_BUTTON",
+    });
   }
 
   if (request.method !== "POST") return json({ success: false, code: "METHOD_NOT_ALLOWED" }, 405);

@@ -96,6 +96,50 @@
   white-space: pre-wrap;
 }
 
+.content-batch-media-preview {
+  display: grid;
+  gap: 8px;
+}
+
+.content-batch-design-image {
+  width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+  border-radius: 12px;
+  border: 1px solid #334155;
+  background: #0b1220;
+}
+
+.content-batch-design-placeholder {
+  display: grid;
+  place-items: center;
+  min-height: 180px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px dashed #475569;
+  background: rgba(15, 23, 42, 0.65);
+  color: #94a3b8;
+  font-size: 0.84rem;
+  text-align: center;
+}
+
+.content-batch-canva-brief {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.content-batch-canva-brief strong {
+  color: #7dd3fc;
+}
+
+.content-batch-design-notice {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 0.84rem;
+}
+
 .content-batch-item footer {
   display: flex;
   gap: 8px;

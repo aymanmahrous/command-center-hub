@@ -16,6 +16,9 @@ import {
 } from "./content-publishing";
 import { readContentPillar, readTimeSlot } from "./content-strategy";
 import { readPublishingCopy } from "./content-publishing-copy";
+import { ContentBatchMediaPreview } from "./content-batch-media-preview";
+import { canvaDesignErrorMessage, generateCanvaDesignForContentItem } from "./canva-design-adapter";
+import type { MediaAssetRecord } from "./media-types";
 import { useLanguage } from "./i18n";
 import "./content-batch-review.css";
 
@@ -24,6 +27,9 @@ type ContentBatchReviewPanelProps = {
   batch: ContentBatch;
   canWrite: boolean;
   busy: boolean;
+  session?: { accessToken: string };
+  mediaAssets?: MediaAssetRecord[];
+  onMediaLinked?: () => void;
   onApproveItem: (item: ContentBatchItem) => Promise<void>;
   onRequestChanges: (item: ContentBatchItem, kind: ChangeRequestKind, note: string) => Promise<void>;
   onApproveAll: (items: ContentBatchItem[]) => Promise<void>;
@@ -44,6 +50,9 @@ export function ContentBatchReviewPanel({
   batch,
   canWrite,
   busy,
+  session,
+  mediaAssets = [],
+  onMediaLinked,
   onApproveItem,
   onRequestChanges,
   onApproveAll,
@@ -58,11 +67,20 @@ export function ContentBatchReviewPanel({
   const [changeTargetId, setChangeTargetId] = useState<string | null>(null);
   const [changeKind, setChangeKind] = useState<ChangeRequestKind>("caption");
   const [changeNote, setChangeNote] = useState("");
+  const [designBusyId, setDesignBusyId] = useState<string | null>(null);
+  const [designNotice, setDesignNotice] = useState("");
 
   const summary = useMemo(() => summarizeBatch(batch.items), [batch.items]);
   const batchStatus = overallBatchStatus(batch.items);
   const approveCandidates = approveAllCandidates(batch.items);
   const approveAllEnabled = canWrite && !busy && approveAllWouldChange(batch.items);
+  const assetById = useMemo(() => new Map(mediaAssets.map((asset) => [asset.id, asset])), [mediaAssets]);
+  const previewLabels = {
+    designPreview: copy.designPreview,
+    designPending: copy.designPending,
+    canvaBriefLabel: copy.canvaBriefLabel,
+    noPreview: copy.noPreview,
+  };
 
   async function handleApproveAll() {
     if (!approveAllEnabled || approveCandidates.length === 0) return;
@@ -79,6 +97,22 @@ export function ContentBatchReviewPanel({
     setChangeTargetId(null);
     setChangeNote("");
     setChangeKind("caption");
+  }
+
+  async function handleGenerateDesign(item: ContentBatchItem) {
+    if (!session || !canWrite || busy || designBusyId) return;
+    setDesignBusyId(item.id);
+    setDesignNotice("");
+    try {
+      await generateCanvaDesignForContentItem(session, item);
+      setDesignNotice(copy.designGeneratedNotice);
+      onMediaLinked?.();
+    } catch (cause) {
+      if (cause instanceof Error && cause.message === "SESSION_EXPIRED") throw cause;
+      setDesignNotice(canvaDesignErrorMessage(cause instanceof Error ? cause.message : undefined));
+    } finally {
+      setDesignBusyId(null);
+    }
   }
 
   return (
@@ -111,6 +145,7 @@ export function ContentBatchReviewPanel({
         </button>
         {!canWrite && <small>{t("common").readOnlyNote}</small>}
       </div>
+      {designNotice && <p className="content-batch-design-notice" role="status">{designNotice}</p>}
 
       <div className="content-batch-grid">
         {items.map((item) => {
@@ -138,6 +173,7 @@ export function ContentBatchReviewPanel({
                 <span className={`content-status status-${item.status}`}>{itemStatusLabels[item.status as keyof typeof itemStatusLabels] ?? item.status}</span>
               </header>
               <p className="item-caption">{item.caption.trim() || copy.noCaption}</p>
+              <ContentBatchMediaPreview item={item} session={session} assetById={assetById} labels={previewLabels} />
               {(Boolean(item.mediaSource) || Boolean(item.mediaAssetId) || item.mediaPlan != null) && (
                 <p className="item-meta">
                   {copy.mediaSourceLabel}: {String(item.mediaSource ?? "—").toUpperCase()}
@@ -172,6 +208,16 @@ export function ContentBatchReviewPanel({
                 )}
               </div>
               <footer>
+                {!item.mediaAssetId && session && (
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={itemLocked || designBusyId === item.id}
+                    onClick={() => void handleGenerateDesign(item)}
+                  >
+                    {designBusyId === item.id ? copy.generateDesignBusy : copy.generateDesignButton}
+                  </button>
+                )}
                 {canApprove && (
                   <button type="button" disabled={itemLocked} onClick={() => void onApproveItem(item)}>
                     {copy.approveButton}
