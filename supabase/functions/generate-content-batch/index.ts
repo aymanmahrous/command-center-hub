@@ -117,17 +117,37 @@ function buildPrompt(batchNonce: string, startIso: string) {
 
 async function callGemini(prompt: string) {
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": GEMINI_API_KEY,
+      },
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: { temperature: 0.9, responseMimeType: "application/json" },
       }),
     },
   );
-  if (!response.ok) return { error: json({ success: false, code: "GEMINI_REQUEST_FAILED", status: response.status }, 502) };
+  if (!response.ok) {
+    const providerStatus = response.status;
+    const errorPayload = await response.json().catch(() => null) as JsonObject | null;
+    const nestedError = errorPayload?.error;
+    const providerMessage = typeof nestedError === "object" && nestedError
+      ? String((nestedError as JsonObject).message ?? "").trim().slice(0, 240)
+      : typeof errorPayload?.message === "string"
+        ? errorPayload.message.trim().slice(0, 240)
+        : "";
+    return {
+      error: json({
+        success: false,
+        code: "GEMINI_REQUEST_FAILED",
+        providerStatus,
+        ...(providerMessage ? { detail: providerMessage } : {}),
+      }, 502),
+    };
+  }
   const payload = await response.json().catch(() => null) as JsonObject | null;
   const parts = ((payload?.candidates as JsonObject[] | undefined)?.[0]?.content as JsonObject | undefined)?.parts as JsonObject[] | undefined;
   const text = parts?.[0]?.text;
