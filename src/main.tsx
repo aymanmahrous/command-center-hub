@@ -1111,8 +1111,15 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   const { language, t } = useLanguage();
   const nav = t("nav");
   const dashboardCopy = t("dashboard");
-  const initialSection = (new URLSearchParams(window.location.search).get("section") ?? "") as SectionId;
-  const [active, setActive] = useState<SectionId>(sections.some(([id]) => id === initialSection) ? initialSection : "dashboard"); const [reloadKey, setReloadKey] = useState(0); const [data, setData] = useState<JsonValue>(null); const [status, setStatus] = useState<"loading" | "ready" | "error">("loading"); const [error, setError] = useState("");
+  const launchParams = new URLSearchParams(window.location.search);
+  const canvaCallback = launchParams.get("canva");
+  const requestedSection = (launchParams.get("section") ?? "") as SectionId;
+  const initialSection: SectionId = canvaCallback
+    ? "media"
+    : sections.some(([id]) => id === requestedSection)
+      ? requestedSection
+      : "dashboard";
+  const [active, setActive] = useState<SectionId>(initialSection); const [reloadKey, setReloadKey] = useState(0); const [data, setData] = useState<JsonValue>(null); const [status, setStatus] = useState<"loading" | "ready" | "error">("loading"); const [error, setError] = useState("");
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (event.data?.type === "rf-push-navigate" && sections.some(([id]) => id === event.data.section)) setActive(event.data.section);

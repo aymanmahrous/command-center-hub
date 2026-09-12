@@ -5,9 +5,15 @@ const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/$/, "");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const CANVA_CLIENT_ID = (Deno.env.get("CANVA_CLIENT_ID") ?? "").trim();
 const CANVA_CLIENT_SECRET = (Deno.env.get("CANVA_CLIENT_SECRET") ?? "").trim();
-const CANVA_BRAND_TEMPLATE_ID = (Deno.env.get("CANVA_BRAND_TEMPLATE_ID") ?? "").trim();
-const CANVA_AUTOFILL_HEADLINE_FIELD = (Deno.env.get("CANVA_AUTOFILL_HEADLINE_FIELD") ?? "headline").trim();
-const CANVA_AUTOFILL_BODY_FIELD = (Deno.env.get("CANVA_AUTOFILL_BODY_FIELD") ?? "body").trim();
+const CANVA_BRAND_TEMPLATE_ID = (Deno.env.get("CANVA_BRAND_TEMPLATE_ID") ?? "EAHVAAahmjU").trim();
+const CANVA_SOURCE_DESIGN_ID = (Deno.env.get("CANVA_SOURCE_DESIGN_ID") ?? "DAHVAMAUP-s").trim();
+const CANVA_AUTOFILL_HEADLINE_FIELD = (Deno.env.get("CANVA_AUTOFILL_HEADLINE_FIELD") ?? "hook").trim();
+const CANVA_AUTOFILL_BODY_FIELD = (Deno.env.get("CANVA_AUTOFILL_BODY_FIELD") ?? "caption").trim();
+const CANVA_AUTOFILL_WHATSAPP_FIELD = (Deno.env.get("CANVA_AUTOFILL_WHATSAPP_FIELD") ?? "whatsapp").trim();
+const CANVA_AUTOFILL_PHONE_FIELD = (Deno.env.get("CANVA_AUTOFILL_PHONE_FIELD") ?? "phone").trim();
+const RELAXFIX_WHATSAPP_LINE = "WhatsApp 058 821 9130 — messages & booking";
+const RELAXFIX_PHONE_LINE = "Call 055 137 8660 — admin team (phone calls only)";
+const RELAXFIX_ASSESSMENT_LINE = "Free initial assessment.";
 const CANVA_TOKEN_URL = "https://api.canva.com/rest/v1/oauth/token";
 const CANVA_API_BASE = "https://api.canva.com/rest/v1";
 const MEDIA_BUCKET = "relax-fix-media";
@@ -56,8 +62,12 @@ async function requireStaff(supabase: ReturnType<typeof createClient>, token: st
   return { staffId: authData.user.id };
 }
 
+function autofillSourceConfigured() {
+  return Boolean(CANVA_BRAND_TEMPLATE_ID || CANVA_SOURCE_DESIGN_ID);
+}
+
 function credentialsConfigured() {
-  return Boolean(CANVA_CLIENT_ID && CANVA_CLIENT_SECRET && CANVA_BRAND_TEMPLATE_ID);
+  return Boolean(CANVA_CLIENT_ID && CANVA_CLIENT_SECRET && autofillSourceConfigured());
 }
 
 async function refreshCanvaAccessToken(supabase: ReturnType<typeof createClient>, staffId: string) {
@@ -116,6 +126,36 @@ async function canvaFetch(accessToken: string, path: string, init?: RequestInit)
   return { ok: response.ok, status: response.status, payload };
 }
 
+function textFieldNamesFromDataset(dataset: JsonObject | undefined): string[] {
+  if (!dataset || typeof dataset !== "object") return [];
+  return Object.entries(dataset).flatMap(([name, def]) => {
+    if (!def || typeof def !== "object") return [];
+    return (def as JsonObject).type === "text" ? [name] : [];
+  });
+}
+
+async function fetchDesignDataset(accessToken: string, designId: string) {
+  const { ok, payload } = await canvaFetch(accessToken, `/designs/${designId}/dataset`, { method: "GET" });
+  if (!ok) return { error: "AUTOFILL_DATASET_EMPTY" as const };
+  const textFields = textFieldNamesFromDataset(payload.dataset as JsonObject | undefined);
+  if (!textFields.length) return { error: "AUTOFILL_DATASET_EMPTY" as const };
+  return { textFields };
+}
+
+function buildAutofillDataFromTextFields(textFields: string[], headline: string, body: string): JsonObject {
+  const bodyWithContacts = /058 821 9130/.test(body) && /055 137 8660/.test(body)
+    ? body
+    : `${body}\n\n${RELAXFIX_WHATSAPP_LINE}\n${RELAXFIX_PHONE_LINE}\n${RELAXFIX_ASSESSMENT_LINE}`;
+  const data: JsonObject = {};
+  if (textFields.length === 1) {
+    data[textFields[0]] = { type: "text", text: bodyWithContacts.slice(0, 1200) };
+    return data;
+  }
+  data[textFields[0]] = { type: "text", text: headline.slice(0, 200) };
+  data[textFields[1]] = { type: "text", text: bodyWithContacts.slice(0, 1200) };
+  return data;
+}
+
 async function pollAutofillJob(accessToken: string, jobId: string) {
   for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
     const { ok, payload } = await canvaFetch(accessToken, `/autofills/${jobId}`, { method: "GET" });
@@ -152,18 +192,34 @@ async function pollExportJob(accessToken: string, exportId: string) {
 }
 
 async function createAutofillDesign(accessToken: string, title: string, headline: string, body: string) {
-  const data: JsonObject = {};
-  data[CANVA_AUTOFILL_HEADLINE_FIELD] = { type: "text", text: headline.slice(0, 200) };
-  data[CANVA_AUTOFILL_BODY_FIELD] = { type: "text", text: body.slice(0, 1200) };
+  let data: JsonObject;
+  let requestBody: JsonObject;
 
-  const { ok, payload } = await canvaFetch(accessToken, "/autofills", {
-    method: "POST",
-    body: JSON.stringify({
+  if (CANVA_BRAND_TEMPLATE_ID) {
+    data = {};
+    data[CANVA_AUTOFILL_HEADLINE_FIELD] = { type: "text", text: headline.slice(0, 200) };
+    data[CANVA_AUTOFILL_BODY_FIELD] = { type: "text", text: body.slice(0, 1200) };
+    requestBody = {
       type: "create_from_brand_template",
       brand_template_id: CANVA_BRAND_TEMPLATE_ID,
       title: title.slice(0, 120),
       data,
-    }),
+    };
+  } else {
+    const datasetResult = await fetchDesignDataset(accessToken, CANVA_SOURCE_DESIGN_ID);
+    if ("error" in datasetResult) return datasetResult;
+    data = buildAutofillDataFromTextFields(datasetResult.textFields, headline, body);
+    requestBody = {
+      type: "create_from_design",
+      design_id: CANVA_SOURCE_DESIGN_ID,
+      title: title.slice(0, 120),
+      data,
+    };
+  }
+
+  const { ok, payload } = await canvaFetch(accessToken, "/autofills", {
+    method: "POST",
+    body: JSON.stringify(requestBody),
   });
   if (!ok) return { error: "AUTOFILL_CREATE_FAILED" as const, detail: payload };
   const jobId = String((payload.job as JsonObject | undefined)?.id ?? "");
@@ -265,13 +321,14 @@ Deno.serve(async (request) => {
       credentialsConfigured: credentialsConfigured(),
       canvaConnected: !("error" in tokenResult),
       brandTemplateConfigured: Boolean(CANVA_BRAND_TEMPLATE_ID),
-      integrationStatus: credentialsConfigured() && !("error" in tokenResult) && CANVA_BRAND_TEMPLATE_ID
+      sourceDesignConfigured: Boolean(CANVA_SOURCE_DESIGN_ID),
+      integrationStatus: credentialsConfigured() && !("error" in tokenResult)
         ? "READY"
         : "NOT READY",
       detail: !credentialsConfigured()
-        ? "Set CANVA_CLIENT_ID, CANVA_CLIENT_SECRET, and CANVA_BRAND_TEMPLATE_ID in Edge Function secrets."
-        : !CANVA_BRAND_TEMPLATE_ID
-        ? "Set CANVA_BRAND_TEMPLATE_ID to your Swim Fluent brand template."
+        ? "Set CANVA_CLIENT_ID, CANVA_CLIENT_SECRET, and CANVA_BRAND_TEMPLATE_ID or CANVA_SOURCE_DESIGN_ID in Edge Function secrets."
+        : !autofillSourceConfigured()
+        ? "Set CANVA_BRAND_TEMPLATE_ID or CANVA_SOURCE_DESIGN_ID to your Swim Fluent Canva template/design."
         : ("error" in tokenResult)
         ? "Connect Canva OAuth in Media Library first."
         : "Canva design generation ready.",

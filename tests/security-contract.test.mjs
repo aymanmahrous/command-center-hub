@@ -141,7 +141,7 @@ test("Content batch review approves through approved RPCs only", () => {
 test("Media Library uses staff RPCs and blocks direct table mutation", () => {
   assert.match(app, /get_staff_media_assets/);
   assert.match(app, /import\("\.\/media-library-view"\)/);
-  assert.match(mediaView, /fetchStaffMediaBlob/);
+  assert.match(mediaView, /fetchStaffMediaSignedUrl/);
   assert.match(mediaView, /openStaffMediaAsset/);
   assert.match(mediaView, /MediaLibraryUploadPanel/);
   assert.match(mediaView, /register_staff_media_upload|MediaLibraryUploadPanel/);

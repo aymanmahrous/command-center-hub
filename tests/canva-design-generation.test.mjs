@@ -12,8 +12,10 @@ test("canva design adapter stays server-side", () => {
   assert.doesNotMatch(adapter, /CANVA_CLIENT_SECRET|VITE_CANVA/i);
 });
 
-test("canva design edge function uses brand template autofill and export", () => {
+test("canva design edge function uses brand template or source design autofill and export", () => {
   assert.match(edge, /CANVA_BRAND_TEMPLATE_ID/);
+  assert.match(edge, /CANVA_SOURCE_DESIGN_ID/);
+  assert.match(edge, /create_from_design/);
   assert.match(edge, /\/autofills/);
   assert.match(edge, /\/exports/);
   assert.match(edge, /media_asset_id/);

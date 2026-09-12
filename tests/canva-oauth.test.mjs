@@ -21,6 +21,8 @@ test("canva oauth edge function uses server secrets and PKCE state", () => {
   assert.match(edge, /staff_canva_oauth_states/);
   assert.match(edge, /staff_canva_tokens/);
   assert.match(edge, /url\.searchParams\.has\("code"\)/);
+  assert.match(edge, /redirectUriCandidates/);
+  assert.match(edge, /section", "media"/);
   assert.doesNotMatch(edge, /console\.log\(.*CANVA_CLIENT_SECRET/i);
 });
 

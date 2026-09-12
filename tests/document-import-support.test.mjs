@@ -9,7 +9,7 @@ const css = await readFile(new URL("../src/media-library.css", import.meta.url),
 test("Media Library keeps private RPC boundary for documents", () => {
   assert.match(app, /get_staff_media_assets/);
   assert.match(app, /import\("\.\/media-library-view"\)/);
-  assert.match(mediaView, /fetchStaffMediaBlob/);
+  assert.match(mediaView, /fetchStaffMediaSignedUrl/);
   assert.match(mediaView, /openStaffMediaAsset/);
   assert.doesNotMatch(mediaView, /create_staff_media_asset_record/);
   assert.doesNotMatch(mediaView, /\/rest\/v1\/media_assets[^\n]*(PATCH|PUT|DELETE|POST)/i);

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ContentBatchItem } from "./content-batch";
-import { fetchStaffMediaBlob } from "./staff-media-storage";
+import { fetchStaffMediaSignedUrl } from "./staff-media-storage";
 import type { MediaAssetRecord } from "./media-types";
 
 type PreviewSession = { accessToken: string };
@@ -34,19 +34,16 @@ export function ContentBatchMediaPreview({
   const [previewError, setPreviewError] = useState(false);
 
   useEffect(() => {
-    if (!session || !asset?.storagePath || asset.assetType === "video") {
+    if (!session || !asset?.storagePath) {
       setPreviewUrl(null);
       setPreviewError(false);
       return;
     }
     const controller = new AbortController();
-    fetchStaffMediaBlob(session, asset.storagePath, controller.signal)
-      .then((blob) => {
+    fetchStaffMediaSignedUrl(session, asset.storagePath, 3600, controller.signal)
+      .then((signedUrl) => {
         if (controller.signal.aborted) return;
-        setPreviewUrl((current) => {
-          if (current) URL.revokeObjectURL(current);
-          return URL.createObjectURL(blob);
-        });
+        setPreviewUrl(signedUrl);
         setPreviewError(false);
       })
       .catch(() => {
@@ -57,17 +54,18 @@ export function ContentBatchMediaPreview({
       });
     return () => {
       controller.abort();
-      setPreviewUrl((current) => {
-        if (current) URL.revokeObjectURL(current);
-        return null;
-      });
+      setPreviewUrl(null);
     };
   }, [asset?.assetType, asset?.id, asset?.storagePath, session]);
 
+  const isVideo = asset?.assetType === "video";
+
   return (
     <div className="content-batch-media-preview" aria-label={labels.designPreview}>
-      {previewUrl ? (
-        <img className="content-batch-design-image" src={previewUrl} alt={item.topic || labels.designPreview} loading="lazy" />
+      {previewUrl && isVideo ? (
+        <video className="content-batch-design-image" src={previewUrl} controls playsInline preload="metadata" aria-label={item.topic || labels.designPreview} />
+      ) : previewUrl ? (
+        <img className="content-batch-design-image" src={previewUrl} alt={item.topic || labels.designPreview} loading="lazy" onError={() => setPreviewError(true)} />
       ) : (
         <div className="content-batch-design-placeholder" role="img" aria-label={labels.designPending}>
           <span>{item.mediaSource === "pending" || !mediaAssetId ? labels.designPending : previewError ? labels.noPreview : labels.designPending}</span>
