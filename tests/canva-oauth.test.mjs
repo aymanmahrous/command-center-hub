@@ -20,7 +20,14 @@ test("canva oauth edge function uses server secrets and PKCE state", () => {
   assert.match(edge, /code_challenge_method/);
   assert.match(edge, /staff_canva_oauth_states/);
   assert.match(edge, /staff_canva_tokens/);
+  assert.match(edge, /url\.searchParams\.has\("code"\)/);
   assert.doesNotMatch(edge, /console\.log\(.*CANVA_CLIENT_SECRET/i);
+});
+
+test("canva adapter exposes user-facing connect error messages", () => {
+  assert.match(adapter, /canvaConnectErrorMessage/);
+  assert.match(adapter, /METHOD_NOT_ALLOWED/);
+  assert.match(adapter, /USE_CONNECT_BUTTON/);
 });
 
 test("canva remains optional and non-blocking in provider layer", () => {

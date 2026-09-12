@@ -229,8 +229,18 @@ Deno.serve(async (request) => {
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
   const url = new URL(request.url);
 
-  if (request.method === "GET" && url.searchParams.get("action") === "callback") {
-    return handleCallback(request, supabase);
+  const isOAuthCallbackGet = request.method === "GET" && (
+    url.searchParams.get("action") === "callback"
+    || url.searchParams.has("code")
+    || url.searchParams.has("error")
+  );
+  if (isOAuthCallbackGet) return handleCallback(request, supabase);
+
+  if (request.method === "GET") {
+    return returnRedirect({
+      canva: "error",
+      canva_code: "USE_CONNECT_BUTTON",
+    });
   }
 
   if (request.method !== "POST") return json({ success: false, code: "METHOD_NOT_ALLOWED" }, 405);
