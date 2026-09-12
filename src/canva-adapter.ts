@@ -74,10 +74,11 @@ export function canvaConnectErrorMessage(code: string | undefined): string {
       return "Canva authorization expired. Click Connect Canva again.";
     case "TOKEN_EXCHANGE_FAILED":
     case "TOKEN_RESPONSE_INVALID":
+      return "Canva approved access but token exchange failed. In Canva Developer Portal, set Redirect URI exactly to: https://nmzxrjdxvmmzzmajrskm.supabase.co/functions/v1/canva-oauth — then click Connect Canva again.";
     case "TOKEN_STORE_FAILED":
       return "Canva approved the link but storing the token failed. Try Connect Canva once more.";
     case "USE_CONNECT_BUTTON":
-      return "Open Command Center and use Connect Canva in Media Library — do not open the server link directly.";
+      return "Use Connect Canva inside Media Library only — do not open the Supabase server link directly. Click the button, approve in Canva, and wait for automatic return.";
     default:
       return code
         ? `Canva connection failed (${code}). Command Center continues without Canva.`

@@ -5,7 +5,24 @@ const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/$/, "");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const CANVA_CLIENT_ID = (Deno.env.get("CANVA_CLIENT_ID") ?? "").trim();
 const CANVA_CLIENT_SECRET = (Deno.env.get("CANVA_CLIENT_SECRET") ?? "").trim();
-const CANVA_REDIRECT_URI = (Deno.env.get("CANVA_REDIRECT_URI") ?? `${SUPABASE_URL}/functions/v1/canva-oauth?action=callback`).trim();
+
+function normalizeRedirectUri(supabaseUrl: string, raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return `${supabaseUrl}/functions/v1/canva-oauth`;
+  try {
+    const url = new URL(trimmed);
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return trimmed.split("#")[0] ?? trimmed;
+  }
+}
+
+const CANVA_REDIRECT_URI = normalizeRedirectUri(
+  SUPABASE_URL,
+  Deno.env.get("CANVA_REDIRECT_URI") ?? `${SUPABASE_URL}/functions/v1/canva-oauth`,
+);
+const CANVA_LEGACY_REDIRECT_URI = `${SUPABASE_URL}/functions/v1/canva-oauth?action=callback`;
 const COMMAND_CENTER_RETURN_URL = (Deno.env.get("COMMAND_CENTER_RETURN_URL") ?? "https://command-center-hub-lilac.vercel.app").replace(/\/$/, "");
 const CANVA_AUTH_URL = "https://www.canva.com/api/oauth/authorize";
 const CANVA_TOKEN_URL = "https://api.canva.com/rest/v1/oauth/token";
@@ -30,6 +47,14 @@ function json(body: JsonObject, status = 200) {
 function bearerToken(request: Request) {
   const authorization = request.headers.get("authorization") ?? "";
   return authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
+}
+
+function redirectUriCandidates(): string[] {
+  const candidates = [CANVA_REDIRECT_URI];
+  if (CANVA_LEGACY_REDIRECT_URI !== CANVA_REDIRECT_URI && !candidates.includes(CANVA_LEGACY_REDIRECT_URI)) {
+    candidates.push(CANVA_LEGACY_REDIRECT_URI);
+  }
+  return candidates;
 }
 
 function credentialsConfigured() {
@@ -77,38 +102,45 @@ async function cleanupExpiredStates(supabase: ReturnType<typeof createClient>) {
 
 function returnRedirect(params: Record<string, string>, status = 302) {
   const url = new URL(COMMAND_CENTER_RETURN_URL);
-  url.searchParams.set("section", "content");
+  url.searchParams.set("section", "media");
   for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
   return Response.redirect(url.toString(), status);
 }
 
 async function exchangeAuthorizationCode(code: string, codeVerifier: string) {
-  const body = new URLSearchParams({
-    grant_type: "authorization_code",
-    code,
-    code_verifier: codeVerifier,
-    redirect_uri: CANVA_REDIRECT_URI,
-  });
-  const response = await fetch(CANVA_TOKEN_URL, {
-    method: "POST",
-    headers: {
-      Authorization: basicAuthHeader(),
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body,
-  });
-  if (!response.ok) return { error: "TOKEN_EXCHANGE_FAILED", status: response.status };
-  const payload = await response.json().catch(() => null) as JsonObject | null;
-  if (!payload || typeof payload.access_token !== "string" || typeof payload.refresh_token !== "string") {
-    return { error: "TOKEN_RESPONSE_INVALID" };
+  let lastStatus = 0;
+  for (const redirectUri of redirectUriCandidates()) {
+    const body = new URLSearchParams({
+      grant_type: "authorization_code",
+      code,
+      code_verifier: codeVerifier,
+      redirect_uri: redirectUri,
+    });
+    const response = await fetch(CANVA_TOKEN_URL, {
+      method: "POST",
+      headers: {
+        Authorization: basicAuthHeader(),
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body,
+    });
+    if (!response.ok) {
+      lastStatus = response.status;
+      continue;
+    }
+    const payload = await response.json().catch(() => null) as JsonObject | null;
+    if (!payload || typeof payload.access_token !== "string" || typeof payload.refresh_token !== "string") {
+      return { error: "TOKEN_RESPONSE_INVALID" as const };
+    }
+    const expiresIn = Number(payload.expires_in ?? 0);
+    return {
+      accessToken: payload.access_token,
+      refreshToken: payload.refresh_token,
+      scopes: String(payload.scope ?? CANVA_SCOPES),
+      expiresAt: new Date(Date.now() + Math.max(expiresIn, 60) * 1000).toISOString(),
+    };
   }
-  const expiresIn = Number(payload.expires_in ?? 0);
-  return {
-    accessToken: payload.access_token,
-    refreshToken: payload.refresh_token,
-    scopes: String(payload.scope ?? CANVA_SCOPES),
-    expiresAt: new Date(Date.now() + Math.max(expiresIn, 60) * 1000).toISOString(),
-  };
+  return { error: "TOKEN_EXCHANGE_FAILED" as const, status: lastStatus };
 }
 
 async function handleCallback(request: Request, supabase: ReturnType<typeof createClient>) {
@@ -240,6 +272,7 @@ Deno.serve(async (request) => {
     return returnRedirect({
       canva: "error",
       canva_code: "USE_CONNECT_BUTTON",
+      canva_redirect_uri: CANVA_REDIRECT_URI,
     });
   }
 
