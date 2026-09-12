@@ -6,6 +6,7 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const CANVA_CLIENT_ID = (Deno.env.get("CANVA_CLIENT_ID") ?? "").trim();
 const CANVA_CLIENT_SECRET = (Deno.env.get("CANVA_CLIENT_SECRET") ?? "").trim();
 const CANVA_BRAND_TEMPLATE_ID = (Deno.env.get("CANVA_BRAND_TEMPLATE_ID") ?? "").trim();
+const CANVA_SOURCE_DESIGN_ID = (Deno.env.get("CANVA_SOURCE_DESIGN_ID") ?? "").trim();
 const CANVA_AUTOFILL_HEADLINE_FIELD = (Deno.env.get("CANVA_AUTOFILL_HEADLINE_FIELD") ?? "headline").trim();
 const CANVA_AUTOFILL_BODY_FIELD = (Deno.env.get("CANVA_AUTOFILL_BODY_FIELD") ?? "body").trim();
 const CANVA_TOKEN_URL = "https://api.canva.com/rest/v1/oauth/token";
@@ -56,8 +57,12 @@ async function requireStaff(supabase: ReturnType<typeof createClient>, token: st
   return { staffId: authData.user.id };
 }
 
+function autofillSourceConfigured() {
+  return Boolean(CANVA_BRAND_TEMPLATE_ID || CANVA_SOURCE_DESIGN_ID);
+}
+
 function credentialsConfigured() {
-  return Boolean(CANVA_CLIENT_ID && CANVA_CLIENT_SECRET && CANVA_BRAND_TEMPLATE_ID);
+  return Boolean(CANVA_CLIENT_ID && CANVA_CLIENT_SECRET && autofillSourceConfigured());
 }
 
 async function refreshCanvaAccessToken(supabase: ReturnType<typeof createClient>, staffId: string) {
@@ -156,14 +161,23 @@ async function createAutofillDesign(accessToken: string, title: string, headline
   data[CANVA_AUTOFILL_HEADLINE_FIELD] = { type: "text", text: headline.slice(0, 200) };
   data[CANVA_AUTOFILL_BODY_FIELD] = { type: "text", text: body.slice(0, 1200) };
 
-  const { ok, payload } = await canvaFetch(accessToken, "/autofills", {
-    method: "POST",
-    body: JSON.stringify({
+  const requestBody = CANVA_BRAND_TEMPLATE_ID
+    ? {
       type: "create_from_brand_template",
       brand_template_id: CANVA_BRAND_TEMPLATE_ID,
       title: title.slice(0, 120),
       data,
-    }),
+    }
+    : {
+      type: "create_from_design",
+      design_id: CANVA_SOURCE_DESIGN_ID,
+      title: title.slice(0, 120),
+      data,
+    };
+
+  const { ok, payload } = await canvaFetch(accessToken, "/autofills", {
+    method: "POST",
+    body: JSON.stringify(requestBody),
   });
   if (!ok) return { error: "AUTOFILL_CREATE_FAILED" as const, detail: payload };
   const jobId = String((payload.job as JsonObject | undefined)?.id ?? "");
@@ -265,13 +279,14 @@ Deno.serve(async (request) => {
       credentialsConfigured: credentialsConfigured(),
       canvaConnected: !("error" in tokenResult),
       brandTemplateConfigured: Boolean(CANVA_BRAND_TEMPLATE_ID),
-      integrationStatus: credentialsConfigured() && !("error" in tokenResult) && CANVA_BRAND_TEMPLATE_ID
+      sourceDesignConfigured: Boolean(CANVA_SOURCE_DESIGN_ID),
+      integrationStatus: credentialsConfigured() && !("error" in tokenResult)
         ? "READY"
         : "NOT READY",
       detail: !credentialsConfigured()
-        ? "Set CANVA_CLIENT_ID, CANVA_CLIENT_SECRET, and CANVA_BRAND_TEMPLATE_ID in Edge Function secrets."
-        : !CANVA_BRAND_TEMPLATE_ID
-        ? "Set CANVA_BRAND_TEMPLATE_ID to your Swim Fluent brand template."
+        ? "Set CANVA_CLIENT_ID, CANVA_CLIENT_SECRET, and CANVA_BRAND_TEMPLATE_ID or CANVA_SOURCE_DESIGN_ID in Edge Function secrets."
+        : !autofillSourceConfigured()
+        ? "Set CANVA_BRAND_TEMPLATE_ID or CANVA_SOURCE_DESIGN_ID to your Swim Fluent Canva template/design."
         : ("error" in tokenResult)
         ? "Connect Canva OAuth in Media Library first."
         : "Canva design generation ready.",
