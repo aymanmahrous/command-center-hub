@@ -357,6 +357,8 @@ export default function ContentGrowthHub({
           onApproveItem={onApproveItem}
           onRequestChanges={onRequestChanges}
           onApproveAll={onApproveAll}
+          onPublishRequested={onBatchCreated}
+          onSessionExpired={onSessionExpired}
         />
       )}
     </div>
