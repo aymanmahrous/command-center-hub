@@ -35,9 +35,11 @@ async function loadSummary(session: Session, signal: AbortSignal) {
 function money(language: Language, value: number) {
   return new Intl.NumberFormat(language === "ar" ? "ar-AE" : "en-AE", { style: "currency", currency: "AED", maximumFractionDigits: 0 }).format(value || 0);
 }
-
 function number(language: Language, value: number) {
   return new Intl.NumberFormat(language === "ar" ? "ar-AE" : "en-AE").format(value || 0);
+}
+function percent(language: Language, value: number) {
+  return new Intl.NumberFormat(language === "ar" ? "ar-AE" : "en-AE", { style: "percent", maximumFractionDigits: 0 }).format(Math.max(0, Math.min(1, value)));
 }
 
 export default function ControlTowerV2({ session, onSessionExpired }: { session: Session; onSessionExpired: () => void }) {
@@ -61,7 +63,9 @@ export default function ControlTowerV2({ session, onSessionExpired }: { session:
 
   const attention = summary.attentionScore;
   const health = summary.automation.failed === 0 && summary.content.failed === 0;
-
+  const leadToBooking = summary.leads.total > 0 ? summary.bookings.total / summary.leads.total : 0;
+  const bookingToCustomer = summary.bookings.total > 0 ? summary.leads.customers / summary.bookings.total : 0;
+  const invoiceCollection = summary.revenue.invoiceTotal > 0 ? summary.revenue.paidInvoiceTotal / summary.revenue.invoiceTotal : 0;
   const cards = [
     { icon: Users, label: language === "ar" ? "العملاء المحتملون" : "Leads", value: number(language, summary.leads.total), hint: `${number(language, summary.leads.new)} ${language === "ar" ? "جديدة" : "new"}` },
     { icon: CalendarDays, label: language === "ar" ? "الحجوزات" : "Bookings", value: number(language, summary.bookings.total), hint: `${number(language, summary.bookings.confirmed)} ${language === "ar" ? "مؤكدة" : "confirmed"}` },
@@ -81,6 +85,25 @@ export default function ControlTowerV2({ session, onSessionExpired }: { session:
       <header><p>{language === "ar" ? "نبض المشروع" : "Business pulse"}</p><h3>{language === "ar" ? "الصورة الكبيرة" : "The big picture"}</h3></header>
       <div className="operations-summary today-numbers">
         {cards.map(({ icon: Icon, label, value, hint }) => <div className="summary-alert" key={label}><Icon size={20} aria-hidden="true" /><span>{label}</span><strong>{value}</strong><small>{hint}</small></div>)}
+      </div>
+    </section>
+
+    <section className="today-section">
+      <header><p>{language === "ar" ? "رحلة العميل" : "Customer journey"}</p><h3>{language === "ar" ? "من الاهتمام إلى العميل" : "From interest to customer"}</h3></header>
+      <div className="operations-summary today-numbers">
+        <div className="summary-alert"><span>{language === "ar" ? "عملاء محتملون" : "Leads"}</span><strong>{number(language, summary.leads.total)}</strong><small>{number(language, summary.leads.hot)} {language === "ar" ? "ساخنة" : "hot"}</small></div>
+        <div className="summary-alert"><span>{language === "ar" ? "حجوزات" : "Bookings"}</span><strong>{number(language, summary.bookings.total)}</strong><small>{percent(language, leadToBooking)} {language === "ar" ? "من العملاء المحتملين" : "of leads"}</small></div>
+        <div className="summary-alert"><span>{language === "ar" ? "عملاء" : "Customers"}</span><strong>{number(language, summary.leads.customers)}</strong><small>{percent(language, bookingToCustomer)} {language === "ar" ? "من الحجوزات" : "of bookings"}</small></div>
+        <div className="summary-alert"><span>{language === "ar" ? "تحصيل الفواتير" : "Invoice collection"}</span><strong>{percent(language, invoiceCollection)}</strong><small>{money(language, summary.revenue.paidInvoiceTotal)} / {money(language, summary.revenue.invoiceTotal)}</small></div>
+      </div>
+    </section>
+
+    <section className="today-section">
+      <header><p>{language === "ar" ? "الإيرادات" : "Revenue"}</p><h3>{language === "ar" ? "مركز الإيرادات" : "Revenue center"}</h3></header>
+      <div className="operations-summary today-numbers">
+        <div className="summary-alert"><span>{language === "ar" ? "إجمالي الفواتير" : "Invoice value"}</span><strong>{money(language, summary.revenue.invoiceTotal)}</strong><small>{number(language, summary.revenue.invoiceCount)} {language === "ar" ? "فواتير" : "invoices"}</small></div>
+        <div className="summary-alert"><span>{language === "ar" ? "المحصل" : "Collected"}</span><strong>{money(language, summary.revenue.paidInvoiceTotal)}</strong><small>{percent(language, invoiceCollection)} {language === "ar" ? "معدل التحصيل" : "collection rate"}</small></div>
+        <div className="summary-alert"><span>{language === "ar" ? "الطلبات" : "Orders"}</span><strong>{number(language, summary.revenue.orderCount)}</strong><small>{money(language, summary.revenue.orderTotal)}</small></div>
       </div>
     </section>
 
