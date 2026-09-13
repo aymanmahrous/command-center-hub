@@ -746,8 +746,8 @@ BEGIN
   IF v_processed AND v_draft IS NULL AND NOT v_human_handoff THEN
     IF v_state = 'awaiting_offer_type' AND NOT public.concierge_fact_known('lesson_type', v_ledger) THEN
       v_draft := CASE WHEN v_language = 'ar'
-        THEN 'أهلًا بك في Relax Fix UAE. هل تفضّل حصة خاصة أم مجموعة (حتى 5 أشخاص)؟'
-        ELSE 'Welcome to Relax Fix UAE. Would you like a private lesson or a group lesson (up to 5 people)?'
+        THEN 'أهلًا بك في Coach Ayman Swimming. هل تفضّل حصة سباحة خاصة أم مجموعة (حتى 5 أشخاص)؟'
+        ELSE 'Welcome to Coach Ayman Swimming. Would you like a private swimming lesson or a group lesson (up to 5 people)?'
       END;
       v_ledger := jsonb_set(v_ledger, '{questions_asked}', coalesce(v_ledger->'questions_asked', '[]'::jsonb) || '["lesson_type"]'::jsonb, true);
     ELSIF v_state = 'awaiting_fear_of_water' AND NOT public.concierge_fact_known('fear_of_water', v_ledger) THEN
@@ -780,8 +780,8 @@ BEGIN
       v_state := 'awaiting_offer_type';
       IF v_stage = 'new' THEN v_stage := 'contacted'; END IF;
       v_draft := CASE WHEN v_language = 'ar'
-        THEN 'أهلًا بك في Relax Fix UAE. أستطيع مساعدتك في الحصص الخاصة أو الجماعية. ماذا تفضّل؟'
-        ELSE 'Welcome to Relax Fix UAE. I can help with private or group swimming lessons. What would you like?'
+        THEN 'أهلًا بك في Coach Ayman Swimming. أستطيع مساعدتك في حصص السباحة الخاصة أو الجماعية. ماذا تفضّل؟'
+        ELSE 'Welcome to Coach Ayman Swimming. I can help with private or group swimming lessons. What would you like?'
       END;
     END IF;
   END IF;

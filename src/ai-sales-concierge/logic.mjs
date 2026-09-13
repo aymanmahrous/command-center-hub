@@ -232,8 +232,8 @@ export function buildSalesConciergeTurn(input) {
     } else {
       draftReply = t(
         language,
-        "Welcome to Relax Fix UAE. Would you like a private lesson or a group lesson (up to 5 people)?",
-        "أهلًا بك في Relax Fix UAE. هل تفضّل حصة خاصة أم مجموعة (حتى 5 أشخاص)؟",
+        "Welcome to Coach Ayman Swimming. Would you like a private swimming lesson or a group lesson (up to 5 people)?",
+        "أهلًا بك في Coach Ayman Swimming. هل تفضّل حصة سباحة خاصة أم مجموعة (حتى 5 أشخاص)؟",
       );
       ledger = updateQuestionLedger(ledger, { asked: ["lesson_type"] });
     }
@@ -271,8 +271,8 @@ export function buildSalesConciergeTurn(input) {
   } else if (!draftReply && state !== "awaiting_offer_type" && state !== "awaiting_fear_of_water") {
     draftReply = t(
       language,
-      "Welcome to Relax Fix UAE. I can help with private or group swimming lessons. What would you like?",
-      "أهلًا بك في Relax Fix UAE. أستطيع مساعدتك في الحصص الخاصة أو الجماعية. ماذا تفضّل؟",
+      "Welcome to Coach Ayman Swimming. I can help with private or group swimming lessons. What would you like?",
+      "أهلًا بك في Coach Ayman Swimming. أستطيع مساعدتك في حصص السباحة الخاصة أو الجماعية. ماذا تفضّل؟",
     );
     state = "awaiting_offer_type";
     nextStage = stage === "new" ? "contacted" : stage;
