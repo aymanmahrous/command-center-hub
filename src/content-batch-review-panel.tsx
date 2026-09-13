@@ -8,7 +8,19 @@ import {
   type ContentBatchItem,
 } from "./content-batch";
 import type { ChangeRequestKind } from "./content-growth";
+import {
+  buildExternalPostLink,
+  canRequestPublish,
+  latestReceiptForPlatform,
+  parsePublicationReceipts,
+  resolvePublishPipelineStage,
+} from "./content-publishing";
+import { publishEnqueueErrorMessage, requestPublishJob } from "./content-publish-enqueue";
 import { readContentPillar, readTimeSlot } from "./content-strategy";
+import { readPublishingCopy } from "./content-publishing-copy";
+import { ContentBatchMediaPreview } from "./content-batch-media-preview";
+import { canvaDesignErrorMessage, generateCanvaDesignForContentItem } from "./canva-design-adapter";
+import type { MediaAssetRecord } from "./media-types";
 import { useLanguage } from "./i18n";
 import "./content-batch-review.css";
 
@@ -17,9 +29,14 @@ type ContentBatchReviewPanelProps = {
   batch: ContentBatch;
   canWrite: boolean;
   busy: boolean;
+  session?: { accessToken: string };
+  mediaAssets?: MediaAssetRecord[];
+  onMediaLinked?: () => void;
   onApproveItem: (item: ContentBatchItem) => Promise<void>;
   onRequestChanges: (item: ContentBatchItem, kind: ChangeRequestKind, note: string) => Promise<void>;
   onApproveAll: (items: ContentBatchItem[]) => Promise<void>;
+  onPublishRequested?: () => void;
+  onSessionExpired?: () => void;
 };
 
 function formatWhen(language: "ar" | "en", value: string | null) {
@@ -37,23 +54,41 @@ export function ContentBatchReviewPanel({
   batch,
   canWrite,
   busy,
+  session,
+  mediaAssets = [],
+  onMediaLinked,
   onApproveItem,
   onRequestChanges,
   onApproveAll,
+  onPublishRequested,
+  onSessionExpired,
 }: ContentBatchReviewPanelProps) {
   const { language, t } = useLanguage();
   const copy = t("contentBatch");
   const growthCopy = t("contentGrowth");
+  const publishingCopy = readPublishingCopy(language);
   const itemStatusLabels = t("contentStatus");
   const batchStatusLabels = t("contentBatchStatus");
+  const pipelineStageLabels = publishingCopy.pipelineStages;
   const [changeTargetId, setChangeTargetId] = useState<string | null>(null);
   const [changeKind, setChangeKind] = useState<ChangeRequestKind>("caption");
   const [changeNote, setChangeNote] = useState("");
+  const [designBusyId, setDesignBusyId] = useState<string | null>(null);
+  const [designNotice, setDesignNotice] = useState("");
+  const [publishBusyId, setPublishBusyId] = useState<string | null>(null);
+  const [publishNotice, setPublishNotice] = useState("");
 
   const summary = useMemo(() => summarizeBatch(batch.items), [batch.items]);
   const batchStatus = overallBatchStatus(batch.items);
   const approveCandidates = approveAllCandidates(batch.items);
   const approveAllEnabled = canWrite && !busy && approveAllWouldChange(batch.items);
+  const assetById = useMemo(() => new Map(mediaAssets.map((asset) => [asset.id, asset])), [mediaAssets]);
+  const previewLabels = {
+    designPreview: copy.designPreview,
+    designPending: copy.designPending,
+    canvaBriefLabel: copy.canvaBriefLabel,
+    noPreview: copy.noPreview,
+  };
 
   async function handleApproveAll() {
     if (!approveAllEnabled || approveCandidates.length === 0) return;
@@ -70,6 +105,48 @@ export function ContentBatchReviewPanel({
     setChangeTargetId(null);
     setChangeNote("");
     setChangeKind("caption");
+  }
+
+  async function handleGenerateDesign(item: ContentBatchItem) {
+    if (!session || !canWrite || busy || designBusyId) return;
+    setDesignBusyId(item.id);
+    setDesignNotice("");
+    try {
+      await generateCanvaDesignForContentItem(session, item);
+      setDesignNotice(copy.designGeneratedNotice);
+      onMediaLinked?.();
+    } catch (cause) {
+      if (cause instanceof Error && cause.message === "SESSION_EXPIRED") throw cause;
+      setDesignNotice(canvaDesignErrorMessage(cause instanceof Error ? cause.message : undefined));
+    } finally {
+      setDesignBusyId(null);
+    }
+  }
+
+  async function handleRequestPublish(item: ContentBatchItem) {
+    if (!session || !canWrite || busy || publishBusyId || !canRequestPublish(item)) return;
+    if (!window.confirm(publishingCopy.requestPublishConfirm)) return;
+    setPublishBusyId(item.id);
+    setPublishNotice("");
+    try {
+      const result = await requestPublishJob(session, item.id);
+      if (!result.success) {
+        setPublishNotice(publishEnqueueErrorMessage(result.code, language));
+        return;
+      }
+      setPublishNotice(result.code === "ALREADY_ENQUEUED"
+        ? publishingCopy.requestPublishAlready
+        : publishingCopy.requestPublishSuccess);
+      onPublishRequested?.();
+    } catch (cause) {
+      if (cause instanceof Error && cause.message === "SESSION_EXPIRED") {
+        onSessionExpired?.();
+        return;
+      }
+      setPublishNotice(publishEnqueueErrorMessage(undefined, language));
+    } finally {
+      setPublishBusyId(null);
+    }
   }
 
   return (
@@ -102,6 +179,8 @@ export function ContentBatchReviewPanel({
         </button>
         {!canWrite && <small>{t("common").readOnlyNote}</small>}
       </div>
+      {designNotice && <p className="content-batch-design-notice" role="status">{designNotice}</p>}
+      {publishNotice && <p className="content-batch-design-notice" role="status">{publishNotice}</p>}
 
       <div className="content-batch-grid">
         {items.map((item) => {
@@ -111,6 +190,10 @@ export function ContentBatchReviewPanel({
           const pillar = readContentPillar(item);
           const timeSlot = readTimeSlot(item);
           const showingForm = changeTargetId === item.id;
+          const pipelineStage = resolvePublishPipelineStage(item);
+          const receipts = parsePublicationReceipts(item);
+          const platformReceipt = latestReceiptForPlatform(item, item.platform);
+          const postLink = buildExternalPostLink(item.platform, platformReceipt?.externalPostId);
           return (
             <article className="content-batch-item" key={item.id}>
               <header>
@@ -125,6 +208,7 @@ export function ContentBatchReviewPanel({
                 <span className={`content-status status-${item.status}`}>{itemStatusLabels[item.status as keyof typeof itemStatusLabels] ?? item.status}</span>
               </header>
               <p className="item-caption">{item.caption.trim() || copy.noCaption}</p>
+              <ContentBatchMediaPreview item={item} session={session} assetById={assetById} labels={previewLabels} />
               {(Boolean(item.mediaSource) || Boolean(item.mediaAssetId) || item.mediaPlan != null) && (
                 <p className="item-meta">
                   {copy.mediaSourceLabel}: {String(item.mediaSource ?? "—").toUpperCase()}
@@ -133,7 +217,42 @@ export function ContentBatchReviewPanel({
                 </p>
               )}
               <p className="item-meta">{copy.scheduledFor}: {formatWhen(language, item.scheduledFor)}</p>
+              <div className="publish-pipeline-panel" aria-label={publishingCopy.pipelineAria}>
+                <p className="item-meta">
+                  {publishingCopy.pipelineLabel}: {pipelineStageLabels[pipelineStage] ?? pipelineStage}
+                </p>
+                {typeof item.publishedAt === "string" && item.publishedAt && (
+                  <p className="item-meta">{publishingCopy.publishedAtLabel}: {formatWhen(language, item.publishedAt)}</p>
+                )}
+                {receipts.length === 0 && pipelineStage === "approved_ready" && (
+                  <p className="publish-ready-note">{publishingCopy.awaitingN8nNote}</p>
+                )}
+                {receipts.map((receipt, index) => (
+                  <div className="publish-receipt" key={`${receipt.platform}-${receipt.updatedAt ?? index}`}>
+                    <strong>{receipt.platform.toUpperCase()} · {receipt.status}</strong>
+                    {receipt.plainLanguageReason && <span>{receipt.plainLanguageReason}</span>}
+                    {buildExternalPostLink(receipt.platform, receipt.externalPostId) && (
+                      <a href={buildExternalPostLink(receipt.platform, receipt.externalPostId) ?? "#"} target="_blank" rel="noopener noreferrer">
+                        {publishingCopy.openPostLink}
+                      </a>
+                    )}
+                  </div>
+                ))}
+                {postLink && pipelineStage === "published_live" && (
+                  <a className="publish-live-link" href={postLink} target="_blank" rel="noopener noreferrer">{publishingCopy.openLivePost}</a>
+                )}
+              </div>
               <footer>
+                {!item.mediaAssetId && session && (
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={itemLocked || designBusyId === item.id}
+                    onClick={() => void handleGenerateDesign(item)}
+                  >
+                    {designBusyId === item.id ? copy.generateDesignBusy : copy.generateDesignButton}
+                  </button>
+                )}
                 {canApprove && (
                   <button type="button" disabled={itemLocked} onClick={() => void onApproveItem(item)}>
                     {copy.approveButton}
@@ -151,6 +270,15 @@ export function ContentBatchReviewPanel({
                     }}
                   >
                     {copy.requestChangesButton}
+                  </button>
+                )}
+                {canRequestPublish(item) && session && (
+                  <button
+                    type="button"
+                    disabled={itemLocked || publishBusyId === item.id}
+                    onClick={() => void handleRequestPublish(item)}
+                  >
+                    {publishBusyId === item.id ? publishingCopy.requestPublishBusy : publishingCopy.requestPublishButton}
                   </button>
                 )}
               </footer>

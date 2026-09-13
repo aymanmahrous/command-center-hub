@@ -1,9 +1,11 @@
+import { useEffect, useState } from "react";
 import { z } from "zod";
 import type { AiSuitabilityVerdict, MediaAssetRecord, MediaCategory, ConsentStatus } from "./media-types";
 import { displayMediaWorkflowStatus } from "./media-types";
-import { analyzeMediaWithProvider } from "./media-gemini-adapter";
-import type { MediaAnalysisResult } from "./media-ai-analysis";
-import { readMediaProviderStatuses } from "./media-providers";
+import { analyzeMediaWithProvider, fetchGeminiIntegrationStatus, type GeminiIntegrationStatus } from "./media-gemini-adapter";
+import { CANVA_OPEN_URL, canvaConnectErrorMessage, fetchCanvaIntegrationStatus, readCanvaCallbackNotice, startCanvaConnect, type CanvaIntegrationStatus } from "./canva-adapter";
+import { readStoredMediaAnalysis, type MediaAnalysisResult } from "./media-ai-analysis";
+import { displayProviderStatus, readMediaProviderStatuses } from "./media-providers";
 import { normalizeMediaCategory } from "./media-types";
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
@@ -63,15 +65,96 @@ export function parseMediaAssetRecords(value: unknown): MediaAssetRecord[] {
   }));
 }
 
-export function MediaProviderStrip() {
-  const providers = readMediaProviderStatuses();
+export function MediaProviderStrip({ session, canWrite = false }: { session?: ControlSession; canWrite?: boolean } = {}) {
+  const [geminiStatus, setGeminiStatus] = useState<GeminiIntegrationStatus | null>(null);
+  const [canvaStatus, setCanvaStatus] = useState<CanvaIntegrationStatus | null>(null);
+  const [canvaDetail, setCanvaDetail] = useState("");
+  const [canvaBusy, setCanvaBusy] = useState(false);
+  const [canvaNotice, setCanvaNotice] = useState("");
+
+  useEffect(() => {
+    if (!session) return;
+    const controller = new AbortController();
+    fetchGeminiIntegrationStatus(session)
+      .then((status) => { if (!controller.signal.aborted) setGeminiStatus(status.integrationStatus); })
+      .catch(() => { if (!controller.signal.aborted) setGeminiStatus("NOT CONNECTED"); });
+    fetchCanvaIntegrationStatus(session)
+      .then((status) => {
+        if (controller.signal.aborted) return;
+        setCanvaStatus(status.integrationStatus);
+        setCanvaDetail(status.detail);
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setCanvaStatus("NOT CONNECTED");
+        setCanvaDetail("Canva optional — not connected.");
+      });
+    return () => controller.abort();
+  }, [session]);
+
+  useEffect(() => {
+    const callback = readCanvaCallbackNotice(window.location.search);
+    if (!callback || !session) return;
+    const canvaCode = new URL(window.location.href).searchParams.get("canva_code") ?? undefined;
+    if (callback === "connected") setCanvaNotice("Canva connected successfully.");
+    else setCanvaNotice(canvaConnectErrorMessage(canvaCode));
+    const url = new URL(window.location.href);
+    url.searchParams.delete("canva");
+    url.searchParams.delete("canva_code");
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+    fetchCanvaIntegrationStatus(session)
+      .then((status) => {
+        setCanvaStatus(status.integrationStatus);
+        setCanvaDetail(status.detail);
+      })
+      .catch(() => setCanvaStatus("NOT CONNECTED"));
+  }, [session]);
+
+  async function connectCanva() {
+    if (!session || !canWrite || canvaBusy) return;
+    setCanvaBusy(true);
+    setCanvaNotice("");
+    try {
+      const { authorizationUrl } = await startCanvaConnect(session);
+      window.location.assign(authorizationUrl);
+    } catch (cause) {
+      if (cause instanceof Error && cause.message === "SESSION_EXPIRED") throw cause;
+      const code = cause instanceof Error ? cause.message : undefined;
+      setCanvaNotice(canvaConnectErrorMessage(code));
+    } finally {
+      setCanvaBusy(false);
+    }
+  }
+
+  const canvaConnected = canvaStatus === "CONNECTED";
+  const providers = readMediaProviderStatuses({ canva: canvaConnected });
+
   return (
-    <div className="media-provider-strip" aria-label="Media provider status">
-      {providers.map((provider) => (
-        <span key={provider.key} className={provider.connected ? "connected" : "disconnected"}>
-          {provider.key}: {provider.connected ? "CONNECTED" : "NOT CONNECTED"}
+    <div className="media-provider-panel">
+      <div className="media-provider-strip" aria-label="Media provider status">
+        {providers.map((provider) => (
+          <span
+            key={provider.key}
+            className={(provider.connected || (geminiStatus === "CONNECTED" && provider.key === "gemini") || (canvaConnected && provider.key === "canva")) ? "connected" : provider.optional ? "optional" : provider.manual ? "manual" : "disconnected"}
+            title={provider.key === "canva" ? canvaDetail || provider.detail : provider.detail}
+          >
+            {provider.key}: {displayProviderStatus(provider, { geminiIntegration: geminiStatus ?? undefined, canvaConnected })}
+          </span>
+        ))}
+      </div>
+      <div className="canva-connect-control" aria-label="Canva connection">
+        <span className={canvaConnected ? "connected" : "optional"}>
+          Canva: {canvaConnected ? "CONNECTED" : "OPTIONAL / NOT CONNECTED"}
         </span>
-      ))}
+        {canvaConnected ? (
+          <a className="canva-action" href={CANVA_OPEN_URL} target="_blank" rel="noopener noreferrer">Open Canva</a>
+        ) : (
+          <button type="button" className="canva-action" disabled={!session || !canWrite || canvaBusy} onClick={() => void connectCanva()}>
+            Connect Canva
+          </button>
+        )}
+      </div>
+      {canvaNotice && <p className="canva-connect-notice" role="status">{canvaNotice}</p>}
     </div>
   );
 }
@@ -110,7 +193,7 @@ export function MediaAssetControls({
 
   async function runAnalysis() {
     if (!canWrite || busy || asset.category !== "swimming_business") return;
-    const result = await analyzeMediaWithProvider(asset);
+    const result = await analyzeMediaWithProvider(asset, session);
     try {
       await callRpc(session, "save_staff_media_ai_analysis", {
         p_media_asset_id: asset.id,
@@ -124,7 +207,7 @@ export function MediaAssetControls({
   }
 
   const workflowStatus = displayMediaWorkflowStatus(asset);
-  const analysis = (asset.metadata.analysis ?? null) as MediaAnalysisResult | null;
+  const analysis = readStoredMediaAnalysis(asset.metadata);
 
   return (
     <div className="media-asset-controls">
@@ -165,7 +248,7 @@ export function MediaAssetControls({
         <div className="media-ai-review-panel" aria-label={labels.aiReviewTitle}>
           <strong>{labels.aiReviewTitle}</strong>
           <p>{labels.aiVerdictLabel}: {labels[`aiVerdict_${analysis.suitabilityVerdict}`] ?? analysis.suitabilityVerdict}</p>
-          <p>{labels.recommendedPlatformLabel}: {(analysis.suggestedFormats.length ? analysis.suggestedFormats : analysis.suggestedPlatforms).join(" · ")}</p>
+          <p>{labels.recommendedPlatformLabel}: {(analysis.suggestedFormats.length ? analysis.suggestedFormats : analysis.suggestedPlatforms).join(" · ") || "—"}</p>
           <dl>
             <div><dt>{labels.suggestedHookLabel}</dt><dd>{analysis.hook}</dd></div>
             <div><dt>{labels.onScreenTextLabel}</dt><dd>{analysis.onScreenText}</dd></div>

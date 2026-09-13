@@ -114,7 +114,7 @@ test("Content Studio mutations are role-gated, confirmed, audited, and duplicate
 });
 
 test("Content Studio honors server status and action allowlists", () => {
-  for (const status of ["idea", "draft", "generated", "needs_review", "approved", "scheduled", "published", "failed"]) assert.match(app, new RegExp(`"${status}"`));
+  for (const status of ["idea", "draft", "generated", "needs_review", "approved", "scheduled", "published", "failed", "cancelled"]) assert.match(app, new RegExp(`"${status}"`));
   for (const action of ["approve", "return_to_review", "schedule", "unschedule"]) assert.match(app, new RegExp(`"${action}"`));
   assert.match(app, /PUBLISHED_CONTENT_IMMUTABLE/);
   assert.match(app, /APPROVAL_REQUIRED/);
@@ -122,6 +122,7 @@ test("Content Studio honors server status and action allowlists", () => {
 
 test("Content batch generation uses approved RPC and confirms before write", () => {
   assert.match(growthHub, /create_staff_generated_content_batch/);
+  assert.match(growthHub, /enqueue_publish_job|requestPublishJob/);
   assert.match(growthHub, /window\.confirm\(copy\.generateConfirm\)/);
   assert.match(growthCopyEn, /Nothing will be scheduled or published/i);
   assert.doesNotMatch(growthHub, /graph\.facebook|buffer\.com/i);
@@ -138,10 +139,18 @@ test("Content batch review approves through approved RPCs only", () => {
   assert.doesNotMatch(app, /graph\.facebook|facebook\.com\/v\d+/i);
 });
 
+test("Request Publish uses enqueue_publish_job RPC and never calls n8n or Buffer from the browser", () => {
+  assert.match(growthHub, /requestPublishJob/);
+  assert.match(growthHub, /enqueue_publish_job|requestPublishJob/);
+  assert.match(growthHub, /window\.confirm/);
+  assert.doesNotMatch(growthHub, /N8N_WEBHOOK|webhook\.n8n|buffer\.com/i);
+  assert.doesNotMatch(growthHub, /get_staff_operations_queue/);
+});
+
 test("Media Library uses staff RPCs and blocks direct table mutation", () => {
   assert.match(app, /get_staff_media_assets/);
   assert.match(app, /import\("\.\/media-library-view"\)/);
-  assert.match(mediaView, /fetchStaffMediaBlob/);
+  assert.match(mediaView, /fetchStaffMediaSignedUrl/);
   assert.match(mediaView, /openStaffMediaAsset/);
   assert.match(mediaView, /MediaLibraryUploadPanel/);
   assert.match(mediaView, /register_staff_media_upload|MediaLibraryUploadPanel/);

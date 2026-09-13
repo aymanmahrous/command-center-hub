@@ -26,16 +26,40 @@ export async function fetchStaffMediaBlob(session: StaffStorageSession, storageP
   return response.blob();
 }
 
+export async function fetchStaffMediaSignedUrl(
+  session: StaffStorageSession,
+  storagePath: string,
+  expiresIn = 3600,
+  signal?: AbortSignal,
+) {
+  const response = await fetch(`${SUPABASE_URL}/storage/v1/object/sign/${STAFF_MEDIA_BUCKET}/${encodedStoragePath(storagePath)}`, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_PUBLIC_KEY,
+      Authorization: `Bearer ${session.accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ expiresIn }),
+    cache: "no-store",
+    signal,
+  });
+  if (response.status === 401) throw new Error("SESSION_EXPIRED");
+  if (!response.ok) throw new Error(`STORAGE_SIGN_FAILED_${response.status}`);
+  const payload = await response.json().catch(() => ({})) as { signedURL?: string };
+  if (!payload.signedURL) throw new Error("STORAGE_SIGN_MISSING");
+  return payload.signedURL.startsWith("http")
+    ? payload.signedURL
+    : `${SUPABASE_URL}/storage/v1${payload.signedURL}`;
+}
+
 export async function openStaffMediaAsset(session: StaffStorageSession, storagePath: string, fileName: string, mode: "open" | "download") {
-  const blob = await fetchStaffMediaBlob(session, storagePath);
-  const objectUrl = URL.createObjectURL(blob);
+  const signedUrl = await fetchStaffMediaSignedUrl(session, storagePath);
   const anchor = document.createElement("a");
-  anchor.href = objectUrl;
+  anchor.href = signedUrl;
   anchor.rel = "noopener noreferrer";
   if (mode === "download") anchor.download = fileName;
   else anchor.target = "_blank";
   anchor.click();
-  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
 }
 
 function readUserIdFromAccessToken(accessToken: string): string {

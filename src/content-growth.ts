@@ -64,7 +64,19 @@ export function readIntegrationStatuses(automationStatus: unknown): IntegrationS
   ];
 }
 
+export function displayIntegrationStatus(integration: IntegrationStatus): string {
+  if (integration.key === "canva" && !integration.connected) return "OPTIONAL / NOT CONNECTED";
+  return integration.connected ? "CONNECTED" : "NOT CONNECTED";
+}
+
 function statusFromFlag(key: IntegrationKey, connected: boolean | null | undefined, label: string): IntegrationStatus {
+  if (key === "canva" && connected !== true) {
+    return {
+      key,
+      connected: false,
+      detail: "Canva — OPTIONAL / NOT CONNECTED (manual design via canvaBrief; not required for batch creation)",
+    };
+  }
   if (connected === true) return { key, connected: true, detail: `${label} reported connected` };
   if (connected === false) return { key, connected: false, detail: `${label} not connected` };
   return { key, connected: false, detail: `${label} — connection not verified in app` };

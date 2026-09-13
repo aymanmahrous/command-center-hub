@@ -46,7 +46,7 @@ type RadarStatus = "NEW" | "REVIEWED" | "ACTIONED" | "DISMISSED"
 type BookingStatus = "pending" | "contacted" | "confirmed" | "declined" | "cancelled";
 type LeadStage = "new" | "contacted" | "qualified" | "booking_intent" | "booked" | "follow_up" | "lost" | "customer";
 type ConversationMode = "ai_active" | "human_required" | "human_takeover" | "paused";
-type ContentStatus = "idea" | "draft" | "generated" | "needs_review" | "approved" | "scheduled" | "published" | "failed";
+type ContentStatus = "idea" | "draft" | "generated" | "needs_review" | "approved" | "scheduled" | "published" | "failed" | "cancelled";
 type ContentAction = "approve" | "return_to_review" | "schedule" | "unschedule";
 type MediaAssetType = "image" | "video" | "logo" | "other";
 type MediaSource = "upload" | "ai_generated" | "external";
@@ -106,12 +106,12 @@ const ConversationModeUpdateSchema = z.object({
 const ContentItemSchema = z.object({
   id: z.string().uuid(), scheduledFor: z.string().nullable(), platform: z.string(), contentType: z.string(),
   topic: z.string(), hook: z.string(), caption: z.string(), cta: z.string(), hashtags: z.array(z.string()),
-  visualPrompt: z.string(), status: z.enum(["idea", "draft", "generated", "needs_review", "approved", "scheduled", "published", "failed"]),
+  visualPrompt: z.string(), status: z.enum(["idea", "draft", "generated", "needs_review", "approved", "scheduled", "published", "failed", "cancelled"]),
   providerExternalId: z.string().nullable(), publishedAt: z.string().nullable(), createdAt: z.string(), updatedAt: z.string(),
 }).passthrough();
 const ContentMutationSchema = z.object({
   success: z.boolean(), code: z.string().optional(), contentItemId: z.string().uuid().optional(),
-  status: z.enum(["idea", "draft", "generated", "needs_review", "approved", "scheduled", "published", "failed"]).optional(),
+  status: z.enum(["idea", "draft", "generated", "needs_review", "approved", "scheduled", "published", "failed", "cancelled"]).optional(),
   scheduledFor: z.string().nullable().optional(), updatedAt: z.string().optional(),
 });
 const ContentBatchApprovalSchema = z.object({
@@ -561,8 +561,8 @@ function CRMView({ value, session, onChanged, onSessionExpired }: { value: JsonV
 }
 
 const contentStatusLabels: Record<Language, Record<ContentStatus, string>> = {
-  ar: { idea: "فكرة", draft: "مسودة", generated: "مولّد", needs_review: "بانتظار المراجعة", approved: "معتمد", scheduled: "مجدول", published: "منشور", failed: "فشل" },
-  en: { idea: "Idea", draft: "Draft", generated: "Generated", needs_review: "Needs review", approved: "Approved", scheduled: "Scheduled", published: "Published", failed: "Failed" },
+  ar: { idea: "فكرة", draft: "مسودة", generated: "مولّد", needs_review: "بانتظار المراجعة", approved: "معتمد", scheduled: "مجدول", published: "منشور", failed: "فشل", cancelled: "ملغي" },
+  en: { idea: "Idea", draft: "Draft", generated: "Generated", needs_review: "Needs review", approved: "Approved", scheduled: "Scheduled", published: "Published", failed: "Failed", cancelled: "Cancelled" },
 };
 
 const contentActionLabels: Record<ContentAction, string> = {
@@ -1111,8 +1111,15 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   const { language, t } = useLanguage();
   const nav = t("nav");
   const dashboardCopy = t("dashboard");
-  const initialSection = (new URLSearchParams(window.location.search).get("section") ?? "") as SectionId;
-  const [active, setActive] = useState<SectionId>(sections.some(([id]) => id === initialSection) ? initialSection : "dashboard"); const [reloadKey, setReloadKey] = useState(0); const [data, setData] = useState<JsonValue>(null); const [status, setStatus] = useState<"loading" | "ready" | "error">("loading"); const [error, setError] = useState("");
+  const launchParams = new URLSearchParams(window.location.search);
+  const canvaCallback = launchParams.get("canva");
+  const requestedSection = (launchParams.get("section") ?? "") as SectionId;
+  const initialSection: SectionId = canvaCallback
+    ? "media"
+    : sections.some(([id]) => id === requestedSection)
+      ? requestedSection
+      : "dashboard";
+  const [active, setActive] = useState<SectionId>(initialSection); const [reloadKey, setReloadKey] = useState(0); const [data, setData] = useState<JsonValue>(null); const [status, setStatus] = useState<"loading" | "ready" | "error">("loading"); const [error, setError] = useState("");
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (event.data?.type === "rf-push-navigate" && sections.some(([id]) => id === event.data.section)) setActive(event.data.section);

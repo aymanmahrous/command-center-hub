@@ -52,6 +52,105 @@
   font-size: 0.92rem;
 }
 
+.live-publish-section {
+  border: 1px solid #0ea5e9;
+  background: rgba(14, 165, 233, 0.08);
+}
+
+.live-publish-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.live-publish-grid article {
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.live-publish-grid span {
+  display: block;
+  color: #94a3b8;
+  font-size: 0.78rem;
+}
+
+.live-publish-grid strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 1.15rem;
+}
+
+.live-publish-next-step {
+  margin: 0;
+  color: #bae6fd;
+  font-size: 0.92rem;
+}
+
+.authorized-post-banner {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #22c55e;
+  background: rgba(34, 197, 94, 0.08);
+  color: #dcfce7;
+}
+
+.facebook-audit-section {
+  border-color: #64748b;
+}
+
+.facebook-audit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.facebook-audit-grid article {
+  border: 1px solid #475569;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.facebook-audit-grid span {
+  display: block;
+  color: #94a3b8;
+  font-size: 0.78rem;
+}
+
+.facebook-audit-grid strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.92rem;
+  word-break: break-all;
+}
+
+.facebook-audit-warning {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  color: #fde68a;
+  font-size: 0.88rem;
+}
+
+.facebook-audit-section .today-quick-action {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #38bdf8;
+  border-radius: 10px;
+  padding: 8px 12px;
+  color: #e0f2fe;
+  text-decoration: none;
+}
+
 .content-pipeline-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
@@ -113,6 +212,11 @@
 .integration-grid .connected {
   border-color: #10b981;
   color: #6ee7b7;
+}
+
+.integration-grid .optional {
+  border-color: #f59e0b;
+  color: #fcd34d;
 }
 
 .integration-grid .disconnected {

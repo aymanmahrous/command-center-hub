@@ -6,9 +6,9 @@ const batchLink = await readFile(new URL("../src/media-batch-link.ts", import.me
 const providers = await readFile(new URL("../src/media-providers.ts", import.meta.url), "utf8");
 const growthHub = await readFile(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
 
-test("fallback asset plans stay NOT CONNECTED without external credentials", () => {
+test("fallback asset plans stay optional without blocking batch creation", () => {
   assert.match(providers, /status: "NOT_CONNECTED"/);
-  assert.match(providers, /Gemini API NOT CONNECTED/);
+  assert.match(providers, /do not block batch creation/);
   assert.match(providers, /No suitable Swimming Business media found/);
 });
 

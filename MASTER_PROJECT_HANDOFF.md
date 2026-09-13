@@ -75,20 +75,39 @@
 
 ## 7. CURRENT_PHASE
 
-**Facebook Controlled Publishing Test**
+**Instagram Controlled Publishing Test**
 
 ## 8. CURRENT_BLOCKER
 
-تم إنشاء عنصر Facebook حقيقي ومعتمد: `content_item_id: 9cf29b08-aaa3-4278-80bc-08a4cf3bc381`.
-النشر الفعلي يتطلب تنفيذ التفويض المحدد من المالك ثم تسجيل إيصال النشر.
+**Instagram Controlled Publishing Test — جاهز للنشر عبر n8n فقط.** عنصر الاختبار `ffb9f795-c359-43c5-861c-5594eda75eef` («3 calm breathing habits…»): محتوى **approved**، تصميم Canva **approved** + معاينة تعمل (PR #84)، `consent_confirmed`، `publishability_status=ready_for_review`، `ai_analysis_status=completed`. **المعوق الوحيد:** تشغيل n8n workflow `xNwYPSXQiUyzDSyZ` يدويًا (enqueue يتطلب `service_role` — خارج Hub). لا Boost ولا إعلانات ولا إعادة نشر تلقائي.
 
 ## 9. آخر نتيجة مؤكدة
 
-تم إنشاء واعتماد عنصر Facebook حقيقي نصي بدون وسائط، وعُرض على المالك. منح المالك تفويضًا محدودًا لهذا المنشور الواحد فقط، دون Boost أو إعلانات أو إعادة نشر أو Retry تلقائي عند غموض النتيجة.
+**Facebook Controlled Publishing Test — مغلق بتحفظ (2026-09-11):**
+- عنصر Facebook المعتمد: `content_item_id: 9cf29b08-aaa3-4278-80bc-08a4cf3bc381`
+- **Post ID:** `1164107840123575_122116295205382830`
+- **Receipt status:** `published` (Supabase)
+- **Published at:** `2026-08-05T21:57:29.690357+00`
+- **تحقق عام:** الرابط العام على Facebook أظهر «المحتوى غير متاح» بدون تسجيل دخول — **تحقق يدوي مطلوب** على الصفحة. **لا إعادة نشر تلقائي** (قاعدة الغموض).
+
+**Hub:** لوحة اليوم + Inbox + Content Studio يعملون بعد إصلاح حالة `cancelled` (PR #80).
+
+**Media Library + Canva (2026-09-12):**
+- معاينة الصور/الفيديو عبر signed URLs (PR #84، مدمج في `main`).
+- Canva Brand Template `EAHVAAahmjU` — Generate **PASS**؛ `media_asset_id`: `20e13023-11c0-4040-832d-f72bcd77a4a8`.
+- دفعة محتوى `batch_id`: `17ce0f07-219a-45a9-a52d-1a2c8b5af447` (10 عناصر؛ 6 Instagram).
+
+**Instagram prep (2026-09-12):**
+- `content_item_id`: `ffb9f795-c359-43c5-861c-5594eda75eef` — **approved** (مالك).
+- `media_asset_id`: `20e13023-11c0-4040-832d-f72bcd77a4a8` — **approved**, consent **confirmed**, publishability **ready_for_review**.
 
 ## 10. الخطوة الحالية (NEXT)
 
-تنفيذ نشر عنصر Facebook المصرح به فقط عبر المسار المعتمد، ثم تقديم: Facebook Post ID، رابط المنشور، وقت النشر الفعلي، execution ID، وreceipt status. عند غموض النتيجة لا يُعاد النشر.
+1. ~~إنشاء دفعة محتوى (10 عناصر)~~ — **مغلق** (`17ce0f07-…`).
+2. ~~اعتماد منشور Instagram واحد~~ — **مغلق** (`ffb9f795-…`).
+3. تشغيل n8n workflow `xNwYPSXQiUyzDSyZ` للنشر الحي لذلك المنشور فقط.
+4. تقديم: Instagram Post ID، رابط المنشور، وقت النشر، execution ID، receipt status.
+5. عند غموض النتيجة: لا إعادة نشر — إبلاغ المالك.
 
 ## 11. تذكير إلزامي لكل Agent
 

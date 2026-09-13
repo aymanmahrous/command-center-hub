@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { groupContentBatches, isDatabaseBatchId, selectPrimaryBatch, buildNextBatchReadyNotice, type ContentBatchItem } from "./content-batch";
 import { COACH_AYMAN_PROVIDER_ID } from "./content-batch-generator";
-import { buildCoachAyman2026BatchWithMedia } from "./media-batch-link";
+import { attachMediaToCoachAymanBatch, buildCoachAyman2026BatchWithMedia } from "./media-batch-link";
+import { generateCoachAymanBatchWithGemini } from "./gemini-batch-adapter";
 import { parseMediaAssetRecords, MediaProviderStrip } from "./media-library-controls";
 import {
   readIntegrationStatuses,
   summarizePipeline,
   type ChangeRequestKind,
 } from "./content-growth";
+import { AUTHORIZED_INSTAGRAM_PUBLISH_ITEM_ID, buildFacebookPublishAudit, summarizeLivePublishingReadiness, canRequestPublish } from "./content-publishing";
+import { publishEnqueueErrorMessage, requestPublishJob } from "./content-publish-enqueue";
+import { readPublishingCopy } from "./content-publishing-copy";
 import { buildDayNineReminder } from "./content-batch";
 import {
   DEFAULT_BATCH_MIX,
@@ -48,7 +52,11 @@ async function callRpc(session: GrowthSession, rpcName: string, body: Record<str
     signal,
   });
   if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
-  if (!response.ok) throw new Error(`RPC_FAILED_${response.status}`);
+  if (!response.ok) {
+    const text = await response.text();
+    if (text.includes("CONTENT_SLOT_ALREADY_PLANNED")) throw new Error("CONTENT_SLOT_ALREADY_PLANNED");
+    throw new Error(`RPC_FAILED_${response.status}`);
+  }
   return response.json();
 }
 
@@ -65,6 +73,8 @@ export default function ContentGrowthHub({
 }: ContentGrowthHubProps) {
   const { language, t } = useLanguage();
   const copy = t("contentGrowth");
+  const publishCopyFacebook = readPublishingCopy(language, "facebook");
+  const publishCopyInstagram = readPublishingCopy(language, "instagram");
   const batches = useMemo(() => groupContentBatches(items), [items]);
   const primaryBatch = useMemo(() => selectPrimaryBatch(batches), [batches]);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
@@ -76,9 +86,14 @@ export default function ContentGrowthHub({
   const dayNine = useMemo(() => buildDayNineReminder(items), [items]);
   const batchReady = useMemo(() => buildNextBatchReadyNotice(items), [items]);
   const insights = useMemo(() => buildPerformanceInsights(items), [items]);
+  const instagramPublishing = useMemo(() => summarizeLivePublishingReadiness(items, "instagram"), [items]);
+  const facebookAudit = useMemo(() => buildFacebookPublishAudit(items), [items]);
   const [automationStatus, setAutomationStatus] = useState<unknown>(null);
   const [generateNotice, setGenerateNotice] = useState("");
+  const [publishNotice, setPublishNotice] = useState("");
+  const [requestingPublishId, setRequestingPublishId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [mediaAssets, setMediaAssets] = useState<ReturnType<typeof parseMediaAssetRecords>>([]);
   const integrations = useMemo(() => readIntegrationStatuses(automationStatus), [automationStatus]);
 
   useEffect(() => {
@@ -86,6 +101,9 @@ export default function ContentGrowthHub({
     callRpc(session, "get_staff_content_automation_status", {}, controller.signal)
       .then(setAutomationStatus)
       .catch(() => setAutomationStatus(null));
+    callRpc(session, "get_staff_media_assets", {}, controller.signal)
+      .then((raw) => { if (!controller.signal.aborted) setMediaAssets(parseMediaAssetRecords(raw)); })
+      .catch(() => { if (!controller.signal.aborted) setMediaAssets([]); });
     return () => controller.abort();
   }, [session]);
 
@@ -95,6 +113,42 @@ export default function ContentGrowthHub({
 
   const batchItems = selectedBatch?.items ?? [];
   const panelBusy = busy || generating;
+  const instagramNextStepCopy = {
+    review: publishCopyInstagram.livePublishNextReview,
+    approve: publishCopyInstagram.livePublishNextApprove,
+    publish_via_n8n: publishCopyInstagram.livePublishNextN8n,
+    verify_receipt: publishCopyInstagram.livePublishNextVerify,
+    continue_batch: publishCopyInstagram.livePublishNextContinue,
+  }[instagramPublishing.nextAction];
+
+  async function handleRequestPublish(itemId: string) {
+    if (!canWrite || panelBusy || requestingPublishId) return;
+    const target = items.find((entry) => entry.id === itemId);
+    if (!target || !canRequestPublish(target)) return;
+    const confirmMessage = publishCopyInstagram.requestPublishConfirm;
+    if (!window.confirm(confirmMessage)) return;
+    setRequestingPublishId(itemId);
+    setPublishNotice("");
+    try {
+      const result = await requestPublishJob(session, itemId);
+      if (!result.success) {
+        setPublishNotice(publishEnqueueErrorMessage(result.code, language));
+        return;
+      }
+      setPublishNotice(result.code === "ALREADY_ENQUEUED"
+        ? publishCopyInstagram.requestPublishAlready
+        : publishCopyInstagram.requestPublishSuccess);
+      onBatchCreated?.();
+    } catch (cause) {
+      if (cause instanceof Error && cause.message === "SESSION_EXPIRED") {
+        onSessionExpired?.();
+        return;
+      }
+      setPublishNotice(publishEnqueueErrorMessage(undefined, language));
+    } finally {
+      setRequestingPublishId(null);
+    }
+  }
 
   async function generateCoachAymanBatch() {
     if (!canWrite || panelBusy) return;
@@ -105,14 +159,42 @@ export default function ContentGrowthHub({
       const nonce = crypto.randomUUID();
       const mediaRaw = await callRpc(session, "get_staff_media_assets", {});
       const assets = parseMediaAssetRecords(mediaRaw);
-      const items = await buildCoachAyman2026BatchWithMedia(assets, new Date(), nonce);
-      const result = await callRpc(session, "create_staff_generated_content_batch", {
-        p_items: items,
-        p_provider_external_id: COACH_AYMAN_PROVIDER_ID,
-      }) as { success?: boolean; batchId?: string; code?: string };
-      if (!result.success || !result.batchId) throw new Error(result.code ?? "GENERATE_FAILED");
-      setGenerateNotice(copy.generateSuccess.replace("{batchId}", result.batchId));
-      setSelectedBatchId(result.batchId);
+      let saved: { success?: boolean; batchId?: string; code?: string } | null = null;
+
+      for (let shiftDays = 0; shiftDays <= 14 && !saved; shiftDays += 1) {
+        const start = new Date();
+        start.setUTCDate(start.getUTCDate() + shiftDays);
+        const batchNonce = shiftDays === 0 ? nonce : `${nonce}-${shiftDays}`;
+        let items;
+        if (shiftDays === 0) {
+          try {
+            const geminiItems = await generateCoachAymanBatchWithGemini(session, batchNonce, start);
+            items = geminiItems
+              ? attachMediaToCoachAymanBatch(geminiItems, assets)
+              : await buildCoachAyman2026BatchWithMedia(assets, start, batchNonce);
+          } catch {
+            items = await buildCoachAyman2026BatchWithMedia(assets, start, batchNonce);
+          }
+        } else {
+          items = await buildCoachAyman2026BatchWithMedia(assets, start, batchNonce);
+        }
+
+        try {
+          saved = await callRpc(session, "create_staff_generated_content_batch", {
+            p_items: items,
+            p_provider_external_id: COACH_AYMAN_PROVIDER_ID,
+          }) as { success?: boolean; batchId?: string; code?: string };
+        } catch (cause) {
+          const code = cause instanceof Error ? cause.message : "GENERATE_FAILED";
+          if (code === "CONTENT_SLOT_ALREADY_PLANNED") continue;
+          throw cause;
+        }
+      }
+
+      if (!saved?.success || !saved.batchId) throw new Error(saved?.code ?? "GENERATE_FAILED");
+      setGenerateNotice(copy.generateSuccess.replace("{batchId}", saved.batchId));
+      setSelectedBatchId(saved.batchId);
+      setMediaAssets(assets);
       onBatchCreated?.();
     } catch (cause) {
       const code = cause instanceof Error ? cause.message : "GENERATE_FAILED";
@@ -146,6 +228,68 @@ export default function ContentGrowthHub({
       )}
 
       {generateNotice && <div className="notice-box" aria-live="polite">{generateNotice}</div>}
+      {publishNotice && <div className="notice-box" aria-live="polite">{publishNotice}</div>}
+
+      {facebookAudit && (
+        <section className="content-growth-section facebook-audit-section" aria-labelledby="facebook-audit-heading">
+          <header>
+            <p>{copy.pipelineEyebrow}</p>
+            <h3 id="facebook-audit-heading">{publishCopyFacebook.facebookAuditTitle}</h3>
+          </header>
+          <p className="batch-meta">{publishCopyFacebook.facebookAuditBody}</p>
+          <div className="facebook-audit-grid" role="group" aria-label={publishCopyFacebook.facebookAuditTitle}>
+            <article><span>{publishCopyFacebook.facebookAuditPostId}</span><strong dir="ltr">{facebookAudit.externalPostId ?? copy.notConnected}</strong></article>
+            <article><span>{publishCopyFacebook.facebookAuditReceipt}</span><strong>{facebookAudit.receiptStatus ?? copy.notConnected}</strong></article>
+            <article><span>{publishCopyFacebook.publishedAtLabel}</span><strong>{facebookAudit.publishedAt ?? copy.notConnected}</strong></article>
+          </div>
+          <p className="batch-meta">{facebookAudit.topic}</p>
+          {facebookAudit.needsManualPublicCheck && (
+            <p className="facebook-audit-warning" role="status">{publishCopyFacebook.facebookAuditManualCheck}</p>
+          )}
+          {facebookAudit.postUrl && (
+            <a className="today-quick-action" href={facebookAudit.postUrl} target="_blank" rel="noreferrer noopener">
+              {publishCopyFacebook.openLivePost}
+            </a>
+          )}
+        </section>
+      )}
+
+      <section className="content-growth-section live-publish-section" aria-labelledby="live-publish-heading">
+        <header>
+          <p>{copy.pipelineEyebrow}</p>
+          <h3 id="live-publish-heading">{publishCopyInstagram.livePublishTitle}</h3>
+        </header>
+        <p className="batch-meta">{publishCopyInstagram.livePublishBody}</p>
+        {!AUTHORIZED_INSTAGRAM_PUBLISH_ITEM_ID && (
+          <p className="batch-meta">{publishCopyInstagram.instagramPickAuthorized}</p>
+        )}
+        <div className="live-publish-grid" aria-label={publishCopyInstagram.livePublishTitle}>
+          <article><span>{copy.approved}</span><strong>{instagramPublishing.approvedCount}</strong></article>
+          <article><span>{publishCopyInstagram.livePublishAwaiting}</span><strong>{instagramPublishing.awaitingN8nCount}</strong></article>
+          <article><span>{copy.published}</span><strong>{instagramPublishing.publishedLiveCount}</strong></article>
+          <article><span>{copy.failed}</span><strong>{instagramPublishing.failedCount}</strong></article>
+        </div>
+        <p className="live-publish-next-step" role="status">{instagramNextStepCopy}</p>
+        {instagramPublishing.authorizedItem && (
+          <div className="authorized-post-banner" role="status">
+            <strong>{publishCopyInstagram.authorizedPostTitle}</strong>
+            <span>{instagramPublishing.authorizedStage === "published_live" ? publishCopyInstagram.authorizedPostLive : publishCopyInstagram.authorizedPostPending}</span>
+            <span>{instagramPublishing.authorizedItem.topic}</span>
+            {canRequestPublish(instagramPublishing.authorizedItem) && (
+              <button
+                type="button"
+                className="primary-button"
+                disabled={!canWrite || panelBusy || requestingPublishId === instagramPublishing.authorizedItem.id}
+                onClick={() => void handleRequestPublish(instagramPublishing.authorizedItem!.id)}
+              >
+                {requestingPublishId === instagramPublishing.authorizedItem.id
+                  ? publishCopyInstagram.requestPublishBusy
+                  : publishCopyInstagram.requestPublishButton}
+              </button>
+            )}
+          </div>
+        )}
+      </section>
 
       <section className="content-growth-section" aria-labelledby="generate-batch-heading">
         <header>
@@ -184,15 +328,15 @@ export default function ContentGrowthHub({
         </header>
         <div className="integration-grid">
           {integrations.map((integration) => (
-            <article key={integration.key} className={integration.connected ? "connected" : "disconnected"}>
+            <article key={integration.key} className={integration.connected ? "connected" : integration.key === "canva" ? "optional" : "disconnected"}>
               <strong>{copy.integrationLabels[integration.key]}</strong>
-              <small>{integration.connected ? copy.connected : copy.notConnected}</small>
+              <small>{integration.key === "canva" ? copy.optionalNotConnected : integration.connected ? copy.connected : copy.notConnected}</small>
               <small>{integration.detail}</small>
             </article>
           ))}
         </div>
         <p className="batch-meta">{copy.integrationsNote}</p>
-        <MediaProviderStrip />
+        <MediaProviderStrip session={session} canWrite={canWrite} />
       </section>
 
       <section className="content-growth-section" aria-labelledby="strategy-mix-heading">
@@ -247,9 +391,19 @@ export default function ContentGrowthHub({
           batch={selectedBatch}
           canWrite={canWrite}
           busy={panelBusy}
+          session={session}
+          mediaAssets={mediaAssets}
+          onMediaLinked={() => {
+            void callRpc(session, "get_staff_media_assets", {})
+              .then((raw) => setMediaAssets(parseMediaAssetRecords(raw)))
+              .catch(() => undefined);
+            onBatchCreated?.();
+          }}
           onApproveItem={onApproveItem}
           onRequestChanges={onRequestChanges}
           onApproveAll={onApproveAll}
+          onPublishRequested={onBatchCreated}
+          onSessionExpired={onSessionExpired}
         />
       )}
     </div>
