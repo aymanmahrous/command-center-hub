@@ -10,10 +10,12 @@ import {
 import type { ChangeRequestKind } from "./content-growth";
 import {
   buildExternalPostLink,
+  canRequestPublish,
   latestReceiptForPlatform,
   parsePublicationReceipts,
   resolvePublishPipelineStage,
 } from "./content-publishing";
+import { publishEnqueueErrorMessage, requestPublishJob } from "./content-publish-enqueue";
 import { readContentPillar, readTimeSlot } from "./content-strategy";
 import { readPublishingCopy } from "./content-publishing-copy";
 import { ContentBatchMediaPreview } from "./content-batch-media-preview";
@@ -33,6 +35,8 @@ type ContentBatchReviewPanelProps = {
   onApproveItem: (item: ContentBatchItem) => Promise<void>;
   onRequestChanges: (item: ContentBatchItem, kind: ChangeRequestKind, note: string) => Promise<void>;
   onApproveAll: (items: ContentBatchItem[]) => Promise<void>;
+  onPublishRequested?: () => void;
+  onSessionExpired?: () => void;
 };
 
 function formatWhen(language: "ar" | "en", value: string | null) {
@@ -56,6 +60,8 @@ export function ContentBatchReviewPanel({
   onApproveItem,
   onRequestChanges,
   onApproveAll,
+  onPublishRequested,
+  onSessionExpired,
 }: ContentBatchReviewPanelProps) {
   const { language, t } = useLanguage();
   const copy = t("contentBatch");
@@ -69,6 +75,8 @@ export function ContentBatchReviewPanel({
   const [changeNote, setChangeNote] = useState("");
   const [designBusyId, setDesignBusyId] = useState<string | null>(null);
   const [designNotice, setDesignNotice] = useState("");
+  const [publishBusyId, setPublishBusyId] = useState<string | null>(null);
+  const [publishNotice, setPublishNotice] = useState("");
 
   const summary = useMemo(() => summarizeBatch(batch.items), [batch.items]);
   const batchStatus = overallBatchStatus(batch.items);
@@ -115,6 +123,32 @@ export function ContentBatchReviewPanel({
     }
   }
 
+  async function handleRequestPublish(item: ContentBatchItem) {
+    if (!session || !canWrite || busy || publishBusyId || !canRequestPublish(item)) return;
+    if (!window.confirm(publishingCopy.requestPublishConfirm)) return;
+    setPublishBusyId(item.id);
+    setPublishNotice("");
+    try {
+      const result = await requestPublishJob(session, item.id);
+      if (!result.success) {
+        setPublishNotice(publishEnqueueErrorMessage(result.code, language));
+        return;
+      }
+      setPublishNotice(result.code === "ALREADY_ENQUEUED"
+        ? publishingCopy.requestPublishAlready
+        : publishingCopy.requestPublishSuccess);
+      onPublishRequested?.();
+    } catch (cause) {
+      if (cause instanceof Error && cause.message === "SESSION_EXPIRED") {
+        onSessionExpired?.();
+        return;
+      }
+      setPublishNotice(publishEnqueueErrorMessage(undefined, language));
+    } finally {
+      setPublishBusyId(null);
+    }
+  }
+
   return (
     <section className="content-batch-panel" aria-labelledby="content-batch-heading">
       <header>
@@ -146,6 +180,7 @@ export function ContentBatchReviewPanel({
         {!canWrite && <small>{t("common").readOnlyNote}</small>}
       </div>
       {designNotice && <p className="content-batch-design-notice" role="status">{designNotice}</p>}
+      {publishNotice && <p className="content-batch-design-notice" role="status">{publishNotice}</p>}
 
       <div className="content-batch-grid">
         {items.map((item) => {
@@ -235,6 +270,15 @@ export function ContentBatchReviewPanel({
                     }}
                   >
                     {copy.requestChangesButton}
+                  </button>
+                )}
+                {canRequestPublish(item) && session && (
+                  <button
+                    type="button"
+                    disabled={itemLocked || publishBusyId === item.id}
+                    onClick={() => void handleRequestPublish(item)}
+                  >
+                    {publishBusyId === item.id ? publishingCopy.requestPublishBusy : publishingCopy.requestPublishButton}
                   </button>
                 )}
               </footer>

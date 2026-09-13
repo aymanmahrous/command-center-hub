@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   AUTHORIZED_FACEBOOK_PUBLISH_ITEM_ID,
+  AUTHORIZED_INSTAGRAM_PUBLISH_ITEM_ID,
   buildExternalPostLink,
   buildFacebookPublishAudit,
   buildTrackedCta,
   buildWhatsAppLeadUrl,
+  canRequestPublish,
   hashtagsForPlatform,
   normalizeFacebookPostId,
   resolvePublishPipelineStage,
@@ -99,6 +101,42 @@ test("instagram readiness moves to n8n after approval", () => {
   ], "instagram");
   assert.equal(readiness.nextAction, "publish_via_n8n");
   assert.equal(readiness.approvedCount, 1);
+});
+
+test("scheduled facebook publish item shows awaiting n8n before receipt", () => {
+  assert.equal(resolvePublishPipelineStage({
+    id: "55555555-5555-4555-8555-555555555555",
+    status: "scheduled",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    platform: "facebook",
+    contentType: "post",
+    caption: "queued",
+    topic: "queued facebook post",
+    scheduledFor: "2026-01-02T12:00:00.000Z",
+  }), "awaiting_n8n");
+});
+
+test("canRequestPublish requires approved authorized item without receipt", () => {
+  assert.equal(canRequestPublish({
+    id: AUTHORIZED_INSTAGRAM_PUBLISH_ITEM_ID,
+    status: "approved",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    platform: "instagram",
+    contentType: "post",
+    caption: "ready",
+    topic: "authorized instagram",
+    scheduledFor: null,
+  }), true);
+  assert.equal(canRequestPublish({
+    id: AUTHORIZED_INSTAGRAM_PUBLISH_ITEM_ID,
+    status: "needs_review",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    platform: "instagram",
+    contentType: "post",
+    caption: "ready",
+    topic: "authorized instagram",
+    scheduledFor: null,
+  }), false);
 });
 
 test("facebook audit flags manual public verification when receipt is published", () => {

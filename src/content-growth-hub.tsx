@@ -9,7 +9,8 @@ import {
   summarizePipeline,
   type ChangeRequestKind,
 } from "./content-growth";
-import { AUTHORIZED_INSTAGRAM_PUBLISH_ITEM_ID, buildFacebookPublishAudit, summarizeLivePublishingReadiness } from "./content-publishing";
+import { AUTHORIZED_INSTAGRAM_PUBLISH_ITEM_ID, buildFacebookPublishAudit, summarizeLivePublishingReadiness, canRequestPublish } from "./content-publishing";
+import { publishEnqueueErrorMessage, requestPublishJob } from "./content-publish-enqueue";
 import { readPublishingCopy } from "./content-publishing-copy";
 import { buildDayNineReminder } from "./content-batch";
 import {
@@ -89,6 +90,8 @@ export default function ContentGrowthHub({
   const facebookAudit = useMemo(() => buildFacebookPublishAudit(items), [items]);
   const [automationStatus, setAutomationStatus] = useState<unknown>(null);
   const [generateNotice, setGenerateNotice] = useState("");
+  const [publishNotice, setPublishNotice] = useState("");
+  const [requestingPublishId, setRequestingPublishId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [mediaAssets, setMediaAssets] = useState<ReturnType<typeof parseMediaAssetRecords>>([]);
   const integrations = useMemo(() => readIntegrationStatuses(automationStatus), [automationStatus]);
@@ -117,6 +120,35 @@ export default function ContentGrowthHub({
     verify_receipt: publishCopyInstagram.livePublishNextVerify,
     continue_batch: publishCopyInstagram.livePublishNextContinue,
   }[instagramPublishing.nextAction];
+
+  async function handleRequestPublish(itemId: string) {
+    if (!canWrite || panelBusy || requestingPublishId) return;
+    const target = items.find((entry) => entry.id === itemId);
+    if (!target || !canRequestPublish(target)) return;
+    const confirmMessage = publishCopyInstagram.requestPublishConfirm;
+    if (!window.confirm(confirmMessage)) return;
+    setRequestingPublishId(itemId);
+    setPublishNotice("");
+    try {
+      const result = await requestPublishJob(session, itemId);
+      if (!result.success) {
+        setPublishNotice(publishEnqueueErrorMessage(result.code, language));
+        return;
+      }
+      setPublishNotice(result.code === "ALREADY_ENQUEUED"
+        ? publishCopyInstagram.requestPublishAlready
+        : publishCopyInstagram.requestPublishSuccess);
+      onBatchCreated?.();
+    } catch (cause) {
+      if (cause instanceof Error && cause.message === "SESSION_EXPIRED") {
+        onSessionExpired?.();
+        return;
+      }
+      setPublishNotice(publishEnqueueErrorMessage(undefined, language));
+    } finally {
+      setRequestingPublishId(null);
+    }
+  }
 
   async function generateCoachAymanBatch() {
     if (!canWrite || panelBusy) return;
@@ -196,6 +228,7 @@ export default function ContentGrowthHub({
       )}
 
       {generateNotice && <div className="notice-box" aria-live="polite">{generateNotice}</div>}
+      {publishNotice && <div className="notice-box" aria-live="polite">{publishNotice}</div>}
 
       {facebookAudit && (
         <section className="content-growth-section facebook-audit-section" aria-labelledby="facebook-audit-heading">
@@ -242,6 +275,18 @@ export default function ContentGrowthHub({
             <strong>{publishCopyInstagram.authorizedPostTitle}</strong>
             <span>{instagramPublishing.authorizedStage === "published_live" ? publishCopyInstagram.authorizedPostLive : publishCopyInstagram.authorizedPostPending}</span>
             <span>{instagramPublishing.authorizedItem.topic}</span>
+            {canRequestPublish(instagramPublishing.authorizedItem) && (
+              <button
+                type="button"
+                className="primary-button"
+                disabled={!canWrite || panelBusy || requestingPublishId === instagramPublishing.authorizedItem.id}
+                onClick={() => void handleRequestPublish(instagramPublishing.authorizedItem!.id)}
+              >
+                {requestingPublishId === instagramPublishing.authorizedItem.id
+                  ? publishCopyInstagram.requestPublishBusy
+                  : publishCopyInstagram.requestPublishButton}
+              </button>
+            )}
           </div>
         )}
       </section>
@@ -357,6 +402,8 @@ export default function ContentGrowthHub({
           onApproveItem={onApproveItem}
           onRequestChanges={onRequestChanges}
           onApproveAll={onApproveAll}
+          onPublishRequested={onBatchCreated}
+          onSessionExpired={onSessionExpired}
         />
       )}
     </div>

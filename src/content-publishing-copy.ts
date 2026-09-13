@@ -20,6 +20,11 @@ export type PublishingCopy = {
   openPostLink: string;
   openLivePost: string;
   pipelineStages: Record<PublishPipelineStage, string>;
+  requestPublishButton: string;
+  requestPublishConfirm: string;
+  requestPublishSuccess: string;
+  requestPublishAlready: string;
+  requestPublishBusy: string;
   facebookAuditTitle: string;
   facebookAuditBody: string;
   facebookAuditReceipt: string;
@@ -46,6 +51,11 @@ const FACEBOOK_COPY: PublishingCopy = {
   awaitingN8nNote: "Approved here. Live posting is handled by n8n outside the app.",
   openPostLink: "Receipt link",
   openLivePost: "Live post",
+  requestPublishButton: "Request Publish",
+  requestPublishConfirm: "Request a publish job for this approved item? This does not publish directly — n8n executes the job.",
+  requestPublishSuccess: "Publish job queued. n8n can now execute the authorized job.",
+  requestPublishAlready: "Publish job already queued for this item.",
+  requestPublishBusy: "Requesting publish…",
   pipelineStages: {
     needs_review: "Needs review",
     approved_ready: "Ready for n8n",
@@ -100,6 +110,11 @@ const COPY: Record<Language, Record<PublishChannel, PublishingCopy>> = {
       awaitingN8nNote: "معتمد هنا. النشر الحي يتم عبر n8n خارج التطبيق.",
       openPostLink: "رابط الإيصال",
       openLivePost: "المنشور الحي",
+      requestPublishButton: "طلب النشر",
+      requestPublishConfirm: "طلب إنشاء publish job لهذا العنصر المعتمد؟ هذا لا ينشر مباشرة — n8n ينفّذ المهمة.",
+      requestPublishSuccess: "تمت إضافة publish job. يمكن لـ n8n تنفيذ المهمة المصرّح بها.",
+      requestPublishAlready: "publish job موجود بالفعل لهذا العنصر.",
+      requestPublishBusy: "جاري طلب النشر…",
       pipelineStages: {
         needs_review: "يحتاج مراجعة",
         approved_ready: "جاهز لـ n8n",
