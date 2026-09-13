@@ -13,6 +13,7 @@ type Summary = {
   radar: { hot: number };
   automation: { failed: number; active: number };
   revenue: { invoiceCount: number; invoiceTotal: number; paidInvoiceTotal: number; orderCount: number; orderTotal: number };
+  alerts?: Array<{ code: string; priority: string; count: number; message: string }>;
   attentionScore: number;
 };
 
@@ -42,6 +43,19 @@ function percent(language: Language, value: number) {
   return new Intl.NumberFormat(language === "ar" ? "ar-AE" : "en-AE", { style: "percent", maximumFractionDigits: 0 }).format(Math.max(0, Math.min(1, value)));
 }
 
+function alertLabel(language: Language, code: string) {
+  const labels: Record<string, [string, string]> = {
+    human_required: ["محادثات تحتاج تدخلًا بشريًا", "Conversations need human attention"],
+    pending_bookings: ["حجوزات معلقة", "Bookings are waiting for action"],
+    hot_radar: ["فرص ساخنة تحتاج مراجعة", "Hot opportunities need review"],
+    content_review: ["محتوى ينتظر المراجعة", "Content is waiting for review"],
+    failed_jobs: ["مهام خلفية فاشلة", "Background jobs have failed or are dead"],
+    failed_content: ["محتوى فاشل", "Content items have failed"],
+    new_leads: ["عملاء محتملون يحتاجون متابعة", "New or contacted leads need follow-up"],
+  };
+  return labels[code]?.[language === "ar" ? 0 : 1] ?? code;
+}
+
 export default function ControlTowerV2({ session, onSessionExpired }: { session: Session; onSessionExpired: () => void }) {
   const { language } = useLanguage();
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -66,6 +80,7 @@ export default function ControlTowerV2({ session, onSessionExpired }: { session:
   const leadToBooking = summary.leads.total > 0 ? summary.bookings.total / summary.leads.total : 0;
   const bookingToCustomer = summary.bookings.total > 0 ? summary.leads.customers / summary.bookings.total : 0;
   const invoiceCollection = summary.revenue.invoiceTotal > 0 ? summary.revenue.paidInvoiceTotal / summary.revenue.invoiceTotal : 0;
+  const alerts = [...(summary.alerts ?? [])].sort((a, b) => (a.priority === "critical" ? 0 : a.priority === "high" ? 1 : a.priority === "medium" ? 2 : 3) - (b.priority === "critical" ? 0 : b.priority === "high" ? 1 : b.priority === "medium" ? 2 : 3));
   const cards = [
     { icon: Users, label: language === "ar" ? "العملاء المحتملون" : "Leads", value: number(language, summary.leads.total), hint: `${number(language, summary.leads.new)} ${language === "ar" ? "جديدة" : "new"}` },
     { icon: CalendarDays, label: language === "ar" ? "الحجوزات" : "Bookings", value: number(language, summary.bookings.total), hint: `${number(language, summary.bookings.confirmed)} ${language === "ar" ? "مؤكدة" : "confirmed"}` },
@@ -80,6 +95,22 @@ export default function ControlTowerV2({ session, onSessionExpired }: { session:
       <div><strong>{language === "ar" ? "🎯 مركز القيادة التنفيذي" : "🎯 Executive Control Tower"}</strong><p>{language === "ar" ? "صورة موحدة للعملاء والحجوزات والمحتوى والإيرادات وصحة التشغيل." : "One view across leads, bookings, content, revenue, and operational health."}</p></div>
       <span>{new Date(summary.generatedAt).toLocaleString(language === "ar" ? "ar-AE" : "en-AE")}</span>
     </div>
+
+    {alerts.length > 0 && (
+      <section className="today-section" aria-labelledby="control-alerts-heading">
+        <header><p>{language === "ar" ? "إجراءات مطلوبة" : "Action required"}</p><h3 id="control-alerts-heading">{language === "ar" ? "مركز التنبيهات" : "Alert center"}</h3></header>
+        <div className="operations-summary today-numbers">
+          {alerts.map((alert) => (
+            <div className={`summary-alert ${alert.priority === "critical" ? "danger" : alert.priority === "high" ? "warning" : ""}`} key={alert.code}>
+              <AlertTriangle size={20} aria-hidden="true" />
+              <span>{alertLabel(language, alert.code)}</span>
+              <strong>{number(language, alert.count)}</strong>
+              <small>{alert.message}</small>
+            </div>
+          ))}
+        </div>
+      </section>
+    )}
 
     <section className="today-section">
       <header><p>{language === "ar" ? "نبض المشروع" : "Business pulse"}</p><h3>{language === "ar" ? "الصورة الكبيرة" : "The big picture"}</h3></header>
