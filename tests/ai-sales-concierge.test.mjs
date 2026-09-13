@@ -9,7 +9,6 @@ function turn(messageBody, overrides = {}) {
   return buildSalesConciergeTurn({
     channel: "whatsapp",
     mode: "ai_active",
-    language: "en",
     messageBody,
     intent: null,
     service: null,
@@ -18,6 +17,8 @@ function turn(messageBody, overrides = {}) {
     fearOfWater: null,
     humanRequired: false,
     recentMessages: [],
+    questionLedger: { questions_asked: [], questions_answered: [], known_facts: {} },
+    knownFacts: {},
     ...overrides,
   });
 }
@@ -57,10 +58,10 @@ test("qualification asks short offer-type question before pricing", () => {
   assert.match(result.draftReply, /private lesson or a group lesson/i);
 });
 
-test("human handoff routes to Coach Ayman without enabling outbound", () => {
+test("human handoff routes to human review without auto apology draft", () => {
   const result = turn("I want to speak to Coach Ayman");
   assert.equal(result.humanHandoff, true);
-  assert.match(result.draftReply, /Coach Ayman/i);
+  assert.equal(result.draftReply, null);
   assert.equal(result.outboundEnabled, false);
 });
 

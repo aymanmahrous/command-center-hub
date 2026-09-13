@@ -1,3 +1,11 @@
+import {
+  applyMemoryToConciergeInput,
+  buildClarificationReply,
+  detectConfusion,
+  shouldAskQuestion,
+  updateQuestionLedger,
+} from "./memory.mjs";
+
 const APPROVED_PRICING = {
   private: {
     en: "Private lesson: 150 AED instead of 200 AED — limited-time offer.",
@@ -49,8 +57,50 @@ function pricingBlock(language, offerType) {
   return lines.join("\n");
 }
 
+function skipStateIfKnown(state, knownFacts, ledger, conflicts) {
+  if (state === "awaiting_offer_type" && shouldAskQuestion("lesson_type", knownFacts, ledger, conflicts) === "skip") {
+    const lessonType = knownFacts.lesson_type ?? ledger.known_facts?.lesson_type;
+    if (lessonType === "private") return "awaiting_fear_of_water";
+    if (lessonType === "group" || lessonType === "siblings") return "presented_pricing";
+  }
+
+  if (state === "awaiting_fear_of_water" && shouldAskQuestion("fear_of_water", knownFacts, ledger, conflicts) === "skip") {
+    return "presented_pricing";
+  }
+
+  return state;
+}
+
+function questionKeyForState(state) {
+  if (state === "awaiting_offer_type") return "lesson_type";
+  if (state === "awaiting_fear_of_water") return "fear_of_water";
+  return null;
+}
+
+function buildHandoffResult(input, language, memory, reason) {
+  return {
+    processed: true,
+    skipped: false,
+    language,
+    detectedIntent: "human_handoff",
+    draftReply: null,
+    nextIntent: formatIntent("human_handoff"),
+    nextService: input.service ?? null,
+    nextStage: input.stage === "new" ? "contacted" : input.stage,
+    nextScore: (input.score ?? 0) + 10,
+    nextFearOfWater: input.fearOfWater ?? null,
+    humanHandoff: true,
+    handoffReason: reason,
+    alertCode: memory.confusion?.alertCode ?? "human_required",
+    questionLedger: memory.ledger,
+    knownFacts: memory.knownFacts,
+    outboundEnabled: false,
+  };
+}
+
 export function buildSalesConciergeTurn(input) {
-  const language = detectLanguage(input.messageBody);
+  const memory = applyMemoryToConciergeInput(input);
+  const language = memory.language;
   const body = input.messageBody.trim();
   const mode = input.mode;
   const stage = input.stage;
@@ -60,6 +110,9 @@ export function buildSalesConciergeTurn(input) {
   let humanHandoff = false;
   let nextStage = stage;
   let state = parseConciergeState(input.intent);
+  let ledger = memory.ledger;
+  const knownFacts = memory.knownFacts;
+  const conflicts = memory.conflicts;
 
   if (mode !== "ai_active") {
     return {
@@ -75,32 +128,48 @@ export function buildSalesConciergeTurn(input) {
       nextScore: score,
       nextFearOfWater: fearOfWater,
       humanHandoff: false,
+      questionLedger: ledger,
+      knownFacts,
       outboundEnabled: false,
     };
   }
 
-  if (HUMAN_HANDOFF_PATTERN.test(body)) {
-    humanHandoff = true;
-    nextStage = stage === "new" ? "contacted" : stage;
+  if (conflicts.length > 0) {
+    const conflictKey = conflicts[0].key;
     return {
       processed: true,
       skipped: false,
       language,
-      detectedIntent: "human_handoff",
-      draftReply: t(
-        language,
-        "I'll connect you with Coach Ayman for personal follow-up. He will reply shortly.",
-        "سأوصلك بالكوتش أيمن للمتابعة الشخصية. سيرد عليك قريبًا.",
-      ),
-      nextIntent: formatIntent("human_handoff"),
+      detectedIntent: formatIntent("clarification"),
+      draftReply: buildClarificationReply(language, conflictKey),
+      nextIntent: formatIntent(state),
       nextService: service,
       nextStage,
-      nextScore: score + 10,
+      nextScore: score,
       nextFearOfWater: fearOfWater,
-      humanHandoff: true,
+      humanHandoff: false,
+      needsClarification: true,
+      clarificationKey: conflictKey,
+      questionLedger: ledger,
+      knownFacts,
       outboundEnabled: false,
     };
   }
+
+  if (memory.confusion.confused) {
+    return buildHandoffResult(input, language, memory, memory.confusion.reason);
+  }
+
+  if (HUMAN_HANDOFF_PATTERN.test(body)) {
+    return buildHandoffResult(input, language, memory, "customer_requested_human");
+  }
+
+  if (knownFacts.lesson_type && !service) {
+    service = knownFacts.lesson_type;
+  }
+
+  if (knownFacts.fear_of_water === "true" || knownFacts.fear_of_water === "yes") fearOfWater = true;
+  if (knownFacts.fear_of_water === "false" || knownFacts.fear_of_water === "no") fearOfWater = false;
 
   if (state === "greeting") {
     if (PRICING_PATTERN.test(body)) state = "presented_pricing";
@@ -148,32 +217,58 @@ export function buildSalesConciergeTurn(input) {
     score += 20;
   }
 
+  state = skipStateIfKnown(state, knownFacts, ledger, conflicts);
+
   let draftReply = null;
+  let draftQuestionKey = questionKeyForState(state);
+
   if (state === "awaiting_offer_type") {
-    draftReply = t(
-      language,
-      "Welcome to Relax Fix UAE. Would you like a private lesson or a group lesson (up to 5 people)?",
-      "أهلًا بك في Relax Fix UAE. هل تفضّل حصة خاصة أم مجموعة (حتى 5 أشخاص)؟",
-    );
-  } else if (state === "awaiting_fear_of_water") {
-    draftReply = t(
-      language,
-      "Quick question: is the swimmer comfortable in water, or is there fear of water?",
-      "سؤال سريع: هل السبّاح مرتاح في الماء، أم يوجد خوف من الماء؟",
-    );
-  } else if (state === "presented_pricing") {
+    const askDecision = shouldAskQuestion("lesson_type", knownFacts, ledger, conflicts);
+    if (askDecision === "clarify") {
+      draftReply = buildClarificationReply(language, "lesson_type");
+    } else if (askDecision === "skip") {
+      state = skipStateIfKnown("awaiting_offer_type", knownFacts, ledger, conflicts);
+      draftQuestionKey = questionKeyForState(state);
+    } else {
+      draftReply = t(
+        language,
+        "Welcome to Relax Fix UAE. Would you like a private lesson or a group lesson (up to 5 people)?",
+        "أهلًا بك في Relax Fix UAE. هل تفضّل حصة خاصة أم مجموعة (حتى 5 أشخاص)؟",
+      );
+      ledger = updateQuestionLedger(ledger, { asked: ["lesson_type"] });
+    }
+  }
+
+  if (!draftReply && state === "awaiting_fear_of_water") {
+    const askDecision = shouldAskQuestion("fear_of_water", knownFacts, ledger, conflicts);
+    if (askDecision === "clarify") {
+      draftReply = buildClarificationReply(language, "fear_of_water");
+    } else if (askDecision === "skip") {
+      state = "presented_pricing";
+      draftQuestionKey = null;
+    } else {
+      draftReply = t(
+        language,
+        "Quick question: is the swimmer comfortable in water, or is there fear of water?",
+        "سؤال سريع: هل السبّاح مرتاح في الماء، أم يوجد خوف من الماء؟",
+      );
+      ledger = updateQuestionLedger(ledger, { asked: ["fear_of_water"] });
+    }
+  }
+
+  if (!draftReply && state === "presented_pricing") {
     const offerType = service === "private" ? "private" : service === "siblings" ? "siblings" : service === "group" ? "group" : "private";
     draftReply = [
       pricingBlock(language, offerType),
       t(language, "Would you like to proceed with booking?", "هل تود المتابعة للحجز؟"),
     ].join("\n\n");
-  } else if (state === "booking_guidance") {
+  } else if (!draftReply && state === "booking_guidance") {
     draftReply = t(
       language,
       "Great — I can guide you toward booking with Coach Ayman. Reply yes to continue.",
       "ممتاز — يمكنني توجيهك للحجز مع الكوتش أيمن. اكتب نعم للمتابعة.",
     );
-  } else {
+  } else if (!draftReply && state !== "awaiting_offer_type" && state !== "awaiting_fear_of_water") {
     draftReply = t(
       language,
       "Welcome to Relax Fix UAE. I can help with private or group swimming lessons. What would you like?",
@@ -181,6 +276,27 @@ export function buildSalesConciergeTurn(input) {
     );
     state = "awaiting_offer_type";
     nextStage = stage === "new" ? "contacted" : stage;
+  }
+
+  if (draftQuestionKey) {
+    const repeatCheck = detectConfusion({
+      messageBody: body,
+      ledger,
+      recentCustomerMessages: input.recentCustomerMessages ?? [],
+      draftQuestionKey,
+    });
+    if (repeatCheck.confused) {
+      return buildHandoffResult(input, language, { ...memory, confusion: repeatCheck }, repeatCheck.reason);
+    }
+  }
+
+  if (knownFacts.child_age && draftReply && /\b(age|year|سنة|عمر)\b/i.test(draftReply)) {
+    return buildHandoffResult(
+      input,
+      language,
+      { ...memory, confusion: { confused: true, reason: "repeated_question", alertCode: "customer_at_risk" } },
+      "repeated_question",
+    );
   }
 
   return {
@@ -195,6 +311,8 @@ export function buildSalesConciergeTurn(input) {
     nextScore: score,
     nextFearOfWater: fearOfWater,
     humanHandoff,
+    questionLedger: ledger,
+    knownFacts,
     outboundEnabled: false,
   };
 }

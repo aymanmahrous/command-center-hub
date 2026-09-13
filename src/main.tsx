@@ -94,6 +94,7 @@ const ConversationSchema = z.object({
   mode: z.enum(["ai_active", "human_required", "human_takeover", "paused"]),
   unread: z.number().int().nonnegative(), lastMessage: z.string(), updatedAt: z.string(),
   leadScore: z.number().int(), intent: z.string(), humanRequired: z.boolean(),
+  needsAttention: z.boolean().optional(), handoffReason: z.string().nullable().optional(),
 }).passthrough();
 const MessageSchema = z.object({
   id: z.string().uuid(), conversationId: z.string().uuid(), direction: z.string(),
@@ -103,6 +104,10 @@ const MessageSchema = z.object({
 const ConversationModeUpdateSchema = z.object({
   success: z.boolean(), code: z.string().optional(), conversationId: z.string().uuid().optional(),
   mode: z.enum(["ai_active", "human_required", "human_takeover", "paused"]).optional(),
+});
+const StaffWhatsappSendSchema = z.object({
+  success: z.boolean(), code: z.string().optional(), conversationId: z.string().uuid().optional(),
+  messageId: z.string().uuid().optional(), dryRun: z.boolean().optional(),
 });
 const ContentItemSchema = z.object({
   id: z.string().uuid(), scheduledFor: z.string().nullable(), platform: z.string(), contentType: z.string(),
@@ -292,6 +297,33 @@ async function setConversationMode(session: Session, conversationId: string, mod
   return result;
 }
 
+async function takeOverConversation(session: Session, conversationId: string) {
+  const result = ConversationModeUpdateSchema.parse(await callRpc(session, "take_over_staff_conversation", {
+    p_conversation_id: conversationId,
+  }));
+  if (!result.success) throw new Error(result.code ?? "UPDATE_REJECTED");
+  return result;
+}
+
+async function returnConversationToAi(session: Session, conversationId: string) {
+  const result = ConversationModeUpdateSchema.parse(await callRpc(session, "return_staff_conversation_to_ai", {
+    p_conversation_id: conversationId,
+  }));
+  if (!result.success) throw new Error(result.code ?? "UPDATE_REJECTED");
+  return result;
+}
+
+async function sendStaffWhatsappMessage(session: Session, conversationId: string, body: string) {
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/send-whatsapp-message`, {
+    method: "POST",
+    headers: rpcHeaders(session),
+    body: JSON.stringify({ conversationId, body }),
+  });
+  const result = StaffWhatsappSendSchema.parse(await response.json());
+  if (!response.ok || !result.success) throw new Error(result.code ?? `SEND_FAILED_${response.status}`);
+  return result;
+}
+
 async function setRadarOpportunityStatus(session: Session, opportunityId: string, status: RadarStatus) {
   const result = RadarStatusUpdateSchema.parse(await callRpc(session, "set_staff_radar_opportunity_status", {
     p_opportunity_id: opportunityId, p_status: status,
@@ -427,9 +459,12 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
   const [messageStatus, setMessageStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
-  const canWrite = ["super_admin", "admin", "reception", "coach"].includes(session.role);
+  const [replyBody, setReplyBody] = useState("");
+  const canWriteMode = ["super_admin", "admin", "reception", "coach"].includes(session.role);
+  const canSendReply = ["super_admin", "admin", "reception", "content_manager"].includes(session.role);
   const conversations = parsed.success ? parsed.data : [];
   const selected = conversations.find((conversation) => conversation.id === selectedId) ?? null;
+  const canReplyNow = Boolean(selected && selected.channel === "whatsapp" && ["human_takeover", "human_required"].includes(selected.mode));
 
   useEffect(() => {
     if (!parsed.success) return;
@@ -456,7 +491,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
   if (conversations.length === 0) return <p className="muted">{copy.noConversations}</p>;
 
   async function changeMode(conversation: z.infer<typeof ConversationSchema>, next: ConversationMode) {
-    if (!canWrite || busyId || conversation.mode === next) return;
+    if (!canWriteMode || busyId || conversation.mode === next) return;
     const confirmMessage = language === "ar"
       ? `تأكيد تغيير وضع محادثة ${conversation.leadName} من «${modeLabels[conversation.mode]}» إلى «${modeLabels[next]}»؟ سيتم تسجيل العملية في Audit Log.`
       : `Change ${conversation.leadName}'s mode from "${modeLabels[conversation.mode]}" to "${modeLabels[next]}"? Recorded in the Audit Log.`;
@@ -467,19 +502,83 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
       setNotice(language === "ar" ? "تم تحديث وضع المحادثة وتسجيل العملية بنجاح." : "Mode updated and recorded.");
       onChanged();
     } catch (cause) {
-      const code = cause instanceof Error ? cause.message : "UPDATE_FAILED";
-      const messagesByCode: Record<string, string> = language === "ar" ? {
-        INVALID_MODE: "وضع المحادثة المطلوب غير مسموح.",
-        NOT_FOUND: "المحادثة لم تعد موجودة.",
-        STAFF_ACCESS_DENIED: "ليست لديك صلاحية تنفيذ هذا التغيير.",
-      } : {
-        INVALID_MODE: "That mode isn't allowed.",
-        NOT_FOUND: "This conversation no longer exists.",
-        STAFF_ACCESS_DENIED: "You don't have permission for this.",
-      };
-      if (code === "SESSION_EXPIRED") { onSessionExpired(); return; }
-      setNotice(messagesByCode[code] ?? (language === "ar" ? "تعذر التحديث بأمان؛ لم يتم اعتماد أي تغيير غير مؤكد." : "Update failed safely; no change was made."));
+      handleInboxError(cause);
     } finally { setBusyId(null); }
+  }
+
+  async function handleTakeOver(conversation: z.infer<typeof ConversationSchema>) {
+    if (!canSendReply || busyId) return;
+    const confirmMessage = language === "ar"
+      ? `تأكيد استلام محادثة ${conversation.leadName} يدويًا؟ سيتوقف AI عن الرد حتى تعيده.`
+      : `Take over ${conversation.leadName}'s conversation? AI replies pause until you return control.`;
+    if (!window.confirm(confirmMessage)) return;
+    setBusyId(conversation.id); setNotice("");
+    try {
+      await takeOverConversation(session, conversation.id);
+      setNotice(copy.takeOverSuccess);
+      onChanged();
+    } catch (cause) {
+      handleInboxError(cause);
+    } finally { setBusyId(null); }
+  }
+
+  async function handleReturnToAi(conversation: z.infer<typeof ConversationSchema>) {
+    if (!canSendReply || busyId) return;
+    const confirmMessage = language === "ar"
+      ? `تأكيد إعادة محادثة ${conversation.leadName} إلى AI؟`
+      : `Return ${conversation.leadName}'s conversation to AI?`;
+    if (!window.confirm(confirmMessage)) return;
+    setBusyId(conversation.id); setNotice("");
+    try {
+      await returnConversationToAi(session, conversation.id);
+      setNotice(copy.returnToAiSuccess);
+      onChanged();
+    } catch (cause) {
+      handleInboxError(cause);
+    } finally { setBusyId(null); }
+  }
+
+  async function handleSendReply(conversation: z.infer<typeof ConversationSchema>) {
+    if (!canSendReply || busyId || !replyBody.trim()) return;
+    const confirmMessage = language === "ar"
+      ? `تأكيد إرسال رد WhatsApp إلى ${conversation.leadName}؟`
+      : `Send this WhatsApp reply to ${conversation.leadName}?`;
+    if (!window.confirm(confirmMessage)) return;
+    setBusyId(conversation.id); setNotice("");
+    try {
+      const result = await sendStaffWhatsappMessage(session, conversation.id, replyBody.trim());
+      setReplyBody("");
+      setNotice(result.dryRun ? copy.sendDryRunSuccess : copy.sendSuccess);
+      onChanged();
+      const refreshed = await getConversationMessages(session, conversation.id);
+      setMessages(refreshed);
+      setMessageStatus("ready");
+    } catch (cause) {
+      handleInboxError(cause);
+    } finally { setBusyId(null); }
+  }
+
+  function handleInboxError(cause: unknown) {
+    const code = cause instanceof Error ? cause.message : "UPDATE_FAILED";
+    const messagesByCode: Record<string, string> = language === "ar" ? {
+      INVALID_MODE: "وضع المحادثة المطلوب غير مسموح.",
+      NOT_FOUND: "المحادثة لم تعد موجودة.",
+      STAFF_ACCESS_DENIED: "ليست لديك صلاحية تنفيذ هذا التغيير.",
+      HUMAN_MODE_REQUIRED: "يجب استلام المحادثة يدويًا قبل الإرسال.",
+      CHANNEL_NOT_WHATSAPP: "الرد اليدوي متاح لمحادثات WhatsApp فقط.",
+      INVALID_BODY: "نص الرسالة غير صالح.",
+      SEND_FAILED: "تعذر إرسال الرسالة بأمان.",
+    } : {
+      INVALID_MODE: "That mode isn't allowed.",
+      NOT_FOUND: "This conversation no longer exists.",
+      STAFF_ACCESS_DENIED: "You don't have permission for this.",
+      HUMAN_MODE_REQUIRED: "Take over the conversation before sending a reply.",
+      CHANNEL_NOT_WHATSAPP: "Manual replies are WhatsApp-only.",
+      INVALID_BODY: "The message text isn't valid.",
+      SEND_FAILED: "The message could not be sent safely.",
+    };
+    if (code === "SESSION_EXPIRED") { onSessionExpired(); return; }
+    setNotice(messagesByCode[code] ?? (language === "ar" ? "تعذر التحديث بأمان؛ لم يتم اعتماد أي تغيير غير مؤكد." : "Update failed safely; no change was made."));
   }
 
   return <>
@@ -487,27 +586,36 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
     {notice && <div className="notice-box" aria-live="polite">{notice}</div>}
     <div className="inbox-layout">
       <div className="conversation-list" aria-label={copy.listAriaLabel}>
-        {conversations.map((conversation) => <button type="button" key={conversation.id} className={selectedId === conversation.id ? "selected" : ""} onClick={() => { setSelectedId(conversation.id); setNotice(""); }}>
-          <span><strong>{conversation.leadName}</strong>{conversation.unread > 0 && <b className="unread-count">{conversation.unread}</b>}</span>
+        {conversations.map((conversation) => <button type="button" key={conversation.id} className={selectedId === conversation.id ? "selected" : ""} onClick={() => { setSelectedId(conversation.id); setNotice(""); setReplyBody(""); }}>
+          <span><strong>{conversation.leadName}</strong><span className="conversation-badges">{conversation.unread > 0 && <b className="unread-count">{conversation.unread}</b>}{(conversation.needsAttention || conversation.humanRequired || conversation.mode === "human_required" || conversation.mode === "human_takeover") && <b className="attention-badge" title={copy.needsAttention}>{copy.attentionBadge}</b>}</span></span>
           <small>{conversation.lastMessage || copy.noMessages}</small>
           <em>{conversation.channel} · {modeLabels[conversation.mode]}</em>
         </button>)}
       </div>
       <section className="conversation-panel">
         <header>
-          <div><h3>{selected?.leadName ?? copy.selectConversation}</h3>{selected && <p>Score {selected.leadScore}/100 · {selected.intent}</p>}</div>
-          {selected && <label>{copy.modeLabel}<select value={selected.mode} disabled={!canWrite || busyId !== null} onChange={(event) => void changeMode(selected, event.target.value as ConversationMode)}>{(Object.keys(modeLabels) as ConversationMode[]).map((mode) => <option key={mode} value={mode}>{modeLabels[mode]}</option>)}</select></label>}
+          <div><h3>{selected?.leadName ?? copy.selectConversation}</h3>{selected && <p>Score {selected.leadScore}/100 · {selected.intent}{selected.handoffReason ? ` · ${selected.handoffReason}` : ""}</p>}</div>
+          {selected && <label>{copy.modeLabel}<select value={selected.mode} disabled={!canWriteMode || busyId !== null} onChange={(event) => void changeMode(selected, event.target.value as ConversationMode)}>{(Object.keys(modeLabels) as ConversationMode[]).map((mode) => <option key={mode} value={mode}>{modeLabels[mode]}</option>)}</select></label>}
         </header>
-        {selected?.humanRequired && <div className="human-alert">{copy.humanRequiredAlert}</div>}
+        {selected && canSendReply && <div className="inbox-action-bar">
+          <button type="button" disabled={busyId !== null || selected.mode === "human_takeover"} onClick={() => void handleTakeOver(selected)}>{copy.takeOverButton}</button>
+          <button type="button" disabled={busyId !== null || selected.mode === "ai_active"} onClick={() => void handleReturnToAi(selected)}>{copy.returnToAiButton}</button>
+        </div>}
+        {(selected?.humanRequired || selected?.needsAttention) && <div className="human-alert">{selected.handoffReason ? `${copy.humanRequiredAlert} (${selected.handoffReason})` : copy.humanRequiredAlert}</div>}
         <div className="message-stream">
           {messageStatus === "loading" && <p className="muted">{copy.loadingMessages}</p>}
           {messageStatus === "error" && <div className="error-box">{copy.loadMessagesError}</div>}
           {messageStatus === "ready" && messages.length === 0 && <p className="muted">{copy.noMessagesInConversation}</p>}
-          {messages.map((message) => <article key={message.id} className={`message-bubble ${message.direction === "outbound" ? "outbound" : "inbound"}`}>
+          {messages.map((message) => <article key={message.id} className={`message-bubble ${message.direction === "outbound" ? "outbound" : "inbound"}${message.authorType === "staff" ? " staff-reply" : ""}${message.authorType === "ai_draft" ? " ai-draft" : ""}`}>
             <p>{message.body}</p><small>{message.authorType}{message.safetyClassification ? ` · ${message.safetyClassification}` : ""} · {new Date(message.createdAt).toLocaleString(language === "ar" ? "ar-AE" : "en-AE")}</small>
           </article>)}
         </div>
-        {!canWrite && <p className="read-only-note">{copy.readOnlyNote}</p>}
+        {selected && canSendReply && canReplyNow && <form className="inbox-compose" onSubmit={(event) => { event.preventDefault(); void handleSendReply(selected); }}>
+          <label htmlFor="inbox-reply">{copy.replyLabel}<textarea id="inbox-reply" rows={3} value={replyBody} disabled={busyId !== null} onChange={(event) => setReplyBody(event.target.value)} placeholder={copy.replyPlaceholder} /></label>
+          <button type="submit" disabled={busyId !== null || !replyBody.trim()}>{busyId === selected.id ? copy.sendingReply : copy.sendButton}</button>
+        </form>}
+        {!canSendReply && canWriteMode && <p className="read-only-note">{copy.replyReadOnlyNote}</p>}
+        {!canWriteMode && !canSendReply && <p className="read-only-note">{copy.readOnlyNote}</p>}
         {busyId === selected?.id && <p className="muted">{copy.savingChange}</p>}
       </section>
     </div>
@@ -1131,6 +1239,11 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   const current = useMemo(() => sections.find(([id]) => id === active)!, [active]);
   useEffect(() => { document.title = `${nav[current[0]]} · ${nav.dashboard}`; }, [current, nav]);
   useEffect(() => { const controller = new AbortController(); if (["archive", "dashboard"].includes(current[0])) { setStatus("ready"); return () => controller.abort(); } setStatus("loading"); setError(""); callRpc(session, current[2], {}, controller.signal).then((result) => { setData(result); setStatus("ready"); }).catch((cause) => { if (cause instanceof DOMException && cause.name === "AbortError") return; const message = cause instanceof Error ? cause.message : "LOAD_FAILED"; if (message === "SESSION_EXPIRED") onLogout(); else { setError(dashboardCopy.loadError); setStatus("error"); } }); return () => controller.abort(); }, [current, dashboardCopy.loadError, onLogout, reloadKey, session]);
+  useEffect(() => {
+    if (active !== "inbox") return;
+    const timer = window.setInterval(() => setReloadKey((value) => value + 1), 45000);
+    return () => window.clearInterval(timer);
+  }, [active]);
   const modeLabel = active === "planner" || active === "crm" || active === "inbox" || active === "content" || active === "media" ? dashboardCopy.controlledWrite : dashboardCopy.readOnly;
   return <div className="app-shell"><a className="skip-link" href="#main-workspace">{nav.skipToContent}</a><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><LanguageSwitcher onDark /><nav aria-label="وحدات Command Center">{sections.map(([id, Icon]) => <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => setActive(id)}><Icon size={18} aria-hidden="true" />{nav[id]}</button>)}</nav><button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button></aside><main className="workspace" id="main-workspace" tabIndex={-1}><p className="eyebrow">{dashboardCopy.eyebrow} · {modeLabel}</p><h1>{nav[current[0]]}</h1><section className="panel" aria-busy={status === "loading"}><div className="panel-heading"><div><h2>{dashboardCopy.panelHeading}</h2><p>{dashboardCopy.panelSubheading}</p></div><div className="panel-heading-actions"><PushInstallBar session={session} language={language} /><button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button></div></div>{status === "loading" && <p className="muted" role="status">{t("common").loading}</p>}{status === "error" && <div className="error-box" role="alert">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MediaLibraryView value={data} session={session} canWrite={["super_admin", "admin", "content_manager"].includes(session.role)} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /></Suspense> : active === "archive" ? <Suspense><M /></Suspense> : active === "analytics" ? <AnalyticsView value={data} /> : active === "integrations" ? <IntegrationsView value={data} /> : active === "automations" ? <AutomationsView value={data} /> : active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "dashboard" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><ControlTowerV2 session={session} onSessionExpired={onLogout} /></Suspense> : null)}</section></main></div>;
 }
