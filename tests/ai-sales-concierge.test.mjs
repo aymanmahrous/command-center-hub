@@ -3,7 +3,10 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { APPROVED_PRICING, buildSalesConciergeTurn, detectLanguage } from "../src/ai-sales-concierge/logic.mjs";
 
-const migration = await readFile(new URL("../supabase/migrations/20260811103000_ai_sales_concierge_phase6a.sql", import.meta.url), "utf8");
+const migration = await readFile(
+  new URL("../supabase/migrations/20260814023000_ai_concierge_sales_assistant.sql", import.meta.url),
+  "utf8",
+);
 
 function turn(messageBody, overrides = {}) {
   return buildSalesConciergeTurn({
@@ -25,11 +28,12 @@ function turn(messageBody, overrides = {}) {
 test("migration defines unified concierge RPC without outbound send", () => {
   assert.match(migration, /process_ai_sales_concierge_turn/);
   assert.match(migration, /author_type,\s*body,\s*safety_classification/);
-  assert.match(migration, /'ai_draft'/);
   assert.match(migration, /outboundEnabled',\s*false/);
   assert.match(migration, /150 AED instead of 200 AED/);
   assert.match(migration, /450 AED/);
   assert.match(migration, /400 AED instead of 450 AED/);
+  assert.match(migration, /booking_ask_count/);
+  assert.match(migration, /conversationLocked/);
   assert.doesNotMatch(migration, /send.*whatsapp/i);
 });
 
@@ -51,6 +55,18 @@ test("pricing guardrails stay within approved commercial facts", () => {
   assert.match(ar.draftReply, /400 درهم بدل 450 درهم/);
 });
 
+test("scoped private pricing does not invent group-only extras", () => {
+  const result = turn("comfortable in water", {
+    intent: "concierge:awaiting_fear_of_water",
+    service: "private",
+    stage: "qualified",
+    fearOfWater: null,
+  });
+  assert.equal(result.nextIntent, "concierge:presented_pricing");
+  assert.match(result.draftReply, /150 AED instead of 200 AED/);
+  assert.doesNotMatch(result.draftReply, /450 AED/);
+});
+
 test("qualification asks short offer-type question before pricing", () => {
   const result = turn("Hi");
   assert.equal(result.nextIntent, "concierge:awaiting_offer_type");
@@ -59,21 +75,67 @@ test("qualification asks short offer-type question before pricing", () => {
 
 test("human handoff routes to Coach Ayman without enabling outbound", () => {
   const result = turn("I want to speak to Coach Ayman");
-  assert.equal(result.humanHandoff, true);
+  assert.equal(result.nextIntent, "concierge:human_handoff");
   assert.match(result.draftReply, /Coach Ayman/i);
   assert.equal(result.outboundEnabled, false);
+  // Prepare nodes gate on humanHandoff; keep false so the draft can be delivered.
+  assert.equal(result.humanHandoff, false);
 });
 
-test("booking guidance advances lead stage intent", () => {
-  const priced = turn("private lesson", { intent: "concierge:presented_pricing", service: "private", stage: "qualified" });
-  const booking = turn("I want to book", {
+test("booking interest collects count one question at a time", () => {
+  const fear = turn("private lesson", { intent: "concierge:awaiting_offer_type", stage: "contacted" });
+  assert.equal(fear.nextIntent, "concierge:awaiting_fear_of_water");
+  assert.equal(fear.nextService, "private");
+
+  const priced = turn("مرتاح", {
+    intent: fear.nextIntent,
+    service: fear.nextService,
+    stage: fear.nextStage,
+    score: fear.nextScore,
+  });
+  assert.equal(priced.nextIntent, "concierge:presented_pricing");
+  assert.match(priced.draftReply, /150 درهم بدل 200 درهم/);
+
+  const booking = turn("أريد الحجز", {
     intent: priced.nextIntent,
     service: priced.nextService,
     stage: priced.nextStage,
     score: priced.nextScore,
+    fearOfWater: false,
   });
   assert.equal(booking.nextStage, "booking_intent");
-  assert.match(booking.draftReply, /Coach Ayman/i);
+  assert.equal(booking.nextIntent, "concierge:booking_ask_count");
+  assert.match(booking.draftReply, /كم شخص/);
+
+  const count = turn("2", {
+    intent: booking.nextIntent,
+    service: booking.nextService,
+    stage: booking.nextStage,
+    score: booking.nextScore,
+    fearOfWater: false,
+    language: booking.language,
+  });
+  assert.equal(count.nextIntent, "concierge:booking_ask_timing");
+  assert.match(count.draftReply, /صباح|مساء|نهاية الأسبوع/);
+});
+
+test("mid-funnel greeting keeps conversation context", () => {
+  const result = turn("السلام عليكم", {
+    intent: "concierge:presented_pricing",
+    service: "private",
+    stage: "qualified",
+    fearOfWater: false,
+    recentMessages: [{ role: "assistant", direction: "outbound" }],
+  });
+  assert.equal(result.nextIntent, "concierge:presented_pricing");
+  assert.match(result.draftReply, /150 درهم بدل 200 درهم/);
+});
+
+test("missing location does not invent an address", () => {
+  const result = turn("Where are you located?");
+  assert.equal(result.nextIntent, "concierge:human_handoff");
+  assert.doesNotMatch(result.draftReply, /dubai marina|jbr|sheikh zayed|address:/i);
+  assert.match(result.draftReply, /Coach Ayman/i);
 });
 
 test("approved pricing constants are frozen", () => {
