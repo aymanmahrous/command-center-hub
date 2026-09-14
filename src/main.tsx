@@ -8,7 +8,6 @@ import { LanguageProvider, useLanguage } from "./i18n";
 import type { Language } from "./i18n";
 import { pushSupported, registerServiceWorker, getPushSubscription, enablePush, disablePush } from "./push";
 import "./styles.css";
-import "./ai-inbox.css";
 import "./bookings.css";
 import "./content-studio.css";
 import "./media-library.css";
@@ -450,6 +449,7 @@ const conversationModeLabels: Record<Language, Record<ConversationMode, string>>
 };
 
 function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: JsonValue; session: Session; onChanged: () => void; onSessionExpired: () => void }) {
+  useEffect(() => { void import("./ai-inbox.css"); }, []);
   const { language, t } = useLanguage();
   const copy = t("inbox");
   const modeLabels = conversationModeLabels[language];
