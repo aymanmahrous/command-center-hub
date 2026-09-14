@@ -448,6 +448,8 @@ const conversationModeLabels: Record<Language, Record<ConversationMode, string>>
   en: { ai_active: "AI active", human_required: "Human review required", human_takeover: "Human takeover", paused: "Paused" },
 };
 
+type InboxConversation = z.infer<typeof ConversationSchema>;
+
 function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: JsonValue; session: Session; onChanged: () => void; onSessionExpired: () => void }) {
   useEffect(() => { void import("./ai-inbox.css"); }, []);
   const { language, t } = useLanguage();
@@ -460,11 +462,13 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   const [replyBody, setReplyBody] = useState("");
+  const [conversationPatches, setConversationPatches] = useState<Record<string, Partial<InboxConversation>>>({});
   const canWriteMode = ["super_admin", "admin", "reception", "coach"].includes(session.role);
   const canSendReply = ["super_admin", "admin", "reception", "content_manager"].includes(session.role);
-  const conversations = parsed.success ? parsed.data : [];
+  const conversations = parsed.success
+    ? parsed.data.map((conversation) => ({ ...conversation, ...conversationPatches[conversation.id] }))
+    : [];
   const selected = conversations.find((conversation) => conversation.id === selectedId) ?? null;
-  const canReplyNow = Boolean(selected && selected.channel === "whatsapp" && ["human_takeover", "human_required"].includes(selected.mode));
 
   useEffect(() => {
     if (!parsed.success) return;
@@ -506,7 +510,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
     } finally { setBusyId(null); }
   }
 
-  async function handleTakeOver(conversation: z.infer<typeof ConversationSchema>) {
+  async function handleTakeOver(conversation: InboxConversation) {
     if (!canSendReply || busyId) return;
     const confirmMessage = language === "ar"
       ? `تأكيد استلام محادثة ${conversation.leadName} يدويًا؟ سيتوقف AI عن الرد حتى تعيده.`
@@ -514,42 +518,48 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
     if (!window.confirm(confirmMessage)) return;
     setBusyId(conversation.id); setNotice("");
     try {
-      await takeOverConversation(session, conversation.id);
+      const result = await takeOverConversation(session, conversation.id);
+      setConversationPatches((current) => ({
+        ...current,
+        [conversation.id]: { ...current[conversation.id], mode: result.mode ?? "human_takeover" },
+      }));
       setNotice(copy.takeOverSuccess);
-      onChanged();
     } catch (cause) {
       handleInboxError(cause);
     } finally { setBusyId(null); }
   }
 
-  async function handleReturnToAi(conversation: z.infer<typeof ConversationSchema>) {
+  async function handleReturnToAi(conversation: InboxConversation) {
     if (!canSendReply || busyId) return;
     const confirmMessage = language === "ar"
       ? `تأكيد إعادة محادثة ${conversation.leadName} إلى AI؟`
       : `Return ${conversation.leadName}'s conversation to AI?`;
     if (!window.confirm(confirmMessage)) return;
-    setBusyId(conversation.id); setNotice("");
+    setBusyId(conversation.id); setNotice(""); setReplyBody("");
     try {
-      await returnConversationToAi(session, conversation.id);
+      const result = await returnConversationToAi(session, conversation.id);
+      setConversationPatches((current) => ({
+        ...current,
+        [conversation.id]: { ...current[conversation.id], mode: result.mode ?? "ai_active" },
+      }));
       setNotice(copy.returnToAiSuccess);
-      onChanged();
     } catch (cause) {
       handleInboxError(cause);
     } finally { setBusyId(null); }
   }
 
-  async function handleSendReply(conversation: z.infer<typeof ConversationSchema>) {
+  async function handleSendReply(conversation: InboxConversation) {
     if (!canSendReply || busyId || !replyBody.trim()) return;
-    const confirmMessage = language === "ar"
-      ? `تأكيد إرسال رد WhatsApp إلى ${conversation.leadName}؟`
-      : `Send this WhatsApp reply to ${conversation.leadName}?`;
-    if (!window.confirm(confirmMessage)) return;
+    const body = replyBody.trim();
     setBusyId(conversation.id); setNotice("");
     try {
-      const result = await sendStaffWhatsappMessage(session, conversation.id, replyBody.trim());
+      const result = await sendStaffWhatsappMessage(session, conversation.id, body);
       setReplyBody("");
       setNotice(result.dryRun ? copy.sendDryRunSuccess : copy.sendSuccess);
-      onChanged();
+      setConversationPatches((current) => ({
+        ...current,
+        [conversation.id]: { ...current[conversation.id], lastMessage: body, mode: "human_takeover" },
+      }));
       const refreshed = await getConversationMessages(session, conversation.id);
       setMessages(refreshed);
       setMessageStatus("ready");
@@ -610,7 +620,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
             <p>{message.body}</p><small>{message.authorType}{message.safetyClassification ? ` · ${message.safetyClassification}` : ""} · {new Date(message.createdAt).toLocaleString(language === "ar" ? "ar-AE" : "en-AE")}</small>
           </article>)}
         </div>
-        {selected && canSendReply && canReplyNow && <form className="inbox-compose" onSubmit={(event) => { event.preventDefault(); void handleSendReply(selected); }}>
+        {selected && canSendReply && selected.channel === "whatsapp" && selected.mode === "human_takeover" && <form className="inbox-compose" onSubmit={(event) => { event.preventDefault(); void handleSendReply(selected); }}>
           <label htmlFor="inbox-reply">{copy.replyLabel}<textarea id="inbox-reply" rows={3} value={replyBody} disabled={busyId !== null} onChange={(event) => setReplyBody(event.target.value)} placeholder={copy.replyPlaceholder} /></label>
           <button type="submit" disabled={busyId !== null || !replyBody.trim()}>{busyId === selected.id ? copy.sendingReply : copy.sendButton}</button>
         </form>}
