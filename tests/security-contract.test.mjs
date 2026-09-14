@@ -87,8 +87,8 @@ test("AI Inbox reads messages and changes mode only through approved RPCs", () =
 });
 
 test("AI Inbox mode writes are role-gated, confirmed, and duplicate-safe", () => {
-  assert.match(app, /\["super_admin", "admin", "reception", "coach"\]\.includes\(session\.role\)/);
-  assert.match(app, /if \(!canWrite \|\| busyId \|\| conversation\.mode === next\) return/);
+  assert.match(app, /canWriteMode = \["super_admin", "admin", "reception", "coach"\]/);
+  assert.match(app, /if \(!canWriteMode \|\| busyId \|\| conversation\.mode === next\) return/);
   assert.match(app, /تأكيد تغيير وضع محادثة/);
   assert.match(app, /Audit Log/);
 });

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Archive, Copy, ExternalLink, FolderOpen, Link2, ShieldCheck } from "lucide-react";
 import { useLanguage } from "./i18n";
 import { getArchiveCopy } from "./massive-archive-copy";
+import GoogleDriveManagerView from "./google-drive-manager-view";
 import "./massive-archive.css";
 
 const DRIVE_FOLDER_URL = (import.meta.env.VITE_MASSIVE_ARCHIVE_DRIVE_FOLDER_URL ?? "").trim();
@@ -108,6 +109,8 @@ export default function MassiveArchiveView() {
           </article>
         </div>
       )}
+
+      <GoogleDriveManagerView />
 
       {toast && <div className="archive-toast" role="status" aria-live="polite">{toast}</div>}
 

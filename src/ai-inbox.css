@@ -31,7 +31,16 @@
 .conversation-list button > span { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .conversation-list small { color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .conversation-list em { font-size: 11px; font-style: normal; color: #0f8fa0; }
+.conversation-badges { display: inline-flex; align-items: center; gap: 6px; }
 .unread-count { display: grid; place-items: center; min-width: 24px; height: 24px; padding: 0 7px; border-radius: 999px; background: #0f8fa0; color: #fff; font-size: 11px; }
+.attention-badge { display: grid; place-items: center; min-width: 24px; height: 24px; padding: 0 7px; border-radius: 999px; background: #b45309; color: #fff; font-size: 10px; text-transform: uppercase; letter-spacing: .03em; }
+.inbox-action-bar { display: flex; flex-wrap: wrap; gap: 10px; padding: 0 18px 12px; }
+.inbox-action-bar button { padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; cursor: pointer; font-weight: 700; }
+.inbox-compose { display: grid; gap: 10px; padding: 16px 18px 18px; border-top: 1px solid #e2e8f0; background: #fff; }
+.inbox-compose textarea { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 12px; resize: vertical; font: inherit; }
+.inbox-compose button { justify-self: start; padding: 10px 16px; border: 0; border-radius: 10px; background: #155e75; color: #fff; font-weight: 800; cursor: pointer; }
+.message-bubble.staff-reply { background: #0f766e; }
+.message-bubble.ai-draft { opacity: .82; border: 1px dashed rgba(255,255,255,.35); }
 .conversation-panel { display: flex; flex-direction: column; min-width: 0; }
 .conversation-panel > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 18px; border-bottom: 1px solid #e2e8f0; }
 .conversation-panel h3,
@@ -40,7 +49,7 @@
 .conversation-panel select { max-width: 230px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; }
 .human-alert,
 .read-only-note { margin: 14px 18px 0; padding: 11px 13px; border: 1px solid #fcd34d; border-radius: 12px; background: #fffbeb; color: #92400e; }
-.message-stream { display: flex; flex: 1; flex-direction: column; gap: 12px; padding: 20px; overflow: auto; background: #f8fafc; }
+.message-stream { display: flex; flex: 1; flex-direction: column; gap: 12px; padding: 20px; overflow: auto; background: #f8fafc; overflow-anchor: auto; }
 .message-bubble { width: min(78%, 520px); padding: 13px 15px; border-radius: 16px; box-shadow: 0 2px 8px rgba(15, 23, 42, .06); }
 .message-bubble p { color: inherit; }
 .message-bubble small { display: block; margin-top: 7px; font-size: 10px; opacity: .7; }
@@ -51,6 +60,7 @@
 @media (max-width: 780px) {
   .inbox-layout { grid-template-columns: 1fr; }
   .conversation-list { max-height: 290px; border-inline-end: 0; border-bottom: 1px solid #e2e8f0; }
+  .conversation-list small { white-space: normal; overflow: visible; text-overflow: unset; }
   .conversation-panel > header { display: grid; }
   .message-stream { min-height: 380px; }
   .message-bubble { width: 90%; }

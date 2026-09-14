@@ -1,4 +1,4 @@
-import React, { FormEvent, lazy, Suspense, useEffect, useMemo, useState } from "react";
+import React, { FormEvent, lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, LayoutDashboard, Library, LogOut, Settings2, ShieldAlert, Workflow } from "lucide-react";
 import { z } from "zod";
@@ -8,7 +8,6 @@ import { LanguageProvider, useLanguage } from "./i18n";
 import type { Language } from "./i18n";
 import { pushSupported, registerServiceWorker, getPushSubscription, enablePush, disablePush } from "./push";
 import "./styles.css";
-import "./ai-inbox.css";
 import "./bookings.css";
 import "./content-studio.css";
 import "./media-library.css";
@@ -18,6 +17,7 @@ import "./system-polish.css";
 
 const MediaLibraryView = lazy(() => import("./media-library-view"));
 const TodayView = lazy(() => import("./today-view"));
+const ControlTowerV2 = lazy(() => import("./control-tower-v2"));
 const ContentGrowthHub = lazy(() => import("./content-growth-hub"));
 const M = lazy(() => import("./massive-archive-view"));
 
@@ -93,6 +93,7 @@ const ConversationSchema = z.object({
   mode: z.enum(["ai_active", "human_required", "human_takeover", "paused"]),
   unread: z.number().int().nonnegative(), lastMessage: z.string(), updatedAt: z.string(),
   leadScore: z.number().int(), intent: z.string(), humanRequired: z.boolean(),
+  needsAttention: z.boolean().optional(), handoffReason: z.string().nullable().optional(),
 }).passthrough();
 const MessageSchema = z.object({
   id: z.string().uuid(), conversationId: z.string().uuid(), direction: z.string(),
@@ -102,6 +103,10 @@ const MessageSchema = z.object({
 const ConversationModeUpdateSchema = z.object({
   success: z.boolean(), code: z.string().optional(), conversationId: z.string().uuid().optional(),
   mode: z.enum(["ai_active", "human_required", "human_takeover", "paused"]).optional(),
+});
+const StaffWhatsappSendSchema = z.object({
+  success: z.boolean(), code: z.string().optional(), conversationId: z.string().uuid().optional(),
+  messageId: z.string().uuid().optional(), dryRun: z.boolean().optional(),
 });
 const ContentItemSchema = z.object({
   id: z.string().uuid(), scheduledFor: z.string().nullable(), platform: z.string(), contentType: z.string(),
@@ -119,7 +124,9 @@ const ContentBatchApprovalSchema = z.object({
   code: z.string().optional(),
   batchId: z.string().uuid().optional(),
   approvedCount: z.number().int().nonnegative().optional(),
+  scheduledCount: z.number().int().nonnegative().optional(),
   alreadyApprovedCount: z.number().int().nonnegative().optional(),
+  alreadyPreparedCount: z.number().int().nonnegative().optional(),
   skippedCount: z.number().int().nonnegative().optional(),
 }).passthrough();
 const MediaAssetSchema = z.object({
@@ -291,6 +298,33 @@ async function setConversationMode(session: Session, conversationId: string, mod
   return result;
 }
 
+async function takeOverConversation(session: Session, conversationId: string) {
+  const result = ConversationModeUpdateSchema.parse(await callRpc(session, "take_over_staff_conversation", {
+    p_conversation_id: conversationId,
+  }));
+  if (!result.success) throw new Error(result.code ?? "UPDATE_REJECTED");
+  return result;
+}
+
+async function returnConversationToAi(session: Session, conversationId: string) {
+  const result = ConversationModeUpdateSchema.parse(await callRpc(session, "return_staff_conversation_to_ai", {
+    p_conversation_id: conversationId,
+  }));
+  if (!result.success) throw new Error(result.code ?? "UPDATE_REJECTED");
+  return result;
+}
+
+async function sendStaffWhatsappMessage(session: Session, conversationId: string, body: string) {
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/send-whatsapp-message`, {
+    method: "POST",
+    headers: rpcHeaders(session),
+    body: JSON.stringify({ conversationId, body }),
+  });
+  const result = StaffWhatsappSendSchema.parse(await response.json());
+  if (!response.ok || !result.success) throw new Error(result.code ?? `SEND_FAILED_${response.status}`);
+  return result;
+}
+
 async function setRadarOpportunityStatus(session: Session, opportunityId: string, status: RadarStatus) {
   const result = RadarStatusUpdateSchema.parse(await callRpc(session, "set_staff_radar_opportunity_status", {
     p_opportunity_id: opportunityId, p_status: status,
@@ -416,7 +450,10 @@ const conversationModeLabels: Record<Language, Record<ConversationMode, string>>
   en: { ai_active: "AI active", human_required: "Human review required", human_takeover: "Human takeover", paused: "Paused" },
 };
 
+type InboxConversation = z.infer<typeof ConversationSchema>;
+
 function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: JsonValue; session: Session; onChanged: () => void; onSessionExpired: () => void }) {
+  useEffect(() => { void import("./ai-inbox.css"); }, []);
   const { language, t } = useLanguage();
   const copy = t("inbox");
   const modeLabels = conversationModeLabels[language];
@@ -426,8 +463,13 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
   const [messageStatus, setMessageStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
-  const canWrite = ["super_admin", "admin", "reception", "coach"].includes(session.role);
-  const conversations = parsed.success ? parsed.data : [];
+  const [replyBody, setReplyBody] = useState("");
+  const [conversationPatches, setConversationPatches] = useState<Record<string, Partial<InboxConversation>>>({});
+  const canWriteMode = ["super_admin", "admin", "reception", "coach"].includes(session.role);
+  const canSendReply = ["super_admin", "admin", "reception", "content_manager"].includes(session.role);
+  const conversations = parsed.success
+    ? parsed.data.map((conversation) => ({ ...conversation, ...conversationPatches[conversation.id] }))
+    : [];
   const selected = conversations.find((conversation) => conversation.id === selectedId) ?? null;
 
   useEffect(() => {
@@ -455,7 +497,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
   if (conversations.length === 0) return <p className="muted">{copy.noConversations}</p>;
 
   async function changeMode(conversation: z.infer<typeof ConversationSchema>, next: ConversationMode) {
-    if (!canWrite || busyId || conversation.mode === next) return;
+    if (!canWriteMode || busyId || conversation.mode === next) return;
     const confirmMessage = language === "ar"
       ? `تأكيد تغيير وضع محادثة ${conversation.leadName} من «${modeLabels[conversation.mode]}» إلى «${modeLabels[next]}»؟ سيتم تسجيل العملية في Audit Log.`
       : `Change ${conversation.leadName}'s mode from "${modeLabels[conversation.mode]}" to "${modeLabels[next]}"? Recorded in the Audit Log.`;
@@ -463,22 +505,95 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
     setBusyId(conversation.id); setNotice("");
     try {
       await setConversationMode(session, conversation.id, next);
+      setConversationPatches((current) => ({
+        ...current,
+        [conversation.id]: { ...current[conversation.id], mode: next },
+      }));
       setNotice(language === "ar" ? "تم تحديث وضع المحادثة وتسجيل العملية بنجاح." : "Mode updated and recorded.");
-      onChanged();
     } catch (cause) {
-      const code = cause instanceof Error ? cause.message : "UPDATE_FAILED";
-      const messagesByCode: Record<string, string> = language === "ar" ? {
-        INVALID_MODE: "وضع المحادثة المطلوب غير مسموح.",
-        NOT_FOUND: "المحادثة لم تعد موجودة.",
-        STAFF_ACCESS_DENIED: "ليست لديك صلاحية تنفيذ هذا التغيير.",
-      } : {
-        INVALID_MODE: "That mode isn't allowed.",
-        NOT_FOUND: "This conversation no longer exists.",
-        STAFF_ACCESS_DENIED: "You don't have permission for this.",
-      };
-      if (code === "SESSION_EXPIRED") { onSessionExpired(); return; }
-      setNotice(messagesByCode[code] ?? (language === "ar" ? "تعذر التحديث بأمان؛ لم يتم اعتماد أي تغيير غير مؤكد." : "Update failed safely; no change was made."));
+      handleInboxError(cause);
     } finally { setBusyId(null); }
+  }
+
+  async function handleTakeOver(conversation: InboxConversation) {
+    if (!canSendReply || busyId) return;
+    const confirmMessage = language === "ar"
+      ? `تأكيد استلام محادثة ${conversation.leadName} يدويًا؟ سيتوقف AI عن الرد حتى تعيده.`
+      : `Take over ${conversation.leadName}'s conversation? AI replies pause until you return control.`;
+    if (!window.confirm(confirmMessage)) return;
+    setBusyId(conversation.id); setNotice("");
+    try {
+      const result = await takeOverConversation(session, conversation.id);
+      setConversationPatches((current) => ({
+        ...current,
+        [conversation.id]: { ...current[conversation.id], mode: result.mode ?? "human_takeover" },
+      }));
+      setNotice(copy.takeOverSuccess);
+    } catch (cause) {
+      handleInboxError(cause);
+    } finally { setBusyId(null); }
+  }
+
+  async function handleReturnToAi(conversation: InboxConversation) {
+    if (!canSendReply || busyId) return;
+    const confirmMessage = language === "ar"
+      ? `تأكيد إعادة محادثة ${conversation.leadName} إلى AI؟`
+      : `Return ${conversation.leadName}'s conversation to AI?`;
+    if (!window.confirm(confirmMessage)) return;
+    setBusyId(conversation.id); setNotice(""); setReplyBody("");
+    try {
+      const result = await returnConversationToAi(session, conversation.id);
+      setConversationPatches((current) => ({
+        ...current,
+        [conversation.id]: { ...current[conversation.id], mode: result.mode ?? "ai_active" },
+      }));
+      setNotice(copy.returnToAiSuccess);
+    } catch (cause) {
+      handleInboxError(cause);
+    } finally { setBusyId(null); }
+  }
+
+  async function handleSendReply(conversation: InboxConversation) {
+    if (!canSendReply || busyId || !replyBody.trim()) return;
+    const body = replyBody.trim();
+    setBusyId(conversation.id); setNotice("");
+    try {
+      const result = await sendStaffWhatsappMessage(session, conversation.id, body);
+      setReplyBody("");
+      setNotice(result.dryRun ? copy.sendDryRunSuccess : copy.sendSuccess);
+      setConversationPatches((current) => ({
+        ...current,
+        [conversation.id]: { ...current[conversation.id], lastMessage: body, mode: "human_takeover" },
+      }));
+      const refreshed = await getConversationMessages(session, conversation.id);
+      setMessages(refreshed);
+      setMessageStatus("ready");
+    } catch (cause) {
+      handleInboxError(cause);
+    } finally { setBusyId(null); }
+  }
+
+  function handleInboxError(cause: unknown) {
+    const code = cause instanceof Error ? cause.message : "UPDATE_FAILED";
+    const messagesByCode: Record<string, string> = language === "ar" ? {
+      INVALID_MODE: "وضع المحادثة المطلوب غير مسموح.",
+      NOT_FOUND: "المحادثة لم تعد موجودة.",
+      STAFF_ACCESS_DENIED: "ليست لديك صلاحية تنفيذ هذا التغيير.",
+      HUMAN_MODE_REQUIRED: "يجب استلام المحادثة يدويًا قبل الإرسال.",
+      CHANNEL_NOT_WHATSAPP: "الرد اليدوي متاح لمحادثات WhatsApp فقط.",
+      INVALID_BODY: "نص الرسالة غير صالح.",
+      SEND_FAILED: "تعذر إرسال الرسالة بأمان.",
+    } : {
+      INVALID_MODE: "That mode isn't allowed.",
+      NOT_FOUND: "This conversation no longer exists.",
+      STAFF_ACCESS_DENIED: "You don't have permission for this.",
+      HUMAN_MODE_REQUIRED: "Take over the conversation before sending a reply.",
+      CHANNEL_NOT_WHATSAPP: "Manual replies are WhatsApp-only.",
+      INVALID_BODY: "The message text isn't valid.",
+      SEND_FAILED: "The message could not be sent safely.",
+    };
+    if (code === "SESSION_EXPIRED") { onSessionExpired(); return; }
+    setNotice(messagesByCode[code] ?? (language === "ar" ? "تعذر التحديث بأمان؛ لم يتم اعتماد أي تغيير غير مؤكد." : "Update failed safely; no change was made."));
   }
 
   return <>
@@ -486,27 +601,36 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
     {notice && <div className="notice-box" aria-live="polite">{notice}</div>}
     <div className="inbox-layout">
       <div className="conversation-list" aria-label={copy.listAriaLabel}>
-        {conversations.map((conversation) => <button type="button" key={conversation.id} className={selectedId === conversation.id ? "selected" : ""} onClick={() => { setSelectedId(conversation.id); setNotice(""); }}>
-          <span><strong>{conversation.leadName}</strong>{conversation.unread > 0 && <b className="unread-count">{conversation.unread}</b>}</span>
+        {conversations.map((conversation) => <button type="button" key={conversation.id} className={selectedId === conversation.id ? "selected" : ""} onClick={() => { setSelectedId(conversation.id); setNotice(""); setReplyBody(""); }}>
+          <span><strong>{conversation.leadName}</strong><span className="conversation-badges">{conversation.unread > 0 && <b className="unread-count">{conversation.unread}</b>}{(conversation.needsAttention || conversation.humanRequired || conversation.mode === "human_required" || conversation.mode === "human_takeover") && <b className="attention-badge" title={copy.needsAttention}>{copy.attentionBadge}</b>}</span></span>
           <small>{conversation.lastMessage || copy.noMessages}</small>
           <em>{conversation.channel} · {modeLabels[conversation.mode]}</em>
         </button>)}
       </div>
       <section className="conversation-panel">
         <header>
-          <div><h3>{selected?.leadName ?? copy.selectConversation}</h3>{selected && <p>Score {selected.leadScore}/100 · {selected.intent}</p>}</div>
-          {selected && <label>{copy.modeLabel}<select value={selected.mode} disabled={!canWrite || busyId !== null} onChange={(event) => void changeMode(selected, event.target.value as ConversationMode)}>{(Object.keys(modeLabels) as ConversationMode[]).map((mode) => <option key={mode} value={mode}>{modeLabels[mode]}</option>)}</select></label>}
+          <div><h3>{selected?.leadName ?? copy.selectConversation}</h3>{selected && <p>Score {selected.leadScore}/100 · {selected.intent}{selected.handoffReason ? ` · ${selected.handoffReason}` : ""}</p>}</div>
+          {selected && <label>{copy.modeLabel}<select value={selected.mode} disabled={!canWriteMode || busyId !== null} onChange={(event) => void changeMode(selected, event.target.value as ConversationMode)}>{(Object.keys(modeLabels) as ConversationMode[]).map((mode) => <option key={mode} value={mode}>{modeLabels[mode]}</option>)}</select></label>}
         </header>
-        {selected?.humanRequired && <div className="human-alert">{copy.humanRequiredAlert}</div>}
+        {selected && canSendReply && <div className="inbox-action-bar">
+          <button type="button" disabled={busyId !== null || selected.mode === "human_takeover"} onClick={() => void handleTakeOver(selected)}>{copy.takeOverButton}</button>
+          <button type="button" disabled={busyId !== null || selected.mode === "ai_active"} onClick={() => void handleReturnToAi(selected)}>{copy.returnToAiButton}</button>
+        </div>}
+        {(selected?.humanRequired || selected?.needsAttention) && <div className="human-alert">{selected.handoffReason ? `${copy.humanRequiredAlert} (${selected.handoffReason})` : copy.humanRequiredAlert}</div>}
         <div className="message-stream">
           {messageStatus === "loading" && <p className="muted">{copy.loadingMessages}</p>}
           {messageStatus === "error" && <div className="error-box">{copy.loadMessagesError}</div>}
           {messageStatus === "ready" && messages.length === 0 && <p className="muted">{copy.noMessagesInConversation}</p>}
-          {messages.map((message) => <article key={message.id} className={`message-bubble ${message.direction === "outbound" ? "outbound" : "inbound"}`}>
+          {messages.map((message) => <article key={message.id} className={`message-bubble ${message.direction === "outbound" ? "outbound" : "inbound"}${message.authorType === "staff" ? " staff-reply" : ""}${message.authorType === "ai_draft" ? " ai-draft" : ""}`}>
             <p>{message.body}</p><small>{message.authorType}{message.safetyClassification ? ` · ${message.safetyClassification}` : ""} · {new Date(message.createdAt).toLocaleString(language === "ar" ? "ar-AE" : "en-AE")}</small>
           </article>)}
         </div>
-        {!canWrite && <p className="read-only-note">{copy.readOnlyNote}</p>}
+        {selected && canSendReply && selected.channel === "whatsapp" && selected.mode === "human_takeover" && <form className="inbox-compose" onSubmit={(event) => { event.preventDefault(); void handleSendReply(selected); }}>
+          <label htmlFor="inbox-reply">{copy.replyLabel}<textarea id="inbox-reply" rows={3} value={replyBody} disabled={busyId !== null} onChange={(event) => setReplyBody(event.target.value)} placeholder={copy.replyPlaceholder} /></label>
+          <button type="submit" disabled={busyId !== null || !replyBody.trim()}>{busyId === selected.id ? copy.sendingReply : copy.sendButton}</button>
+        </form>}
+        {!canSendReply && canWriteMode && <p className="read-only-note">{copy.replyReadOnlyNote}</p>}
+        {!canWriteMode && !canSendReply && <p className="read-only-note">{copy.readOnlyNote}</p>}
         {busyId === selected?.id && <p className="muted">{copy.savingChange}</p>}
       </section>
     </div>
@@ -710,9 +834,15 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
         try {
           const result = await approveStaffContentBatch(session, databaseBatchId);
           const approvedCount = result.approvedCount ?? 0;
+          const scheduledCount = result.scheduledCount ?? 0;
           const alreadyApprovedCount = result.alreadyApprovedCount ?? 0;
-          if (approvedCount > 0 || alreadyApprovedCount > 0) {
-            setNotice(approvedCount > 0 ? t("contentBatch").batchApprovedNotice : t("contentBatch").batchNothingToApprove);
+          const alreadyPreparedCount = result.alreadyPreparedCount ?? 0;
+          if (approvedCount > 0 || scheduledCount > 0 || alreadyApprovedCount > 0 || alreadyPreparedCount > 0) {
+            const copy = t("contentBatch");
+            if (scheduledCount > 0 && approvedCount > 0) setNotice(copy.batchApprovedPartialNotice);
+            else if (scheduledCount > 0) setNotice(copy.batchApprovedNotice);
+            else if (alreadyPreparedCount > 0) setNotice(copy.batchPreparedNotice);
+            else setNotice(copy.batchApprovedNotice);
             onChanged();
           } else {
             setNotice(t("contentBatch").batchNothingToApprove);
@@ -1120,6 +1250,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
       ? requestedSection
       : "dashboard";
   const [active, setActive] = useState<SectionId>(initialSection); const [reloadKey, setReloadKey] = useState(0); const [data, setData] = useState<JsonValue>(null); const [status, setStatus] = useState<"loading" | "ready" | "error">("loading"); const [error, setError] = useState("");
+  const loadedSectionRef = useRef<SectionId | null>(null);
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (event.data?.type === "rf-push-navigate" && sections.some(([id]) => id === event.data.section)) setActive(event.data.section);
@@ -1129,9 +1260,41 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   }, []);
   const current = useMemo(() => sections.find(([id]) => id === active)!, [active]);
   useEffect(() => { document.title = `${nav[current[0]]} · ${nav.dashboard}`; }, [current, nav]);
-  useEffect(() => { const controller = new AbortController(); if (["archive", "dashboard"].includes(current[0])) { setStatus("ready"); return () => controller.abort(); } setStatus("loading"); setError(""); callRpc(session, current[2], {}, controller.signal).then((result) => { setData(result); setStatus("ready"); }).catch((cause) => { if (cause instanceof DOMException && cause.name === "AbortError") return; const message = cause instanceof Error ? cause.message : "LOAD_FAILED"; if (message === "SESSION_EXPIRED") onLogout(); else { setError(dashboardCopy.loadError); setStatus("error"); } }); return () => controller.abort(); }, [current, dashboardCopy.loadError, onLogout, reloadKey, session]);
+  useEffect(() => {
+    const controller = new AbortController();
+    const section = current[0];
+    if (["archive", "dashboard"].includes(section)) {
+      setStatus("ready");
+      loadedSectionRef.current = section;
+      return () => controller.abort();
+    }
+    const backgroundRefresh = loadedSectionRef.current === section;
+    if (!backgroundRefresh) {
+      setStatus("loading");
+      setError("");
+    }
+    callRpc(session, current[2], {}, controller.signal).then((result) => {
+      setData(result);
+      setStatus("ready");
+      loadedSectionRef.current = section;
+    }).catch((cause) => {
+      if (cause instanceof DOMException && cause.name === "AbortError") return;
+      const message = cause instanceof Error ? cause.message : "LOAD_FAILED";
+      if (message === "SESSION_EXPIRED") onLogout();
+      else if (!backgroundRefresh) {
+        setError(dashboardCopy.loadError);
+        setStatus("error");
+      }
+    });
+    return () => controller.abort();
+  }, [current, dashboardCopy.loadError, onLogout, reloadKey, session]);
+  useEffect(() => {
+    if (active !== "inbox") return;
+    const timer = window.setInterval(() => setReloadKey((value) => value + 1), 45000);
+    return () => window.clearInterval(timer);
+  }, [active]);
   const modeLabel = active === "planner" || active === "crm" || active === "inbox" || active === "content" || active === "media" ? dashboardCopy.controlledWrite : dashboardCopy.readOnly;
-  return <div className="app-shell"><a className="skip-link" href="#main-workspace">{nav.skipToContent}</a><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><LanguageSwitcher onDark /><nav aria-label="وحدات Command Center">{sections.map(([id, Icon]) => <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => setActive(id)}><Icon size={18} aria-hidden="true" />{nav[id]}</button>)}</nav><button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button></aside><main className="workspace" id="main-workspace" tabIndex={-1}><p className="eyebrow">{dashboardCopy.eyebrow} · {modeLabel}</p><h1>{nav[current[0]]}</h1><section className="panel" aria-busy={status === "loading"}><div className="panel-heading"><div><h2>{dashboardCopy.panelHeading}</h2><p>{dashboardCopy.panelSubheading}</p></div><div className="panel-heading-actions"><PushInstallBar session={session} language={language} /><button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button></div></div>{status === "loading" && <p className="muted" role="status">{t("common").loading}</p>}{status === "error" && <div className="error-box" role="alert">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MediaLibraryView value={data} session={session} canWrite={["super_admin", "admin", "content_manager"].includes(session.role)} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /></Suspense> : active === "archive" ? <Suspense><M /></Suspense> : active === "analytics" ? <AnalyticsView value={data} /> : active === "integrations" ? <IntegrationsView value={data} /> : active === "automations" ? <AutomationsView value={data} /> : active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "dashboard" ? <Suspense><TodayView key={reloadKey} session={session} onNavigate={setActive} onSessionExpired={onLogout} /></Suspense> : null)}</section></main></div>;
+  return <div className="app-shell"><a className="skip-link" href="#main-workspace">{nav.skipToContent}</a><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><LanguageSwitcher onDark /><nav aria-label="وحدات Command Center">{sections.map(([id, Icon]) => <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => setActive(id)}><Icon size={18} aria-hidden="true" />{nav[id]}</button>)}</nav><button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button></aside><main className="workspace" id="main-workspace" tabIndex={-1}><p className="eyebrow">{dashboardCopy.eyebrow} · {modeLabel}</p><h1>{nav[current[0]]}</h1><section className="panel" aria-busy={status === "loading"}><div className="panel-heading"><div><h2>{dashboardCopy.panelHeading}</h2><p>{dashboardCopy.panelSubheading}</p></div><div className="panel-heading-actions"><PushInstallBar session={session} language={language} /><button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button></div></div>{status === "loading" && <p className="muted" role="status">{t("common").loading}</p>}{status === "error" && <div className="error-box" role="alert">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MediaLibraryView value={data} session={session} canWrite={["super_admin", "admin", "content_manager"].includes(session.role)} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /></Suspense> : active === "archive" ? <Suspense><M /></Suspense> : active === "analytics" ? <AnalyticsView value={data} /> : active === "integrations" ? <IntegrationsView value={data} /> : active === "automations" ? <AutomationsView value={data} /> : active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "dashboard" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><ControlTowerV2 key={reloadKey} session={session} onSessionExpired={onLogout} /></Suspense> : null)}</section></main></div>;
 }
 
 async function sendTestPushSelf(session: Session) {
