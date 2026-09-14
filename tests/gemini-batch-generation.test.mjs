@@ -25,19 +25,22 @@ test("generate-content-batch edge function keeps Gemini key server-side", () => 
 
 test("gemini slot spec aligns with local batch strategy mix", () => {
   assert.match(slotSpec, /COACH_AYMAN_SLOT_SPEC/);
-  assert.match(slotSpec, /contentType: "story"/);
-  assert.match(slotSpec, /contentType: "short_video"/);
   assert.match(slotSpec, /contentType: "reel"/);
   assert.match(slotSpec, /contentType: "carousel"/);
-  assert.match(slotSpec, /funnel: "engagement"/);
+  assert.match(slotSpec, /contentType: "post"/);
+  assert.match(slotSpec, /strategyLabel: "Short Reel — common swimming problem"/);
+  assert.match(slotSpec, /strategyLabel: "Trust \+ Conversion"/);
+  assert.match(slotSpec, /buildVideoBrief/);
+  assert.match(slotSpec, /VIDEO BRIEF:/);
   assert.match(slotSpec, /primaryCtaKey: "book"/);
   assert.match(slotSpec, /FORMAT:/);
   assert.match(slotSpec, /CANVA:/);
   assert.match(slotSpec, /CAPCUT:/);
   assert.match(slotSpec, /RUNWAY \(optional\)/);
-  assert.match(generator, /contentType: "story"/);
-  assert.match(generator, /contentType: "short_video"/);
+  assert.match(generator, /contentType: "reel"/);
+  assert.match(generator, /buildVideoBrief/);
   assert.match(generator, /primaryCta: PRIMARY_CTAS\.book/);
+  assert.doesNotMatch(slotSpec, /platform: "tiktok"/);
 });
 
 test("content growth hub prefers Gemini batch generation with template fallback", () => {

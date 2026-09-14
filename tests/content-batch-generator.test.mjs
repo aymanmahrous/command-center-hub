@@ -29,8 +29,9 @@ test("coach ayman 2026 batch has 10 platform-specific items", async () => {
   assert.equal(summary.total, 10);
   assert.equal(summary.conversion, 1);
   assert.equal(summary.educational, 9);
-  assert.ok(summary.contentTypes.length >= 5, "expected varied content types");
-  assert.deepEqual(summary.platforms.sort(), ["facebook", "instagram", "tiktok"]);
+  assert.equal(summary.reels, 4);
+  assert.ok(summary.contentTypes.length >= 3, "expected varied content types");
+  assert.deepEqual(summary.platforms.sort(), ["facebook", "instagram"]);
 });
 
 test("coach ayman batch passes safety validation", async () => {
@@ -62,8 +63,13 @@ test("coach ayman batch uses unique fingerprints and planned times", async () =>
   const contentTypes = new Set(items.map((item) => item.contentType));
   assert.ok(contentTypes.has("carousel"));
   assert.ok(contentTypes.has("reel"));
-  assert.ok(contentTypes.has("story"));
-  assert.ok(contentTypes.has("short_video"));
+  assert.ok(contentTypes.has("post"));
+  const reelItems = items.filter((item) => item.contentType === "reel");
+  assert.equal(reelItems.length, 4);
+  for (const reel of reelItems) {
+    assert.match(reel.visualPrompt, /VIDEO BRIEF:/);
+    assert.match(reel.visualPrompt, /DURATION: 10 seconds \(allowed 5–15 seconds\)/);
+  }
 });
 
 test("content growth hub links media-aware batch generation", async () => {
