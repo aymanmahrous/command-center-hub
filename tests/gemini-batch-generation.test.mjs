@@ -43,7 +43,7 @@ test("gemini slot spec aligns with local batch strategy mix", () => {
   assert.doesNotMatch(slotSpec, /platform: "tiktok"/);
 });
 
-test("content growth hub prefers Gemini batch generation with template fallback", () => {
-  assert.match(hub, /generateCoachAymanBatchWithGemini/);
-  assert.match(hub, /buildCoachAyman2026BatchWithMedia/);
+test("content growth hub generates 30-day local calendar with media linkage", () => {
+  assert.match(hub, /buildCoachAyman30DayBatchWithMedia/);
+  assert.match(hub, /create_staff_generated_content_batch/);
 });

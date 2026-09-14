@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { groupContentBatches, isDatabaseBatchId, selectPrimaryBatch, buildNextBatchReadyNotice, type ContentBatchItem } from "./content-batch";
 import { COACH_AYMAN_PROVIDER_ID } from "./content-batch-generator";
-import { attachMediaToCoachAymanBatch, buildCoachAyman2026BatchWithMedia } from "./media-batch-link";
-import { generateCoachAymanBatchWithGemini } from "./gemini-batch-adapter";
+import { attachMediaToCoachAymanBatch, buildCoachAyman30DayBatchWithMedia } from "./media-batch-link";
 import { parseMediaAssetRecords, MediaProviderStrip } from "./media-library-controls";
 import {
   readIntegrationStatuses,
@@ -129,23 +128,11 @@ export default function ContentGrowthHub({
       const assets = parseMediaAssetRecords(mediaRaw);
       let saved: { success?: boolean; batchId?: string; code?: string } | null = null;
 
-      for (let shiftDays = 0; shiftDays <= 14 && !saved; shiftDays += 1) {
+      for (let shiftDays = 0; shiftDays <= 45 && !saved; shiftDays += 1) {
         const start = new Date();
         start.setUTCDate(start.getUTCDate() + shiftDays);
         const batchNonce = shiftDays === 0 ? nonce : `${nonce}-${shiftDays}`;
-        let items;
-        if (shiftDays === 0) {
-          try {
-            const geminiItems = await generateCoachAymanBatchWithGemini(session, batchNonce, start);
-            items = geminiItems
-              ? attachMediaToCoachAymanBatch(geminiItems, assets)
-              : await buildCoachAyman2026BatchWithMedia(assets, start, batchNonce);
-          } catch {
-            items = await buildCoachAyman2026BatchWithMedia(assets, start, batchNonce);
-          }
-        } else {
-          items = await buildCoachAyman2026BatchWithMedia(assets, start, batchNonce);
-        }
+        const items = await buildCoachAyman30DayBatchWithMedia(assets, start, batchNonce);
 
         try {
           saved = await callRpc(session, "create_staff_generated_content_batch", {
