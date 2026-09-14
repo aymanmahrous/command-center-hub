@@ -255,3 +255,35 @@ export function ensureMediaBrief(visualPrompt: string, slot: CoachAymanSlotSpec,
     `CAPCUT: Edit with burned-in captions and calm pacing where video applies.`,
   ].filter(Boolean).join("\n");
 }
+
+export async function buildTemplateBatchItems(batchNonce: string, start: Date) {
+  const items = [];
+  for (let index = 0; index < COACH_AYMAN_SLOT_SPEC.length; index += 1) {
+    const slot = COACH_AYMAN_SLOT_SPEC[index];
+    const primaryCta = primaryCtaForSlot(slot);
+    const trackedCta = buildBatchTrackedCta(slot.platform, slot.contentPillar);
+    const topic = slot.topicSeed;
+    const hook = slot.hookSeed;
+    const brandedBody = ensureRelaxFixBrandLead(`${topic}\n\n${hook}`);
+    const captionBody = brandedBody.includes(primaryCta) ? brandedBody : `${brandedBody}\n\n${primaryCta}`;
+    const caption = `${captionBody}\n\n${trackedCta}`;
+    const visualPrompt = ensureMediaBrief("", slot, primaryCta);
+    const fingerprintSeed = `${COACH_AYMAN_PROVIDER_ID}:${batchNonce}:${index}:${slot.platform}:${topic}`;
+    items.push({
+      platform: slot.platform,
+      contentType: slot.contentType,
+      language: "en",
+      contentPillar: slot.contentPillar,
+      contentSlot: slot.contentSlot,
+      plannedFor: gstSlotUtc(slot.dayOffset, slot.hourGst, start),
+      topic,
+      hook,
+      caption,
+      cta: trackedCta,
+      hashtags: buildHashtags(slot.platform, slot.topicHashtags),
+      visualPrompt,
+      contentFingerprint: await contentFingerprint(fingerprintSeed),
+    });
+  }
+  return items;
+}
