@@ -34,6 +34,7 @@ export type CoachAymanSlotSpec = {
   primaryCtaKey: PrimaryCtaKey;
   arabicHint?: string;
   briefFormat: string;
+  strategyLabel: string;
 };
 
 export const FORBIDDEN_CLAIMS =
@@ -45,10 +46,26 @@ export const COACH_AYMAN_SLOT_SPEC: CoachAymanSlotSpec[] = [
     dayOffset: 0,
     hourGst: 9,
     platform: "instagram",
+    contentType: "reel",
+    contentPillar: "parent_concerns",
+    contentSlot: "trust_morning",
+    funnel: "attraction",
+    strategyLabel: "Short Reel — common swimming problem",
+    topicSeed: "Short Reel: why kids panic at the pool edge",
+    hookSeed: "Most water fear starts before they even get wet.",
+    topicHashtags: ["#KidsSwimming", "#WaterConfidence"],
+    primaryCtaKey: "follow",
+    briefFormat: "Instagram reel · 9:16 · 10s default (5–15s)",
+  },
+  {
+    dayOffset: 1,
+    hourGst: 12,
+    platform: "instagram",
     contentType: "carousel",
     contentPillar: "swimming_education",
     contentSlot: "education_midday",
     funnel: "education",
+    strategyLabel: "Education for parents",
     topicSeed: "3 calm breathing habits before your child enters the pool",
     hookSeed: "Most kids rush into the water before their body is ready.",
     topicHashtags: ["#SwimmingTips", "#ParentTips"],
@@ -56,61 +73,49 @@ export const COACH_AYMAN_SLOT_SPEC: CoachAymanSlotSpec[] = [
     briefFormat: "Instagram carousel · 5 slides · 1080×1350",
   },
   {
-    dayOffset: 1,
-    hourGst: 8,
-    platform: "instagram",
-    contentType: "story",
-    contentPillar: "water_fear",
-    contentSlot: "trust_morning",
-    funnel: "attraction",
-    topicSeed: "Story: one sentence that calms water fear",
-    hookSeed: "Fear shrinks when the plan is simple.",
-    topicHashtags: ["#WaterConfidence", "#KidsSwimming"],
-    primaryCtaKey: "follow",
-    arabicHint: "Include one short Arabic parent line (🇦🇪 للأهل: ...).",
-    briefFormat: "Instagram story · 3 frames · 9:16",
-  },
-  {
     dayOffset: 2,
-    hourGst: 12,
+    hourGst: 9,
     platform: "instagram",
     contentType: "reel",
-    contentPillar: "real_progress",
+    contentPillar: "swimming_education",
     contentSlot: "education_midday",
-    funnel: "education",
-    topicSeed: "Reel: bubble line to wall glide",
-    hookSeed: "Watch the shoulders drop when breathing is calm.",
+    funnel: "attraction",
+    strategyLabel: "Short Reel — common mistake",
+    topicSeed: "Short Reel: the rushed kick mistake parents miss",
+    hookSeed: "If the kick is frantic, the breath will never settle.",
     topicHashtags: ["#SwimReel", "#LearnToSwim"],
     primaryCtaKey: "save",
-    briefFormat: "Instagram reel · 9:16 · 15–20s",
+    briefFormat: "Instagram reel · 9:16 · 10s default (5–15s)",
   },
   {
     dayOffset: 3,
     hourGst: 9,
     platform: "facebook",
     contentType: "post",
-    contentPillar: "safety_awareness",
+    contentPillar: "parent_concerns",
     contentSlot: "trust_morning",
     funnel: "trust",
-    topicSeed: "Pool-edge safety parents can check in 30 seconds",
-    hookSeed: "Safety first does not mean fear — it means clear rules.",
-    topicHashtags: ["#PoolSafety"],
+    strategyLabel: "FAQ for parents",
+    topicSeed: "FAQ: how long until my child feels safe in the water?",
+    hookSeed: "Parents ask this every week in Abu Dhabi.",
+    topicHashtags: ["#AbuDhabiParents"],
     primaryCtaKey: "share",
     briefFormat: "Facebook static post · 1200×630",
   },
   {
     dayOffset: 4,
-    hourGst: 13,
+    hourGst: 12,
     platform: "instagram",
-    contentType: "short_video",
-    contentPillar: "confidence",
+    contentType: "reel",
+    contentPillar: "safety_awareness",
     contentSlot: "education_midday",
-    funnel: "engagement",
-    topicSeed: "Short video: wall hold reset in 10 seconds",
-    hookSeed: "Ten calm seconds at the wall can reset the whole lesson.",
-    topicHashtags: ["#SwimmingConfidence", "#CoachAyman"],
-    primaryCtaKey: "ask",
-    briefFormat: "Instagram short video · 9:16 · 10–15s",
+    funnel: "attraction",
+    strategyLabel: "Short Reel — swimming skill / safety",
+    topicSeed: "Short Reel: pool-edge safety check in 10 seconds",
+    hookSeed: "Safety first does not mean fear — it means clear rules.",
+    topicHashtags: ["#PoolSafety", "#SwimmingSkills"],
+    primaryCtaKey: "save",
+    briefFormat: "Instagram reel · 9:16 · 10s default (5–15s)",
   },
   {
     dayOffset: 5,
@@ -120,6 +125,7 @@ export const COACH_AYMAN_SLOT_SPEC: CoachAymanSlotSpec[] = [
     contentPillar: "parent_concerns",
     contentSlot: "trust_morning",
     funnel: "trust",
+    strategyLabel: "Parent advice",
     topicSeed: "What to tell a nervous child before lesson one",
     hookSeed: "Your child does not need bravery — they need a plan.",
     topicHashtags: ["#ParentSupport", "#AbuDhabiParents"],
@@ -129,58 +135,62 @@ export const COACH_AYMAN_SLOT_SPEC: CoachAymanSlotSpec[] = [
   {
     dayOffset: 6,
     hourGst: 18,
-    platform: "tiktok",
-    contentType: "video",
-    contentPillar: "aqua_training",
-    contentSlot: "education_midday",
-    funnel: "attraction",
-    topicSeed: "TikTok hook: stop forcing the kick",
-    hookSeed: "If the kick is frantic, the breath will never settle.",
-    topicHashtags: ["#SwimTok", "#KickDrill"],
-    primaryCtaKey: "follow",
-    briefFormat: "TikTok vertical video · 9:16 · 20–30s",
+    platform: "instagram",
+    contentType: "post",
+    contentPillar: "offer_booking",
+    contentSlot: "conversion_evening",
+    funnel: "conversion",
+    strategyLabel: "Free Initial Assessment CTA",
+    topicSeed: "Start with a free initial assessment",
+    hookSeed: "Not sure which lesson format fits your child?",
+    topicHashtags: ["#FreeAssessment", "#AbuDhabiSwimming"],
+    primaryCtaKey: "book",
+    arabicHint: "Include one short Arabic parent line for Abu Dhabi families.",
+    briefFormat: "Instagram conversion post · 1080×1350",
   },
   {
     dayOffset: 7,
     hourGst: 12,
-    platform: "facebook",
-    contentType: "carousel",
+    platform: "instagram",
+    contentType: "reel",
     contentPillar: "swimming_education",
     contentSlot: "education_midday",
     funnel: "education",
-    topicSeed: "3 common beginner mistakes at the pool wall",
-    hookSeed: "Fix these early and lessons feel easier.",
-    topicHashtags: ["#BeginnerSwimming"],
+    strategyLabel: "Short Reel — educational",
+    topicSeed: "Short Reel: bubble line to calm breathing",
+    hookSeed: "Watch the shoulders drop when breathing is calm.",
+    topicHashtags: ["#SwimReel", "#CoachAyman"],
     primaryCtaKey: "save",
-    briefFormat: "Facebook carousel · 4 slides · 1080×1080",
+    briefFormat: "Instagram reel · 9:16 · 10s default (5–15s)",
   },
   {
     dayOffset: 8,
-    hourGst: 17,
-    platform: "instagram",
-    contentType: "short_video",
-    contentPillar: "behind_the_scenes",
+    hourGst: 9,
+    platform: "facebook",
+    contentType: "carousel",
+    contentPillar: "real_progress",
     contentSlot: "education_midday",
-    funnel: "engagement",
-    topicSeed: "Behind the lane: how Coach Ayman sets up a calm session",
-    hookSeed: "Calm sessions start before anyone enters the water.",
-    topicHashtags: ["#BehindTheScenes", "#SwimCoach"],
-    primaryCtaKey: "follow",
-    briefFormat: "Instagram short video · 9:16 · 20s",
+    funnel: "trust",
+    strategyLabel: "Structured Swimming Progress / Trust",
+    topicSeed: "Structured swimming progress parents can track",
+    hookSeed: "Small skills build confidence before speed.",
+    topicHashtags: ["#BeginnerSwimming"],
+    primaryCtaKey: "save",
+    briefFormat: "Facebook carousel · 4 slides · 1080×1080",
   },
   {
     dayOffset: 9,
     hourGst: 18,
     platform: "instagram",
     contentType: "post",
-    contentPillar: "offer_booking",
+    contentPillar: "coach_authority",
     contentSlot: "conversion_evening",
     funnel: "conversion",
-    topicSeed: "Start with a free initial assessment",
-    hookSeed: "Not sure which lesson format fits your child?",
-    topicHashtags: ["#FreeAssessment", "#AbuDhabiSwimming"],
+    strategyLabel: "Trust + Conversion",
+    topicSeed: "Coach Ayman on building water confidence in Abu Dhabi",
+    hookSeed: "Calm coaching beats pressure every time.",
+    topicHashtags: ["#SwimmingCoach", "#AbuDhabiSwimming"],
     primaryCtaKey: "book",
-    arabicHint: "Include one short Arabic parent line for Abu Dhabi families.",
     briefFormat: "Instagram conversion post · 1080×1350",
   },
 ];
@@ -235,23 +245,80 @@ export function primaryCtaForSlot(slot: CoachAymanSlotSpec): string {
   return PRIMARY_CTAS[slot.primaryCtaKey];
 }
 
+function isVideoContentType(contentType: string): boolean {
+  const normalized = contentType.toLowerCase();
+  return normalized === "reel" || normalized === "short_video" || normalized === "video";
+}
+
+export function buildVideoBrief(slot: CoachAymanSlotSpec, hook: string, primaryCta: string): string {
+  return [
+    "VIDEO BRIEF:",
+    `HOOK: ${hook}`,
+    "DURATION: 10 seconds (allowed 5–15 seconds)",
+    `SCENE: ${slot.topicSeed.replace(/^Short Reel:\s*/i, "")} — real Abu Dhabi pool context with Coach Ayman, no staged testimonials.`,
+    `ON-SCREEN TEXT: ${hook}`,
+    `CAPTION LEAD: ${slot.strategyLabel} for kids swimming lessons in Abu Dhabi.`,
+    `CTA: ${primaryCta}`,
+    "REQUIRED MEDIA: real pool b-roll or coach footage; burned-in captions; no AI-generated child faces; no fake before/after.",
+  ].join("\n");
+}
+
 export function ensureMediaBrief(visualPrompt: string, slot: CoachAymanSlotSpec, primaryCta: string): string {
   const trimmed = visualPrompt.trim();
   const hasStructure = /FORMAT:/i.test(trimmed) && /CANVA:/i.test(trimmed) && /CAPCUT:/i.test(trimmed);
   if (hasStructure) return trimmed;
 
   const body = trimmed || `Coach Ayman ${slot.contentPillar.replace(/_/g, " ")} content for ${slot.platform}.`;
+  const videoBrief = isVideoContentType(slot.contentType)
+    ? buildVideoBrief(slot, slot.hookSeed, primaryCta)
+    : null;
+
   return [
     `FORMAT: ${slot.briefFormat}`,
     `VISUAL CONCEPT: ${body.split("\n")[0]}`,
     `HEADLINE: ${slot.hookSeed}`,
-    `SUPPORTING TEXT: Keep copy parent-friendly and specific to Abu Dhabi swimming lessons.`,
-    `SCENE IDEA: Real pool context with Coach Ayman authority; no fabricated reviews.`,
+    `SUPPORTING TEXT: Keep copy parent-friendly for kids swimming lessons and water safety in Abu Dhabi.`,
+    `SCENE IDEA: Real pool context with Coach Ayman authority; no fabricated reviews or results.`,
     `CTA: ${primaryCta}`,
+    videoBrief,
     `CANVA: ${body}`,
-    slot.contentType === "reel" || slot.contentType === "video" || slot.contentType === "short_video"
+    isVideoContentType(slot.contentType)
       ? "RUNWAY (optional): Use only if real footage is unavailable — no AI-generated child faces."
       : null,
-    `CAPCUT: Edit with burned-in captions and calm pacing where video applies.`,
+    isVideoContentType(slot.contentType)
+      ? "CAPCUT: Vertical 9:16 edit, 10-second default pacing, burned-in captions."
+      : "CAPCUT: Edit with burned-in captions and calm pacing where video applies.",
   ].filter(Boolean).join("\n");
+}
+
+export async function buildTemplateBatchItems(batchNonce: string, start: Date) {
+  const items = [];
+  for (let index = 0; index < COACH_AYMAN_SLOT_SPEC.length; index += 1) {
+    const slot = COACH_AYMAN_SLOT_SPEC[index];
+    const primaryCta = primaryCtaForSlot(slot);
+    const trackedCta = buildBatchTrackedCta(slot.platform, slot.contentPillar);
+    const topic = slot.topicSeed;
+    const hook = slot.hookSeed;
+    const brandedBody = ensureRelaxFixBrandLead(`${topic}\n\n${hook}`);
+    const captionBody = brandedBody.includes(primaryCta) ? brandedBody : `${brandedBody}\n\n${primaryCta}`;
+    const caption = `${captionBody}\n\n${trackedCta}`;
+    const visualPrompt = ensureMediaBrief("", slot, primaryCta);
+    const fingerprintSeed = `${COACH_AYMAN_PROVIDER_ID}:${batchNonce}:${index}:${slot.platform}:${topic}`;
+    items.push({
+      platform: slot.platform,
+      contentType: slot.contentType,
+      language: "en",
+      contentPillar: slot.contentPillar,
+      contentSlot: slot.contentSlot,
+      plannedFor: gstSlotUtc(slot.dayOffset, slot.hourGst, start),
+      topic,
+      hook,
+      caption,
+      cta: trackedCta,
+      hashtags: buildHashtags(slot.platform, slot.topicHashtags),
+      visualPrompt,
+      contentFingerprint: await contentFingerprint(fingerprintSeed),
+    });
+  }
+  return items;
 }
