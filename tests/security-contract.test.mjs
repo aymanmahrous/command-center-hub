@@ -122,6 +122,7 @@ test("Content Studio honors server status and action allowlists", () => {
 
 test("Content batch generation uses approved RPC and confirms before write", () => {
   assert.match(growthHub, /create_staff_generated_content_batch/);
+  assert.match(growthHub, /enqueue_publish_job|requestPublishJob/);
   assert.match(growthHub, /window\.confirm\(copy\.generateConfirm\)/);
   assert.match(growthCopyEn, /Nothing will be scheduled or published/i);
   assert.doesNotMatch(growthHub, /graph\.facebook|buffer\.com/i);
@@ -136,6 +137,14 @@ test("Content batch review approves through approved RPCs only", () => {
   assert.match(app, /canApproveContentItem/);
   assert.match(app, /sharedDatabaseBatchId/);
   assert.doesNotMatch(app, /graph\.facebook|facebook\.com\/v\d+/i);
+});
+
+test("Request Publish uses enqueue_publish_job RPC and never calls n8n or Buffer from the browser", () => {
+  assert.match(growthHub, /requestPublishJob/);
+  assert.match(growthHub, /enqueue_publish_job|requestPublishJob/);
+  assert.match(growthHub, /window\.confirm/);
+  assert.doesNotMatch(growthHub, /N8N_WEBHOOK|webhook\.n8n|buffer\.com/i);
+  assert.doesNotMatch(growthHub, /get_staff_operations_queue/);
 });
 
 test("Media Library uses staff RPCs and blocks direct table mutation", () => {

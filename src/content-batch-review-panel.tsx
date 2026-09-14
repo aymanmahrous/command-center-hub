@@ -10,10 +10,12 @@ import {
 import type { ChangeRequestKind } from "./content-growth";
 import {
   buildExternalPostLink,
+  canRequestPublish,
   latestReceiptForPlatform,
   parsePublicationReceipts,
   resolvePublishPipelineStage,
 } from "./content-publishing";
+import { publishEnqueueErrorMessage, requestPublishJob } from "./content-publish-enqueue";
 import { readContentPillar, readTimeSlot } from "./content-strategy";
 import { readPublishingCopy } from "./content-publishing-copy";
 import { ContentBatchMediaPreview } from "./content-batch-media-preview";
@@ -21,75 +23,6 @@ import { canvaDesignErrorMessage, generateCanvaDesignForContentItem } from "./ca
 import type { MediaAssetRecord } from "./media-types";
 import { useLanguage } from "./i18n";
 import "./content-batch-review.css";
-
-const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
-const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
-
-type PublishEnqueueResult = {
-  success?: boolean;
-  code?: string;
-};
-
-async function requestPublishJob(session: { accessToken: string }, contentItemId: string): Promise<PublishEnqueueResult> {
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/enqueue_publish_job`, {
-    method: "POST",
-    headers: {
-      apikey: SUPABASE_PUBLIC_KEY,
-      Authorization: `Bearer ${session.accessToken}`,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify({ p_content_item_id: contentItemId }),
-    cache: "no-store",
-  });
-  if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
-  const result = (await response.json().catch(() => ({}))) as PublishEnqueueResult;
-  if (!response.ok && !result.code) throw new Error(`RPC_FAILED_${response.status}`);
-  return result;
-}
-
-function publishEnqueueErrorMessage(code: string | undefined, language: "ar" | "en"): string {
-  const messages: Record<string, { ar: string; en: string }> = {
-    STAFF_ACCESS_DENIED: { ar: "لا تملك صلاحية طلب النشر.", en: "You do not have permission to request publish." },
-    CONTENT_NOT_APPROVED: { ar: "يجب اعتماد المحتوى قبل طلب النشر.", en: "Content must be approved before requesting publish." },
-    CONTENT_ALREADY_PUBLISHED: { ar: "هذا المحتوى منشور بالفعل.", en: "This content is already published." },
-    PUBLISH_RECEIPT_EXISTS: { ar: "يوجد إيصال نشر منشور لهذا العنصر.", en: "A published receipt already exists for this item." },
-    MEDIA_ASSET_REQUIRED: { ar: "يلزم ربط وسائط جاهزة قبل طلب النشر.", en: "Publish-ready media must be linked before requesting publish." },
-    MEDIA_ASSET_NOT_PUBLISHABLE: { ar: "الوسائط المرتبطة غير جاهزة للنشر.", en: "Linked media is not publish-ready." },
-    CONTENT_NOT_READY: { ar: "المحتوى غير جاهز للنشر.", en: "Content is not ready to publish." },
-    PLATFORM_NOT_SUPPORTED: { ar: "المنصة غير مدعومة لطلب النشر.", en: "This platform is not supported for publish requests." },
-    ACTIVE_AUTHORIZATION_EXISTS: { ar: "يوجد تفويض نشر نشط لهذا العنصر.", en: "An active publish authorization already exists for this item." },
-  };
-  const entry = code ? messages[code] : undefined;
-  if (entry) return entry[language];
-  return language === "ar" ? "تعذر طلب النشر." : "Publish request failed.";
-}
-
-function canRequestPublish(item: ContentBatchItem): boolean {
-  if (item.status !== "approved") return false;
-  if (item.publishedAt) return false;
-  if (typeof item.providerExternalId === "string" && item.providerExternalId.trim()) return false;
-  const receipt = latestReceiptForPlatform(item, item.platform);
-  if (receipt?.status === "published") return false;
-  return true;
-}
-
-const REQUEST_PUBLISH_COPY = {
-  en: {
-    button: "Request Publish",
-    confirm: "Request a publish job for this approved item? This does not publish directly — n8n executes the job.",
-    success: "Publish job queued. n8n can now execute the authorized job.",
-    already: "Publish job already queued for this item.",
-    busy: "Requesting publish…",
-  },
-  ar: {
-    button: "طلب النشر",
-    confirm: "طلب إنشاء publish job لهذا العنصر المعتمد؟ هذا لا ينشر مباشرة — n8n ينفّذ المهمة.",
-    success: "تمت إضافة publish job. يمكن لـ n8n تنفيذ المهمة المصرّح بها.",
-    already: "publish job موجود بالفعل لهذا العنصر.",
-    busy: "جاري طلب النشر…",
-  },
-} as const;
 
 type ContentBatchReviewPanelProps = {
   items: ContentBatchItem[];
@@ -144,7 +77,6 @@ export function ContentBatchReviewPanel({
   const [designNotice, setDesignNotice] = useState("");
   const [publishBusyId, setPublishBusyId] = useState<string | null>(null);
   const [publishNotice, setPublishNotice] = useState("");
-  const requestPublishCopy = REQUEST_PUBLISH_COPY[language];
 
   const summary = useMemo(() => summarizeBatch(batch.items), [batch.items]);
   const batchStatus = overallBatchStatus(batch.items);
@@ -193,7 +125,7 @@ export function ContentBatchReviewPanel({
 
   async function handleRequestPublish(item: ContentBatchItem) {
     if (!session || !canWrite || busy || publishBusyId || !canRequestPublish(item)) return;
-    if (!window.confirm(requestPublishCopy.confirm)) return;
+    if (!window.confirm(publishingCopy.requestPublishConfirm)) return;
     setPublishBusyId(item.id);
     setPublishNotice("");
     try {
@@ -202,7 +134,9 @@ export function ContentBatchReviewPanel({
         setPublishNotice(publishEnqueueErrorMessage(result.code, language));
         return;
       }
-      setPublishNotice(result.code === "ALREADY_ENQUEUED" ? requestPublishCopy.already : requestPublishCopy.success);
+      setPublishNotice(result.code === "ALREADY_ENQUEUED"
+        ? publishingCopy.requestPublishAlready
+        : publishingCopy.requestPublishSuccess);
       onPublishRequested?.();
     } catch (cause) {
       if (cause instanceof Error && cause.message === "SESSION_EXPIRED") {
@@ -341,11 +275,10 @@ export function ContentBatchReviewPanel({
                 {canRequestPublish(item) && session && (
                   <button
                     type="button"
-                    className="secondary"
                     disabled={itemLocked || publishBusyId === item.id}
                     onClick={() => void handleRequestPublish(item)}
                   >
-                    {publishBusyId === item.id ? requestPublishCopy.busy : requestPublishCopy.button}
+                    {publishBusyId === item.id ? publishingCopy.requestPublishBusy : publishingCopy.requestPublishButton}
                   </button>
                 )}
               </footer>

@@ -154,9 +154,15 @@ export function buildExternalPostLink(platform: string, externalPostId: string |
 export function resolvePublishPipelineStage(item: ContentBatchItem): PublishPipelineStage {
   if (item.status === "failed") return "failed";
   if (item.status === "published" || item.publishedAt) return "published_live";
-  if (item.status === "scheduled") return "scheduled";
 
   const platformReceipt = latestReceiptForPlatform(item, item.platform);
+  if (item.status === "scheduled" && PUBLISH_PLATFORMS.has(String(item.platform).toLowerCase())) {
+    if (platformReceipt?.status === "published") return "published_live";
+    if (platformReceipt?.status === "failed" || platformReceipt?.status === "ambiguous") return "failed";
+    return "awaiting_n8n";
+  }
+  if (item.status === "scheduled") return "scheduled";
+
   if (platformReceipt?.status === "published") return "published_live";
   if (platformReceipt?.status === "failed" || platformReceipt?.status === "ambiguous") return "failed";
 
@@ -170,6 +176,21 @@ export function resolvePublishPipelineStage(item: ContentBatchItem): PublishPipe
 
 function authorizedPublishItemId(channel: PublishChannel): string | null {
   return channel === "facebook" ? AUTHORIZED_FACEBOOK_PUBLISH_ITEM_ID : AUTHORIZED_INSTAGRAM_PUBLISH_ITEM_ID;
+}
+
+export function isAuthorizedPublishCandidate(item: ContentBatchItem): boolean {
+  return item.id === AUTHORIZED_FACEBOOK_PUBLISH_ITEM_ID || item.id === AUTHORIZED_INSTAGRAM_PUBLISH_ITEM_ID;
+}
+
+export function canRequestPublish(item: ContentBatchItem): boolean {
+  if (!isAuthorizedPublishCandidate(item)) return false;
+  if (item.status !== "approved") return false;
+  if (item.publishedAt) return false;
+  if (!PUBLISH_PLATFORMS.has(String(item.platform).toLowerCase())) return false;
+  const receipt = latestReceiptForPlatform(item, item.platform);
+  if (receipt?.status === "published") return false;
+  const stage = resolvePublishPipelineStage(item);
+  return stage === "approved_ready";
 }
 
 function resolveNextAction(
