@@ -237,7 +237,7 @@
     },
     {
       "parameters": {
-        "content": "Phase 6B: after MESSAGE_INGESTED, call process_ai_sales_concierge_turn (draft only).\nVerify token: RELAX_FIX_UAE_WHATSAPP_VERIFY\nPhone Number ID gate: 100566230597045\nInbound only. No outbound WhatsApp messages.",
+        "content": "Phase 6B: after MESSAGE_INGESTED, call process_ai_sales_concierge_turn (draft only).\nVerify token: RELAX_FIX_UAE_WHATSAPP_VERIFY\nPhone Number: +971588219130\nPhone Number ID: 1276699008856128\nWABA ID: 2575106602931255\nInbound only. No outbound WhatsApp messages.",
         "height": 180,
         "width": 420
       },
