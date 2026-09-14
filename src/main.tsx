@@ -124,7 +124,9 @@ const ContentBatchApprovalSchema = z.object({
   code: z.string().optional(),
   batchId: z.string().uuid().optional(),
   approvedCount: z.number().int().nonnegative().optional(),
+  scheduledCount: z.number().int().nonnegative().optional(),
   alreadyApprovedCount: z.number().int().nonnegative().optional(),
+  alreadyPreparedCount: z.number().int().nonnegative().optional(),
   skippedCount: z.number().int().nonnegative().optional(),
 }).passthrough();
 const MediaAssetSchema = z.object({
@@ -832,9 +834,15 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
         try {
           const result = await approveStaffContentBatch(session, databaseBatchId);
           const approvedCount = result.approvedCount ?? 0;
+          const scheduledCount = result.scheduledCount ?? 0;
           const alreadyApprovedCount = result.alreadyApprovedCount ?? 0;
-          if (approvedCount > 0 || alreadyApprovedCount > 0) {
-            setNotice(approvedCount > 0 ? t("contentBatch").batchApprovedNotice : t("contentBatch").batchNothingToApprove);
+          const alreadyPreparedCount = result.alreadyPreparedCount ?? 0;
+          if (approvedCount > 0 || scheduledCount > 0 || alreadyApprovedCount > 0 || alreadyPreparedCount > 0) {
+            const copy = t("contentBatch");
+            if (scheduledCount > 0 && approvedCount > 0) setNotice(copy.batchApprovedPartialNotice);
+            else if (scheduledCount > 0) setNotice(copy.batchApprovedNotice);
+            else if (alreadyPreparedCount > 0) setNotice(copy.batchPreparedNotice);
+            else setNotice(copy.batchApprovedNotice);
             onChanged();
           } else {
             setNotice(t("contentBatch").batchNothingToApprove);
