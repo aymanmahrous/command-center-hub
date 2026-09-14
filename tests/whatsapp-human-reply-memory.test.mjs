@@ -135,6 +135,14 @@ test("inbox send stays in place without parent reload and composer follows takeo
   assert.doesNotMatch(sendHandler[0], /onChanged\(\)/);
 });
 
+test("inbox mode change and dashboard refresh keep panel mounted", () => {
+  const changeModeHandler = app.match(/async function changeMode\(conversation: z\.infer<typeof ConversationSchema>, next: ConversationMode\) \{[\s\S]*?\n  \}/);
+  assert.ok(changeModeHandler, "changeMode should exist");
+  assert.doesNotMatch(changeModeHandler[0], /onChanged\(\)/);
+  assert.match(app, /const backgroundRefresh = loadedSectionRef\.current === section/);
+  assert.match(app, /if \(!backgroundRefresh\) \{\s*setStatus\("loading"\)/);
+});
+
 test("existing concierge behavior still works for pricing guardrails", () => {
   const result = turn("How much does it cost?");
   assert.match(result.draftReply, /150 AED instead of 200 AED/);

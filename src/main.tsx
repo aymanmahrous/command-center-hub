@@ -1,4 +1,4 @@
-import React, { FormEvent, lazy, Suspense, useEffect, useMemo, useState } from "react";
+import React, { FormEvent, lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, LayoutDashboard, Library, LogOut, Settings2, ShieldAlert, Workflow } from "lucide-react";
 import { z } from "zod";
@@ -503,8 +503,11 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
     setBusyId(conversation.id); setNotice("");
     try {
       await setConversationMode(session, conversation.id, next);
+      setConversationPatches((current) => ({
+        ...current,
+        [conversation.id]: { ...current[conversation.id], mode: next },
+      }));
       setNotice(language === "ar" ? "تم تحديث وضع المحادثة وتسجيل العملية بنجاح." : "Mode updated and recorded.");
-      onChanged();
     } catch (cause) {
       handleInboxError(cause);
     } finally { setBusyId(null); }
@@ -1239,6 +1242,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
       ? requestedSection
       : "dashboard";
   const [active, setActive] = useState<SectionId>(initialSection); const [reloadKey, setReloadKey] = useState(0); const [data, setData] = useState<JsonValue>(null); const [status, setStatus] = useState<"loading" | "ready" | "error">("loading"); const [error, setError] = useState("");
+  const loadedSectionRef = useRef<SectionId | null>(null);
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (event.data?.type === "rf-push-navigate" && sections.some(([id]) => id === event.data.section)) setActive(event.data.section);
@@ -1248,7 +1252,34 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   }, []);
   const current = useMemo(() => sections.find(([id]) => id === active)!, [active]);
   useEffect(() => { document.title = `${nav[current[0]]} · ${nav.dashboard}`; }, [current, nav]);
-  useEffect(() => { const controller = new AbortController(); if (["archive", "dashboard"].includes(current[0])) { setStatus("ready"); return () => controller.abort(); } setStatus("loading"); setError(""); callRpc(session, current[2], {}, controller.signal).then((result) => { setData(result); setStatus("ready"); }).catch((cause) => { if (cause instanceof DOMException && cause.name === "AbortError") return; const message = cause instanceof Error ? cause.message : "LOAD_FAILED"; if (message === "SESSION_EXPIRED") onLogout(); else { setError(dashboardCopy.loadError); setStatus("error"); } }); return () => controller.abort(); }, [current, dashboardCopy.loadError, onLogout, reloadKey, session]);
+  useEffect(() => {
+    const controller = new AbortController();
+    const section = current[0];
+    if (["archive", "dashboard"].includes(section)) {
+      setStatus("ready");
+      loadedSectionRef.current = section;
+      return () => controller.abort();
+    }
+    const backgroundRefresh = loadedSectionRef.current === section;
+    if (!backgroundRefresh) {
+      setStatus("loading");
+      setError("");
+    }
+    callRpc(session, current[2], {}, controller.signal).then((result) => {
+      setData(result);
+      setStatus("ready");
+      loadedSectionRef.current = section;
+    }).catch((cause) => {
+      if (cause instanceof DOMException && cause.name === "AbortError") return;
+      const message = cause instanceof Error ? cause.message : "LOAD_FAILED";
+      if (message === "SESSION_EXPIRED") onLogout();
+      else if (!backgroundRefresh) {
+        setError(dashboardCopy.loadError);
+        setStatus("error");
+      }
+    });
+    return () => controller.abort();
+  }, [current, dashboardCopy.loadError, onLogout, reloadKey, session]);
   useEffect(() => {
     if (active !== "inbox") return;
     const timer = window.setInterval(() => setReloadKey((value) => value + 1), 45000);
