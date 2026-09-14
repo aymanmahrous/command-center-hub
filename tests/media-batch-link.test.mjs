@@ -13,8 +13,9 @@ test("fallback asset plans stay optional without blocking batch creation", () =>
 });
 
 test("coach ayman batch with media is wired through growth hub RPC flow", () => {
+  assert.match(batchLink, /buildCoachAyman30DayBatchWithMedia/);
   assert.match(batchLink, /buildCoachAyman2026BatchWithMedia/);
   assert.match(growthHub, /get_staff_media_assets/);
   assert.match(growthHub, /create_staff_generated_content_batch/);
-  assert.match(growthHub, /buildCoachAyman2026BatchWithMedia/);
+  assert.match(growthHub, /buildCoachAyman30DayBatchWithMedia/);
 });

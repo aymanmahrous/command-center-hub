@@ -3,10 +3,14 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   buildCoachAyman2026BatchItems,
+  buildCoachAyman30DayCalendarItems,
   COACH_AYMAN_BATCH_SIZE,
+  COACH_AYMAN_MONTH_BATCH_SIZE,
   COACH_AYMAN_PROVIDER_ID,
   CONFIRMED_CTA,
+  summarizeCoachAyman30DayBatch,
   summarizeCoachAymanBatch,
+  validateCoachAyman30DayBatch,
   validateCoachAymanBatch,
 } from "../src/content-batch-generator.ts";
 
@@ -74,9 +78,45 @@ test("coach ayman batch uses unique fingerprints and planned times", async () =>
 
 test("content growth hub links media-aware batch generation", async () => {
   const hub = await readFile(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
-  assert.match(hub, /buildCoachAyman2026BatchWithMedia/);
+  assert.match(hub, /buildCoachAyman30DayBatchWithMedia/);
   assert.match(hub, /get_staff_media_assets/);
   assert.match(hub, /buildNextBatchReadyNotice/);
+});
+
+test("coach ayman 30-day calendar has full month mix", async () => {
+  const items = await buildCoachAyman30DayCalendarItems(new Date("2026-09-11T00:00:00.000Z"), "month-nonce");
+  assert.equal(items.length, COACH_AYMAN_MONTH_BATCH_SIZE);
+  const summary = summarizeCoachAyman30DayBatch(items);
+  assert.equal(summary.total, 30);
+  assert.equal(summary.reels, 12);
+  assert.equal(summary.posts, 10);
+  assert.equal(summary.stories, 8);
+  assert.equal(summary.publishable, 22);
+  assert.deepEqual(summary.platforms.sort(), ["facebook", "instagram"]);
+});
+
+test("coach ayman 30-day calendar passes safety validation", async () => {
+  const items = await buildCoachAyman30DayCalendarItems(new Date("2026-09-11T00:00:00.000Z"), "month-validation");
+  const result = validateCoachAyman30DayBatch(items);
+  assert.equal(result.valid, true, result.errors.join("; "));
+  assert.match(items.map((item) => item.caption).join("\n"), /058 821 9130 — messages & booking/);
+  assert.match(items.map((item) => item.caption).join("\n"), /055 137 8660 — admin team \(phone calls only\)/);
+  assert.match(items.map((item) => item.caption).join("\n"), /Free initial assessment/);
+  for (const story of items.filter((item) => item.contentType === "story")) {
+    assert.match(story.visualPrompt, /STORY BRIEF:/);
+  }
+  for (const reel of items.filter((item) => item.contentType === "reel")) {
+    assert.match(reel.visualPrompt, /VIDEO BRIEF:/);
+  }
+});
+
+test("30-day planned_for migration extends horizon to 45 days", async () => {
+  const migration = await readFile(
+    new URL("../supabase/migrations/20260914210000_extend_content_batch_planned_for_window.sql", import.meta.url),
+    "utf8",
+  );
+  assert.match(migration, /interval '45 days'/);
+  assert.doesNotMatch(migration, /interval '31 days'/);
 });
 
 test("provider id is stable for automation handoff", () => {
