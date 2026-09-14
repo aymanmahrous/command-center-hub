@@ -46,6 +46,8 @@ function percent(language: Language, value: number) {
 function alertLabel(language: Language, code: string) {
   const labels: Record<string, [string, string]> = {
     human_required: ["محادثات تحتاج تدخلًا بشريًا", "Conversations need human attention"],
+    customer_at_risk: ["عملاء معرضون لفقدان الثقة", "Customers at risk of confusion"],
+    new_customer: ["عملاء WhatsApp جدد", "New WhatsApp customers"],
     pending_bookings: ["حجوزات معلقة", "Bookings are waiting for action"],
     hot_radar: ["فرص ساخنة تحتاج مراجعة", "Hot opportunities need review"],
     content_review: ["محتوى ينتظر المراجعة", "Content is waiting for review"],
