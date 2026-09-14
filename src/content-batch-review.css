@@ -209,8 +209,17 @@
 }
 
 @media (max-width: 720px) {
+  .content-batch-panel {
+    padding: 14px 12px;
+  }
+
+  .content-batch-panel .batch-meta {
+    font-size: 0.95rem;
+    line-height: 1.65;
+  }
+
   .content-batch-summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 
   .content-batch-item footer button {

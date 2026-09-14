@@ -136,7 +136,9 @@
   border: 1px solid #f59e0b;
   background: rgba(245, 158, 11, 0.12);
   color: #fde68a;
-  font-size: 0.88rem;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
 .facebook-audit-section .today-quick-action {
@@ -194,6 +196,15 @@
 .content-growth-section > header h3 {
   margin: 4px 0 0;
   font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.content-growth-hub .batch-meta {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
 .integration-grid {
@@ -301,10 +312,22 @@
 }
 
 @media (max-width: 720px) {
-  .content-pipeline-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .content-growth-section {
+    padding: 14px 12px;
   }
 
+  .content-growth-section > header p,
+  .content-growth-hub .batch-meta,
+  .facebook-audit-warning,
+  .live-publish-next-step,
+  .content-growth-banner p {
+    font-size: 0.95rem;
+    line-height: 1.65;
+  }
+
+  .facebook-audit-grid,
+  .live-publish-grid,
+  .content-pipeline-grid,
   .integration-grid {
     grid-template-columns: 1fr;
   }

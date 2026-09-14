@@ -60,6 +60,7 @@
 @media (max-width: 780px) {
   .inbox-layout { grid-template-columns: 1fr; }
   .conversation-list { max-height: 290px; border-inline-end: 0; border-bottom: 1px solid #e2e8f0; }
+  .conversation-list small { white-space: normal; overflow: visible; text-overflow: unset; }
   .conversation-panel > header { display: grid; }
   .message-stream { min-height: 380px; }
   .message-bubble { width: 90%; }
