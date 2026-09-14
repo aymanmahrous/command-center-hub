@@ -12,7 +12,7 @@ test("enqueue publish job schedules at planned_for instead of now", () => {
   assert.match(migration, /v_publish_at,\s*\n\s*v_now,\s*\n\s*v_now/);
   assert.match(migration, /v_publish_at := v_content\.planned_for/);
   assert.match(migration, /'code', 'PLANNED_FOR_PASSED'/);
-  assert.match(migration, /v_publish_at \+ make_interval\(mins => v_ttl\)/);
+  assert.match(migration, /v_now \+ make_interval\(mins => v_ttl\)/);
   assert.doesNotMatch(migration, /\n\s*scheduled_for = v_now,/);
 });
 

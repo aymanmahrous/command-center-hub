@@ -224,7 +224,7 @@ begin
     v_authorized_by,
     v_approval_reference,
     v_now,
-    v_publish_at + make_interval(mins => v_ttl)
+    v_now + make_interval(mins => v_ttl)
   )
   returning * into v_auth;
 
@@ -281,15 +281,3 @@ where bj.job_type = 'publish_content'
   and ci.status = 'scheduled'
   and ci.planned_for > now()
   and bj.next_retry_at is distinct from ci.planned_for;
-
-update public.owner_publish_authorizations opa
-set expires_at = ci.planned_for + interval '30 minutes'
-from public.content_items ci
-join public.background_jobs bj on bj.id = opa.publish_job_id
-where opa.content_item_id = ci.id
-  and opa.consumed_at is null
-  and opa.revoked_at is null
-  and ci.status = 'scheduled'
-  and ci.planned_for > now()
-  and bj.status in ('queued', 'retrying')
-  and opa.expires_at < ci.planned_for;
