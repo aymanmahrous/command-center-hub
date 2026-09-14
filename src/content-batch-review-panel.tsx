@@ -77,16 +77,16 @@ function canRequestPublish(item: ContentBatchItem): boolean {
 const REQUEST_PUBLISH_COPY = {
   en: {
     button: "Request Publish",
-    confirm: "Request a publish job for this approved item? This does not publish directly — n8n executes the job.",
-    success: "Publish job queued. n8n can now execute the authorized job.",
-    already: "Publish job already queued for this item.",
+    confirm: "Schedule this approved item for its planned publish time? Authorization is created automatically at due time by the existing publish workflow.",
+    success: "Publish scheduled for the planned time. Authorization will be created automatically at due time.",
+    already: "Publish is already scheduled for this item.",
     busy: "Requesting publish…",
   },
   ar: {
     button: "طلب النشر",
-    confirm: "طلب إنشاء publish job لهذا العنصر المعتمد؟ هذا لا ينشر مباشرة — n8n ينفّذ المهمة.",
-    success: "تمت إضافة publish job. يمكن لـ n8n تنفيذ المهمة المصرّح بها.",
-    already: "publish job موجود بالفعل لهذا العنصر.",
+    confirm: "جدولة هذا العنصر المعتمد لوقت النشر المخطط؟ يُنشأ التفويض تلقائيًا عند موعد النشر عبر مسار النشر الحالي.",
+    success: "تمت جدولة النشر لوقتها المخطط. سيُنشأ التفويض تلقائيًا عند موعد النشر.",
+    already: "النشر مجدول بالفعل لهذا العنصر.",
     busy: "جاري طلب النشر…",
   },
 } as const;
@@ -202,7 +202,11 @@ export function ContentBatchReviewPanel({
         setPublishNotice(publishEnqueueErrorMessage(result.code, language));
         return;
       }
-      setPublishNotice(result.code === "ALREADY_ENQUEUED" ? requestPublishCopy.already : requestPublishCopy.success);
+      setPublishNotice(
+        result.code === "ALREADY_ENQUEUED" || result.code === "ALREADY_PREPARED"
+          ? requestPublishCopy.already
+          : requestPublishCopy.success,
+      );
       onPublishRequested?.();
     } catch (cause) {
       if (cause instanceof Error && cause.message === "SESSION_EXPIRED") {
