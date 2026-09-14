@@ -126,9 +126,13 @@ test("unauthorized coach role cannot send whatsapp replies in UI gate", () => {
   assert.match(app, /canWriteMode = \["super_admin", "admin", "reception", "coach"\]/);
 });
 
-test("return to AI action is wired in inbox UI", () => {
-  assert.match(app, /returnConversationToAi/);
-  assert.match(app, /returnToAiButton/);
+test("inbox send stays in place without parent reload and composer follows takeover", () => {
+  assert.match(app, /setConversationPatches\(\(current\) => \(\{\s*\.\.\.current,\s*\[conversation\.id\]: \{ \.\.\.current\[conversation\.id\], mode: result\.mode \?\? "human_takeover"/);
+  assert.match(app, /selected\.mode === "human_takeover"/);
+  assert.match(app, /event\.preventDefault\(\)/);
+  const sendHandler = app.match(/async function handleSendReply\(conversation: InboxConversation\) \{[\s\S]*?\n  \}/);
+  assert.ok(sendHandler, "handleSendReply should exist");
+  assert.doesNotMatch(sendHandler[0], /onChanged\(\)/);
 });
 
 test("existing concierge behavior still works for pricing guardrails", () => {

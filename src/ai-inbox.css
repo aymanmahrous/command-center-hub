@@ -49,7 +49,7 @@
 .conversation-panel select { max-width: 230px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; }
 .human-alert,
 .read-only-note { margin: 14px 18px 0; padding: 11px 13px; border: 1px solid #fcd34d; border-radius: 12px; background: #fffbeb; color: #92400e; }
-.message-stream { display: flex; flex: 1; flex-direction: column; gap: 12px; padding: 20px; overflow: auto; background: #f8fafc; }
+.message-stream { display: flex; flex: 1; flex-direction: column; gap: 12px; padding: 20px; overflow: auto; background: #f8fafc; overflow-anchor: auto; }
 .message-bubble { width: min(78%, 520px); padding: 13px 15px; border-radius: 16px; box-shadow: 0 2px 8px rgba(15, 23, 42, .06); }
 .message-bubble p { color: inherit; }
 .message-bubble small { display: block; margin-top: 7px; font-size: 10px; opacity: .7; }
