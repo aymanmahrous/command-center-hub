@@ -1,0 +1,1 @@
+Additive Coach Brain Phase 2 foundation: anonymized research brief builder, evidence/source policy, private/public data boundary, server-side provider contract, security requirements, tests and generic bubble-blowing example. No live provider is faked; no publishing, messaging, n8n or database changes.
