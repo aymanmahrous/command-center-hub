@@ -133,7 +133,7 @@ export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
             <div className="coach-brain__result-title"><BookOpen size={18} /> <h2>{t.sources}</h2></div>
             {result.sources.length ? result.sources.map((source) => <a key={source.url} href={source.url} target="_blank" rel="noreferrer" className="coach-brain__source-link"><strong>{source.title}</strong><span>{source.url}</span></a>) : <p>{language === "ar" ? "لم يعرض مزود البحث مصادر مباشرة لهذه الإجابة." : "The research provider did not return direct source links for this answer."}</p>}
           </article>
-          <div className="coach-brain__safety"><AlertTriangle size={17} /><strong>{t.safety}:</strong><span>{language === "ar" ? "Coach Brain لا يشخّص ولا يقدم علاجًا طبيًا. في الإصابة أو الألم أو التأهيل السريري يجب الرجوع للمختص المناسب." : "Coach Brain does not diagnose or provide medical treatment. For injury, pain or clinical rehabilitation, use the appropriate licensed professional."}</span></div>
+          <div className="coach-brain__safety"><AlertTriangle size={17} /><strong>{t.safety}:</strong><span>{language === "ar" ? "Coach Brain لا يشخّص ولا يقدم علاجًا طبيًا، ولا يوصي بالغمر القسري. في الإصابة أو الألم أو التأهيل السريري يجب الرجوع للمختص المناسب." : "Coach Brain does not diagnose or provide medical treatment, and it does not recommend forced submersion. For injury, pain or clinical rehabilitation, use the appropriate licensed professional."}</span></div>
         </section>
       )}
     </main>
