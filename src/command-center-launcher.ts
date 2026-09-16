@@ -41,8 +41,9 @@ let desktopNav: HTMLElement | null = null;
 let mobileNav: HTMLElement | null = null;
 let mobileSub: HTMLSelectElement | null = null;
 let legacyNav: HTMLElement | null = null;
-let bodyObserver: MutationObserver | null = null;
 let legacyObserver: MutationObserver | null = null;
+let shellObserver: MutationObserver | null = null;
+let languageObserver: MutationObserver | null = null;
 let redrawTimer = 0;
 
 const isArabic = () => document.documentElement.dir === 'rtl' || document.documentElement.lang === 'ar';
@@ -146,6 +147,17 @@ function ensureCoachBrainButton() {
   document.body.append(button);
 }
 
+function safeExternalUrl(value: unknown) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
+    return url.href;
+  } catch {
+    return null;
+  }
+}
+
 function openCoachBrain() {
   if (document.getElementById('cc-coach-brain')) return;
   const overlay = document.createElement('div');
@@ -188,9 +200,11 @@ function openCoachBrain() {
       if (!response.ok || !payload.success) throw new Error();
       answer.textContent = payload.answer || 'لم تصل إجابة.';
       (payload.sources || []).slice(0, 8).forEach((source: { url?: string; title?: string }) => {
-        const link = document.createElement('a'); link.href = source.url || '#'; link.target = '_blank'; link.rel = 'noreferrer';
-        const strong = document.createElement('strong'); strong.textContent = source.title || source.url || '';
-        const small = document.createElement('small'); small.textContent = source.url || '';
+        const url = safeExternalUrl(source.url);
+        if (!url) return;
+        const link = document.createElement('a'); link.href = url; link.target = '_blank'; link.rel = 'noreferrer';
+        const strong = document.createElement('strong'); strong.textContent = source.title || url;
+        const small = document.createElement('small'); small.textContent = url;
         link.append(strong, small); sources.append(link);
       });
       status.textContent = 'تم البحث والتحليل. السؤال لا يُحفظ في سجل سباح.';
@@ -221,6 +235,21 @@ function bindLegacyNavigation(nav: HTMLElement) {
   return true;
 }
 
+function scheduleRebind() {
+  window.clearTimeout(redrawTimer);
+  redrawTimer = window.setTimeout(() => {
+    const nav = document.querySelector('.app-shell aside nav') as HTMLElement | null;
+    if (!nav) {
+      legacyObserver?.disconnect();
+      legacyObserver = null;
+      legacyNav = null;
+      sectionButtons.clear();
+      return;
+    }
+    if (nav !== legacyNav || !legacyNav?.isConnected) install(nav);
+  }, 80);
+}
+
 function watchLegacyNav(nav: HTMLElement) {
   legacyObserver?.disconnect();
   legacyObserver = new MutationObserver(() => {
@@ -232,33 +261,46 @@ function watchLegacyNav(nav: HTMLElement) {
   legacyObserver.observe(nav, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
 }
 
-function install() {
-  const oldNav = document.querySelector('.app-shell aside nav') as HTMLElement | null;
-  if (!oldNav) return false;
-  if (!bindLegacyNavigation(oldNav)) return false;
-  oldNav.hidden = true;
-  legacyNav = oldNav;
+function watchShell(shell: HTMLElement) {
+  shellObserver?.disconnect();
+  shellObserver = new MutationObserver(() => scheduleRebind());
+  shellObserver.observe(shell, { childList: true, subtree: true });
+}
+
+function install(oldNav?: HTMLElement) {
+  const nav = oldNav || document.querySelector('.app-shell aside nav') as HTMLElement | null;
+  if (!nav || !bindLegacyNavigation(nav)) return false;
+  nav.hidden = true;
+  const changedNav = nav !== legacyNav;
+  legacyNav = nav;
+
   if (!desktopNav || !desktopNav.isConnected) {
-    desktopNav = document.createElement('nav'); desktopNav.className = 'cc-five-nav'; desktopNav.setAttribute('aria-label', isArabic() ? 'الأقسام الرئيسية' : 'Main areas'); oldNav.after(desktopNav);
+    desktopNav = document.createElement('nav');
+    desktopNav.className = 'cc-five-nav';
+    desktopNav.setAttribute('aria-label', isArabic() ? 'الأقسام الرئيسية' : 'Main areas');
+    nav.after(desktopNav);
   }
   if (!mobileNav || !mobileNav.isConnected) {
-    mobileNav = document.createElement('nav'); mobileNav.className = 'cc-five-mobile'; mobileNav.setAttribute('aria-label', isArabic() ? 'التنقل الرئيسي' : 'Main navigation'); document.body.append(mobileNav);
+    mobileNav = document.createElement('nav');
+    mobileNav.className = 'cc-five-mobile';
+    mobileNav.setAttribute('aria-label', isArabic() ? 'التنقل الرئيسي' : 'Main navigation');
+    document.body.append(mobileNav);
   }
   installStyles();
   draw();
-  if (legacyNav === oldNav) watchLegacyNav(oldNav);
-  bodyObserver?.disconnect();
-  bodyObserver = null;
+  if (changedNav || !legacyObserver) watchLegacyNav(nav);
+  const shell = nav.closest('.app-shell') as HTMLElement | null;
+  if (shell && !shellObserver) watchShell(shell);
   return true;
 }
 
-bodyObserver = new MutationObserver(() => { install(); });
-bodyObserver.observe(document.body, { childList: true, subtree: true });
+const initialInstall = () => {
+  if (!legacyNav) install();
+};
+[50, 500, 1500].forEach((delay) => window.setTimeout(initialInstall, delay));
 
-const languageObserver = new MutationObserver(() => {
+languageObserver = new MutationObserver(() => {
   window.clearTimeout(redrawTimer);
   redrawTimer = window.setTimeout(draw, 50);
 });
 languageObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['lang', 'dir'] });
-
-[50, 500, 1500].forEach((delay) => setTimeout(() => { if (!legacyNav) install(); }, delay));
