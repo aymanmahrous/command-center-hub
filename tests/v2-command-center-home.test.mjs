@@ -22,3 +22,20 @@ test('V2 Home operating strip is responsive', () => {
   assert.match(style, /\.v2-operating-strip/);
   assert.match(style, /@media\(max-width:760px\)/);
 });
+
+test('V2 Home exposes the content lifecycle and filters command navigation by the entered query', () => {
+  for (const stage of ['Draft', 'Review', 'Approved', 'Scheduled', 'Published']) assert.match(view, new RegExp(stage));
+  assert.match(view, /v2-lifecycle/);
+  assert.match(view, /v2-command-results button/);
+  assert.match(view, /button\.hidden/);
+  assert.match(view, /Owner Approval/);
+});
+
+test('Coach Brain guidance is derived from current summary data and cannot execute external actions', () => {
+  assert.match(view, /V2CoachBrainCard/);
+  assert.match(view, /human-review conversations/);
+  assert.match(view, /content in review/);
+  assert.match(view, /pending bookings/);
+  assert.match(view, /does not execute external actions/);
+  assert.match(view, /Open suggested action/);
+});
