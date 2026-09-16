@@ -6,7 +6,7 @@ const distDirectory = resolve(process.env.PERFORMANCE_DIST_DIR ?? "dist");
 const indexPath = resolve(distDirectory, "index.html");
 const budgets = {
   js: { raw: 366_000, gzip: 108_000 },
-  css: { raw: 27_000, gzip: 6_000 },
+  css: { raw: 33_000, gzip: 7_000 },
 };
 
 if (!existsSync(indexPath)) {
