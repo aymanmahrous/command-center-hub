@@ -15,6 +15,23 @@ const AREAS: Area[] = [
 ];
 
 const SECTION_IDS = ['dashboard', 'inbox', 'crm', 'automations', 'content', 'planner', 'media', 'archive', 'analytics', 'integrations', 'radar'];
+const ICON_CLASSES: Record<string, string> = {
+  dashboard: 'lucide-layout-dashboard',
+  inbox: 'lucide-inbox',
+  crm: 'lucide-contact-round',
+  automations: 'lucide-workflow',
+  content: 'lucide-bot',
+  planner: 'lucide-calendar-days',
+  media: 'lucide-library',
+  archive: 'lucide-library',
+  analytics: 'lucide-bar-chart-3',
+  integrations: 'lucide-settings-2',
+  radar: 'lucide-shield-alert',
+};
+const TEXT_LABELS: Record<string, string[]> = {
+  media: ['مكتبة الوسائط', 'Media Library'],
+  archive: ['الأرشيف الضخم', 'Massive Archive'],
+};
 
 window.CC_SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 window.CC_SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -23,6 +40,10 @@ let sectionButtons = new Map<string, HTMLButtonElement>();
 let desktopNav: HTMLElement | null = null;
 let mobileNav: HTMLElement | null = null;
 let mobileSub: HTMLSelectElement | null = null;
+let legacyNav: HTMLElement | null = null;
+let bodyObserver: MutationObserver | null = null;
+let legacyObserver: MutationObserver | null = null;
+let redrawTimer = 0;
 
 const isArabic = () => document.documentElement.dir === 'rtl' || document.documentElement.lang === 'ar';
 const label = (area: Area) => (isArabic() ? area.ar : area.en);
@@ -179,13 +200,44 @@ function openCoachBrain() {
   input.focus();
 }
 
+function findSectionButton(nav: HTMLElement, id: string) {
+  const iconClass = ICON_CLASSES[id];
+  const candidates = [...nav.querySelectorAll('button')].filter((button) =>
+    Boolean(button.querySelector(`svg.${iconClass}`))
+  ) as HTMLButtonElement[];
+  if (candidates.length === 1) return candidates[0];
+  const labels = TEXT_LABELS[id] || [];
+  return candidates.find((button) => labels.some((text) => button.textContent?.trim().includes(text))) || null;
+}
+
+function bindLegacyNavigation(nav: HTMLElement) {
+  const next = new Map<string, HTMLButtonElement>();
+  for (const id of SECTION_IDS) {
+    const button = findSectionButton(nav, id);
+    if (!button) return false;
+    next.set(id, button);
+  }
+  sectionButtons = next;
+  return true;
+}
+
+function watchLegacyNav(nav: HTMLElement) {
+  legacyObserver?.disconnect();
+  legacyObserver = new MutationObserver(() => {
+    window.clearTimeout(redrawTimer);
+    redrawTimer = window.setTimeout(() => {
+      if (bindLegacyNavigation(nav)) draw();
+    }, 80);
+  });
+  legacyObserver.observe(nav, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+}
+
 function install() {
   const oldNav = document.querySelector('.app-shell aside nav') as HTMLElement | null;
   if (!oldNav) return false;
-  const buttons = [...oldNav.querySelectorAll('button')].slice(0, SECTION_IDS.length) as HTMLButtonElement[];
-  if (buttons.length !== SECTION_IDS.length) return false;
-  sectionButtons = new Map(SECTION_IDS.map((id, index) => [id, buttons[index]]));
+  if (!bindLegacyNavigation(oldNav)) return false;
   oldNav.hidden = true;
+  legacyNav = oldNav;
   if (!desktopNav || !desktopNav.isConnected) {
     desktopNav = document.createElement('nav'); desktopNav.className = 'cc-five-nav'; desktopNav.setAttribute('aria-label', isArabic() ? 'الأقسام الرئيسية' : 'Main areas'); oldNav.after(desktopNav);
   }
@@ -194,9 +246,19 @@ function install() {
   }
   installStyles();
   draw();
+  if (legacyNav === oldNav) watchLegacyNav(oldNav);
+  bodyObserver?.disconnect();
+  bodyObserver = null;
   return true;
 }
 
-const observer = new MutationObserver(() => { if (install()) draw(); });
-observer.observe(document.body, { childList: true, subtree: true });
-[50, 500, 1500].forEach((delay) => setTimeout(() => { install(); draw(); }, delay));
+bodyObserver = new MutationObserver(() => { install(); });
+bodyObserver.observe(document.body, { childList: true, subtree: true });
+
+const languageObserver = new MutationObserver(() => {
+  window.clearTimeout(redrawTimer);
+  redrawTimer = window.setTimeout(draw, 50);
+});
+languageObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['lang', 'dir'] });
+
+[50, 500, 1500].forEach((delay) => setTimeout(() => { if (!legacyNav) install(); }, delay));
