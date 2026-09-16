@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowRight, CalendarDays, CheckCircle2, Command, MessageCircle, Search, Sparkles, Users, Workflow } from "lucide-react";
+import { openCommandCenterWorkspace } from "./command-center-workspace";
 import { useLanguage } from "./i18n";
 import type { Language } from "./i18n";
 import "./v2-command-center.css";
@@ -43,6 +44,23 @@ const alertText: Record<string, [string, string]> = {
   human_required: ["محادثات تحتاج تدخلاً بشرياً", "Conversations need human attention"], pending_bookings: ["حجوزات معلقة", "Bookings are waiting for action"], content_review: ["محتوى ينتظر الموافقة", "Content is waiting for review"], hot_radar: ["فرص ساخنة تحتاج مراجعة", "Hot opportunities need review"], failed_jobs: ["مهام خلفية فاشلة", "Background jobs need attention"], failed_content: ["محتوى فاشل", "Failed content items"], new_leads: ["عملاء محتملون يحتاجون متابعة", "Leads need follow-up"],
 };
 
+function V2OperatingStrip({ language, reviewCount, humanCount, onNavigate }: { language: Language; reviewCount: number; humanCount: number; onNavigate: (section: string) => void }) {
+  const ar = language === "ar";
+  const actions = [
+    ["✍", ar ? "إنشاء محتوى" : "Create Content", "content"],
+    ["✓", ar ? "مراجعة المحتوى" : "Review Content", "content"],
+    ["▣", ar ? "مكتبة الوسائط" : "Media Library", "media"],
+    ["◌", ar ? "الرسائل" : "Messages", "inbox"],
+    ["◷", ar ? "الحجوزات" : "Bookings", "planner"],
+    ["⚙", ar ? "الإعدادات" : "Settings", "integrations"],
+  ] as const;
+  return <section className="v2-operating-strip" aria-label={ar ? "مركز التشغيل" : "Operating center"}>
+    <div className="v2-operating-status"><span className="v2-kicker">{ar ? "حالة التشغيل" : "OPERATING STATUS"}</span><strong>{ar ? "القرار البشري هو بوابة التنفيذ" : "Human decision is the execution gate"}</strong><small>{ar ? "لا نشر أو رسائل خارجية أو إجراء حساس بدون Owner Approval." : "No publishing, external messages, or sensitive action without Owner Approval."}</small></div>
+    <div className="v2-operating-gates"><span><b>{reviewCount}</b> {ar ? "محتوى للمراجعة" : "content in review"}</span><span><b>{humanCount}</b> {ar ? "رسائل تحتاج إنسانًا" : "messages need a human"}</span><span className="v2-demo-state"><b>DEMO</b> {ar ? "المصادر غير متصلة" : "sources not connected"}</span></div>
+    <div className="v2-quick-actions">{actions.map(([icon, label, section]) => <button type="button" key={section + label} onClick={() => onNavigate(section)}><span>{icon}</span>{label}<ArrowRight size={14} /></button>)}<button type="button" className="v2-brain-action" onClick={() => openCommandCenterWorkspace(language)}><span>🧠</span>{ar ? "Coach Brain" : "Coach Brain"}<ArrowRight size={14} /></button></div>
+  </section>;
+}
+
 export default function ControlTowerV2({ session, onSessionExpired }: { session: Session; onSessionExpired: () => void }) {
   const { language } = useLanguage();
   const [summary, setSummary] = useState<Summary | null>(null); const [status, setStatus] = useState<"loading" | "ready" | "error">("loading"); const [query, setQuery] = useState(""); const [commandOpen, setCommandOpen] = useState(false);
@@ -58,6 +76,7 @@ export default function ControlTowerV2({ session, onSessionExpired }: { session:
   const journey = [{ label: language === "ar" ? "عملاء محتملون" : "Leads", value: summary.leads.total, hint: language === "ar" ? `${summary.leads.new} جديد · ${summary.leads.hot} ساخن` : `${summary.leads.new} new · ${summary.leads.hot} hot`, section: "crm" }, { label: language === "ar" ? "تواصل يحتاج متابعة" : "Conversations", value: human, hint: language === "ar" ? "تدخل بشري" : "human attention", section: "inbox" }, { label: language === "ar" ? "نية حجز" : "Booking intent", value: summary.bookings.pending, hint: language === "ar" ? "طلبات معلقة" : "pending requests", section: "planner" }, { label: language === "ar" ? "حجوزات مؤكدة" : "Confirmed", value: summary.bookings.confirmed, hint: language === "ar" ? "تم التأكيد" : "confirmed", section: "planner" }, { label: language === "ar" ? "عملاء" : "Customers", value: summary.leads.customers, hint: language === "ar" ? "تحولوا إلى عملاء" : "converted customers", section: "crm" }];
 
   return <div className="v2-command-home" dir={language === "ar" ? "rtl" : "ltr"}>
+    <V2OperatingStrip language={language} reviewCount={review} humanCount={human} onNavigate={go} />
     <header className="v2-topbar"><div><span className="v2-kicker">COMMAND CENTER V2</span><h2>{language === "ar" ? `صباح الخير${session.displayName ? `، ${session.displayName}` : ""}` : `Good morning${session.displayName ? `, ${session.displayName}` : ""}`}</h2></div><div className="v2-top-actions"><button className="v2-search" type="button" onClick={() => setCommandOpen(true)}><Search size={17} />{language === "ar" ? "بحث أو أمر…" : "Search or Command…"}<kbd>⌘K</kbd></button><span className={`v2-system ${healthy ? "ok" : "warn"}`}><span />{healthy ? "SYSTEM OPERATIONAL" : "REVIEW REQUIRED"}</span></div></header>
     <section className="v2-action-center"><div className="v2-section-head"><div><span>NEEDS YOUR ATTENTION</span><h3>{language === "ar" ? "ماذا يحتاج قرارك الآن؟" : "What needs your decision now?"}</h3></div><button type="button" onClick={() => setCommandOpen(true)}>{language === "ar" ? "مراجعة الكل" : "Review All"}<ArrowRight size={16} /></button></div>{actions.length === 0 ? <div className="v2-empty"><CheckCircle2 size={21} />{language === "ar" ? "لا توجد إجراءات عاجلة في اللقطة الحالية." : "No urgent actions in the current snapshot."}</div> : <div className="v2-action-grid">{actions.map((item) => { const Icon = item.icon; return <button type="button" className="v2-action-card" key={item.section} onClick={() => go(item.section)}><span className="v2-action-icon"><Icon size={20} /></span><strong>{n(language, item.count)}</strong><span>{item.label}</span><ArrowRight size={16} /></button>; })}</div>}</section>
     <section className="v2-pulse"><div className="v2-section-head"><div><span>BUSINESS PULSE</span><h3>{language === "ar" ? "نبض النشاط" : "Business pulse"}</h3></div></div><div className="v2-metric-grid">{cards.map(({ icon: Icon, label, value, hint, section }) => <button type="button" className="v2-metric" key={label} onClick={() => go(section)}><Icon size={19} /><span>{label}</span><strong>{value}</strong><small>{hint}</small></button>)}</div></section>
