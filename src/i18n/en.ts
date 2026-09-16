@@ -19,6 +19,8 @@ export const en = {
   },
   nav: {
     dashboard: "Command Center",
+    today: "Today",
+    command: "Search / Command",
     inbox: "AI Inbox",
     crm: "CRM",
     automations: "Automations",
@@ -29,6 +31,7 @@ export const en = {
     analytics: "Analytics",
     integrations: "Integrations",
     radar: "Opportunity Radar",
+    brain: "Coach Brain",
     logout: "Logout",
     skipToContent: "Skip to main content",
   },
