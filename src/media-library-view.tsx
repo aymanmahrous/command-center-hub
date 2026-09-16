@@ -5,6 +5,7 @@ import { useLanguage } from "./i18n";
 import type { Dictionary, Language } from "./i18n";
 import MediaLibraryUploadPanel from "./media-library-upload";
 import { MediaAssetControls, MediaProviderStrip, parseMediaAssetRecords } from "./media-library-controls";
+import MediaSourceHubView from "./media-source-hub-view";
 import type { MediaCategory } from "./media-types";
 import { MEDIA_CATEGORIES } from "./media-types";
 import { fetchStaffMediaSignedUrl, openStaffMediaAsset } from "./staff-media-storage";
@@ -242,6 +243,7 @@ export default function MediaLibraryView({
   if (!parsed.success) return <div className="error-box">{copy.invalidFormat}</div>;
 
   return <>
+    <MediaSourceHubView />
     <div className="write-banner media-write-banner">
       <strong>{canWrite ? copy.writeBannerTitle : (language === "ar" ? "مكتبة وسائط خاصة للقراءة فقط" : "Private read-only media library")}</strong>
       <span>{copy.bannerSubtitle}</span>
