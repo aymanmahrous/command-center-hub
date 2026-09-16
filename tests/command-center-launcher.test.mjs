@@ -1,34 +1,33 @@
-import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import test from 'node:test';
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import test from "node:test";
 
-const source = fs.readFileSync(new URL('../src/command-center-launcher.ts', import.meta.url), 'utf8');
+const index = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+const launcher = fs.readFileSync(new URL("../src/command-center-launcher.ts", import.meta.url), "utf8");
+const bootstrap = fs.readFileSync(new URL("../src/command-center-bootstrap.ts", import.meta.url), "utf8");
+const app = fs.readFileSync(new URL("../src/main.tsx", import.meta.url), "utf8");
 
-test('launcher maps all 11 legacy sections without DOM-order slicing', () => {
-  const ids = [...source.matchAll(/\b(?:dashboard|inbox|crm|automations|content|planner|media|archive|analytics|integrations|radar)\b/g)];
-  assert.ok(ids.length >= 11);
-  assert.doesNotMatch(source, /querySelectorAll\('button'\)\)\.slice\(/);
-  assert.match(source, /const ICON_CLASSES/);
-  assert.match(source, /const TEXT_LABELS/);
+test("application entry has one React bootstrap and no overlay launcher", () => {
+  assert.match(index, /<script type="module" src="\/src\/main\.tsx"><\/script>/);
+  assert.doesNotMatch(index, /command-center-bootstrap/);
+  assert.doesNotMatch(index, /command-center-launcher/);
 });
 
-test('launcher observes the legacy nav with an 80ms debounce and never observes document.body', () => {
-  assert.match(source, /legacyObserver\.observe\(nav/);
-  assert.match(source, /}, 80\)/);
-  assert.match(source, /shellObserver\.observe\(shell/);
-  assert.doesNotMatch(source, /bodyObserver/);
-  assert.doesNotMatch(source, /observe\(document\.body/);
+test("historical launcher modules cannot create a duplicate workspace or Coach Brain control", () => {
+  assert.doesNotMatch(launcher, /openCommandCenterWorkspace|cc-cb-launch|MutationObserver/);
+  assert.doesNotMatch(bootstrap, /import\(/);
 });
 
-test('launcher has a remount-safe rebinding path', () => {
-  assert.match(source, /scheduleRebind/);
-  assert.match(source, /nav !== legacyNav/);
-  assert.match(source, /legacyNav = null/);
-  assert.match(source, /install\(nav\)/);
+test("authenticated V2 navigation exposes existing Today, Command, and Coach Brain modules", () => {
+  assert.match(app, /\["today", CalendarDays, "x"\]/);
+  assert.match(app, /\["command", Bot, "x"\]/);
+  assert.match(app, /\["brain", Bot, "x"\]/);
+  assert.match(app, /<TodayView session=\{session\} onNavigate=\{setActive\} onSessionExpired=\{onLogout\} \/>/);
+  assert.match(app, /<ControlTowerV2 key=\{`\$\{active\}-\$\{reloadKey\}`\} session=\{session\} onSessionExpired=\{onLogout\} initialCommandOpen=\{active === "command"\} \/>/);
 });
 
-test('Coach Brain source links accept only http and https URLs', () => {
-  assert.match(source, /function safeExternalUrl/);
-  assert.match(source, /url\.protocol !== 'https:' && url\.protocol !== 'http:'/);
-  assert.match(source, /const url = safeExternalUrl\(source\.url\)/);
+test("Coach Brain remains an authenticated direct route with evidence links rendered by its component", () => {
+  assert.match(app, /const CoachBrain = lazy\(\(\) => import\("\.\/coach-brain"\)\)/);
+  assert.match(app, /<CoachBrain language=\{language\} \/>/);
+  assert.doesNotMatch(launcher, /renderCoachBrainSource|safeExternalUrl/);
 });

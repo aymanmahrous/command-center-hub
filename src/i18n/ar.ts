@@ -21,6 +21,8 @@ export const ar: Dictionary = {
   },
   nav: {
     dashboard: "مركز التحكم",
+    today: "اليوم",
+    command: "بحث / أمر",
     inbox: "صندوق الوارد الذكي",
     crm: "إدارة العملاء",
     automations: "الأتمتة",
@@ -31,6 +33,7 @@ export const ar: Dictionary = {
     analytics: "التحليلات",
     integrations: "التكاملات",
     radar: "رادار الفرص",
+    brain: "Coach Brain",
     logout: "تسجيل الخروج",
     skipToContent: "تجاوز إلى المحتوى الرئيسي",
   },
