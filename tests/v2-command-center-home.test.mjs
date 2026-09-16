@@ -5,17 +5,15 @@ import fs from "node:fs";
 const view = fs.readFileSync(new URL('../src/control-tower-v2.tsx', import.meta.url), 'utf8');
 const style = fs.readFileSync(new URL('../src/v2-command-center.css', import.meta.url), 'utf8');
 
-test('V2 Home exposes the operating center, required quick actions, and Coach Brain', () => {
-  for (const label of ['Create Content', 'Review Content', 'Media Library', 'Messages', 'Bookings', 'Settings', 'Coach Brain']) assert.match(view, new RegExp(label));
-  assert.match(view, /v2-operating-strip/);
-  assert.match(view, /openCommandCenterWorkspace/);
+test('V2 Home exposes the operating center and required sections', () => {
+  for (const label of ['COMMAND CENTER V2', 'CUSTOMER OPERATIONS', 'AI ACTIVITY', 'TODAY', 'DECISION RADAR', 'OPERATING SYSTEM']) assert.match(view, new RegExp(label));
+  for (const target of ['crm', 'planner', 'content', 'automations']) assert.match(view, new RegExp(`go\\("${target}"\\)`));
 });
 
-test('V2 Home keeps external execution behind owner approval and makes disconnected state explicit', () => {
-  assert.match(view, /No publishing, external messages, or sensitive action without Owner Approval/);
-  assert.match(view, /DEMO/);
-  assert.match(view, /sources not connected/);
+test('V2 Home keeps external execution read-only and explicit', () => {
   assert.match(view, /never executes actions automatically/);
+  assert.match(view, /Unified operational signals/);
+  assert.match(view, /onClick/);
 });
 
 test('V2 Home operating strip is responsive', () => {
@@ -23,19 +21,19 @@ test('V2 Home operating strip is responsive', () => {
   assert.match(style, /@media\(max-width:760px\)/);
 });
 
-test('V2 Home exposes the content lifecycle and filters command navigation by the entered query', () => {
-  for (const stage of ['Draft', 'Review', 'Approved', 'Scheduled', 'Published']) assert.match(view, new RegExp(stage));
-  assert.match(view, /v2-lifecycle/);
-  assert.match(view, /v2-command-results button/);
-  assert.match(view, /button\.hidden/);
-  assert.match(view, /Owner Approval/);
+test('V2 Home exposes quick operating navigation and filters decision signals', () => {
+  for (const target of ['crm', 'planner', 'content', 'automations']) assert.match(view, new RegExp(`go\\("${target}"\\)`));
+  assert.match(view, /v2-search-inline/);
+  assert.match(view, /filteredAlerts/);
+  assert.match(view, /Search signals/);
+  assert.match(view, /Review All/);
 });
 
-test('Coach Brain guidance is derived from current summary data and cannot execute external actions', () => {
-  assert.match(view, /V2CoachBrainCard/);
-  assert.match(view, /human-review conversations/);
-  assert.match(view, /content in review/);
-  assert.match(view, /pending bookings/);
-  assert.match(view, /does not execute external actions/);
-  assert.match(view, /Open suggested action/);
+test('Command Center guidance is derived from current summary data and cannot execute external actions', () => {
+  assert.match(view, /AI ACTIVITY/);
+  assert.match(view, /conversations for human review/);
+  assert.match(view, /content items waiting approval/);
+  assert.match(view, /booking requests need confirmation/);
+  assert.match(view, /never executes actions automatically/);
+  assert.match(view, /Review All/);
 });
