@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Check, Copy, ExternalLink, Image as ImageIcon, Search, ShieldCheck, Sparkles, Video } from "lucide-react";
+import { openCommandCenterWorkspace } from "./command-center-workspace";
 import { useLanguage } from "./i18n";
 import {
   buildCreativeBrief,
@@ -31,10 +32,15 @@ export default function MediaSourceHubView({ onOpenProvider }: Props) {
   const [objective, setObjective] = useState(ar ? "تعليم السباحة بثقة وأمان" : "Confident, safe swimming lessons");
   const [briefLanguage, setBriefLanguage] = useState<"ar" | "en">(language);
   const [copied, setCopied] = useState(false);
-  const connections = useMemo(() => readProviderConnections(), []);
+  const [enabledProviders, setEnabledProviders] = useState<MediaProviderKey[]>([]);
+  const connections = useMemo(() => readProviderConnections(import.meta.env as unknown as Record<string, unknown>), []);
   const items = useMemo(() => filterRemoteMedia(DEMO_ITEMS, query, provider), [query, provider]);
   const selected = DEMO_ITEMS.find((item) => item.id === selectedId) ?? null;
   const brief = selected ? buildCreativeBrief(selected, briefLanguage, objective) : null;
+
+  function toggleProvider(key: MediaProviderKey) {
+    setEnabledProviders((current) => current.includes(key) ? current.filter((item) => item !== key) : [...current, key]);
+  }
 
   async function copyBrief() {
     if (!brief) return;
@@ -50,13 +56,14 @@ export default function MediaSourceHubView({ onOpenProvider }: Props) {
         <h2>{ar ? "اختر الأصل المناسب، ثم حوّله إلى حملة" : "Choose the right asset, then turn it into a campaign"}</h2>
         <p>{ar ? "هذه الواجهة هي طبقة التشغيل الموحدة. الاتصالات الحية تحتاج OAuth ولا تحفظ أي أسرار في المتصفح." : "This is the unified operating layer. Live connections require OAuth and never store secrets in the browser."}</p>
       </div>
-      <div className="media-hub-safe"><ShieldCheck size={18} /> {ar ? "خصوصية ومراجعة قبل النشر" : "Privacy + review before publish"}</div>
+      <div className="media-hub-banner-actions"><div className="media-hub-safe"><ShieldCheck size={18} /> {ar ? "خصوصية ومراجعة قبل النشر" : "Privacy + review before publish"}</div><button type="button" className="coach-brain-launch" onClick={() => openCommandCenterWorkspace(language)}><Sparkles size={16} /> {ar ? "فتح Coach Brain" : "Open Coach Brain"}</button></div>
     </div>
 
     <section className="provider-strip" aria-label={ar ? "مصادر الوسائط" : "Media sources"}>
-      {connections.map((connection) => <button type="button" key={connection.key} className={`provider-chip ${connection.configured ? "configured" : ""}`} onClick={() => onOpenProvider?.(connection.key)}>
-        <span>{connection.label}</span><small>{connection.connected ? (ar ? "متصل" : "Connected") : connection.configured ? (ar ? "بانتظار الاتصال" : "OAuth ready") : (ar ? "يحتاج إعداد" : "Needs setup")}</small>
-      </button>)}
+      {connections.map((connection) => { const enabled = enabledProviders.includes(connection.key); return <div className={`provider-chip ${connection.configured ? "configured" : ""} ${enabled ? "enabled" : ""}`} key={connection.key}>
+        <div className="provider-chip-top"><span>{connection.label}</span><small>{enabled ? (ar ? "مُشغّل" : "Enabled") : connection.configured ? (ar ? "جاهز للاتصال" : "OAuth ready") : (ar ? "أضف المفتاح" : "Add key")}</small></div>
+        <div className="provider-chip-actions"><button type="button" onClick={() => toggleProvider(connection.key)}>{enabled ? (ar ? "فصل" : "Disconnect") : (ar ? "تشغيل" : "Enable")}</button><button type="button" className="provider-settings" onClick={() => onOpenProvider?.(connection.key)}>{ar ? "إعداد" : "Setup"}</button></div>
+      </div>; })}
     </section>
 
     <div className="media-hub-grid">
