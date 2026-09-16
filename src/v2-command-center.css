@@ -10,3 +10,14 @@
 .v2-brain-card{display:grid;gap:12px}.v2-brain-priority{margin:0;padding:12px;border-inline-start:3px solid #f59e0b;background:#241c0e;color:#fde68a;line-height:1.55}.v2-brain-suggestions{display:flex;flex-wrap:wrap;gap:7px}.v2-brain-suggestions span{padding:7px 9px;border:1px solid #263a52;border-radius:8px;color:#cbd5e1;font-size:11px;background:#091321}.v2-brain-actions{display:flex;gap:8px;flex-wrap:wrap}.v2-brain-actions button{display:flex;align-items:center;gap:7px;padding:9px 12px;border:0;border-radius:9px;background:#f97316;color:#fff;font:inherit;font-size:12px;font-weight:800;cursor:pointer}.v2-brain-actions button.secondary{background:#1e293b}@media(max-width:760px){.v2-brain-actions{display:grid}.v2-brain-actions button{justify-content:center}}
 
 .v2-workflow-queue{display:grid;gap:12px}.v2-workflow-list{display:grid;gap:7px}.v2-workflow-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px;border:1px solid #26374e;border-radius:11px;background:#091321}.v2-workflow-item>div{display:grid;gap:4px;min-width:0}.v2-workflow-item strong{color:#f8fafc;font-size:13px}.v2-workflow-item small{color:#94a3b8;font-size:11px;overflow:hidden;text-overflow:ellipsis}.v2-workflow-item button{display:flex;align-items:center;gap:6px;flex:0 0 auto;padding:8px 10px;border:0;border-radius:8px;background:#1e293b;color:#e2e8f0;font:inherit;font-size:11px;font-weight:800;cursor:pointer}.v2-workflow-item button:hover{background:#334155}.v2-workflow-status{width:max-content;padding:3px 6px;border-radius:5px;font-size:9px;font-weight:900;text-transform:uppercase}.v2-workflow-status.ready{background:#12382c;color:#86efac}.v2-workflow-status.needs-approval{background:#3b2b13;color:#fde68a}.v2-workflow-status.completed{background:#172554;color:#93c5fd}.v2-workflow-status.blocked{background:#3b1d24;color:#fca5a5}.v2-workflow-status.no-data{background:#1e293b;color:#94a3b8}@media(max-width:760px){.v2-workflow-item{align-items:stretch;flex-direction:column}.v2-workflow-item button{justify-content:center}}
+
+/* Keep the desktop navigation independently scrollable when it exceeds the viewport. */
+@media (min-width: 761px) {
+  .app-shell > aside {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: #3b6074 transparent;
+  }
+}
