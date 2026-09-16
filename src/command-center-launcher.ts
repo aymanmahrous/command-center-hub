@@ -101,7 +101,7 @@ function draw() {
     button.className = area.id === activeArea.id ? 'active' : '';
     button.onclick = () => go(area.sections[0]);
     return button;
-  }));
+  });
 
   mobileSub?.remove();
   mobileSub = null;
@@ -180,7 +180,7 @@ function openCoachBrain() {
 }
 
 function install() {
-  const oldNav = document.querySelector('.app-shell aside nav');
+  const oldNav = document.querySelector('.app-shell aside nav') as HTMLElement | null;
   if (!oldNav) return false;
   const buttons = [...oldNav.querySelectorAll('button')].slice(0, SECTION_IDS.length) as HTMLButtonElement[];
   if (buttons.length !== SECTION_IDS.length) return false;
