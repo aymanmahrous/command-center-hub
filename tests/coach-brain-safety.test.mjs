@@ -4,11 +4,15 @@ import assert from "node:assert/strict";
 
 const view = readFileSync(new URL("../src/coach-brain.tsx", import.meta.url), "utf8");
 const style = readFileSync(new URL("../src/coach-brain.css", import.meta.url), "utf8");
+const app = readFileSync(new URL("../src/main.tsx", import.meta.url), "utf8");
 
 test("Coach Brain exposes non-diagnostic safety boundaries", () => {
   assert.match(view, /does not diagnose|لا يشخّص/);
   assert.match(view, /medical treatment|علاجًا طبيًا/);
   assert.match(view, /clinical rehabilitation|التأهيل السريري/);
+  assert.match(app, /const CoachBrain = lazy\(\(\) => import\("\.\/coach-brain"\)\)/);
+  assert.match(app, /\["brain", Bot, "x"\]/);
+  assert.match(app, /<CoachBrain language=\{language\} \/>/);
 });
 
 test("Coach Brain includes a no-forced-submersion boundary", () => {

@@ -1,1 +1,2 @@
-void import("./command-center-launcher");
+// The Command Center now boots only through /src/main.tsx.
+export {};

@@ -6,7 +6,7 @@ import { canApproveContentItem, sharedDatabaseBatchId, type ContentBatchItem } f
 import { appendChangeRequest, buildChangeRequestNote, type ChangeRequestKind } from "./content-growth";
 import { LanguageProvider, useLanguage } from "./i18n";
 import type { Language } from "./i18n";
-import { pushSupported, registerServiceWorker, getPushSubscription, enablePush, disablePush } from "./push";
+import { registerServiceWorker } from "./push";
 import "./styles.css";
 import "./bookings.css";
 import "./content-studio.css";
@@ -20,9 +20,13 @@ const TodayView = lazy(() => import("./today-view"));
 const ControlTowerV2 = lazy(() => import("./control-tower-v2"));
 const ContentGrowthHub = lazy(() => import("./content-growth-hub"));
 const M = lazy(() => import("./massive-archive-view"));
+const CoachBrain = lazy(() => import("./coach-brain"));
+const PushInstallBar = lazy(() => import("./push-install-bar"));
 
 const sections = [
   ["dashboard", LayoutDashboard, "get_staff_command_center"],
+  ["today", CalendarDays, "x"],
+  ["command", Bot, "x"],
   ["inbox", Inbox, "get_staff_inbox"],
   ["crm", ContactRound, "get_staff_crm_leads"],
   ["automations", Workflow, "get_staff_content_automation_status"],
@@ -33,6 +37,7 @@ const sections = [
   ["analytics", BarChart3, "get_staff_growth_analytics"],
   ["integrations", Settings2, "get_staff_operations_queue"],
   ["radar", ShieldAlert, "get_staff_radar_opportunities"],
+  ["brain", Bot, "x"],
 ] as const;
 
 type SectionId = (typeof sections)[number][0];
@@ -1255,7 +1260,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   useEffect(() => {
     const controller = new AbortController();
     const section = current[0];
-    if (["archive", "dashboard"].includes(section)) {
+    if (["archive", "dashboard", "today", "command", "brain"].includes(section)) {
       setStatus("ready");
       loadedSectionRef.current = section;
       return () => controller.abort();
@@ -1286,73 +1291,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     return () => window.clearInterval(timer);
   }, [active]);
   const modeLabel = active === "planner" || active === "crm" || active === "inbox" || active === "content" || active === "media" ? dashboardCopy.controlledWrite : dashboardCopy.readOnly;
-  return <div className="app-shell"><a className="skip-link" href="#main-workspace">{nav.skipToContent}</a><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><LanguageSwitcher onDark /><nav aria-label="وحدات Command Center">{sections.map(([id, Icon]) => <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => setActive(id)}><Icon size={18} aria-hidden="true" />{nav[id]}</button>)}</nav><button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button></aside><main className="workspace" id="main-workspace" tabIndex={-1}><p className="eyebrow">{dashboardCopy.eyebrow} · {modeLabel}</p><h1>{nav[current[0]]}</h1><section className="panel" aria-busy={status === "loading"}><div className="panel-heading"><div><h2>{dashboardCopy.panelHeading}</h2><p>{dashboardCopy.panelSubheading}</p></div><div className="panel-heading-actions"><PushInstallBar session={session} language={language} /><button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button></div></div>{status === "loading" && <p className="muted" role="status">{t("common").loading}</p>}{status === "error" && <div className="error-box" role="alert">{error}</div>}{status === "ready" && (active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MediaLibraryView value={data} session={session} canWrite={["super_admin", "admin", "content_manager"].includes(session.role)} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /></Suspense> : active === "archive" ? <Suspense><M /></Suspense> : active === "analytics" ? <AnalyticsView value={data} /> : active === "integrations" ? <IntegrationsView value={data} /> : active === "automations" ? <AutomationsView value={data} /> : active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "dashboard" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><ControlTowerV2 key={reloadKey} session={session} onSessionExpired={onLogout} /></Suspense> : null)}</section></main></div>;
-}
-
-async function sendTestPushSelf(session: Session) {
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/send-push-notifications`, {
-    method: "POST",
-    headers: { apikey: SUPABASE_PUBLIC_KEY, Authorization: `Bearer ${session.accessToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ mode: "TEST_PUSH_SELF" }),
-  });
-  const result = (await response.json().catch(() => ({}))) as { success?: boolean; code?: string };
-  if (!response.ok || !result.success) throw new Error(result.code ?? `TEST_PUSH_FAILED_${response.status}`);
-}
-
-function PushInstallBar({ session, language }: { session: Session; language: Language }) {
-  const [subscribed, setSubscribed] = useState<boolean | null>(null);
-  const [installEvent, setInstallEvent] = useState<{ prompt: () => void } | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [testBusy, setTestBusy] = useState(false);
-  const [testResult, setTestResult] = useState<"idle" | "success" | "error">("idle");
-  useEffect(() => {
-    if (pushSupported()) getPushSubscription().then((sub) => setSubscribed(Boolean(sub))).catch(() => setSubscribed(false));
-    else setSubscribed(false);
-    const onPrompt = (event: Event) => { event.preventDefault(); setInstallEvent(event as unknown as { prompt: () => void }); };
-    window.addEventListener("beforeinstallprompt", onPrompt);
-    return () => window.removeEventListener("beforeinstallprompt", onPrompt);
-  }, []);
-
-  async function toggle() {
-    setBusy(true); setError("");
-    const rpc = (name: string, body: Record<string, unknown>) => callRpc(session, name, body);
-    try {
-      if (subscribed) { await disablePush(rpc); setSubscribed(false); }
-      else { await enablePush(rpc); setSubscribed(true); }
-    } catch {
-      setError(language === "ar" ? "تعذر تنفيذ الإجراء بأمان." : "Couldn't complete this safely.");
-    } finally { setBusy(false); }
-  }
-
-  async function sendTest() {
-    setTestBusy(true); setTestResult("idle");
-    try {
-      await sendTestPushSelf(session);
-      setTestResult("success");
-    } catch {
-      setTestResult("error");
-    } finally { setTestBusy(false); }
-  }
-
-  return <div className="push-install-bar">
-    {pushSupported() && subscribed !== null && (
-      <button type="button" disabled={busy} onClick={() => void toggle()}>
-        {subscribed ? (language === "ar" ? "إيقاف إشعارات الجوال" : "Disable phone notifications") : (language === "ar" ? "تفعيل إشعارات الجوال" : "Enable phone notifications")}
-      </button>
-    )}
-    {session.role === "super_admin" && subscribed && (
-      <button type="button" disabled={testBusy} onClick={() => void sendTest()}>
-        إرسال إشعار تجريبي / Send test notification
-      </button>
-    )}
-    {installEvent && (
-      <button type="button" onClick={() => { installEvent.prompt(); setInstallEvent(null); }}>{language === "ar" ? "تثبيت التطبيق" : "Install Command Center"}</button>
-    )}
-    {testResult === "success" && <small className="operation-success">{language === "ar" ? "تم إرسال الإشعار التجريبي." : "Test notification sent."}</small>}
-    {testResult === "error" && <small className="operation-error">{language === "ar" ? "تعذر إرسال الإشعار التجريبي." : "Couldn't send the test notification."}</small>}
-    {error && <small className="operation-error">{error}</small>}
-  </div>;
+  return <div className="app-shell"><a className="skip-link" href="#main-workspace">{nav.skipToContent}</a><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><LanguageSwitcher onDark /><nav aria-label="وحدات Command Center">{sections.map(([id, Icon]) => <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => setActive(id)}><Icon size={18} aria-hidden="true" />{nav[id]}</button>)}</nav><button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button></aside><main className="workspace" id="main-workspace" tabIndex={-1}><p className="eyebrow">{dashboardCopy.eyebrow} · {modeLabel}</p><h1>{nav[current[0]]}</h1><section className="panel" aria-busy={status === "loading"}><div className="panel-heading"><div><h2>{dashboardCopy.panelHeading}</h2><p>{dashboardCopy.panelSubheading}</p></div><div className="panel-heading-actions"><Suspense fallback={null}><PushInstallBar session={session} language={language} rpc={(name, body) => callRpc(session, name, body)} /></Suspense><button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button></div></div>{status === "loading" && <p className="muted" role="status">{t("common").loading}</p>}{status === "error" && <div className="error-box" role="alert">{error}</div>}{status === "ready" && (active === "today" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><TodayView session={session} onNavigate={setActive} onSessionExpired={onLogout} /></Suspense> : active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MediaLibraryView value={data} session={session} canWrite={["super_admin", "admin", "content_manager"].includes(session.role)} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /></Suspense> : active === "archive" ? <Suspense><M /></Suspense> : active === "analytics" ? <AnalyticsView value={data} /> : active === "integrations" ? <IntegrationsView value={data} /> : active === "automations" ? <AutomationsView value={data} /> : active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "brain" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><CoachBrain language={language} /></Suspense> : active === "dashboard" || active === "command" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><ControlTowerV2 key={`${active}-${reloadKey}`} session={session} onSessionExpired={onLogout} initialCommandOpen={active === "command"} /></Suspense> : null)}</section></main></div>;
 }
 
 function App() {
