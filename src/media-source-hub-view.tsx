@@ -16,31 +16,18 @@ import "./media-source-hub.css";
 
 type Props = { onOpenProvider?: (provider: MediaProviderKey) => void };
 
-const DEMO_ITEMS: RemoteMediaItem[] = [
-  { id: "demo-drive-pool", provider: "google_drive", name: "Pool training session.jpg", mimeType: "image/jpeg", webUrl: "https://drive.google.com/", folder: "Brand / Pool", consent: "needs_review" },
-  { id: "demo-photos-coach", provider: "google_photos", name: "Coach lesson reel.mp4", mimeType: "video/mp4", webUrl: "https://photos.google.com/", folder: "Swim Fluent", consent: "blocked" },
-  { id: "demo-dropbox-family", provider: "dropbox", name: "Family water confidence.jpg", mimeType: "image/jpeg", webUrl: "https://www.dropbox.com/", folder: "Campaign candidates", consent: "approved" },
-  { id: "demo-onedrive-brand", provider: "onedrive", name: "Brand logo pack.png", mimeType: "image/png", webUrl: "https://onedrive.live.com/", folder: "Brand", consent: "approved" },
-];
-
 export default function MediaSourceHubView({ onOpenProvider }: Props) {
   const { language } = useLanguage();
   const ar = language === "ar";
   const [query, setQuery] = useState("");
   const [provider, setProvider] = useState<MediaProviderKey | "all">("all");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<RemoteMediaItem | null>(null);
   const [objective, setObjective] = useState(ar ? "تعليم السباحة بثقة وأمان" : "Confident, safe swimming lessons");
   const [briefLanguage, setBriefLanguage] = useState<"ar" | "en">(language);
   const [copied, setCopied] = useState(false);
-  const [enabledProviders, setEnabledProviders] = useState<MediaProviderKey[]>([]);
   const connections = useMemo(() => readProviderConnections(import.meta.env as unknown as Record<string, unknown>), []);
-  const items = useMemo(() => filterRemoteMedia(DEMO_ITEMS, query, provider), [query, provider]);
-  const selected = DEMO_ITEMS.find((item) => item.id === selectedId) ?? null;
+  const items = useMemo(() => filterRemoteMedia([], query, provider), [query, provider]);
   const brief = selected ? buildCreativeBrief(selected, briefLanguage, objective) : null;
-
-  function toggleProvider(key: MediaProviderKey) {
-    setEnabledProviders((current) => current.includes(key) ? current.filter((item) => item !== key) : [...current, key]);
-  }
 
   async function copyBrief() {
     if (!brief) return;
@@ -56,13 +43,13 @@ export default function MediaSourceHubView({ onOpenProvider }: Props) {
         <h2>{ar ? "اختر الأصل المناسب، ثم حوّله إلى حملة" : "Choose the right asset, then turn it into a campaign"}</h2>
         <p>{ar ? "هذه الواجهة هي طبقة التشغيل الموحدة. الاتصالات الحية تحتاج OAuth ولا تحفظ أي أسرار في المتصفح." : "This is the unified operating layer. Live connections require OAuth and never store secrets in the browser."}</p>
       </div>
-      <div className="media-hub-banner-actions"><span className="demo-mode-badge">{ar ? "وضع تجريبي · محلي فقط" : "DEMO MODE · LOCAL ONLY"}</span><div className="media-hub-safe"><ShieldCheck size={18} /> {ar ? "خصوصية ومراجعة قبل النشر" : "Privacy + review before publish"}</div><button type="button" className="coach-brain-launch" onClick={() => openCommandCenterWorkspace(language)}><Sparkles size={16} /> {ar ? "فتح Coach Brain" : "Open Coach Brain"}</button></div>
+      <div className="media-hub-banner-actions"><span className="demo-mode-badge">{ar ? "لا توجد نتائج وهمية" : "NO FABRICATED RESULTS"}</span><div className="media-hub-safe"><ShieldCheck size={18} /> {ar ? "خصوصية ومراجعة قبل النشر" : "Privacy + review before publish"}</div><button type="button" className="coach-brain-launch" onClick={() => openCommandCenterWorkspace(language)}><Sparkles size={16} /> {ar ? "فتح Coach Brain" : "Open Coach Brain"}</button></div>
     </div>
 
     <section className="provider-strip" aria-label={ar ? "مصادر الوسائط" : "Media sources"}>
-      {connections.map((connection) => { const enabled = enabledProviders.includes(connection.key); return <div className={`provider-chip ${connection.configured ? "configured" : ""} ${enabled ? "enabled" : ""}`} key={connection.key}>
-        <div className="provider-chip-top"><span>{connection.label}</span><small>{enabled ? (ar ? "تجريبي مُشغّل · ليس اتصالًا حيًا" : "Demo enabled · not live") : connection.configured ? (ar ? "مفتاح موجود · الاتصال غير مفعّل" : "Key present · live off") : (ar ? "وضع تجريبي · المفتاح ناقص" : "Demo mode · key missing")}</small></div>
-        <div className="provider-chip-actions"><button type="button" onClick={() => toggleProvider(connection.key)}>{enabled ? (ar ? "إيقاف التجربة" : "Turn demo off") : (ar ? "تشغيل تجريبي" : "Turn demo on")}</button><button type="button" className="provider-settings" onClick={() => onOpenProvider?.(connection.key)}>{ar ? "متطلبات الاتصال" : "Connection needs"}</button></div>
+      {connections.map((connection) => { return <div className={`provider-chip ${connection.configured ? "configured" : ""}`} key={connection.key}>
+        <div className="provider-chip-top"><span>{connection.label}</span><small>{connection.configured ? (ar ? "الإعداد موجود · يلزم اتصال OAuth" : "Configuration present · OAuth connection required") : (ar ? "غير متصل · يحتاج إعداداً" : "Not connected · setup required")}</small></div>
+        <div className="provider-chip-actions"><span className="provider-settings" title={connection.authScope}>{connection.configured ? (ar ? "اتصل من اللوحة المخصصة" : "Connect from the provider panel") : (ar ? "راجع متطلبات الإعداد" : "Review setup requirements")}</span></div>
       </div>; })}
     </section>
 
@@ -74,13 +61,13 @@ export default function MediaSourceHubView({ onOpenProvider }: Props) {
           <select value={provider} onChange={(event) => setProvider(event.target.value as MediaProviderKey | "all")}><option value="all">{ar ? "كل المصادر" : "All sources"}</option>{(Object.keys(MEDIA_PROVIDER_LABELS) as MediaProviderKey[]).map((key) => <option key={key} value={key}>{MEDIA_PROVIDER_LABELS[key]}</option>)}</select>
         </div>
         <div className="remote-asset-list">
-          {items.map((item) => { const selectable = canSelectForCreative(item); return <article key={item.id} className={`remote-asset ${selectedId === item.id ? "selected" : ""} ${!selectable ? "blocked" : ""}`}>
+          {items.map((item) => { const selectable = canSelectForCreative(item); return <article key={item.id} className={`remote-asset ${selected?.id === item.id ? "selected" : ""} ${!selectable ? "blocked" : ""}`}>
             <div className="remote-asset-icon">{item.mimeType.startsWith("video/") ? <Video size={22} /> : <ImageIcon size={22} />}</div>
             <div className="remote-asset-info"><strong>{item.name}</strong><span>{MEDIA_PROVIDER_LABELS[item.provider]} · {item.folder}</span><small className={`consent-${item.consent}`}>{item.consent === "approved" ? (ar ? "مصرح" : "Approved") : item.consent === "blocked" ? (ar ? "محظور حتى تأكيد الموافقة" : "Blocked until consent") : (ar ? "يحتاج مراجعة" : "Needs review")}</small></div>
-            <div className="remote-asset-actions"><a href={item.webUrl} target="_blank" rel="noreferrer" aria-label={ar ? "فتح المصدر" : "Open source"}><ExternalLink size={16} /></a><button type="button" disabled={!selectable} onClick={() => setSelectedId(item.id)}>{selectedId === item.id ? <Check size={16} /> : ar ? "اختيار" : "Select"}</button></div>
+            <div className="remote-asset-actions"><a href={item.webUrl} target="_blank" rel="noreferrer" aria-label={ar ? "فتح المصدر" : "Open source"}><ExternalLink size={16} /></a><button type="button" disabled={!selectable} onClick={() => setSelected(item)}>{selected?.id === item.id ? <Check size={16} /> : ar ? "اختيار" : "Select"}</button></div>
           </article>; })}
         </div>
-        <p className="media-source-note">{ar ? "العناصر التجريبية توضح تجربة الاستخدام. عند إضافة OAuth، ستستبدلها نتائج الملفات الحقيقية من المصدر المتصل." : "Demo items illustrate the workflow. Once OAuth is configured, real provider results replace them."}</p>
+        <p className="media-source-note">{ar ? "لا توجد أصول معروضة حتى يتم توصيل مصدر حقيقي. لن يتم إنشاء أو عرض ملفات تجريبية." : "No assets are shown until a real provider is connected. No demo files are fabricated."}</p>
       </section>
 
       <section className="creative-factory-panel">

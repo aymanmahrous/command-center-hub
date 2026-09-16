@@ -34,11 +34,12 @@ test('creative briefs use the current Coach Ayman identity and retain owner revi
   assert.match(source, /No automatic publishing before owner approval/);
 });
 
-test('provider results are filtered and the UI labels local demo state explicitly', () => {
+test('provider results are filtered and the UI never fabricates provider assets', () => {
   assert.match(source, /filterRemoteMedia/);
   assert.match(source, /matchesProvider/);
   assert.match(source, /haystack\.includes\(normalized\)/);
-  assert.match(view, /DEMO MODE · LOCAL ONLY/);
-  assert.match(view, /Demo enabled · not live/);
-  assert.match(view, /تجريبي مُشغّل · ليس اتصالًا حيًا/);
+  assert.match(view, /NO FABRICATED RESULTS/);
+  assert.match(view, /No assets are shown until a real provider is connected/);
+  assert.doesNotMatch(view, /demo-drive-pool|demo-photos-coach|demo-dropbox-family|demo-onedrive-brand/);
+  assert.doesNotMatch(view, /تشغيل تجريبي|Turn demo on/);
 });
