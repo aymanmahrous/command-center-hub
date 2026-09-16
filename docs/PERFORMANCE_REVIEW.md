@@ -14,9 +14,9 @@ The review avoids a speculative component rewrite or dependency replacement. Cur
 | Initial resource | Raw | Gzip | Enforced limit (raw / gzip) |
 | --- | ---: | ---: | ---: |
 | JavaScript | 302,436 bytes | 87,906 bytes | 330,000 / 95,000 bytes |
-| CSS | 20,716 bytes | 4,472 bytes | 25,000 / 6,000 bytes |
+| CSS | 30,809 bytes | 6,391 bytes | 33,000 / 7,000 bytes |
 
-The limits leave controlled headroom while forcing future stages to justify growth or introduce genuine lazy loading before the initial experience becomes materially heavier.
+The limits leave controlled headroom while forcing future stages to justify growth or introduce genuine lazy loading before the initial experience becomes materially heavier. The CSS allowance reflects the current command-center operating-cockpit shell and its responsive navigation styles; feature-specific CSS remains lazy-loaded where the route is lazy-loaded.
 
 ## Runtime review
 
