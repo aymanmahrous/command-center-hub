@@ -101,7 +101,7 @@ function draw() {
     button.className = area.id === activeArea.id ? 'active' : '';
     button.onclick = () => go(area.sections[0]);
     return button;
-  });
+  }));
 
   mobileSub?.remove();
   mobileSub = null;
