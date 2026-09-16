@@ -22,3 +22,11 @@ test('V2 Home operating strip is responsive', () => {
   assert.match(style, /\.v2-operating-strip/);
   assert.match(style, /@media\(max-width:760px\)/);
 });
+
+test('V2 Home exposes the content lifecycle and filters command navigation by the entered query', () => {
+  for (const stage of ['Draft', 'Review', 'Approved', 'Scheduled', 'Published']) assert.match(view, new RegExp(stage));
+  assert.match(view, /v2-lifecycle/);
+  assert.match(view, /v2-command-results button/);
+  assert.match(view, /button\.hidden/);
+  assert.match(view, /Owner Approval/);
+});
