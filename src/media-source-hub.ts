@@ -73,35 +73,35 @@ export function filterRemoteMedia(items: RemoteMediaItem[], query: string, provi
 }
 
 export function canSelectForCreative(item: Pick<RemoteMediaItem, "mimeType" | "consent">): boolean {
-  return (item.mimeType.startsWith("image/") || item.mimeType.startsWith("video/")) && item.consent !== "blocked";
+  return (item.mimeType.startsWith("image/") || item.mimeType.startsWith("video/")) && item.consent === "approved";
 }
 
-export function buildCreativeBrief(item: Pick<RemoteMediaItem, "id" | "name" | "mimeType" | "consent">, language: "ar" | "en", objective: string): CreativeBrief {
+export function buildCreativeBrief(item: Pick<RemoteMediaItem, "id" | "name" | "mimeType" | "consent">, language: "ar" | "en", objective: string): CreativeBrief | null {
+  if (!canSelectForCreative(item)) return null;
   const video = item.mimeType.startsWith("video/");
-  const safe = item.consent === "approved";
   if (language === "ar") {
     return {
       sourceId: item.id,
       language,
       objective,
-      primaryText: `اكتشف ${objective} مع Relax Fix UAE — تجربة عملية وآمنة تبدأ بخطوة واحدة.`,
+      primaryText: `اكتشف ${objective} مع Coach Ayman Swimming Academy — تجربة عملية وآمنة تبدأ بخطوة واحدة.`,
       headline: video ? "شاهد التجربة وابدأ الآن" : "ابدأ تجربتك اليوم",
       callToAction: "احجز استشارتك",
       formats: video ? ["instagram_reel", "instagram_story", "tiktok_video"] : ["facebook_feed", "instagram_story", "google_display"],
-      compliance: [safe ? "المصدر مصرح للاستخدام التسويقي" : "يجب تأكيد الموافقة قبل النشر", "لا نشر تلقائي قبل اعتماد المالك", "مراجعة الوجوه وخصوصية الأطفال قبل الإطلاق"],
-      approval: safe ? "needs_review" : "blocked",
+      compliance: ["المصدر مصرح للاستخدام التسويقي", "لا نشر تلقائي قبل اعتماد المالك", "مراجعة الوجوه وخصوصية الأطفال قبل الإطلاق"],
+      approval: "needs_review",
     };
   }
   return {
     sourceId: item.id,
     language,
     objective,
-    primaryText: `Discover ${objective} with Relax Fix UAE — a practical, safe experience that starts with one simple step.`,
+    primaryText: `Discover ${objective} with Coach Ayman Swimming Academy — a practical, safe experience that starts with one simple step.`,
     headline: video ? "See the experience. Start now." : "Start your experience today",
     callToAction: "Book a consultation",
     formats: video ? ["instagram_reel", "instagram_story", "tiktok_video"] : ["facebook_feed", "instagram_story", "google_display"],
-    compliance: [safe ? "Source approved for marketing use" : "Consent must be confirmed before publishing", "No automatic publishing before owner approval", "Review faces and child privacy before launch"],
-    approval: safe ? "needs_review" : "blocked",
+    compliance: ["Source approved for marketing use", "No automatic publishing before owner approval", "Review faces and child privacy before launch"],
+    approval: "needs_review",
   };
 }
 

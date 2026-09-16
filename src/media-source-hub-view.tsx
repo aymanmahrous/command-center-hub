@@ -56,13 +56,13 @@ export default function MediaSourceHubView({ onOpenProvider }: Props) {
         <h2>{ar ? "اختر الأصل المناسب، ثم حوّله إلى حملة" : "Choose the right asset, then turn it into a campaign"}</h2>
         <p>{ar ? "هذه الواجهة هي طبقة التشغيل الموحدة. الاتصالات الحية تحتاج OAuth ولا تحفظ أي أسرار في المتصفح." : "This is the unified operating layer. Live connections require OAuth and never store secrets in the browser."}</p>
       </div>
-      <div className="media-hub-banner-actions"><div className="media-hub-safe"><ShieldCheck size={18} /> {ar ? "خصوصية ومراجعة قبل النشر" : "Privacy + review before publish"}</div><button type="button" className="coach-brain-launch" onClick={() => openCommandCenterWorkspace(language)}><Sparkles size={16} /> {ar ? "فتح Coach Brain" : "Open Coach Brain"}</button></div>
+      <div className="media-hub-banner-actions"><span className="demo-mode-badge">{ar ? "وضع تجريبي · محلي فقط" : "DEMO MODE · LOCAL ONLY"}</span><div className="media-hub-safe"><ShieldCheck size={18} /> {ar ? "خصوصية ومراجعة قبل النشر" : "Privacy + review before publish"}</div><button type="button" className="coach-brain-launch" onClick={() => openCommandCenterWorkspace(language)}><Sparkles size={16} /> {ar ? "فتح Coach Brain" : "Open Coach Brain"}</button></div>
     </div>
 
     <section className="provider-strip" aria-label={ar ? "مصادر الوسائط" : "Media sources"}>
       {connections.map((connection) => { const enabled = enabledProviders.includes(connection.key); return <div className={`provider-chip ${connection.configured ? "configured" : ""} ${enabled ? "enabled" : ""}`} key={connection.key}>
-        <div className="provider-chip-top"><span>{connection.label}</span><small>{enabled ? (ar ? "مُشغّل" : "Enabled") : connection.configured ? (ar ? "جاهز للاتصال" : "OAuth ready") : (ar ? "أضف المفتاح" : "Add key")}</small></div>
-        <div className="provider-chip-actions"><button type="button" onClick={() => toggleProvider(connection.key)}>{enabled ? (ar ? "فصل" : "Disconnect") : (ar ? "تشغيل" : "Enable")}</button><button type="button" className="provider-settings" onClick={() => onOpenProvider?.(connection.key)}>{ar ? "إعداد" : "Setup"}</button></div>
+        <div className="provider-chip-top"><span>{connection.label}</span><small>{enabled ? (ar ? "تجريبي مُشغّل · ليس اتصالًا حيًا" : "Demo enabled · not live") : connection.configured ? (ar ? "مفتاح موجود · الاتصال غير مفعّل" : "Key present · live off") : (ar ? "وضع تجريبي · المفتاح ناقص" : "Demo mode · key missing")}</small></div>
+        <div className="provider-chip-actions"><button type="button" onClick={() => toggleProvider(connection.key)}>{enabled ? (ar ? "إيقاف التجربة" : "Turn demo off") : (ar ? "تشغيل تجريبي" : "Turn demo on")}</button><button type="button" className="provider-settings" onClick={() => onOpenProvider?.(connection.key)}>{ar ? "متطلبات الاتصال" : "Connection needs"}</button></div>
       </div>; })}
     </section>
 

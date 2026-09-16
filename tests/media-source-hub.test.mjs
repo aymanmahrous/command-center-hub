@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import fs from "node:fs";
+import { buildCreativeBrief, canSelectForCreative } from "../src/media-source-hub.ts";
 
 const source = fs.readFileSync(new URL('../src/media-source-hub.ts', import.meta.url), 'utf8');
+const view = fs.readFileSync(new URL('../src/media-source-hub-view.tsx', import.meta.url), 'utf8');
 
-test('media source hub defines all four requested providers and OAuth scopes', () => {
+test('media source hub defines all four requested providers and OAuth scopes without adding OAuth', () => {
   assert.match(source, /google_drive/);
   assert.match(source, /google_photos/);
   assert.match(source, /dropbox/);
@@ -12,23 +14,31 @@ test('media source hub defines all four requested providers and OAuth scopes', (
   assert.match(source, /photoslibrary\.readonly/);
   assert.match(source, /files\.content\.read/);
   assert.match(source, /Files\.Read/);
+  assert.doesNotMatch(view, /access_token|client_secret|oauth2\.init/);
 });
 
-test('media source hub blocks non-media and blocked-consent assets', () => {
-  assert.ok(source.includes('item.mimeType.startsWith("image/")'));
-  assert.ok(source.includes('item.consent !== "blocked"'));
+test('consent states are fail-closed: needs_review and blocked cannot create marketing briefs', () => {
+  const base = { id: "1", name: "candidate.jpg", mimeType: "image/jpeg" };
+  assert.equal(canSelectForCreative({ ...base, consent: "needs_review" }), false);
+  assert.equal(canSelectForCreative({ ...base, consent: "blocked" }), false);
+  assert.equal(buildCreativeBrief({ ...base, consent: "needs_review" }, "ar", "تعليم السباحة"), null);
+  assert.equal(buildCreativeBrief({ ...base, consent: "blocked" }, "ar", "تعليم السباحة"), null);
+  assert.equal(canSelectForCreative({ ...base, consent: "approved" }), true);
+  assert.equal(buildCreativeBrief({ ...base, consent: "approved" }, "ar", "تعليم السباحة")?.approval, "needs_review");
 });
 
-test('creative briefs include Arabic and English copy, formats, and owner review gate', () => {
-  assert.match(source, /اكتشف/);
-  assert.match(source, /Discover/);
-  assert.match(source, /instagram_reel/);
-  assert.match(source, /facebook_feed/);
-  assert.match(source, /اعتماد المالك/);
+test('creative briefs use the current Coach Ayman identity and retain owner review gates', () => {
+  assert.match(source, /Coach Ayman Swimming Academy/);
+  assert.doesNotMatch(source, /Relax Fix UAE/);
+  assert.match(source, /لا نشر تلقائي قبل اعتماد المالك/);
+  assert.match(source, /No automatic publishing before owner approval/);
 });
 
-test('provider results are filtered by provider and query', () => {
+test('provider results are filtered and the UI labels local demo state explicitly', () => {
   assert.match(source, /filterRemoteMedia/);
   assert.match(source, /matchesProvider/);
   assert.match(source, /haystack\.includes\(normalized\)/);
+  assert.match(view, /DEMO MODE · LOCAL ONLY/);
+  assert.match(view, /Demo enabled · not live/);
+  assert.match(view, /تجريبي مُشغّل · ليس اتصالًا حيًا/);
 });
