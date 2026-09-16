@@ -1,9 +1,6 @@
 import { buildFallbackAssetPlan } from "./media-providers";
 import type { GeneratedBatchItem } from "./content-batch-generator";
-import {
-  buildCoachAyman2026BatchItems,
-  buildCoachAyman30DayCalendarItems,
-} from "./content-batch-generator";
+import { buildCoachAyman2026BatchItems } from "./content-batch-generator";
 import { canUseInMarketingBatch, type MediaAssetRecord, type MediaSourceKind } from "./media-types";
 
 export type BatchMediaAttachment = {
@@ -75,11 +72,15 @@ export async function buildCoachAyman2026BatchWithMedia(
   return attachMediaToCoachAymanBatch(base, assets);
 }
 
+/**
+ * Compatibility entry point used by the Content Factory UI.
+ * The operating cycle is intentionally the 10-post batch, not the legacy
+ * 30-day calendar. The legacy 30-day generator remains available separately.
+ */
 export async function buildCoachAyman30DayBatchWithMedia(
   assets: MediaAssetRecord[],
   start = new Date(),
   batchNonce = start.toISOString(),
 ) {
-  const base = await buildCoachAyman30DayCalendarItems(start, batchNonce);
-  return attachMediaToCoachAymanBatch(base, assets);
+  return buildCoachAyman2026BatchWithMedia(assets, start, batchNonce);
 }
