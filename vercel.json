@@ -4,7 +4,11 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "installCommand": "npm install --ignore-scripts --no-audit --no-fund",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "rewrites": [
+    { "source": "/privacy-policy/:path*", "destination": "/privacy-policy/index.html" },
+    { "source": "/user-data-deletion/:path*", "destination": "/user-data-deletion/index.html" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
   "headers": [
     {
       "source": "/(.*)",
