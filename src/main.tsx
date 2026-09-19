@@ -1312,15 +1312,16 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     setActive(id);
   };
 
-  const moreIds = new Set<SectionId>(["planner", "automations", "media", "archive", "analytics", "integrations", "radar", "brain"]);\n  const moreItems = sections.filter(([id]) => moreIds.has(id));
+  const moreIds = new Set<SectionId>(["planner", "automations", "media", "archive", "analytics", "integrations", "radar", "brain"]);
+  const moreItems = sections.filter(([id]) => moreIds.has(id));
 
   const morePanel = (
     <div className="owner-more-panel">
       <div className="owner-more-heading">
         <div>
           <span className="eyebrow">{nav.more}</span>
-          <h2>{language === "ar" ? "الأدوات المتقدمة في مكان واحد" : "Advanced tools, kept in one place"}</h2>
-          <p>{language === "ar" ? "كل الأدوات موجودة، لكن الشاشة الرئيسية تظل بسيطة." : "All existing tools remain available without cluttering the main workspace."}</p>
+          <h2>{language === "ar" ? "الأدوات المتقدمة" : "Advanced tools"}</h2>
+          <p>{language === "ar" ? "كل الأدوات موجودة دون ازدحام." : "Existing tools remain available without clutter."}</p>
         </div>
         <button type="button" className="refresh" onClick={() => setMoreOpen(false)}>×</button>
       </div>
@@ -1348,11 +1349,11 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     <aside>
       <div className="side-brand">
         <strong>Relax Fix AI OS</strong>
-        <span>{language === "ar" ? "مركز قيادة أكاديمية السباحة" : "Swimming Academy Command Center"}</span>
+        <span>{language === "ar" ? "مركز تشغيل السباحة" : "Swimming Academy OS"}</span>
         <small>{session.displayName} · {session.role}</small>
       </div>
       <LanguageSwitcher onDark />
-      <nav aria-label="Command Center">
+      <nav aria-label="وحدات Command Center">
         {primary.map(([id, Icon, label]) => (
           <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => go(id)}>
             <Icon size={18} aria-hidden="true" /><span>{label}</span>
@@ -1379,7 +1380,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
       </header>
 
       <section className="owner-status-strip">
-        <span><i className="status-dot" />{language === "ar" ? "العمل الآمن مفعّل" : "Safe operating mode"}</span>
+        <span><i className="status-dot" />{language === "ar" ? "الوضع الآمن" : "Safe mode"}</span>
         <span>{modeLabel}</span>
       </section>
 
