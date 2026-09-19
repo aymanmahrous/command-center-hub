@@ -1312,7 +1312,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     setActive(id);
   };
 
-  const moreItems = sections.filter(([id]) => ["planner", "automations", "media", "archive", "analytics", "integrations", "radar", "brain"].includes(id));
+  const moreIds = new Set<SectionId>(["planner", "automations", "media", "archive", "analytics", "integrations", "radar", "brain"]);\n  const moreItems = sections.filter(([id]) => moreIds.has(id));
 
   const morePanel = (
     <div className="owner-more-panel">
