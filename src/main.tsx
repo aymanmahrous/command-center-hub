@@ -25,13 +25,18 @@ const PushInstallBar = lazy(() => import("./push-install-bar"));
 
 const sections = [
   ["dashboard", LayoutDashboard, "get_staff_command_center"],
-  ["today", CalendarDays, "x"],
-  ["command", Bot, "x"],
+  ["marketing", BarChart3, "get_staff_content_items"],
   ["inbox", Inbox, "get_staff_inbox"],
   ["crm", ContactRound, "get_staff_crm_leads"],
-  ["automations", Workflow, "get_staff_content_automation_status"],
-  ["content", Bot, "get_staff_content_items"],
+  ["today", CalendarDays, "x"],
+  ["more", Settings2, "x"],
+] as const;
+
+const secondarySections = [
+  ["command", Bot, "x"],
   ["planner", CalendarDays, "get_staff_bookings"],
+  ["content", Bot, "get_staff_content_items"],
+  ["automations", Workflow, "get_staff_content_automation_status"],
   ["media", Library, "get_staff_media_assets"],
   ["archive", Library, "x"],
   ["analytics", BarChart3, "get_staff_growth_analytics"],
@@ -40,7 +45,9 @@ const sections = [
   ["brain", Bot, "x"],
 ] as const;
 
-type SectionId = (typeof sections)[number][0];
+type SectionId = (typeof sections)[number][0] | (typeof secondarySections)[number][0];
+
+
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 type Role = "super_admin" | "admin" | "reception" | "coach" | "content_manager";
 type Session = { accessToken: string; displayName: string; role: Role };
@@ -1241,26 +1248,43 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   const launchParams = new URLSearchParams(window.location.search);
   const canvaCallback = launchParams.get("canva");
   const requestedSection = (launchParams.get("section") ?? "") as SectionId;
+  const allSections = [...sections, ...secondarySections];
   const initialSection: SectionId = canvaCallback
     ? "media"
-    : sections.some(([id]) => id === requestedSection)
+    : allSections.some(([id]) => id === requestedSection)
       ? requestedSection
       : "dashboard";
-  const [active, setActive] = useState<SectionId>(initialSection); const [reloadKey, setReloadKey] = useState(0); const [data, setData] = useState<JsonValue>(null); const [status, setStatus] = useState<"loading" | "ready" | "error">("loading"); const [error, setError] = useState("");
+  const [active, setActive] = useState<SectionId>(initialSection);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [data, setData] = useState<JsonValue>(null);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [error, setError] = useState("");
+  const [moreOpen, setMoreOpen] = useState(false);
   const loadedSectionRef = useRef<SectionId | null>(null);
+
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
-      if (event.data?.type === "rf-push-navigate" && sections.some(([id]) => id === event.data.section)) setActive(event.data.section);
+      if (event.data?.type === "rf-push-navigate" && allSections.some(([id]) => id === event.data.section)) {
+        setActive(event.data.section);
+      }
     };
     navigator.serviceWorker?.addEventListener("message", onMessage);
     return () => navigator.serviceWorker?.removeEventListener("message", onMessage);
   }, []);
-  const current = useMemo(() => sections.find(([id]) => id === active)!, [active]);
-  useEffect(() => { document.title = `${nav[current[0]]} · ${nav.dashboard}`; }, [current, nav]);
+
+  const current = useMemo(
+    () => allSections.find(([id]) => id === active) ?? sections[0],
+    [active]
+  );
+
+  useEffect(() => {
+    document.title = `${nav[current[0]]} · ${nav.dashboard}`;
+  }, [current, nav]);
+
   useEffect(() => {
     const controller = new AbortController();
     const section = current[0];
-    if (["archive", "dashboard", "today", "command", "brain"].includes(section)) {
+    if (["archive", "dashboard", "today", "command", "brain", "more"].includes(section)) {
       setStatus("ready");
       loadedSectionRef.current = section;
       return () => controller.abort();
@@ -1285,15 +1309,114 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     });
     return () => controller.abort();
   }, [current, dashboardCopy.loadError, onLogout, reloadKey, session]);
+
   useEffect(() => {
     if (active !== "inbox") return;
     const timer = window.setInterval(() => setReloadKey((value) => value + 1), 45000);
     return () => window.clearInterval(timer);
   }, [active]);
-  const modeLabel = active === "planner" || active === "crm" || active === "inbox" || active === "content" || active === "media" ? dashboardCopy.controlledWrite : dashboardCopy.readOnly;
-  return <div className="app-shell"><a className="skip-link" href="#main-workspace">{nav.skipToContent}</a><aside><div className="side-brand"><strong>Relax Fix AI OS</strong><span>{session.displayName} · {session.role}</span></div><LanguageSwitcher onDark /><nav aria-label="وحدات Command Center">{sections.map(([id, Icon]) => <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => setActive(id)}><Icon size={18} aria-hidden="true" />{nav[id]}</button>)}</nav><button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button></aside><main className="workspace" id="main-workspace" tabIndex={-1}><p className="eyebrow">{dashboardCopy.eyebrow} · {modeLabel}</p><h1>{nav[current[0]]}</h1><section className="panel" aria-busy={status === "loading"}><div className="panel-heading"><div><h2>{dashboardCopy.panelHeading}</h2><p>{dashboardCopy.panelSubheading}</p></div><div className="panel-heading-actions"><Suspense fallback={null}><PushInstallBar session={session} language={language} rpc={(name, body) => callRpc(session, name, body)} /></Suspense><button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button></div></div>{status === "loading" && <p className="muted" role="status">{t("common").loading}</p>}{status === "error" && <div className="error-box" role="alert">{error}</div>}{status === "ready" && (active === "today" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><TodayView session={session} onNavigate={setActive} onSessionExpired={onLogout} /></Suspense> : active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "media" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MediaLibraryView value={data} session={session} canWrite={["super_admin", "admin", "content_manager"].includes(session.role)} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /></Suspense> : active === "archive" ? <Suspense><M /></Suspense> : active === "analytics" ? <AnalyticsView value={data} /> : active === "integrations" ? <IntegrationsView value={data} /> : active === "automations" ? <AutomationsView value={data} /> : active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> : active === "brain" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><CoachBrain language={language} /></Suspense> : active === "dashboard" || active === "command" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><ControlTowerV2 key={`${active}-${reloadKey}`} session={session} onSessionExpired={onLogout} initialCommandOpen={active === "command"} /></Suspense> : null)}</section></main></div>;
-}
 
+  const modeLabel = ["planner", "crm", "inbox", "content", "media"].includes(active)
+    ? dashboardCopy.controlledWrite
+    : dashboardCopy.readOnly;
+
+  const go = (id: SectionId) => {
+    setMoreOpen(false);
+    setActive(id);
+  };
+
+  const renderMore = () => (
+    <div className="owner-more-panel" role="menu">
+      <div className="owner-more-heading">
+        <div>
+          <span className="eyebrow">{nav.more}</span>
+          <h2>{language === "ar" ? "الأدوات المتقدمة في مكان واحد" : "Advanced tools, kept in one place"}</h2>
+          <p>{language === "ar" ? "الأدوات موجودة، لكنها لا تنافسك على الشاشة الرئيسية." : "The tools remain available without competing for attention."}</p>
+        </div>
+        <button type="button" className="refresh" onClick={() => setMoreOpen(false)}>×</button>
+      </div>
+      <div className="owner-more-grid">
+        {secondarySections.map(([id, Icon]) => (
+          <button type="button" key={id} role="menuitem" onClick={() => go(id)}>
+            <Icon size={18} aria-hidden="true" />
+            <span>{nav[id]}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const navButton = ([id, Icon]: readonly [SectionId, typeof LayoutDashboard]) => (
+    <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => go(id)}>
+      <Icon size={18} aria-hidden="true" />
+      <span>{nav[id]}</span>
+    </button>
+  );
+
+  return <div className="app-shell">
+    <a className="skip-link" href="#main-workspace">{nav.skipToContent}</a>
+    <aside>
+      <div className="side-brand">
+        <strong>Relax Fix AI OS</strong>
+        <span>{language === "ar" ? "مركز قيادة الأكاديمية" : "Swimming Academy Command Center"}</span>
+        <small>{session.displayName} · {session.role}</small>
+      </div>
+      <LanguageSwitcher onDark />
+      <nav aria-label="Command Center">
+        {sections.map(navButton)}
+      </nav>
+      <button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button>
+    </aside>
+
+    <main className="workspace" id="main-workspace" tabIndex={-1}>
+      <header className="owner-header">
+        <div>
+          <p className="eyebrow">{language === "ar" ? "مركز القيادة" : "OWNER COMMAND CENTER"}</p>
+          <h1>{nav[current[0]]}</h1>
+        </div>
+        <div className="owner-header-actions">
+          <button type="button" className="owner-command" onClick={() => go("command")}><Bot size={18} aria-hidden="true" />{nav.command}</button>
+          <button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button>
+          <button type="button" className="logout mobile-logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button>
+        </div>
+      </header>
+
+      <section className="owner-status-strip" aria-label={language === "ar" ? "حالة مركز القيادة" : "Command Center status"}>
+        <span><i className="status-dot" />{language === "ar" ? "العمل الآمن مفعّل" : "Safe operating mode"}</span>
+        <span>{modeLabel}</span>
+      </section>
+
+      {moreOpen && renderMore()}
+
+      <section className="panel owner-panel" aria-busy={status === "loading"}>
+        {status === "loading" && <p className="muted" role="status">{t("common").loading}</p>}
+        {status === "error" && <div className="error-box" role="alert">{error}</div>}
+        {status === "ready" && (
+          active === "more" ? renderMore() :
+          active === "today" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><TodayView session={session} onNavigate={setActive} onSessionExpired={onLogout} /></Suspense> :
+          active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
+          active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
+          active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
+          active === "content" || active === "marketing" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
+          active === "media" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MediaLibraryView value={data} session={session} canWrite={["super_admin", "admin", "content_manager"].includes(session.role)} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /></Suspense> :
+          active === "archive" ? <Suspense><M /></Suspense> :
+          active === "analytics" ? <AnalyticsView value={data} /> :
+          active === "integrations" ? <IntegrationsView value={data} /> :
+          active === "automations" ? <AutomationsView value={data} /> :
+          active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
+          active === "brain" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><CoachBrain language={language} /></Suspense> :
+          active === "dashboard" || active === "command" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><ControlTowerV2 key={`${active}-${reloadKey}`} session={session} onSessionExpired={onLogout} initialCommandOpen={active === "command"} /></Suspense> :
+          null
+        )}
+      </section>
+
+      <nav className="owner-mobile-nav" aria-label={language === "ar" ? "التنقل الرئيسي" : "Primary navigation"}>
+        {sections.slice(0, 5).map(navButton)}
+        <button type="button" className={active === "more" ? "active" : ""} onClick={() => go("more")}><Settings2 size={18} aria-hidden="true" /><span>{nav.more}</span></button>
+      </nav>
+    </main>
+  </div>;
+}
 function App() {
   const { language } = useLanguage();
   const [session, setSession] = useState<Session | null>(null);
