@@ -1297,12 +1297,6 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     return () => controller.abort();
   }, [current, dashboardCopy.loadError, onLogout, reloadKey, session]);
 
-  useEffect(() => {
-    if (active !== "inbox") return;
-    const timer = window.setInterval(() => setReloadKey((value) => value + 1), 45000);
-    return () => window.clearInterval(timer);
-  }, [active]);
-
   const modeLabel = ["planner", "crm", "inbox", "content", "media"].includes(active)
     ? dashboardCopy.controlledWrite
     : dashboardCopy.readOnly;
