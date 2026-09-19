@@ -1,6 +1,6 @@
 import React, { FormEvent, lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, LayoutDashboard, Library, LogOut, Settings2, ShieldAlert, Workflow, type LucideIcon } from "lucide-react";
+import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, LayoutDashboard, Library, LogOut, Settings2, ShieldAlert, Workflow } from "lucide-react";
 import { z } from "zod";
 import { canApproveContentItem, sharedDatabaseBatchId, type ContentBatchItem } from "./content-batch";
 import { appendChangeRequest, buildChangeRequestNote, type ChangeRequestKind } from "./content-growth";
@@ -25,18 +25,13 @@ const PushInstallBar = lazy(() => import("./push-install-bar"));
 
 const sections = [
   ["dashboard", LayoutDashboard, "get_staff_command_center"],
-  ["marketing", BarChart3, "get_staff_content_items"],
+  ["today", CalendarDays, "x"],
+  ["command", Bot, "x"],
   ["inbox", Inbox, "get_staff_inbox"],
   ["crm", ContactRound, "get_staff_crm_leads"],
-  ["today", CalendarDays, "x"],
-  ["more", Settings2, "x"],
-] as const;
-
-const secondarySections = [
-  ["command", Bot, "x"],
-  ["planner", CalendarDays, "get_staff_bookings"],
-  ["content", Bot, "get_staff_content_items"],
   ["automations", Workflow, "get_staff_content_automation_status"],
+  ["content", Bot, "get_staff_content_items"],
+  ["planner", CalendarDays, "get_staff_bookings"],
   ["media", Library, "get_staff_media_assets"],
   ["archive", Library, "x"],
   ["analytics", BarChart3, "get_staff_growth_analytics"],
@@ -45,9 +40,7 @@ const secondarySections = [
   ["brain", Bot, "x"],
 ] as const;
 
-type SectionId = (typeof sections)[number][0] | (typeof secondarySections)[number][0];
-
-
+type SectionId = (typeof sections)[number][0];
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 type Role = "super_admin" | "admin" | "reception" | "coach" | "content_manager";
 type Session = { accessToken: string; displayName: string; role: Role };
@@ -1248,10 +1241,9 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   const launchParams = new URLSearchParams(window.location.search);
   const canvaCallback = launchParams.get("canva");
   const requestedSection = (launchParams.get("section") ?? "") as SectionId;
-  const allSections = [...sections, ...secondarySections];
   const initialSection: SectionId = canvaCallback
     ? "media"
-    : allSections.some(([id]) => id === requestedSection)
+    : sections.some(([id]) => id === requestedSection)
       ? requestedSection
       : "dashboard";
   const [active, setActive] = useState<SectionId>(initialSection);
@@ -1264,18 +1256,13 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
-      if (event.data?.type === "rf-push-navigate" && allSections.some(([id]) => id === event.data.section)) {
-        setActive(event.data.section);
-      }
+      if (event.data?.type === "rf-push-navigate" && sections.some(([id]) => id === event.data.section)) setActive(event.data.section);
     };
     navigator.serviceWorker?.addEventListener("message", onMessage);
     return () => navigator.serviceWorker?.removeEventListener("message", onMessage);
   }, []);
 
-  const current = useMemo(
-    () => allSections.find(([id]) => id === active) ?? sections[0],
-    [active]
-  );
+  const current = useMemo(() => sections.find(([id]) => id === active)!, [active]);
 
   useEffect(() => {
     document.title = `${nav[current[0]]} · ${nav.dashboard}`;
@@ -1284,7 +1271,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   useEffect(() => {
     const controller = new AbortController();
     const section = current[0];
-    if (["archive", "dashboard", "today", "command", "brain", "more"].includes(section)) {
+    if (["archive", "dashboard", "today", "command", "brain"].includes(section)) {
       setStatus("ready");
       loadedSectionRef.current = section;
       return () => controller.abort();
@@ -1325,19 +1312,21 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     setActive(id);
   };
 
-  const renderMore = () => (
-    <div className="owner-more-panel" role="menu">
+  const moreItems = sections.filter(([id]) => ["planner", "automations", "media", "archive", "analytics", "integrations", "radar", "brain"].includes(id));
+
+  const morePanel = (
+    <div className="owner-more-panel">
       <div className="owner-more-heading">
         <div>
           <span className="eyebrow">{nav.more}</span>
           <h2>{language === "ar" ? "الأدوات المتقدمة في مكان واحد" : "Advanced tools, kept in one place"}</h2>
-          <p>{language === "ar" ? "الأدوات موجودة، لكنها لا تنافسك على الشاشة الرئيسية." : "The tools remain available without competing for attention."}</p>
+          <p>{language === "ar" ? "كل الأدوات موجودة، لكن الشاشة الرئيسية تظل بسيطة." : "All existing tools remain available without cluttering the main workspace."}</p>
         </div>
         <button type="button" className="refresh" onClick={() => setMoreOpen(false)}>×</button>
       </div>
       <div className="owner-more-grid">
-        {secondarySections.map(([id, Icon]) => (
-          <button type="button" key={id} role="menuitem" onClick={() => go(id)}>
+        {moreItems.map(([id, Icon]) => (
+          <button type="button" key={id} onClick={() => go(id)}>
             <Icon size={18} aria-hidden="true" />
             <span>{nav[id]}</span>
           </button>
@@ -1346,24 +1335,32 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     </div>
   );
 
-  const navButton = (id: SectionId, Icon: LucideIcon) => (
-    <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => go(id)}>
-      <Icon size={18} aria-hidden="true" />
-      <span>{nav[id]}</span>
-    </button>
-  );
+  const primary = [
+    ["dashboard", LayoutDashboard, nav.dashboard],
+    ["content", BarChart3, nav.marketing],
+    ["inbox", Inbox, nav.inbox],
+    ["crm", ContactRound, nav.crm],
+    ["today", CalendarDays, nav.today],
+  ] as const;
 
   return <div className="app-shell">
     <a className="skip-link" href="#main-workspace">{nav.skipToContent}</a>
     <aside>
       <div className="side-brand">
         <strong>Relax Fix AI OS</strong>
-        <span>{language === "ar" ? "مركز قيادة الأكاديمية" : "Swimming Academy Command Center"}</span>
+        <span>{language === "ar" ? "مركز قيادة أكاديمية السباحة" : "Swimming Academy Command Center"}</span>
         <small>{session.displayName} · {session.role}</small>
       </div>
       <LanguageSwitcher onDark />
       <nav aria-label="Command Center">
-        {sections.map(([id, Icon]) => navButton(id, Icon))}
+        {primary.map(([id, Icon, label]) => (
+          <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => go(id)}>
+            <Icon size={18} aria-hidden="true" /><span>{label}</span>
+          </button>
+        ))}
+        <button type="button" className={moreOpen ? "active" : ""} onClick={() => setMoreOpen((value) => !value)}>
+          <Settings2 size={18} aria-hidden="true" /><span>{nav.more}</span>
+        </button>
       </nav>
       <button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button>
     </aside>
@@ -1372,32 +1369,31 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
       <header className="owner-header">
         <div>
           <p className="eyebrow">{language === "ar" ? "مركز القيادة" : "OWNER COMMAND CENTER"}</p>
-          <h1>{nav[current[0]]}</h1>
+          <h1>{active === "content" ? nav.marketing : nav[current[0]]}</h1>
         </div>
         <div className="owner-header-actions">
-          <button type="button" className="owner-command" onClick={() => go("command")}><Bot size={18} aria-hidden="true" />{nav.command}</button>
+          <button type="button" className="owner-command" onClick={() => go("command")}><Bot size={18} aria-hidden="true" /><span>{nav.command}</span></button>
           <button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button>
-          <button type="button" className="logout mobile-logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button>
+          <button type="button" className="logout mobile-logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" /></button>
         </div>
       </header>
 
-      <section className="owner-status-strip" aria-label={language === "ar" ? "حالة مركز القيادة" : "Command Center status"}>
+      <section className="owner-status-strip">
         <span><i className="status-dot" />{language === "ar" ? "العمل الآمن مفعّل" : "Safe operating mode"}</span>
         <span>{modeLabel}</span>
       </section>
 
-      {moreOpen && renderMore()}
+      {moreOpen && morePanel}
 
       <section className="panel owner-panel" aria-busy={status === "loading"}>
         {status === "loading" && <p className="muted" role="status">{t("common").loading}</p>}
         {status === "error" && <div className="error-box" role="alert">{error}</div>}
         {status === "ready" && (
-          active === "more" ? renderMore() :
-          active === "today" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><TodayView session={session} onNavigate={(id) => setActive(id)} onSessionExpired={onLogout} /></Suspense> :
+          active === "today" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><TodayView session={session} onNavigate={setActive} onSessionExpired={onLogout} /></Suspense> :
           active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
-          active === "content" || active === "marketing" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
+          active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "media" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MediaLibraryView value={data} session={session} canWrite={["super_admin", "admin", "content_manager"].includes(session.role)} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /></Suspense> :
           active === "archive" ? <Suspense><M /></Suspense> :
           active === "analytics" ? <AnalyticsView value={data} /> :
@@ -1411,8 +1407,14 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
       </section>
 
       <nav className="owner-mobile-nav" aria-label={language === "ar" ? "التنقل الرئيسي" : "Primary navigation"}>
-        {sections.filter(([id]) => id !== "today").map(([id, Icon]) => navButton(id, Icon))}
-        <button type="button" className={active === "more" ? "active" : ""} onClick={() => go("more")}><Settings2 size={18} aria-hidden="true" /><span>{nav.more}</span></button>
+        {primary.filter(([id]) => id !== "today").map(([id, Icon, label]) => (
+          <button type="button" key={id} className={active === id ? "active" : ""} onClick={() => go(id)}>
+            <Icon size={18} aria-hidden="true" /><span>{label}</span>
+          </button>
+        ))}
+        <button type="button" className={moreOpen ? "active" : ""} onClick={() => setMoreOpen((value) => !value)}>
+          <Settings2 size={18} aria-hidden="true" /><span>{nav.more}</span>
+        </button>
       </nav>
     </main>
   </div>;
