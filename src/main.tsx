@@ -1,6 +1,6 @@
 import React, { FormEvent, lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, LayoutDashboard, Library, LogOut, Settings2, ShieldAlert, Workflow } from "lucide-react";
+import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, LayoutDashboard, Library, LogOut, Settings2, ShieldAlert, Workflow, type LucideIcon } from "lucide-react";
 import { z } from "zod";
 import { canApproveContentItem, sharedDatabaseBatchId, type ContentBatchItem } from "./content-batch";
 import { appendChangeRequest, buildChangeRequestNote, type ChangeRequestKind } from "./content-growth";
@@ -1346,7 +1346,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     </div>
   );
 
-  const navButton = ([id, Icon]: readonly [SectionId, typeof LayoutDashboard]) => (
+  const navButton = ([id, Icon]: readonly [SectionId, LucideIcon]) => (
     <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => go(id)}>
       <Icon size={18} aria-hidden="true" />
       <span>{nav[id]}</span>
@@ -1393,7 +1393,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
         {status === "error" && <div className="error-box" role="alert">{error}</div>}
         {status === "ready" && (
           active === "more" ? renderMore() :
-          active === "today" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><TodayView session={session} onNavigate={setActive} onSessionExpired={onLogout} /></Suspense> :
+          active === "today" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><TodayView session={session} onNavigate={(id) => setActive(id)} onSessionExpired={onLogout} /></Suspense> :
           active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
@@ -1411,7 +1411,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
       </section>
 
       <nav className="owner-mobile-nav" aria-label={language === "ar" ? "التنقل الرئيسي" : "Primary navigation"}>
-        {sections.slice(0, 5).map(navButton)}
+        {sections.filter(([id]) => id !== "today").map(navButton)}
         <button type="button" className={active === "more" ? "active" : ""} onClick={() => go("more")}><Settings2 size={18} aria-hidden="true" /><span>{nav.more}</span></button>
       </nav>
     </main>
