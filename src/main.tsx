@@ -1346,7 +1346,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     </div>
   );
 
-  const navButton = ([id, Icon]: readonly [SectionId, LucideIcon]) => (
+  const navButton = (id: SectionId, Icon: LucideIcon) => (
     <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => go(id)}>
       <Icon size={18} aria-hidden="true" />
       <span>{nav[id]}</span>
@@ -1363,7 +1363,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
       </div>
       <LanguageSwitcher onDark />
       <nav aria-label="Command Center">
-        {sections.map(navButton)}
+        {sections.map(([id, Icon]) => navButton(id, Icon))}
       </nav>
       <button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button>
     </aside>
@@ -1411,7 +1411,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
       </section>
 
       <nav className="owner-mobile-nav" aria-label={language === "ar" ? "التنقل الرئيسي" : "Primary navigation"}>
-        {sections.filter(([id]) => id !== "today").map(navButton)}
+        {sections.filter(([id]) => id !== "today").map(([id, Icon]) => navButton(id, Icon))}
         <button type="button" className={active === "more" ? "active" : ""} onClick={() => go("more")}><Settings2 size={18} aria-hidden="true" /><span>{nav.more}</span></button>
       </nav>
     </main>
