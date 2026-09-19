@@ -20,7 +20,9 @@ export const ar: Dictionary = {
     updatedAt: "آخر تحديث",
   },
   nav: {
-    dashboard: "مركز التحكم",
+    dashboard: "الرئيسية",
+    marketing: "التسويق",
+    more: "المزيد",
     today: "اليوم",
     command: "بحث / أمر",
     inbox: "صندوق الوارد الذكي",
