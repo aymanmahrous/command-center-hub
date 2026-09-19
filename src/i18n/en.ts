@@ -18,7 +18,9 @@ export const en = {
     updatedAt: "Last updated",
   },
   nav: {
-    dashboard: "Command Center",
+    dashboard: "Home",
+    marketing: "Marketing",
+    more: "More",
     today: "Today",
     command: "Search / Command",
     inbox: "AI Inbox",

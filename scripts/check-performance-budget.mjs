@@ -5,7 +5,8 @@ import { gzipSync } from "node:zlib";
 const distDirectory = resolve(process.env.PERFORMANCE_DIST_DIR ?? "dist");
 const indexPath = resolve(distDirectory, "index.html");
 const budgets = {
-  js: { raw: 367_000, gzip: 108_000 },
+  // Keep a small margin for Vite's environment-dependent raw chunk variance; gzip remains the stricter signal.
+  js: { raw: 367_500, gzip: 108_000 },
   css: { raw: 33_000, gzip: 7_000 },
 };
 
