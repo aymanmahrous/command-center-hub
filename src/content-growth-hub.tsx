@@ -352,6 +352,14 @@ export default function ContentGrowthHub({
           <p>{copy.strategyEyebrow}</p>
           <h3 id="strategy-mix-heading">{copy.strategyTitle}</h3>
         </header>
+        <div className="factory-section-action-bar">
+          <strong>{language === "ar" ? "الخطة جاهزة للتنفيذ" : "This plan is ready to use"}</strong>
+          <span>{language === "ar" ? "لا تكتفِ بقراءة التوزيع: أنشئ دفعة أو افتح المحتوى الحالي للتعديل." : "Do not just read the mix: create a batch or open current content for editing."}</span>
+          <div>
+            <button type="button" className="primary-button" onClick={() => { setActiveFactoryTab("factory"); onTabChange?.("factory"); }}>{language === "ar" ? "إنشاء دفعة من الخطة" : "Create batch from plan"}</button>
+            <button type="button" className="secondary" onClick={() => { setActiveFactoryTab("content"); onTabChange?.("content"); }}>{language === "ar" ? "فتح المحتوى للتعديل" : "Open content editor"}</button>
+          </div>
+        </div>
         <ul className="strategy-mix-list">
           {DEFAULT_BATCH_MIX.map((slot, index) => (
             <li key={`${slot.labelKey}-${index}`}>

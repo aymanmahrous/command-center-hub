@@ -376,10 +376,10 @@ export default function TodayOperationsView({
         <button type="button" className="today-attention-item" onClick={() => onNavigate("content")}>
           <span>{copy.contentReviewLabel}</span><strong>{metrics.pipeline.needsReview}</strong>
         </button>
-        <div className="summary-alert"><span>{copy.contentApproved}</span><strong>{metrics.pipeline.approved}</strong></div>
-        <div className="summary-alert"><span>{copy.contentScheduled}</span><strong>{metrics.pipeline.scheduled}</strong></div>
-        <div className="summary-alert"><span>{copy.contentPublished}</span><strong>{metrics.pipeline.published}</strong></div>
-        <div className="summary-alert"><span>{copy.contentFailed}</span><strong>{metrics.pipeline.failed}</strong></div>
+        <button type="button" className="summary-alert today-summary-action" onClick={() => onNavigate("content")}><span>{copy.contentApproved}</span><strong>{metrics.pipeline.approved}</strong><small>{language === "ar" ? "فتح المحتوى" : "Open content"}</small></button>
+        <button type="button" className="summary-alert today-summary-action" onClick={() => onNavigate("content")}><span>{copy.contentScheduled}</span><strong>{metrics.pipeline.scheduled}</strong><small>{language === "ar" ? "فتح الجدولة" : "Open schedule"}</small></button>
+        <button type="button" className="summary-alert today-summary-action" onClick={() => onNavigate("content")}><span>{copy.contentPublished}</span><strong>{metrics.pipeline.published}</strong><small>{language === "ar" ? "فتح النتائج" : "Open results"}</small></button>
+        <button type="button" className="summary-alert today-summary-action" onClick={() => onNavigate("content")}><span>{copy.contentFailed}</span><strong>{metrics.pipeline.failed}</strong><small>{language === "ar" ? "فتح الفشل" : "Open failures"}</small></button>
       </div>
     </section>
 
@@ -387,7 +387,7 @@ export default function TodayOperationsView({
       <header><p>{copy.healthEyebrow}</p><h3>{copy.healthTitle}</h3></header>
       <div className="status-grid today-health">
         {(Object.keys(statusLabels) as JobStatus[]).map((jobStatus) => (
-          <article key={jobStatus}><span>{statusLabels[jobStatus]}</span><strong>{healthCounts[jobStatus]}</strong></article>
+          <button type="button" className="summary-alert today-summary-action" key={jobStatus} onClick={() => onNavigate("automations")}><span>{statusLabels[jobStatus]}</span><strong>{healthCounts[jobStatus]}</strong><small>{language === "ar" ? "فتح الأتمتة" : "Open automation"}</small></button>
         ))}
       </div>
       {automationStatus !== null && (

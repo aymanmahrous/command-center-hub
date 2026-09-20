@@ -451,13 +451,14 @@ function DataView({ value }: { value: JsonValue }) {
   return <DataLeaf value={value} />;
 }
 
-function AutomationsView({ value }: { value: JsonValue }) {
-  const { t } = useLanguage();
+function AutomationsView({ value, onOpenQueue }: { value: JsonValue; onOpenQueue: () => void }) {
+  const { language, t } = useLanguage();
   const copy = t("automations");
+  const openQueue = language === "ar" ? "فتح الطابور" : "Open queue";
   const isEmpty = value === null || (Array.isArray(value) && value.length === 0) || (typeof value === "object" && !Array.isArray(value) && Object.keys(value).length === 0);
   return <div className="automations-view">
-    <div className="operations-boundary"><div><strong>{copy.bannerTitle}</strong><p>{copy.bannerText}</p></div></div>
-    {isEmpty ? <p className="muted">{copy.empty}</p> : <DataView value={value} />}
+    <div className="operations-boundary"><div><strong>{copy.bannerTitle}</strong><p>{copy.bannerText}</p></div><button type="button" onClick={onOpenQueue}>{openQueue}</button></div>
+    {isEmpty ? <p className="muted">{copy.empty}</p> : <section className="automation-action-panel"><strong>{copy.bannerTitle}</strong><p>{copy.bannerText}</p><button type="button" onClick={onOpenQueue}>{openQueue}</button></section>}
   </div>;
 }
 
@@ -751,6 +752,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
   const [statusFilter, setStatusFilter] = useState<ContentStatus | "all">("all");
   const [factoryTab, setFactoryTab] = useState<ContentFactoryTab>("overview");
   const [contentPage, setContentPage] = useState(1);
+  const [expandedContentId, setExpandedContentId] = useState<string | null>(null);
   const canWrite = ["super_admin", "admin", "content_manager"].includes(session.role);
   const items = parsed.success ? parsed.data : [];
   const filteredItems = useMemo(() => {
@@ -907,6 +909,10 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
   }
 
   const panelBusy = busyId !== null || batchBusy;
+  const contentCounts = items.reduce<Record<string, number>>((counts, item) => {
+    counts[item.status] = (counts[item.status] ?? 0) + 1;
+    return counts;
+  }, {});
 
   return <>
     <div className="write-banner"><strong>{copy.writeBannerTitle}</strong><span>{copy.writeBannerSubtitle}</span></div>
@@ -926,6 +932,14 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
       />
     </Suspense>
     {factoryTab === "content" && <>
+    <section className="content-control-room" aria-labelledby="content-control-room-title">
+      <div><span>{language === "ar" ? "مساحة عمل تنفيذية" : "ACTION WORKSPACE"}</span><h2 id="content-control-room-title">{language === "ar" ? "ماذا تريد أن تفعل بالمحتوى؟" : "What do you want to do with content?"}</h2><p>{language === "ar" ? "اختر إجراءً واضحًا أولًا؛ لا تحتاج إلى قراءة القائمة كاملة." : "Choose a clear action first; you do not need to read the full list."}</p></div>
+      <div className="content-control-actions">
+        <button type="button" className="primary-button" onClick={() => { setFactoryTab("factory"); }}>{language === "ar" ? "إنشاء دفعة جديدة" : "Create new batch"}</button>
+        <button type="button" onClick={() => setStatusFilter("needs_review")}>{language === "ar" ? `مراجعة المحتوى (${contentCounts.needs_review ?? 0})` : `Review content (${contentCounts.needs_review ?? 0})`}</button>
+        <button type="button" onClick={() => setStatusFilter("scheduled")}>{language === "ar" ? `فتح المجدول (${contentCounts.scheduled ?? 0})` : `Open scheduled (${contentCounts.scheduled ?? 0})`}</button>
+      </div>
+    </section>
     <div className="content-toolbar">
       <label>{t("common").search}<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={copy.searchPlaceholder} /></label>
       <label>{t("common").status}<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as ContentStatus | "all")}><option value="all">{copy.allStatuses}</option>{(Object.keys(statusLabels) as ContentStatus[]).map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}</select></label>
@@ -942,14 +956,14 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
       const scheduledLocal = formatLocalDateTimeInput(item.scheduledFor);
       const locked = panelBusy || !canWrite || item.status === "published";
       return <article className="content-card" key={item.id}>
-        <header><div><span>{item.platform} · {item.contentType}</span><h3>{item.topic || copy.untitled}</h3></div><span className={`content-status status-${item.status}`}>{statusLabels[item.status]}</span></header>
-        <form onSubmit={(event) => { event.preventDefault(); void save(item, event.currentTarget); }}>
+        <header><div><span>{item.platform} · {item.contentType}</span><h3>{item.topic || copy.untitled}</h3><small>{item.status === "published" ? (language === "ar" ? "منشور — لا يحتاج تعديلًا" : "Published — no edit needed") : (language === "ar" ? "اختر إجراءً من الأسفل" : "Choose an action below")}</small></div><div className="content-card-heading-actions"><span className={`content-status status-${item.status}`}>{statusLabels[item.status]}</span><button type="button" onClick={() => setExpandedContentId((current) => current === item.id ? null : item.id)}>{expandedContentId === item.id ? (language === "ar" ? "إغلاق التعديل" : "Close editor") : (language === "ar" ? "تعديل المحتوى" : "Edit content")}</button></div></header>
+        {expandedContentId === item.id && <form id={`content-editor-${item.id}`} onSubmit={(event) => { event.preventDefault(); void save(item, event.currentTarget); }}>
           <div className="content-fields"><label>{copy.topicLabel}<input name="topic" defaultValue={item.topic} maxLength={300} disabled={locked} /></label><label>{copy.hookLabel}<input name="hook" defaultValue={item.hook} maxLength={500} disabled={locked} /></label></div>
           <label>{copy.captionLabel}<textarea name="caption" defaultValue={item.caption} minLength={2} maxLength={5000} rows={6} required disabled={locked} /></label>
           <div className="content-fields"><label>{copy.ctaLabel}<input name="cta" defaultValue={item.cta} maxLength={500} disabled={locked} /></label><label>{copy.hashtagsLabel}<input name="hashtags" defaultValue={item.hashtags.join(", ")} disabled={locked} /></label></div>
           <label>{copy.visualPromptLabel}<textarea name="visualPrompt" defaultValue={item.visualPrompt} maxLength={2000} rows={3} disabled={locked} /></label>
           <button type="submit" disabled={locked}>{busyId === item.id ? t("common").saving : copy.saveButton}</button>
-        </form>
+        </form>}
         <form className="content-actions" onSubmit={(event) => event.preventDefault()}>
           <label>{copy.scheduleTimeLabel}<input name="scheduledFor" type="datetime-local" defaultValue={scheduledLocal} disabled={!canWrite || busyId !== null || !["approved", "scheduled"].includes(item.status)} /></label>
           <div>
@@ -1183,6 +1197,7 @@ function BookingView({ value, session, onChanged, onSessionExpired }: { value: J
     <div className="booking-list">{filteredBookings.map((booking) => {
       const phone = booking.normalized_phone ?? booking.phone;
       const location = booking.location === "Other" ? booking.other_location : booking.location;
+      const bookingNeedsAction = ["pending", "contacted"].includes(booking.status);
       return <article className="booking-operation-card" key={booking.id}>
         <header><div><h3>{booking.full_name}</h3><p>{phone ? <a href={`tel:${phone}`}>{phone}</a> : copy.noPhone}</p></div><span className={`booking-status status-${booking.status}`}>{statusLabels[booking.status]}</span></header>
         <dl>
@@ -1194,6 +1209,7 @@ function BookingView({ value, session, onChanged, onSessionExpired }: { value: J
         </dl>
         {booking.fear_of_water && <div className="booking-risk">{copy.fearOfWaterAlert}</div>}
         <label htmlFor={`booking-status-${booking.id}`}>{copy.updateStatusLabel}<select id={`booking-status-${booking.id}`} value={booking.status} disabled={!canWrite || busyId !== null} onChange={(event) => void changeStatus(booking, event.target.value as BookingStatus)}>{(Object.keys(statusLabels) as BookingStatus[]).map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}</select></label>
+        {canWrite && bookingNeedsAction && <div className="operations-actions"><button type="button" disabled={busyId !== null} onClick={() => void changeStatus(booking, "confirmed")}>{statusLabels.confirmed}</button><button type="button" className="secondary" disabled={busyId !== null} onClick={() => void changeStatus(booking, "declined")}>{statusLabels.declined}</button></div>}
         {busyId === booking.id && <small>{copy.savingChange}</small>}
         {!canWrite && <small>{t("common").readOnlyNote}</small>}
       </article>;
@@ -1373,7 +1389,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
           active === "analytics" ? <AnalyticsView value={data} /> :
           active === "integrations" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><OperationsQueueView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /></Suspense> :
           active === "connections" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><IntegrationsCenter value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /></Suspense> :
-          active === "automations" ? <AutomationsView value={data} /> :
+          active === "automations" ? <AutomationsView value={data} onOpenQueue={() => go("integrations")} /> :
           active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "brain" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><CoachBrain language={language} /></Suspense> :
           active === "workspace" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><RealProductFoundation session={session} language={language} /></Suspense> :

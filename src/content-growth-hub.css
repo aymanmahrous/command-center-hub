@@ -427,3 +427,10 @@
   .factory-stage-rail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .factory-30-day-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+
+.factory-section-action-bar { display: grid; gap: 7px; padding: 13px 14px; border: 1px solid #0ea5e9; border-radius: 12px; background: rgba(14, 165, 233, .1); }
+.factory-section-action-bar strong { color: #e0f2fe; }
+.factory-section-action-bar span { color: #bae6fd; font-size: .86rem; line-height: 1.55; }
+.factory-section-action-bar > div { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 3px; }
+.factory-section-action-bar button { cursor: pointer; font: inherit; font-weight: 800; }
+.factory-section-action-bar .secondary { border: 1px solid #475569; border-radius: 10px; padding: 10px 14px; background: transparent; color: #e2e8f0; }
