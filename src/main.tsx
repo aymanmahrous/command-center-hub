@@ -47,10 +47,11 @@ const sections = [
 ] as const;
 
 const navigationGroups = [
-  { id: "home", label: "home", items: ["dashboard", "today", "command"] },
-  { id: "factory", label: "factory", items: ["content", "media", "archive", "brain"] },
-  { id: "operations", label: "operations", items: ["inbox", "automations", "integrations", "connections"] },
-  { id: "customers", label: "customers", items: ["crm", "planner", "analytics", "radar", "workspace"] },
+  { id: "home", label: "home", items: ["dashboard"] },
+  { id: "factory", label: "factory", items: ["content"] },
+  { id: "inbox", label: "inbox", items: ["inbox"] },
+  { id: "media", label: "media", items: ["media"] },
+  { id: "operations", label: "operations", items: ["automations"] },
 ] as const;
 
 type SectionId = (typeof sections)[number][0];
@@ -1278,7 +1279,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     else if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.pushState({ section: id }, "", nextUrl);
   };
 
-  const moreIds = new Set<SectionId>(["planner", "automations", "media", "archive", "analytics", "integrations", "connections", "radar", "brain", "workspace"]);
+  const moreIds = new Set<SectionId>(["today", "command", "crm", "planner", "archive", "analytics", "integrations", "connections", "radar", "brain", "workspace"]);
   const moreItems = sections.filter(([id]) => moreIds.has(id));
 
   const morePanel = (
@@ -1304,10 +1305,10 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
 
   const primary = [
     ["dashboard", LayoutDashboard, nav.dashboard],
-    ["content", BarChart3, nav.marketing],
+    ["content", BarChart3, nav.factory],
     ["inbox", Inbox, nav.inbox],
-    ["crm", ContactRound, nav.crm],
-    ["today", CalendarDays, nav.today],
+    ["media", Library, nav.media],
+    ["automations", Workflow, nav.operations],
   ] as const;
 
   return <div className="app-shell">
@@ -1321,13 +1322,13 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
       <LanguageSwitcher onDark />
         <nav aria-label="وحدات Command Center">
         {navigationGroups.map((group) => <div className="nav-group" key={group.id}>
-          <span className="nav-group-label">{group.label === "home" ? nav.dashboard : group.label === "factory" ? (language === "ar" ? "المصنع والوسائط" : "Factory & media") : group.label === "operations" ? (language === "ar" ? "التشغيل" : "Operations") : (language === "ar" ? "العملاء والنتائج" : "Customers & results")}</span>
+          <span className="nav-group-label">{group.label === "home" ? nav.dashboard : group.label === "factory" ? nav.factory : group.label === "inbox" ? nav.inbox : group.label === "media" ? nav.media : nav.operations}</span>
           {group.items.map((id) => {
             const entry = sections.find(([sectionId]) => sectionId === id);
             if (!entry) return null;
             const Icon = entry[1];
             return <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => go(id)}>
-              <Icon size={18} aria-hidden="true" /><span>{id === "content" ? nav.marketing : nav[id]}</span>
+              <Icon size={18} aria-hidden="true" /><span>{id === "content" ? nav.factory : id === "automations" ? nav.operations : nav[id]}</span>
             </button>;
           })}
         </div>)}
@@ -1345,8 +1346,6 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
           <h1>{active === "content" ? nav.marketing : nav[current[0]]}</h1>
         </div>
         <div className="owner-header-actions">
-          <button type="button" className="owner-command coach-brain-header" onClick={() => go("brain")}><Bot size={18} aria-hidden="true" /><span>{language === "ar" ? "Coach Brain" : "Coach Brain"}</span></button>
-          <button type="button" className="owner-command" onClick={() => go("command")}><Bot size={18} aria-hidden="true" /><span>{nav.command}</span></button>
           <button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button>
           <button type="button" className="logout mobile-logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" /></button>
         </div>
@@ -1383,7 +1382,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
       </section>
 
       <nav className="owner-mobile-nav" aria-label={language === "ar" ? "التنقل الرئيسي" : "Primary navigation"}>
-        {primary.filter(([id]) => id !== "today").map(([id, Icon, label]) => (
+        {primary.map(([id, Icon, label]) => (
           <button type="button" key={id} className={active === id ? "active" : ""} onClick={() => go(id)}>
             <Icon size={18} aria-hidden="true" /><span>{label}</span>
           </button>

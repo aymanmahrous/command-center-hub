@@ -21,6 +21,8 @@ export const ar: Dictionary = {
   },
   nav: {
     dashboard: "الرئيسية",
+    factory: "المصنع",
+    operations: "التشغيل",
     marketing: "التسويق",
     more: "المزيد",
     today: "اليوم",

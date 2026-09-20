@@ -19,6 +19,8 @@ export const en = {
   },
   nav: {
     dashboard: "Home",
+    factory: "Factory",
+    operations: "Operations",
     marketing: "Marketing",
     more: "More",
     today: "Today",
