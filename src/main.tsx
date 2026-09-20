@@ -65,6 +65,7 @@ type BookingStatus = "pending" | "contacted" | "confirmed" | "declined" | "cance
 type LeadStage = "new" | "contacted" | "qualified" | "booking_intent" | "booked" | "follow_up" | "lost" | "customer";
 type ConversationMode = "ai_active" | "human_required" | "human_takeover" | "paused";
 type ContentStatus = "idea" | "draft" | "generated" | "needs_review" | "approved" | "scheduled" | "published" | "failed" | "cancelled";
+type ContentFactoryTab = "overview" | "strategy" | "factory" | "content" | "designs" | "reels" | "campaigns" | "review" | "connections";
 type ContentAction = "approve" | "return_to_review" | "schedule" | "unschedule";
 type MediaAssetType = "image" | "video" | "logo" | "other";
 type MediaSource = "upload" | "ai_generated" | "external";
@@ -746,6 +747,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
   const [notice, setNotice] = useState("");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ContentStatus | "all">("all");
+  const [factoryTab, setFactoryTab] = useState<ContentFactoryTab>("overview");
   const canWrite = ["super_admin", "admin", "content_manager"].includes(session.role);
   const items = parsed.success ? parsed.data : [];
   const filteredItems = useMemo(() => {
@@ -912,8 +914,10 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
         onApproveAll={approveAllBatch}
         onBatchCreated={onChanged}
         onSessionExpired={onSessionExpired}
+        onTabChange={setFactoryTab}
       />
     </Suspense>
+    {factoryTab === "content" && <>
     <div className="content-toolbar">
       <label>{t("common").search}<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={copy.searchPlaceholder} /></label>
       <label>{t("common").status}<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as ContentStatus | "all")}><option value="all">{copy.allStatuses}</option>{(Object.keys(statusLabels) as ContentStatus[]).map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}</select></label>
@@ -945,6 +949,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
         <footer><span>{copy.lastUpdated}: {formatBookingDateTime(language, item.updatedAt)}</span>{item.publishedAt && <span>{copy.published}: {formatBookingDateTime(language, item.publishedAt)}</span>}{!canWrite && <span>{t("common").readOnlyNote}</span>}{item.status === "published" && <span>{copy.publishedLocked}</span>}</footer>
       </article>;
     })}</div>
+    </>}
   </>;
 }
 
@@ -1329,6 +1334,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
           <h1>{active === "content" ? nav.marketing : nav[current[0]]}</h1>
         </div>
         <div className="owner-header-actions">
+          <button type="button" className="owner-command coach-brain-header" onClick={() => go("brain")}><Bot size={18} aria-hidden="true" /><span>{language === "ar" ? "Coach Brain" : "Coach Brain"}</span></button>
           <button type="button" className="owner-command" onClick={() => go("command")}><Bot size={18} aria-hidden="true" /><span>{nav.command}</span></button>
           <button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button>
           <button type="button" className="logout mobile-logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" /></button>

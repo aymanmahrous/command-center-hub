@@ -35,6 +35,7 @@ type ContentGrowthHubProps = {
   onApproveAll: (items: ContentBatchItem[]) => Promise<void>;
   onBatchCreated?: () => void;
   onSessionExpired?: () => void;
+  onTabChange?: (tab: "overview" | "strategy" | "factory" | "content" | "designs" | "reels" | "campaigns" | "review" | "connections") => void;
 };
 
 async function callRpc(session: GrowthSession, rpcName: string, body: Record<string, unknown> = {}, signal?: AbortSignal) {
@@ -68,6 +69,7 @@ export default function ContentGrowthHub({
   onApproveAll,
   onBatchCreated,
   onSessionExpired,
+  onTabChange,
 }: ContentGrowthHubProps) {
   const { language, t } = useLanguage();
   const copy = t("contentGrowth");
@@ -91,6 +93,8 @@ export default function ContentGrowthHub({
   const [generating, setGenerating] = useState(false);
   const [mediaAssets, setMediaAssets] = useState<ReturnType<typeof parseMediaAssetRecords>>([]);
   const integrations = useMemo(() => readIntegrationStatuses(automationStatus), [automationStatus]);
+  const [activeFactoryTab, setActiveFactoryTab] = useState<"overview" | "strategy" | "factory" | "content" | "designs" | "reels" | "campaigns" | "review" | "connections">("overview");
+  const showReviewWorkspace = ["content", "designs", "reels", "campaigns", "review"].includes(activeFactoryTab);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -165,14 +169,18 @@ export default function ContentGrowthHub({
 
   return (
     <div className="content-growth-hub">
-      <nav className="content-section-nav" aria-label={language === "ar" ? "تنقل التسويق" : "Marketing workspace navigation"}>
-        {[
-          ["content-overview", language === "ar" ? "نظرة عامة" : "Overview"],
-          ["content-factory", language === "ar" ? "المصنع" : "Factory"],
-          ["content-review", language === "ar" ? "المراجعة" : "Review"],
-          ["content-connections", language === "ar" ? "الاتصالات" : "Connections"],
-          ["content-strategy", language === "ar" ? "الاستراتيجية" : "Strategy"],
-        ].map(([id, label]) => <button type="button" key={id} onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" })}>{label}</button>)}
+      <nav className="content-section-nav" aria-label={language === "ar" ? "أقسام مصنع المحتوى" : "Content Factory sections"}>
+        {([
+          ["overview", language === "ar" ? "نظرة عامة" : "Overview"],
+          ["strategy", language === "ar" ? "الاستراتيجية" : "Strategy"],
+          ["factory", language === "ar" ? "التوليد" : "Generate"],
+          ["content", language === "ar" ? "المحتوى" : "Content"],
+          ["designs", language === "ar" ? "التصاميم" : "Designs"],
+          ["reels", language === "ar" ? "الريلز" : "Reels"],
+          ["campaigns", language === "ar" ? "الحملات" : "Campaigns"],
+          ["review", language === "ar" ? "المراجعة" : "Review"],
+          ["connections", language === "ar" ? "الاتصالات" : "Connections"],
+        ] as const).map(([id, label]) => <button type="button" key={id} className={activeFactoryTab === id ? "active" : ""} onClick={() => { setActiveFactoryTab(id); onTabChange?.(id); }}>{label}</button>)}
       </nav>
       {batchReady?.show && (
         <div className="content-growth-banner batch-ready-banner" role="status">
@@ -193,7 +201,7 @@ export default function ContentGrowthHub({
 
       {generateNotice && <div className="notice-box" aria-live="polite">{generateNotice}</div>}
 
-      {facebookAudit && (
+      {activeFactoryTab === "overview" && facebookAudit && (
         <section className="content-growth-section facebook-audit-section" aria-labelledby="facebook-audit-heading">
           <header>
             <p>{copy.pipelineEyebrow}</p>
@@ -217,7 +225,7 @@ export default function ContentGrowthHub({
         </section>
       )}
 
-      <section id="content-overview" className="content-growth-section live-publish-section" aria-labelledby="live-publish-heading">
+      {activeFactoryTab === "overview" && <section id="content-overview" className="content-growth-section live-publish-section" aria-labelledby="live-publish-heading">
         <header>
           <p>{copy.pipelineEyebrow}</p>
           <h3 id="live-publish-heading">{publishCopyInstagram.livePublishTitle}</h3>
@@ -240,9 +248,9 @@ export default function ContentGrowthHub({
             <span>{instagramPublishing.authorizedItem.topic}</span>
           </div>
         )}
-      </section>
+      </section>}
 
-      <section id="content-factory" className="content-growth-section" aria-labelledby="generate-batch-heading">
+      {activeFactoryTab === "factory" && <section id="content-factory" className="content-growth-section" aria-labelledby="generate-batch-heading">
         <header>
           <p>{copy.generateEyebrow}</p>
           <h3 id="generate-batch-heading">{copy.generateTitle}</h3>
@@ -255,9 +263,9 @@ export default function ContentGrowthHub({
           {generating ? copy.generateBusy : copy.generateButton}
         </button>
         <p className="batch-meta">{copy.generateMixNote}</p>
-      </section>
+      </section>}
 
-      <section id="content-review" className="content-growth-section" aria-labelledby="content-pipeline-heading">
+      {showReviewWorkspace && <section id="content-review" className="content-growth-section" aria-labelledby="content-pipeline-heading">
         <header>
           <p>{copy.pipelineEyebrow}</p>
           <h3 id="content-pipeline-heading">{copy.pipelineTitle}</h3>
@@ -270,9 +278,9 @@ export default function ContentGrowthHub({
           <article><span>{copy.failed}</span><strong>{pipeline.failed}</strong></article>
           <article><span>{copy.totalItems}</span><strong>{pipeline.total}</strong></article>
         </div>
-      </section>
+      </section>}
 
-      <section id="content-connections" className="content-growth-section" aria-labelledby="integration-status-heading">
+      {activeFactoryTab === "connections" && <section id="content-connections" className="content-growth-section" aria-labelledby="integration-status-heading">
         <header>
           <p>{copy.integrationsEyebrow}</p>
           <h3 id="integration-status-heading">{copy.integrationsTitle}</h3>
@@ -288,9 +296,9 @@ export default function ContentGrowthHub({
         </div>
         <p className="batch-meta">{copy.integrationsNote}</p>
         <MediaProviderStrip session={session} canWrite={canWrite} />
-      </section>
+      </section>}
 
-      <section id="content-strategy" className="content-growth-section" aria-labelledby="strategy-mix-heading">
+      {activeFactoryTab === "strategy" && <section id="content-strategy" className="content-growth-section" aria-labelledby="strategy-mix-heading">
         <header>
           <p>{copy.strategyEyebrow}</p>
           <h3 id="strategy-mix-heading">{copy.strategyTitle}</h3>
@@ -304,9 +312,9 @@ export default function ContentGrowthHub({
             </li>
           ))}
         </ul>
-      </section>
+      </section>}
 
-      <section className="content-growth-section" aria-labelledby="insights-heading">
+      {activeFactoryTab === "strategy" && <section className="content-growth-section" aria-labelledby="insights-heading">
         <header>
           <p>{copy.insightsEyebrow}</p>
           <h3 id="insights-heading">{copy.insightsTitle}</h3>
@@ -319,9 +327,9 @@ export default function ContentGrowthHub({
             </li>
           ))}
         </ul>
-      </section>
+      </section>}
 
-      {batches.length > 1 && (
+      {showReviewWorkspace && batches.length > 1 && (
         <div className="batch-switcher" aria-label={copy.batchSwitcherAria}>
           {batches.map((batch) => (
             <button
@@ -336,7 +344,7 @@ export default function ContentGrowthHub({
         </div>
       )}
 
-      {selectedBatch && (
+      {showReviewWorkspace && selectedBatch && (
         <ContentBatchReviewPanel
           items={batchItems}
           batch={selectedBatch}
