@@ -95,6 +95,29 @@ export default function ContentGrowthHub({
   const integrations = useMemo(() => readIntegrationStatuses(automationStatus), [automationStatus]);
   const [activeFactoryTab, setActiveFactoryTab] = useState<"overview" | "strategy" | "factory" | "content" | "designs" | "reels" | "campaigns" | "review" | "connections">("overview");
   const showReviewWorkspace = ["designs", "reels", "campaigns", "review"].includes(activeFactoryTab);
+  const factoryStages = [
+    ["strategy", language === "ar" ? "الاستراتيجية" : "Strategy"],
+    ["factory", language === "ar" ? "التوليد" : "Ideas / Generate"],
+    ["content", language === "ar" ? "المحتوى" : "Content"],
+    ["designs", language === "ar" ? "التصميم" : "Design"],
+    ["review", language === "ar" ? "المراجعة" : "Review"],
+    ["campaigns", language === "ar" ? "الجدولة" : "Schedule"],
+    ["overview", language === "ar" ? "النشر والنتائج" : "Publish / Results"],
+  ] as const;
+  const planDays = useMemo(() => {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    return Array.from({ length: 30 }, (_, index) => {
+      const day = new Date(start);
+      day.setDate(start.getDate() + index);
+      const dayItems = items.filter((item) => {
+        if (!item.scheduledFor) return false;
+        const scheduled = new Date(item.scheduledFor);
+        return scheduled.getFullYear() === day.getFullYear() && scheduled.getMonth() === day.getMonth() && scheduled.getDate() === day.getDate();
+      });
+      return { day, dayItems };
+    });
+  }, [items]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -182,6 +205,21 @@ export default function ContentGrowthHub({
           ["connections", language === "ar" ? "الاتصالات" : "Connections"],
         ] as const).map(([id, label]) => <button type="button" key={id} className={activeFactoryTab === id ? "active" : ""} onClick={() => { setActiveFactoryTab(id); onTabChange?.(id); }}>{label}</button>)}
       </nav>
+      <section className="factory-control-room" aria-labelledby="factory-control-room-title">
+        <div className="factory-control-room-heading">
+          <div><span>{language === "ar" ? "مصنع واحد" : "ONE FACTORY"}</span><h2 id="factory-control-room-title">{language === "ar" ? "مسار الدعاية والنشر" : "Campaign and publishing flow"}</h2><p>{language === "ar" ? "افتح مرحلة واحدة، عدّل العنصر، ثم احفظ أو انقله للمرحلة التالية." : "Open one stage, edit the item, then save or move it to the next stage."}</p></div>
+          <div className="factory-control-room-status"><strong>{selectedBatch ? selectedBatch.items.length : 0}</strong><span>{language === "ar" ? "عنصر في الدفعة" : "items in batch"}</span></div>
+        </div>
+        <div className="factory-stage-rail" role="list" aria-label={language === "ar" ? "مراحل المصنع" : "Factory stages"}>
+          {factoryStages.map(([id, label], index) => <button type="button" role="listitem" key={id} className={activeFactoryTab === id ? "active" : ""} onClick={() => { setActiveFactoryTab(id); onTabChange?.(id); }}><b>{index + 1}</b><span>{label}</span></button>)}
+        </div>
+      </section>
+      <section className="factory-30-day-plan" aria-labelledby="factory-30-day-title">
+        <header><div><span>{language === "ar" ? "خطة 30 يومًا" : "30-DAY PLAN"}</span><h3 id="factory-30-day-title">{language === "ar" ? "افتح يومك بدل قراءة قائمة طويلة" : "Open a day instead of reading a long list"}</h3></div><small>{language === "ar" ? "العناصر المجدولة فقط — التعديل يتم داخل مساحة العمل الحالية." : "Scheduled items only — edits stay inside the existing workspace."}</small></header>
+        <div className="factory-30-day-grid">
+          {planDays.map(({ day, dayItems }, index) => <button type="button" key={day.toISOString()} className={dayItems.length > 0 ? "has-items" : ""} onClick={() => { setActiveFactoryTab(dayItems.length > 0 ? "campaigns" : "strategy"); onTabChange?.(dayItems.length > 0 ? "campaigns" : "strategy"); }}><span>{language === "ar" ? `اليوم ${index + 1}` : `Day ${index + 1}`}</span><strong>{dayItems.length}</strong><small>{day.toLocaleDateString(language === "ar" ? "ar-AE" : "en-AE", { month: "short", day: "numeric" })}</small>{dayItems.slice(0, 2).map((item) => <em key={item.id}>{item.topic}</em>)}</button>)}
+        </div>
+      </section>
       <section className="factory-action-desk" aria-label={language === "ar" ? "إجراءات مصنع المحتوى" : "Content Factory actions"}>
         <div className="factory-action-desk-heading"><div><span>{language === "ar" ? "ماذا تريد أن تفعل؟" : "WHAT DO YOU WANT TO DO?"}</span><h3>{language === "ar" ? "اختر خطوة واحدة بدل قراءة صفحة طويلة" : "Choose one task instead of reading a long page"}</h3></div><small>{language === "ar" ? "كل زر يفتح مساحة عمل مستقلة." : "Each button opens one focused workspace."}</small></div>
         <div className="factory-action-grid">
