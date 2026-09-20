@@ -168,7 +168,7 @@ export default function ContentGrowthHub({
   }
 
   return (
-    <div className="content-growth-hub">
+    <div className="content-growth-hub" dir={language === "ar" ? "rtl" : "ltr"}>
       <nav className="content-section-nav" aria-label={language === "ar" ? "أقسام مصنع المحتوى" : "Content Factory sections"}>
         {([
           ["overview", language === "ar" ? "نظرة عامة" : "Overview"],
@@ -182,6 +182,17 @@ export default function ContentGrowthHub({
           ["connections", language === "ar" ? "الاتصالات" : "Connections"],
         ] as const).map(([id, label]) => <button type="button" key={id} className={activeFactoryTab === id ? "active" : ""} onClick={() => { setActiveFactoryTab(id); onTabChange?.(id); }}>{label}</button>)}
       </nav>
+      <section className="factory-action-desk" aria-label={language === "ar" ? "إجراءات مصنع المحتوى" : "Content Factory actions"}>
+        <div className="factory-action-desk-heading"><div><span>{language === "ar" ? "ماذا تريد أن تفعل؟" : "WHAT DO YOU WANT TO DO?"}</span><h3>{language === "ar" ? "اختر خطوة واحدة بدل قراءة صفحة طويلة" : "Choose one task instead of reading a long page"}</h3></div><small>{language === "ar" ? "كل زر يفتح مساحة عمل مستقلة." : "Each button opens one focused workspace."}</small></div>
+        <div className="factory-action-grid">
+          {([
+            ["strategy", language === "ar" ? "خطة التسويق" : "Marketing plan", language === "ar" ? "الأهداف والمنصات والأيام" : "Goals, platforms, and days"],
+            ["factory", language === "ar" ? "إنشاء دفعة" : "Create batch", language === "ar" ? "أنشئ مقترحًا للمراجعة" : "Create a reviewable proposal"],
+            ["content", language === "ar" ? "تحرير المحتوى" : "Edit content", language === "ar" ? "ابحث وعدّل واعتمد" : "Search, edit, and approve"],
+            ["review", language === "ar" ? "مراجعة واعتماد" : "Review and approve", language === "ar" ? "اعتماد أو طلب تعديل" : "Approve or request changes"],
+          ] as const).map(([id, label, detail]) => <button type="button" key={id} className={activeFactoryTab === id ? "active" : ""} onClick={() => { setActiveFactoryTab(id); onTabChange?.(id); }}><strong>{label}</strong><small>{detail}</small><span aria-hidden="true">→</span></button>)}
+        </div>
+      </section>
       {batchReady?.show && (
         <div className="content-growth-banner batch-ready-banner" role="status">
           <strong>{copy.batchReadyTitle}</strong>
