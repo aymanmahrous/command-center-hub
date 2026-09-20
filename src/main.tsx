@@ -1329,6 +1329,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
           <h1>{active === "content" ? nav.marketing : nav[current[0]]}</h1>
         </div>
         <div className="owner-header-actions">
+          <button type="button" className="owner-command coach-brain-header" onClick={() => go("brain")}><Bot size={18} aria-hidden="true" /><span>{language === "ar" ? "Coach Brain" : "Coach Brain"}</span></button>
           <button type="button" className="owner-command" onClick={() => go("command")}><Bot size={18} aria-hidden="true" /><span>{nav.command}</span></button>
           <button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button>
           <button type="button" className="logout mobile-logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" /></button>

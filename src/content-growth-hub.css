@@ -36,6 +36,13 @@
   color: #e0f2fe;
 }
 
+.content-section-nav button.active {
+  border-color: #22d3ee;
+  background: linear-gradient(135deg, rgba(14, 165, 233, .28), rgba(34, 211, 238, .14));
+  color: #f0fdff;
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, .18);
+}
+
 .content-growth-section[id] { scroll-margin-top: 76px; }
 
 .content-growth-banner {
