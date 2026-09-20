@@ -32,6 +32,7 @@ export const en = {
     archive: "Massive Archive",
     analytics: "Analytics",
     integrations: "Integrations",
+    connections: "Connection Center",
     radar: "Opportunity Radar",
     brain: "Coach Brain",
     workspace: "Product Workspace",

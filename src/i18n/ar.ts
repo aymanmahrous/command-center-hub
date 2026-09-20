@@ -34,6 +34,7 @@ export const ar: Dictionary = {
     archive: "الأرشيف الضخم",
     analytics: "التحليلات",
     integrations: "التكاملات",
+    connections: "مركز الاتصالات",
     radar: "رادار الفرص",
     brain: "Coach Brain",
     workspace: "مساحة المنتج",
