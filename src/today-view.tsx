@@ -86,6 +86,8 @@ const todayCopy = {
     automationRecordsLabel: "سجل",
     actionsEyebrow: "تنقل",
     actionsTitle: "إجراءات سريعة",
+    refreshButton: "تحديث البيانات",
+    refreshingButton: "جارٍ التحديث…",
   },
   en: {
     boundaryTitle: "Today operations dashboard",
@@ -127,6 +129,8 @@ const todayCopy = {
     automationRecordsLabel: "records",
     actionsEyebrow: "Navigation",
     actionsTitle: "Quick actions",
+    refreshButton: "Refresh data",
+    refreshingButton: "Refreshing…",
   },
 } as const;
 
@@ -193,6 +197,8 @@ export default function TodayOperationsView({
   const common = t("common");
   const statusLabels = jobStatusLabels[language];
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshToken, setRefreshToken] = useState(0);
   const [error, setError] = useState("");
   const [snapshotAt, setSnapshotAt] = useState("");
   const [inbox, setInbox] = useState<z.infer<typeof ConversationSchema>[]>([]);
@@ -204,7 +210,8 @@ export default function TodayOperationsView({
 
   useEffect(() => {
     const controller = new AbortController();
-    setStatus("loading");
+    setStatus((current) => current === "ready" ? current : "loading");
+    setRefreshing(true);
     setError("");
     const automationPromise = AUTOMATION_STATUS_ROLES.has(session.role)
       ? callRpc(session, "get_staff_content_automation_status", controller.signal)
@@ -233,15 +240,17 @@ export default function TodayOperationsView({
       setAutomationStatus(automationRaw);
       setSnapshotAt(operationsParsed.data.generatedAt);
       setStatus("ready");
+      setRefreshing(false);
     }).catch((cause) => {
       if (cause instanceof DOMException && cause.name === "AbortError") return;
       const message = cause instanceof Error ? cause.message : "LOAD_FAILED";
       if (message === "SESSION_EXPIRED") { onSessionExpired(); return; }
       setError(copy.loadError);
       setStatus("error");
+      setRefreshing(false);
     });
     return () => controller.abort();
-  }, [copy.loadError, onSessionExpired, session]);
+  }, [copy.loadError, onSessionExpired, refreshToken, session]);
 
   const now = useMemo(() => new Date(), [status]);
   const nowMs = now.getTime();
@@ -329,7 +338,12 @@ export default function TodayOperationsView({
     )}
 
     <section className="today-section">
-      <header><p>{copy.attentionEyebrow}</p><h3>{copy.attentionTitle}</h3></header>
+      <header>
+        <div><p>{copy.attentionEyebrow}</p><h3>{copy.attentionTitle}</h3></div>
+        <button type="button" className="today-quick-action" onClick={() => setRefreshToken((value) => value + 1)} disabled={refreshing} aria-busy={refreshing}>
+          {refreshing ? copy.refreshingButton : copy.refreshButton}
+        </button>
+      </header>
       {totalAttention === 0 ? <p className="muted">{copy.allClear}</p> : (
         <ul className="today-attention-list">
           {attentionItems.filter((item) => item.count > 0).map((item) => (
