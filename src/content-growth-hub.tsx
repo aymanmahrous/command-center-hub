@@ -94,7 +94,7 @@ export default function ContentGrowthHub({
   const [mediaAssets, setMediaAssets] = useState<ReturnType<typeof parseMediaAssetRecords>>([]);
   const integrations = useMemo(() => readIntegrationStatuses(automationStatus), [automationStatus]);
   const [activeFactoryTab, setActiveFactoryTab] = useState<"overview" | "strategy" | "factory" | "content" | "designs" | "reels" | "campaigns" | "review" | "connections">("overview");
-  const showReviewWorkspace = ["content", "designs", "reels", "campaigns", "review"].includes(activeFactoryTab);
+  const showReviewWorkspace = ["designs", "reels", "campaigns", "review"].includes(activeFactoryTab);
 
   useEffect(() => {
     const controller = new AbortController();
