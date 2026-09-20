@@ -4,6 +4,40 @@
   margin-bottom: 22px;
 }
 
+.content-section-nav {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  overflow-x: auto;
+  border: 1px solid #263449;
+  border-radius: 14px;
+  background: rgba(7, 17, 31, .94);
+  backdrop-filter: blur(12px);
+}
+
+.content-section-nav button {
+  flex: 0 0 auto;
+  border: 1px solid #334155;
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: #0b1321;
+  color: #cbd5e1;
+  cursor: pointer;
+  font-size: .82rem;
+  font-weight: 800;
+}
+
+.content-section-nav button:hover,
+.content-section-nav button:focus-visible {
+  border-color: #38bdf8;
+  color: #e0f2fe;
+}
+
+.content-growth-section[id] { scroll-margin-top: 76px; }
+
 .content-growth-banner {
   display: grid;
   gap: 8px;

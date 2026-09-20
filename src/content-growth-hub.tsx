@@ -165,6 +165,15 @@ export default function ContentGrowthHub({
 
   return (
     <div className="content-growth-hub">
+      <nav className="content-section-nav" aria-label={language === "ar" ? "تنقل التسويق" : "Marketing workspace navigation"}>
+        {[
+          ["content-overview", language === "ar" ? "نظرة عامة" : "Overview"],
+          ["content-factory", language === "ar" ? "المصنع" : "Factory"],
+          ["content-review", language === "ar" ? "المراجعة" : "Review"],
+          ["content-connections", language === "ar" ? "الاتصالات" : "Connections"],
+          ["content-strategy", language === "ar" ? "الاستراتيجية" : "Strategy"],
+        ].map(([id, label]) => <button type="button" key={id} onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" })}>{label}</button>)}
+      </nav>
       {batchReady?.show && (
         <div className="content-growth-banner batch-ready-banner" role="status">
           <strong>{copy.batchReadyTitle}</strong>
@@ -208,7 +217,7 @@ export default function ContentGrowthHub({
         </section>
       )}
 
-      <section className="content-growth-section live-publish-section" aria-labelledby="live-publish-heading">
+      <section id="content-overview" className="content-growth-section live-publish-section" aria-labelledby="live-publish-heading">
         <header>
           <p>{copy.pipelineEyebrow}</p>
           <h3 id="live-publish-heading">{publishCopyInstagram.livePublishTitle}</h3>
@@ -233,7 +242,7 @@ export default function ContentGrowthHub({
         )}
       </section>
 
-      <section className="content-growth-section" aria-labelledby="generate-batch-heading">
+      <section id="content-factory" className="content-growth-section" aria-labelledby="generate-batch-heading">
         <header>
           <p>{copy.generateEyebrow}</p>
           <h3 id="generate-batch-heading">{copy.generateTitle}</h3>
@@ -248,7 +257,7 @@ export default function ContentGrowthHub({
         <p className="batch-meta">{copy.generateMixNote}</p>
       </section>
 
-      <section className="content-growth-section" aria-labelledby="content-pipeline-heading">
+      <section id="content-review" className="content-growth-section" aria-labelledby="content-pipeline-heading">
         <header>
           <p>{copy.pipelineEyebrow}</p>
           <h3 id="content-pipeline-heading">{copy.pipelineTitle}</h3>
@@ -263,7 +272,7 @@ export default function ContentGrowthHub({
         </div>
       </section>
 
-      <section className="content-growth-section" aria-labelledby="integration-status-heading">
+      <section id="content-connections" className="content-growth-section" aria-labelledby="integration-status-heading">
         <header>
           <p>{copy.integrationsEyebrow}</p>
           <h3 id="integration-status-heading">{copy.integrationsTitle}</h3>
@@ -281,7 +290,7 @@ export default function ContentGrowthHub({
         <MediaProviderStrip session={session} canWrite={canWrite} />
       </section>
 
-      <section className="content-growth-section" aria-labelledby="strategy-mix-heading">
+      <section id="content-strategy" className="content-growth-section" aria-labelledby="strategy-mix-heading">
         <header>
           <p>{copy.strategyEyebrow}</p>
           <h3 id="strategy-mix-heading">{copy.strategyTitle}</h3>

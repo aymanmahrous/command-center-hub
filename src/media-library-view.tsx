@@ -171,6 +171,7 @@ export default function MediaLibraryView({
   busy = false,
   onChanged,
   onSessionExpired,
+  onNavigate,
 }: {
   value: JsonValue;
   session: MediaLibrarySession;
@@ -178,6 +179,7 @@ export default function MediaLibraryView({
   busy?: boolean;
   onChanged: () => void;
   onSessionExpired: () => void;
+  onNavigate?: (section: string) => void;
 }) {
   const { language, t } = useLanguage();
   const copy = t("media");
@@ -243,7 +245,8 @@ export default function MediaLibraryView({
   if (!parsed.success) return <div className="error-box">{copy.invalidFormat}</div>;
 
   return <>
-    <MediaSourceHubView />
+    <div className="media-workbench-head"><div><span>{language === "ar" ? "مركز الوسائط" : "MEDIA WORKBENCH"}</span><h2>{language === "ar" ? "الوسائط والمصادر والأرشيف في مساحة واحدة" : "Media, sources, and archive in one workspace"}</h2><p>{language === "ar" ? "اعرض الملفات، راجع حالة السحابات، ثم انتقل للأرشيف بدون خلط أو نقل تلقائي." : "Review files, see cloud status, then open the archive without mixing or moving data automatically."}</p></div><nav aria-label={language === "ar" ? "تنقل الوسائط" : "Media navigation"}><button type="button" className="active">{language === "ar" ? "المكتبة" : "Library"}</button><button type="button" onClick={() => document.getElementById("media-source-hub")?.scrollIntoView({ behavior: "smooth", block: "start" })}>{language === "ar" ? "مصادر السحابة" : "Cloud sources"}</button><button type="button" onClick={() => onNavigate?.("archive")}>{language === "ar" ? "الأرشيف الضخم" : "Massive Archive"}</button></nav></div>
+    <div id="media-source-hub"><MediaSourceHubView /></div>
     <div className="write-banner media-write-banner">
       <strong>{canWrite ? copy.writeBannerTitle : (language === "ar" ? "مكتبة وسائط خاصة للقراءة فقط" : "Private read-only media library")}</strong>
       <span>{copy.bannerSubtitle}</span>

@@ -7,8 +7,8 @@ const style = fs.readFileSync(new URL('../src/v2-command-center.css', import.met
 const shell = fs.readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf8');
 
 test('V2 Home exposes the operating center and required sections', () => {
-  for (const label of ['COMMAND CENTER V2', "NEEDS YOUR ATTENTION", "TODAY'S PRIORITIES", 'MARKETING PLAN', 'AI ACTIVITY', 'BUSINESS PULSE', 'UPCOMING', 'DECISION RADAR', 'OPERATING SYSTEM']) assert.match(view, new RegExp(label));
-  for (const target of ['crm', 'planner', 'content', 'automations']) assert.match(view, new RegExp(`go\\("${target}"\\)`));
+  for (const label of ['COMMAND CENTER V2', "NEEDS YOUR DECISION", "TODAY'S PRIORITIES", 'MARKETING PLAN', 'AI ACTIVITY', 'BUSINESS PULSE', 'UPCOMING', 'DECISION RADAR', 'OPERATING SYSTEM']) assert.match(view, new RegExp(label));
+  for (const target of ['crm', 'planner', 'content', 'automations']) assert.match(view, new RegExp(`onNavigate\\("${target}"\\)`));
 });
 
 test('Home plan is data-derived, conservative, and does not poll', () => {
@@ -34,7 +34,7 @@ test('V2 Home operating strip is responsive', () => {
 });
 
 test('V2 Home exposes quick operating navigation and filters decision signals', () => {
-  for (const target of ['crm', 'planner', 'content', 'automations']) assert.match(view, new RegExp(`go\\("${target}"\\)`));
+  for (const target of ['crm', 'planner', 'content', 'automations']) assert.match(view, new RegExp(`onNavigate\\("${target}"\\)`));
   assert.match(view, /v2-search-inline/);
   assert.match(view, /filteredAlerts/);
   assert.match(view, /Search signals/);

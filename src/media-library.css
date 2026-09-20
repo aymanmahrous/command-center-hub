@@ -1,3 +1,13 @@
+.media-workbench-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 16px; padding: 18px; border: 1px solid #dbe3ee; border-radius: 16px; background: #fff; }
+.media-workbench-head > div { min-width: 0; }
+.media-workbench-head span { color: #0f8fa0; font-size: 10px; font-weight: 900; letter-spacing: .12em; }
+.media-workbench-head h2 { margin: 5px 0 0; color: #0f172a; font-size: clamp(1.2rem, 2.5vw, 1.7rem); }
+.media-workbench-head p { margin: 6px 0 0; color: #64748b; font-size: 13px; line-height: 1.55; }
+.media-workbench-head nav { display: flex; flex-wrap: wrap; gap: 7px; }
+.media-workbench-head nav button { border: 1px solid #cbd5e1; border-radius: 999px; padding: 8px 11px; background: #fff; color: #475569; cursor: pointer; font-size: 12px; font-weight: 800; white-space: nowrap; }
+.media-workbench-head nav button.active { border-color: #0891b2; background: #ecfeff; color: #155e75; }
+#media-source-hub { scroll-margin-top: 18px; }
+
 .media-security-banner {
   display: flex;
   justify-content: space-between;
@@ -76,6 +86,9 @@
 }
 
 @media (max-width: 520px) {
+  .media-workbench-head { display: grid; gap: 12px; padding: 14px; }
+  .media-workbench-head nav { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .media-workbench-head nav button { padding: 8px 5px; font-size: 10px; }
   .media-security-banner { display: grid; }
   .media-details dl { grid-template-columns: 1fr; }
 }

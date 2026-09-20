@@ -9,6 +9,8 @@
 .side-brand{border:1px solid #1e293b;background:#07111f;padding:15px}
 .side-brand strong{font-size:15px}.side-brand span,.side-brand small{color:#94a3b8}
 .app-shell aside nav{gap:4px}
+.app-shell aside nav .nav-group{display:grid;gap:4px;margin-bottom:7px}
+.app-shell aside nav .nav-group-label{padding:8px 12px 4px;color:#64748b;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
 .app-shell aside nav button{color:#94a3b8;border:1px solid transparent;padding:11px 12px}
 .app-shell aside nav button:hover{background:#0b1321;color:#fff}
 .app-shell aside nav button.active{background:#172033;color:#fff;border-color:#25344b;box-shadow:inset 3px 0 #f97316}
@@ -34,7 +36,7 @@
 .owner-mobile-nav{display:none}
 @media(max-width:780px){
   .app-shell{display:block;min-height:100vh}
-  .app-shell>aside{display:none}
+  .app-shell aside{display:none}
   .app-shell .workspace{padding:14px 12px 92px;min-height:100vh}
   .owner-header{align-items:flex-start}
   .owner-header h1{font-size:clamp(1.45rem,7vw,2rem);margin:.2rem 0}
