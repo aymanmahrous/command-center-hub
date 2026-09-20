@@ -24,6 +24,7 @@ const CoachBrain = lazy(() => import("./coach-brain"));
 const RealProductFoundation = lazy(() => import("./real-product-foundation"));
 const PushInstallBar = lazy(() => import("./push-install-bar"));
 const C360 = lazy(() => import("./customer-360-panel"));
+const OperationsQueueView = lazy(() => import("./operations-queue-view"));
 
 const sections = [
   ["dashboard", LayoutDashboard, "get_staff_command_center"],
@@ -145,18 +146,6 @@ const AnalyticsSchema = z.object({
   views: z.number().int().nonnegative(), dms: z.number().int().nonnegative(), qualifiedLeads: z.number().int().nonnegative(),
   bookingRequests: z.number().int().nonnegative(), publishedItems: z.number().int().nonnegative(), contentItems: z.number().int().nonnegative(),
   attributionReady: z.boolean(), note: z.string(),
-}).passthrough();
-const FollowUpJobSchema = z.object({
-  id: z.string().uuid(), leadId: z.string().uuid(), leadName: z.string(), conversationId: z.string().uuid().nullable(),
-  attemptNumber: z.number().int().nonnegative(), scheduledFor: z.string(), status: z.enum(["queued", "processing", "completed", "failed", "retrying", "dead"]),
-  stoppedReason: z.string().nullable(), createdAt: z.string(),
-}).passthrough();
-const BackgroundJobSchema = z.object({
-  id: z.string().uuid(), jobType: z.string(), status: z.enum(["queued", "processing", "completed", "failed", "retrying", "dead"]),
-  attemptCount: z.number().int().nonnegative(), nextRetryAt: z.string().nullable(), lastError: z.string().nullable(), createdAt: z.string(), updatedAt: z.string(),
-}).passthrough();
-const OperationsQueueSchema = z.object({
-  followUps: z.array(FollowUpJobSchema), backgroundJobs: z.array(BackgroundJobSchema), generatedAt: z.string(),
 }).passthrough();
 const StoredSessionSchema = z.object({ accessToken: z.string().min(1) }).passthrough();
 
@@ -367,7 +356,6 @@ async function approveStaffContentBatch(session: Session, batchId: string) {
   if (!result.success) throw new Error(result.code ?? "UPDATE_REJECTED");
   return result;
 }
-
 function LanguageSwitcher({ onDark = false }: { onDark?: boolean }) {
   const { language, setLanguage, t } = useLanguage();
   const labels = t("language");
@@ -962,75 +950,6 @@ function AnalyticsView({ value }: { value: JsonValue }) {
   </>;
 }
 
-const jobStatusLabels: Record<Language, Record<JobStatus, string>> = {
-  ar: { queued: "في الانتظار", processing: "قيد التنفيذ", completed: "مكتملة", failed: "فشلت", retrying: "إعادة محاولة", dead: "متوقفة نهائيًا" },
-  en: { queued: "Queued", processing: "Processing", completed: "Completed", failed: "Failed", retrying: "Retrying", dead: "Dead" },
-};
-
-function boundedOperationalText(value: string, maximum = 240) {
-  const normalized = value.trim();
-  return normalized.length > maximum ? `${normalized.slice(0, maximum)}…` : normalized;
-}
-
-function isPast(value: string, reference: number) {
-  const timestamp = new Date(value).getTime();
-  return Number.isFinite(timestamp) && timestamp < reference;
-}
-
-function IntegrationsView({ value }: { value: JsonValue }) {
-  const { language, t } = useLanguage();
-  const copy = t("integrations");
-  const statusLabels = jobStatusLabels[language];
-  const parsed = useMemo(() => OperationsQueueSchema.safeParse(value), [value]);
-  const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<JobStatus | "all">("all");
-  if (!parsed.success) return <div className="error-box">{copy.invalidFormat}</div>;
-
-  const operations = parsed.data;
-  const now = Date.now();
-  const allJobs = [...operations.followUps, ...operations.backgroundJobs];
-  const counts = allJobs.reduce<Record<JobStatus, number>>((result, job) => {
-    result[job.status] += 1;
-    return result;
-  }, { queued: 0, processing: 0, completed: 0, failed: 0, retrying: 0, dead: 0 });
-  const normalizedQuery = query.trim().toLocaleLowerCase("ar");
-  const matches = (status: JobStatus, fields: Array<string | null>) => {
-    if (statusFilter !== "all" && status !== statusFilter) return false;
-    return !normalizedQuery || fields.some((field) => field?.toLocaleLowerCase("ar").includes(normalizedQuery));
-  };
-  const followUps = operations.followUps.filter((job) => matches(job.status, [job.leadName, job.id, job.leadId, job.conversationId, job.stoppedReason]));
-  const backgroundJobs = operations.backgroundJobs.filter((job) => matches(job.status, [job.jobType, job.id, job.lastError]));
-  const attentionCount = counts.failed + counts.dead;
-  const overdueFollowUps = operations.followUps.filter((job) => ["queued", "retrying"].includes(job.status) && isPast(job.scheduledFor, now)).length;
-
-  return <>
-    <div className="operations-boundary"><div><strong>{copy.boundaryTitle}</strong><p>{language === "ar" ? "تعكس طوابير المتابعة والمهام الداخلية المسجلة في آخر لقطة، ولا تثبت اتصال مزود خارجي لحظيًا." : "Reflects follow-up and internal job queues recorded in the latest snapshot; it does not prove a live external provider connection."}</p></div><span>{language === "ar" ? "لا توجد أوامر Retry أو Cancel" : "No Retry or Cancel commands are available here"}</span></div>
-    <div className="operations-summary" aria-label={language === "ar" ? "ملخص صحة العمليات" : "Operations health summary"}>
-      <button type="button" className={statusFilter === "all" ? "active" : ""} onClick={() => setStatusFilter("all")}><span>{copy.totalRecords}</span><strong>{allJobs.length}</strong></button>
-      <button type="button" className={statusFilter === "processing" ? "active" : ""} onClick={() => setStatusFilter("processing")}><span>{copy.processing}</span><strong>{counts.processing}</strong></button>
-      <button type="button" className={statusFilter === "retrying" ? "active" : ""} onClick={() => setStatusFilter("retrying")}><span>{copy.retrying}</span><strong>{counts.retrying}</strong></button>
-      <button type="button" className={statusFilter === "failed" ? "active danger" : ""} onClick={() => setStatusFilter("failed")}><span>{copy.failedInspectable}</span><strong>{counts.failed}</strong></button>
-      <div className={attentionCount > 0 ? "summary-alert danger" : "summary-alert"}><span>{copy.attentionNeeded}</span><strong>{attentionCount}</strong><small>Failed + Dead</small></div>
-      <div className={overdueFollowUps > 0 ? "summary-alert warning" : "summary-alert"}><span>{language === "ar" ? "متابعات متأخرة" : "Overdue follow-ups"}</span><strong>{overdueFollowUps}</strong><small>Queued / Retrying</small></div>
-    </div>
-    <div className="operations-toolbar"><label htmlFor="operations-search">{copy.searchLabel}<input id="operations-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={copy.searchPlaceholder} /></label><label htmlFor="operations-status">{copy.statusLabel}<select id="operations-status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as JobStatus | "all")}><option value="all">{copy.allStatuses}</option>{(Object.keys(statusLabels) as JobStatus[]).map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}</select></label></div>
-    <div className="operations-columns">
-      <section><header><div><p>{copy.followUpQueueEyebrow}</p><h3>{copy.followUpQueueTitle}</h3></div><span>{followUps.length} {t("common").of} {operations.followUps.length}</span></header>
-        {followUps.length === 0 && <p className="muted">{copy.noFollowUps}</p>}
-        <div className="operations-list">{followUps.map((job) => {
-          const overdue = ["queued", "retrying"].includes(job.status) && isPast(job.scheduledFor, now);
-          return <article key={job.id}><header><div><h4>{job.leadName}</h4><small>{copy.attemptLabel} {job.attemptNumber}</small></div><span className={`job-status job-${job.status}`}>{statusLabels[job.status]}</span></header><dl><div><dt>{copy.scheduledForLabel}</dt><dd>{formatBookingDateTime(language, job.scheduledFor)}</dd></div><div><dt>{copy.conversationLabel}</dt><dd>{job.conversationId ?? t("common").unlinked}</dd></div><div><dt>{copy.createdLabel}</dt><dd>{formatBookingDateTime(language, job.createdAt)}</dd></div></dl>{overdue && <p className="operation-warning">{copy.overdueWarning}</p>}{job.stoppedReason && <p className="operation-error"><strong>{copy.stoppedReasonLabel}</strong> {boundedOperationalText(job.stoppedReason)}</p>}</article>;
-        })}</div>
-      </section>
-      <section><header><div><p>{copy.backgroundJobsEyebrow}</p><h3>{copy.backgroundJobsTitle}</h3></div><span>{backgroundJobs.length} {t("common").of} {operations.backgroundJobs.length}</span></header>
-        {backgroundJobs.length === 0 && <p className="muted">{copy.noBackgroundJobs}</p>}
-        <div className="operations-list">{backgroundJobs.map((job) => <article key={job.id}><header><div><h4>{job.jobType || copy.unspecifiedType}</h4><small>{job.attemptCount} {copy.attemptsLabel}</small></div><span className={`job-status job-${job.status}`}>{statusLabels[job.status]}</span></header><dl><div><dt>{copy.lastUpdatedLabel}</dt><dd>{formatBookingDateTime(language, job.updatedAt)}</dd></div><div><dt>{copy.nextRetryLabel}</dt><dd>{job.nextRetryAt ? formatBookingDateTime(language, job.nextRetryAt) : copy.notScheduled}</dd></div><div><dt>{copy.createdLabel}</dt><dd>{formatBookingDateTime(language, job.createdAt)}</dd></div></dl>{job.lastError && <p className="operation-error"><strong>{copy.lastErrorLabel}</strong> {boundedOperationalText(job.lastError)}</p>}</article>)}</div>
-      </section>
-    </div>
-    <p className="operations-generated">{language === "ar" ? <>آخر لقطة من RPC: {formatBookingDateTime(language, operations.generatedAt)} · حد المصدر 250 سجلًا لكل طابور.</> : <>Latest RPC snapshot: {formatBookingDateTime(language, operations.generatedAt)} · source limit 250 records per queue.</>}</p>
-  </>;
-}
-
 const radarPriorityLabels: Record<Language, Record<RadarPriority, string>> = {
   ar: { HOT: "🔥 ساخن", WARM: "دافئ", LOW: "منخفض" },
   en: { HOT: "🔥 HOT", WARM: "WARM", LOW: "LOW" },
@@ -1395,7 +1314,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
           active === "media" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MediaLibraryView value={data} session={session} canWrite={["super_admin", "admin", "content_manager"].includes(session.role)} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /></Suspense> :
           active === "archive" ? <Suspense><M /></Suspense> :
           active === "analytics" ? <AnalyticsView value={data} /> :
-          active === "integrations" ? <IntegrationsView value={data} /> :
+          active === "integrations" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><OperationsQueueView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /></Suspense> :
           active === "automations" ? <AutomationsView value={data} /> :
           active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "brain" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><CoachBrain language={language} /></Suspense> :
