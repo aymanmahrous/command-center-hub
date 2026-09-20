@@ -984,7 +984,7 @@ function safeRatio(numerator: number, denominator: number) {
   return denominator > 0 ? numerator / denominator : null;
 }
 
-function AnalyticsView({ value }: { value: JsonValue }) {
+function AnalyticsView({ value, onNavigate }: { value: JsonValue; onNavigate: (section: SectionId) => void }) {
   const { language, t } = useLanguage();
   const copy = t("analytics");
   const analyticsNumber = useMemo(() => new Intl.NumberFormat(language === "ar" ? "ar-AE" : "en-AE", { maximumFractionDigits: 0 }), [language]);
@@ -996,6 +996,7 @@ function AnalyticsView({ value }: { value: JsonValue }) {
   const dmRate = safeRatio(analytics.dms, analytics.views);
 
   return <>
+    <div className="operations-actions"><button type="button" onClick={() => onNavigate("content")}>{language === "ar" ? "فتح المصنع" : "Open Factory"}</button><button type="button" className="secondary" onClick={() => onNavigate("crm")}>{language === "ar" ? "فتح العملاء" : "Open customers"}</button><button type="button" className="secondary" onClick={() => onNavigate("planner")}>{language === "ar" ? "فتح الحجوزات" : "Open bookings"}</button></div>
     <div className={`analytics-trust ${analytics.attributionReady ? "ready" : "limited"}`}>
       <div><strong>{analytics.attributionReady ? (language === "ar" ? "Attribution متاح" : "Attribution available") : (language === "ar" ? "Attribution غير مكتمل" : "Attribution incomplete")}</strong><p>{analytics.attributionReady ? (language === "ar" ? "يمكن ربط النتائج بالمصادر وفق العقد الحالي." : "Results can be linked to sources under the current contract.") : (language === "ar" ? "المؤشرات إجماليات تشغيلية مستقلة؛ لا تُفسر كتحويلات منسوبة لحملة أو منشور." : "These figures are independent operational totals; do not interpret them as conversions attributed to a campaign or post.")}</p></div>
       <span>{analytics.attributionReady ? copy.attributionReadyBadge : copy.attributionLimitedBadge}</span>
@@ -1313,7 +1314,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
         {moreItems.map(([id, Icon]) => (
           <button type="button" key={id} onClick={() => go(id)}>
             <Icon size={18} aria-hidden="true" />
-            <span>{nav[id]}</span>
+            <span>{nav[id]} — {language === "ar" ? "فتح والتحكم" : "Open controls"}</span>
           </button>
         ))}
       </div>
@@ -1386,7 +1387,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
           active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "media" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MediaLibraryView value={data} session={session} canWrite={["super_admin", "admin", "content_manager"].includes(session.role)} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} onNavigate={(section) => { if (sections.some(([id]) => id === section)) go(section as SectionId); }} /></Suspense> :
           active === "archive" ? <Suspense><M /></Suspense> :
-          active === "analytics" ? <AnalyticsView value={data} /> :
+          active === "analytics" ? <AnalyticsView value={data} onNavigate={go} /> :
           active === "integrations" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><OperationsQueueView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /></Suspense> :
           active === "connections" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><IntegrationsCenter value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /></Suspense> :
           active === "automations" ? <AutomationsView value={data} onOpenQueue={() => go("integrations")} /> :
