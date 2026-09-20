@@ -17,6 +17,11 @@ test('Home plan is data-derived, conservative, and does not poll', () => {
   assert.doesNotMatch(shell, /setInterval/);
 });
 
+test('V2 Home uses localized Marketing labels and content-aware attention tracks', () => {
+  assert.match(view, /mixLabels\[slot\.labelKey as keyof typeof mixLabels\]/);
+  assert.match(style, /v2-action-grid\{display:grid;grid-template-columns:repeat\(auto-fit,minmax\(min\(100%,260px\),1fr\)\)/);
+});
+
 test('V2 Home keeps external execution read-only and explicit', () => {
   assert.match(view, /never executes actions automatically/);
   assert.match(view, /Unified operational signals/);
