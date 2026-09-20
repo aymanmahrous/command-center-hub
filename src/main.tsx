@@ -46,6 +46,13 @@ const sections = [
   ["workspace", Library, "x"],
 ] as const;
 
+const navigationGroups = [
+  { id: "home", label: "home", items: ["dashboard", "today", "command"] },
+  { id: "factory", label: "factory", items: ["content", "media", "archive", "brain"] },
+  { id: "operations", label: "operations", items: ["inbox", "automations", "integrations", "connections"] },
+  { id: "customers", label: "customers", items: ["crm", "planner", "analytics", "radar", "workspace"] },
+] as const;
+
 type SectionId = (typeof sections)[number][0];
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 type Role = "super_admin" | "admin" | "reception" | "coach" | "content_manager";
@@ -62,6 +69,17 @@ type ContentAction = "approve" | "return_to_review" | "schedule" | "unschedule";
 type MediaAssetType = "image" | "video" | "logo" | "other";
 type MediaSource = "upload" | "ai_generated" | "external";
 type JobStatus = "queued" | "processing" | "completed" | "failed" | "retrying" | "dead";
+
+function sectionFromLocation(): SectionId {
+  const requested = new URLSearchParams(window.location.search).get("section") as SectionId | null;
+  return requested && sections.some(([id]) => id === requested) ? requested : "dashboard";
+}
+
+function sectionUrl(section: SectionId) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("section", section);
+  return `${url.pathname}${url.search}${url.hash}`;
+}
 
 const ProfileSchema = z.object({ display_name: z.string().min(1), role: z.enum(["super_admin", "admin", "reception", "coach", "content_manager"]), active: z.literal(true) });
 const BookingSchema = z.object({
@@ -461,12 +479,17 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
   const [notice, setNotice] = useState("");
   const [replyBody, setReplyBody] = useState("");
   const [conversationPatches, setConversationPatches] = useState<Record<string, Partial<InboxConversation>>>({});
+  const [inboxFilter, setInboxFilter] = useState<"all" | "attention" | "unread">("all");
+  const [mobileListOpen, setMobileListOpen] = useState(true);
   const canWriteMode = ["super_admin", "admin", "reception", "coach"].includes(session.role);
   const canSendReply = ["super_admin", "admin", "reception", "content_manager"].includes(session.role);
   const conversations = parsed.success
     ? parsed.data.map((conversation) => ({ ...conversation, ...conversationPatches[conversation.id] }))
     : [];
   const selected = conversations.find((conversation) => conversation.id === selectedId) ?? null;
+  const visibleConversations = conversations.filter((conversation) => inboxFilter === "all" || (inboxFilter === "attention" ? conversation.needsAttention || conversation.humanRequired || conversation.mode === "human_required" || conversation.mode === "human_takeover" : conversation.unread > 0));
+  const attentionCount = conversations.filter((conversation) => conversation.needsAttention || conversation.humanRequired || conversation.mode === "human_required" || conversation.mode === "human_takeover").length;
+  const unreadCount = conversations.reduce((total, conversation) => total + conversation.unread, 0);
 
   useEffect(() => {
     if (!parsed.success) return;
@@ -595,9 +618,11 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
   return <>
     <div className="write-banner"><strong>{copy.writeBannerTitle}</strong><span>{copy.writeBannerSubtitle}</span></div>
     {notice && <div className="notice-box" aria-live="polite">{notice}</div>}
-    <div className="inbox-layout">
+    <div className="inbox-workspace-head"><div><span className="inbox-eyebrow">{language === "ar" ? "مركز المحادثات" : "CONVERSATION WORKSPACE"}</span><h3>{language === "ar" ? "كل محادثة في مكانها" : "Every conversation in its place"}</h3><p>{language === "ar" ? "اختر محادثة، راجع السياق، ثم نفّذ الإجراء المسموح فقط." : "Select a conversation, review the context, then take only the permitted action."}</p></div><div className="inbox-filters" role="group" aria-label={language === "ar" ? "تصفية المحادثات" : "Conversation filters"}><button type="button" className={inboxFilter === "all" ? "active" : ""} onClick={() => setInboxFilter("all")}>{language === "ar" ? "الكل" : "All"} <b>{conversations.length}</b></button><button type="button" className={inboxFilter === "attention" ? "active" : ""} onClick={() => setInboxFilter("attention")}>{language === "ar" ? "تحتاج انتباهًا" : "Needs attention"} <b>{attentionCount}</b></button><button type="button" className={inboxFilter === "unread" ? "active" : ""} onClick={() => setInboxFilter("unread")}>{language === "ar" ? "غير مقروء" : "Unread"} <b>{unreadCount}</b></button></div></div>
+    <div className={`inbox-layout ${mobileListOpen ? "mobile-list-open" : "mobile-conversation-open"}`}>
       <div className="conversation-list" aria-label={copy.listAriaLabel}>
-        {conversations.map((conversation) => <button type="button" key={conversation.id} className={selectedId === conversation.id ? "selected" : ""} onClick={() => { setSelectedId(conversation.id); setNotice(""); setReplyBody(""); }}>
+        {visibleConversations.length === 0 && <p className="inbox-filter-empty">{language === "ar" ? "لا توجد محادثات في هذا التصنيف." : "No conversations in this filter."}</p>}
+        {visibleConversations.map((conversation) => <button type="button" key={conversation.id} className={selectedId === conversation.id ? "selected" : ""} onClick={() => { setSelectedId(conversation.id); setMobileListOpen(false); setNotice(""); setReplyBody(""); }}>
           <span><strong>{conversation.leadName}</strong><span className="conversation-badges">{conversation.unread > 0 && <b className="unread-count">{conversation.unread}</b>}{(conversation.needsAttention || conversation.humanRequired || conversation.mode === "human_required" || conversation.mode === "human_takeover") && <b className="attention-badge" title={copy.needsAttention}>{copy.attentionBadge}</b>}</span></span>
           <small>{conversation.lastMessage || copy.noMessages}</small>
           <em>{conversation.channel} · {modeLabels[conversation.mode]}</em>
@@ -605,7 +630,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
       </div>
       <section className="conversation-panel">
         <header>
-          <div><h3>{selected?.leadName ?? copy.selectConversation}</h3>{selected && <p>Score {selected.leadScore}/100 · {selected.intent}{selected.handoffReason ? ` · ${selected.handoffReason}` : ""}</p>}</div>
+          <div><button type="button" className="inbox-mobile-back" onClick={() => setMobileListOpen(true)}>{language === "ar" ? "← كل المحادثات" : "← All conversations"}</button><h3>{selected?.leadName ?? copy.selectConversation}</h3>{selected && <p>Score {selected.leadScore}/100 · {selected.intent}{selected.handoffReason ? ` · ${selected.handoffReason}` : ""}</p>}</div>
           {selected && <label>{copy.modeLabel}<select value={selected.mode} disabled={!canWriteMode || busyId !== null} onChange={(event) => void changeMode(selected, event.target.value as ConversationMode)}>{(Object.keys(modeLabels) as ConversationMode[]).map((mode) => <option key={mode} value={mode}>{modeLabels[mode]}</option>)}</select></label>}
         </header>
         {selected && canSendReply && <div className="inbox-action-bar">
@@ -1164,12 +1189,11 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   const dashboardCopy = t("dashboard");
   const launchParams = new URLSearchParams(window.location.search);
   const canvaCallback = launchParams.get("canva");
-  const requestedSection = (launchParams.get("section") ?? "") as SectionId;
   const initialSection: SectionId = canvaCallback
     ? "media"
-    : sections.some(([id]) => id === requestedSection)
-      ? requestedSection
-      : "dashboard";
+    : sectionFromLocation() === "dashboard" && !launchParams.get("section")
+      ? "dashboard"
+      : sectionFromLocation();
   const [active, setActive] = useState<SectionId>(initialSection);
   const [reloadKey, setReloadKey] = useState(0);
   const [data, setData] = useState<JsonValue>(null);
@@ -1179,12 +1203,17 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   const loadedSectionRef = useRef<SectionId | null>(null);
 
   useEffect(() => {
+    const onPopState = () => setActive(sectionFromLocation());
     const onMessage = (event: MessageEvent) => {
-      if (event.data?.type === "rf-push-navigate" && sections.some(([id]) => id === event.data.section)) setActive(event.data.section);
+      if (event.data?.type === "rf-push-navigate" && sections.some(([id]) => id === event.data.section)) go(event.data.section);
     };
+    window.addEventListener("popstate", onPopState);
     navigator.serviceWorker?.addEventListener("message", onMessage);
-    return () => navigator.serviceWorker?.removeEventListener("message", onMessage);
-  }, []);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      navigator.serviceWorker?.removeEventListener("message", onMessage);
+    };
+  });
 
   const current = useMemo(() => sections.find(([id]) => id === active)!, [active]);
 
@@ -1225,9 +1254,12 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     ? dashboardCopy.controlledWrite
     : dashboardCopy.readOnly;
 
-  const go = (id: SectionId) => {
+  const go = (id: SectionId, replace = false) => {
     setMoreOpen(false);
     setActive(id);
+    const nextUrl = sectionUrl(id);
+    if (replace) window.history.replaceState({ section: id }, "", nextUrl);
+    else if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.pushState({ section: id }, "", nextUrl);
   };
 
   const moreIds = new Set<SectionId>(["planner", "automations", "media", "archive", "analytics", "integrations", "connections", "radar", "brain", "workspace"]);
@@ -1264,19 +1296,25 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
 
   return <div className="app-shell">
     <a className="skip-link" href="#main-workspace">{nav.skipToContent}</a>
-    <aside>
+      <aside>
       <div className="side-brand">
         <strong>Relax Fix AI OS</strong>
         <span>{language === "ar" ? "مركز تشغيل السباحة" : "Swimming Academy OS"}</span>
         <small>{session.displayName} · {session.role}</small>
       </div>
       <LanguageSwitcher onDark />
-      <nav aria-label="وحدات Command Center">
-        {primary.map(([id, Icon, label]) => (
-          <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => go(id)}>
-            <Icon size={18} aria-hidden="true" /><span>{label}</span>
-          </button>
-        ))}
+        <nav aria-label="وحدات Command Center">
+        {navigationGroups.map((group) => <div className="nav-group" key={group.id}>
+          <span className="nav-group-label">{group.label === "home" ? nav.dashboard : group.label === "factory" ? (language === "ar" ? "المصنع والوسائط" : "Factory & media") : group.label === "operations" ? (language === "ar" ? "التشغيل" : "Operations") : (language === "ar" ? "العملاء والنتائج" : "Customers & results")}</span>
+          {group.items.map((id) => {
+            const entry = sections.find(([sectionId]) => sectionId === id);
+            if (!entry) return null;
+            const Icon = entry[1];
+            return <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => go(id)}>
+              <Icon size={18} aria-hidden="true" /><span>{id === "content" ? nav.marketing : nav[id]}</span>
+            </button>;
+          })}
+        </div>)}
         <button type="button" className={moreOpen ? "active" : ""} onClick={() => setMoreOpen((value) => !value)}>
           <Settings2 size={18} aria-hidden="true" /><span>{nav.more}</span>
         </button>
@@ -1308,12 +1346,12 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
         {status === "loading" && <p className="muted" role="status">{t("common").loading}</p>}
         {status === "error" && <div className="error-box" role="alert">{error}</div>}
         {status === "ready" && (
-          active === "today" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><TodayView session={session} onNavigate={setActive} onSessionExpired={onLogout} /></Suspense> :
+          active === "today" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><TodayView session={session} onNavigate={go} onSessionExpired={onLogout} /></Suspense> :
           active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
-          active === "media" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MediaLibraryView value={data} session={session} canWrite={["super_admin", "admin", "content_manager"].includes(session.role)} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /></Suspense> :
+          active === "media" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MediaLibraryView value={data} session={session} canWrite={["super_admin", "admin", "content_manager"].includes(session.role)} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} onNavigate={(section) => { if (sections.some(([id]) => id === section)) go(section as SectionId); }} /></Suspense> :
           active === "archive" ? <Suspense><M /></Suspense> :
           active === "analytics" ? <AnalyticsView value={data} /> :
           active === "integrations" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><OperationsQueueView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /></Suspense> :
@@ -1322,7 +1360,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
           active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "brain" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><CoachBrain language={language} /></Suspense> :
           active === "workspace" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><RealProductFoundation session={session} language={language} /></Suspense> :
-          active === "dashboard" || active === "command" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><ControlTowerV2 key={`${active}-${reloadKey}`} session={session} onSessionExpired={onLogout} initialCommandOpen={active === "command"} /></Suspense> :
+          active === "dashboard" || active === "command" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><ControlTowerV2 key={`${active}-${reloadKey}`} session={session} onNavigate={(section) => { if (sections.some(([id]) => id === section)) go(section as SectionId); }} onSessionExpired={onLogout} initialCommandOpen={active === "command"} /></Suspense> :
           null
         )}
       </section>

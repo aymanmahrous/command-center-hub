@@ -144,12 +144,14 @@ export function ContentBatchReviewPanel({
   const [designNotice, setDesignNotice] = useState("");
   const [publishBusyId, setPublishBusyId] = useState<string | null>(null);
   const [publishNotice, setPublishNotice] = useState("");
+  const [itemFilter, setItemFilter] = useState<"all" | "needs_review" | "approved" | "scheduled" | "failed">("all");
   const requestPublishCopy = REQUEST_PUBLISH_COPY[language];
 
   const summary = useMemo(() => summarizeBatch(batch.items), [batch.items]);
   const batchStatus = overallBatchStatus(batch.items);
   const approveCandidates = approveAllCandidates(batch.items);
   const approveAllEnabled = canWrite && !busy && approveAllWouldChange(batch.items);
+  const visibleItems = itemFilter === "all" ? items : items.filter((item) => item.status === itemFilter);
   const assetById = useMemo(() => new Map(mediaAssets.map((asset) => [asset.id, asset])), [mediaAssets]);
   const previewLabels = {
     designPreview: copy.designPreview,
@@ -252,8 +254,9 @@ export function ContentBatchReviewPanel({
       {designNotice && <p className="content-batch-design-notice" role="status">{designNotice}</p>}
       {publishNotice && <p className="content-batch-design-notice" role="status">{publishNotice}</p>}
 
-      <div className="content-batch-grid">
-        {items.map((item) => {
+      <div className="content-review-toolbar"><div><strong>{language === "ar" ? "مراجعة الدفعة" : "Batch review"}</strong><span>{language === "ar" ? "اعرض الحالة التي تريد التعامل معها فقط." : "Show only the status you want to work on."}</span></div><div className="content-review-filters" role="group" aria-label={language === "ar" ? "تصفية حالات المحتوى" : "Content status filters"}>{(["all", "needs_review", "approved", "scheduled", "failed"] as const).map((filter) => { const count = filter === "all" ? items.length : items.filter((item) => item.status === filter).length; const label = filter === "all" ? (language === "ar" ? "الكل" : "All") : filter === "needs_review" ? (language === "ar" ? "للمراجعة" : "Needs review") : filter === "approved" ? (language === "ar" ? "معتمد" : "Approved") : filter === "scheduled" ? (language === "ar" ? "مجدول" : "Scheduled") : (language === "ar" ? "فشل" : "Failed"); return <button type="button" key={filter} className={itemFilter === filter ? "active" : ""} onClick={() => setItemFilter(filter)}>{label} <b>{count}</b></button>; })}</div></div>
+      {visibleItems.length === 0 ? <p className="content-review-empty">{language === "ar" ? "لا توجد عناصر في هذه الحالة." : "No items match this status."}</p> : <div className="content-batch-grid">
+        {visibleItems.map((item) => {
           const canApprove = ["draft", "generated", "needs_review"].includes(item.status);
           const canRequestChanges = ["draft", "generated", "approved", "scheduled", "failed"].includes(item.status);
           const itemLocked = busy || !canWrite;
@@ -385,7 +388,7 @@ export function ContentBatchReviewPanel({
             </article>
           );
         })}
-      </div>
+      </div>}
     </section>
   );
 }

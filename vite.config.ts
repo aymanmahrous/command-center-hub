@@ -6,10 +6,12 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     port: 5000,
+    allowedHosts: [".manus.computer"],
   },
   preview: {
     host: "0.0.0.0",
     port: 5000,
+    allowedHosts: [".manus.computer"],
   },
   build: {
     target: "es2022",

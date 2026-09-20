@@ -14,6 +14,6 @@ test("Operating System renders workflow intelligence from the live summary", () 
 test("Operating System actions are review-only and route through existing sections", () => {
   assert.match(source, /Review only; any external action requires owner approval/);
   assert.match(source, /action\.area === "bookings" \? "planner"/);
-  assert.match(source, /onClick=\{\(\) => go\(target\)\}/);
+  assert.match(source, /onClick=\{\(\) => onNavigate\(target\)\}/);
   assert.doesNotMatch(source, /fetch\([^)]*publish|service_role|executeExternal/i);
 });
