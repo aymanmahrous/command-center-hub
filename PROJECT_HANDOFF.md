@@ -2,7 +2,7 @@
 
 ## Current stage
 
-Documentation Review on branch `docs/final-documentation-review` after the protected merges of AI Inbox PR #9, Bookings PR #10, Content Studio PR #11, Media Library PR #12, Analytics PR #13, Integrations PR #14, System Polish PR #15, Final Audit PR #16, Final Security Review PR #17, and Performance Review PR #18.
+Protected `main` through Documentation Review PR #19, Media Library usability PR #36, and Media Library `createdBy` schema fix PR #37. Command Center Hub application work on `main` is current; cross-system publishing validation continues under `MASTER_PROJECT_HANDOFF.md` CURRENT_PHASE.
 
 ## Implemented
 
@@ -31,6 +31,8 @@ Documentation Review on branch `docs/final-documentation-review` after the prote
 - Performance Review measures the initial production entry and makes every production build enforce raw and gzip JavaScript/CSS budgets.
 - The performance gate is fixture-tested to pass bounded assets and fail an oversized entry without adding a runtime dependency or changing application behavior.
 - Documentation Review replaces the obsolete empty-baseline README with current operation, environment, RPC boundary, verification, and documentation guidance.
+- Media Library Stage 4 adds staff-JWT authenticated image previews and private document open/download through `staff-media-storage.ts` and a lazy-loaded `media-library-view.tsx` chunk.
+- Media Library Stage 4B aligns the client schema with Production RPC data by allowing nullable `createdBy` for library-imported assets.
 - Historical provenance and feature handoffs are explicitly labelled, superseded merge blockers are reconciled, and relative Markdown links are contract-tested.
 
 ## Verified evidence
@@ -54,15 +56,19 @@ Documentation Review on branch `docs/final-documentation-review` after the prote
 - Performance Review local verification passed: TypeScript, 33/33 tests, production build, and initial budgets at 302,436 bytes JavaScript / 20,716 bytes CSS raw.
 - Performance Review PR #18 merged after an independent approval and successful required checks on 2026-07-22.
 - Documentation Review local verification passed: TypeScript, 35/35 tests, production build, documentation link/contract checks, and the unchanged performance budget.
+- Documentation Review PR #19 merged after successful required checks on 2026-07-22.
+- Media Library usability PR #36 merged after successful required checks on 2026-08-09.
+- Media Library `createdBy` nullable fix PR #37 merged after successful required checks on 2026-08-09.
+- Current `main` verification: TypeScript, 44/44 tests, production build, and performance budget within limits.
 
 ## Pending / blocked
 
-- Complete local Documentation Review verification, then open its dedicated pull request and wait for protected CI and independent approval.
-- No permission or implementation blocker is currently known.
+- No Command Center Hub application implementation is pending on `main`.
+- Facebook Controlled Publishing Test remains open under `MASTER_PROJECT_HANDOFF.md` and requires owner-issued Production authorization before execution.
 
 ## NEXT_REQUIRED_ACTION
 
-Complete Documentation Review, merge its pull request only after CI and protection requirements pass, then begin Release Readiness Review from updated `main`.
+No further Command Center Hub code changes are pending on `main`. Proceed only under `MASTER_PROJECT_HANDOFF.md` CURRENT_PHASE after the owner issues a fresh single-publish Facebook authorization.
 
 ## Prohibited actions
 
