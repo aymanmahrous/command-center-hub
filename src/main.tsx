@@ -451,13 +451,15 @@ function DataView({ value }: { value: JsonValue }) {
   return <DataLeaf value={value} />;
 }
 
-function AutomationsView({ value }: { value: JsonValue }) {
-  const { t } = useLanguage();
+function AutomationsView({ value, onOpenQueue }: { value: JsonValue; onOpenQueue: () => void }) {
+  const { language, t } = useLanguage();
   const copy = t("automations");
+  const openQueue = language === "ar" ? "فتح الطابور" : "Open queue";
+  const takeAction = language === "ar" ? "مراجعة واتخاذ إجراء" : "Review and act";
   const isEmpty = value === null || (Array.isArray(value) && value.length === 0) || (typeof value === "object" && !Array.isArray(value) && Object.keys(value).length === 0);
   return <div className="automations-view">
-    <div className="operations-boundary"><div><strong>{copy.bannerTitle}</strong><p>{copy.bannerText}</p></div></div>
-    {isEmpty ? <p className="muted">{copy.empty}</p> : <DataView value={value} />}
+    <div className="operations-boundary"><div><strong>{copy.bannerTitle}</strong><p>{copy.bannerText}</p></div><button type="button" onClick={onOpenQueue}>{openQueue}</button></div>
+    {isEmpty ? <p className="muted">{copy.empty}</p> : <section className="automation-action-panel"><strong>{copy.bannerTitle}</strong><p>{copy.bannerText}</p><button type="button" onClick={onOpenQueue}>{takeAction}</button><details><summary>{language === "ar" ? "التفاصيل" : "Details"}</summary><DataView value={value} /></details></section>}
   </div>;
 }
 
@@ -1386,7 +1388,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
           active === "analytics" ? <AnalyticsView value={data} /> :
           active === "integrations" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><OperationsQueueView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /></Suspense> :
           active === "connections" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><IntegrationsCenter value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /></Suspense> :
-          active === "automations" ? <AutomationsView value={data} /> :
+          active === "automations" ? <AutomationsView value={data} onOpenQueue={() => go("integrations")} /> :
           active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "brain" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><CoachBrain language={language} /></Suspense> :
           active === "workspace" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><RealProductFoundation session={session} language={language} /></Suspense> :

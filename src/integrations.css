@@ -54,3 +54,5 @@
   .operations-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .operations-list dl div { grid-template-columns: 1fr; gap: 3px; }
 }
+
+.automation-action-panel button,.operations-boundary button{justify-self:start;padding:9px 13px;cursor:pointer}
