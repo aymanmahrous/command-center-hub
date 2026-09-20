@@ -25,6 +25,7 @@ const RealProductFoundation = lazy(() => import("./real-product-foundation"));
 const PushInstallBar = lazy(() => import("./push-install-bar"));
 const C360 = lazy(() => import("./customer-360-panel"));
 const OperationsQueueView = lazy(() => import("./operations-queue-view"));
+const IntegrationsCenter = lazy(() => import("./integrations-center"));
 
 const sections = [
   ["dashboard", LayoutDashboard, "get_staff_command_center"],
@@ -39,6 +40,7 @@ const sections = [
   ["archive", Library, "x"],
   ["analytics", BarChart3, "get_staff_growth_analytics"],
   ["integrations", Settings2, "get_staff_operations_queue"],
+  ["connections", Settings2, "get_staff_integrations"],
   ["radar", ShieldAlert, "get_staff_radar_opportunities"],
   ["brain", Bot, "x"],
   ["workspace", Library, "x"],
@@ -1228,7 +1230,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     setActive(id);
   };
 
-  const moreIds = new Set<SectionId>(["planner", "automations", "media", "archive", "analytics", "integrations", "radar", "brain", "workspace"]);
+  const moreIds = new Set<SectionId>(["planner", "automations", "media", "archive", "analytics", "integrations", "connections", "radar", "brain", "workspace"]);
   const moreItems = sections.filter(([id]) => moreIds.has(id));
 
   const morePanel = (
@@ -1315,6 +1317,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
           active === "archive" ? <Suspense><M /></Suspense> :
           active === "analytics" ? <AnalyticsView value={data} /> :
           active === "integrations" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><OperationsQueueView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /></Suspense> :
+          active === "connections" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><IntegrationsCenter value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /></Suspense> :
           active === "automations" ? <AutomationsView value={data} /> :
           active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "brain" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><CoachBrain language={language} /></Suspense> :
