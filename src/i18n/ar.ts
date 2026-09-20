@@ -36,6 +36,7 @@ export const ar: Dictionary = {
     integrations: "التكاملات",
     radar: "رادار الفرص",
     brain: "Coach Brain",
+    workspace: "مساحة المنتج",
     logout: "تسجيل الخروج",
     skipToContent: "تجاوز إلى المحتوى الرئيسي",
   },

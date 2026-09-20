@@ -21,6 +21,7 @@ const ControlTowerV2 = lazy(() => import("./control-tower-v2"));
 const ContentGrowthHub = lazy(() => import("./content-growth-hub"));
 const M = lazy(() => import("./massive-archive-view"));
 const CoachBrain = lazy(() => import("./coach-brain"));
+const RealProductFoundation = lazy(() => import("./real-product-foundation"));
 const PushInstallBar = lazy(() => import("./push-install-bar"));
 
 const sections = [
@@ -38,6 +39,7 @@ const sections = [
   ["integrations", Settings2, "get_staff_operations_queue"],
   ["radar", ShieldAlert, "get_staff_radar_opportunities"],
   ["brain", Bot, "x"],
+  ["workspace", Library, "x"],
 ] as const;
 
 type SectionId = (typeof sections)[number][0];
@@ -1271,7 +1273,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   useEffect(() => {
     const controller = new AbortController();
     const section = current[0];
-    if (["archive", "dashboard", "today", "command", "brain"].includes(section)) {
+    if (["archive", "dashboard", "today", "command", "brain", "workspace"].includes(section)) {
       setStatus("ready");
       loadedSectionRef.current = section;
       return () => controller.abort();
@@ -1297,12 +1299,6 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     return () => controller.abort();
   }, [current, dashboardCopy.loadError, onLogout, reloadKey, session]);
 
-  useEffect(() => {
-    if (active !== "inbox") return;
-    const timer = window.setInterval(() => setReloadKey((value) => value + 1), 45000);
-    return () => window.clearInterval(timer);
-  }, [active]);
-
   const modeLabel = ["planner", "crm", "inbox", "content", "media"].includes(active)
     ? dashboardCopy.controlledWrite
     : dashboardCopy.readOnly;
@@ -1312,7 +1308,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     setActive(id);
   };
 
-  const moreIds = new Set<SectionId>(["planner", "automations", "media", "archive", "analytics", "integrations", "radar", "brain"]);
+  const moreIds = new Set<SectionId>(["planner", "automations", "media", "archive", "analytics", "integrations", "radar", "brain", "workspace"]);
   const moreItems = sections.filter(([id]) => moreIds.has(id));
 
   const morePanel = (
@@ -1402,6 +1398,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
           active === "automations" ? <AutomationsView value={data} /> :
           active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "brain" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><CoachBrain language={language} /></Suspense> :
+          active === "workspace" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><RealProductFoundation session={session} language={language} /></Suspense> :
           active === "dashboard" || active === "command" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><ControlTowerV2 key={`${active}-${reloadKey}`} session={session} onSessionExpired={onLogout} initialCommandOpen={active === "command"} /></Suspense> :
           null
         )}

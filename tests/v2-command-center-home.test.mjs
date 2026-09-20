@@ -4,10 +4,22 @@ import fs from "node:fs";
 
 const view = fs.readFileSync(new URL('../src/control-tower-v2.tsx', import.meta.url), 'utf8');
 const style = fs.readFileSync(new URL('../src/v2-command-center.css', import.meta.url), 'utf8');
+const shell = fs.readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf8');
 
 test('V2 Home exposes the operating center and required sections', () => {
-  for (const label of ['COMMAND CENTER V2', 'CUSTOMER OPERATIONS', 'AI ACTIVITY', 'TODAY', 'DECISION RADAR', 'OPERATING SYSTEM']) assert.match(view, new RegExp(label));
+  for (const label of ['COMMAND CENTER V2', "NEEDS YOUR ATTENTION", "TODAY'S PRIORITIES", 'MARKETING PLAN', 'AI ACTIVITY', 'BUSINESS PULSE', 'UPCOMING', 'DECISION RADAR', 'OPERATING SYSTEM']) assert.match(view, new RegExp(label));
   for (const target of ['crm', 'planner', 'content', 'automations']) assert.match(view, new RegExp(`go\\("${target}"\\)`));
+});
+
+test('Home plan is data-derived, conservative, and does not poll', () => {
+  assert.match(view, /DEFAULT_BATCH_MIX/);
+  assert.match(view, /Not enough data yet/);
+  assert.doesNotMatch(shell, /setInterval/);
+});
+
+test('V2 Home uses localized Marketing labels and content-aware attention tracks', () => {
+  assert.match(view, /mixLabels\[slot\.labelKey as keyof typeof mixLabels\]/);
+  assert.match(style, /v2-action-grid\{display:grid;grid-template-columns:repeat\(auto-fit,minmax\(min\(100%,260px\),1fr\)\)/);
 });
 
 test('V2 Home keeps external execution read-only and explicit', () => {

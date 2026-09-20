@@ -34,6 +34,7 @@ export const en = {
     integrations: "Integrations",
     radar: "Opportunity Radar",
     brain: "Coach Brain",
+    workspace: "Product Workspace",
     logout: "Logout",
     skipToContent: "Skip to main content",
   },
