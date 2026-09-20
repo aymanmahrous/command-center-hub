@@ -23,6 +23,7 @@ const M = lazy(() => import("./massive-archive-view"));
 const CoachBrain = lazy(() => import("./coach-brain"));
 const RealProductFoundation = lazy(() => import("./real-product-foundation"));
 const PushInstallBar = lazy(() => import("./push-install-bar"));
+const C360 = lazy(() => import("./customer-360-panel"));
 
 const sections = [
   ["dashboard", LayoutDashboard, "get_staff_command_center"],
@@ -683,7 +684,7 @@ function CRMView({ value, session, onChanged, onSessionExpired }: { value: JsonV
       setNotice(messages[code] ?? (language === "ar" ? "تعذر التحديث بأمان؛ لم يتم اعتماد أي تغيير غير مؤكد." : "Update failed safely; no change was made."));
     } finally { setBusyId(null); }
   }
-  return <><div className="write-banner"><strong>{copy.writeBannerTitle}</strong><span>{copy.writeBannerSubtitle}</span></div>{notice && <div className="notice-box" aria-live="polite">{notice}</div>}<div className="data-grid">{parsed.data.map((lead) => {
+  return <><div className="write-banner"><strong>{copy.writeBannerTitle}</strong><span>{copy.writeBannerSubtitle}</span></div>{notice && <div className="notice-box" aria-live="polite">{notice}</div>}<Suspense fallback={null}><C360 leads={parsed.data} language={language} stageLabels={stageLabels} /></Suspense><div className="data-grid">{parsed.data.map((lead) => {
     const followUpLocal = formatLocalDateTimeInput(lead.nextFollowUpAt ?? null);
     return <article className="data-card booking-card" key={lead.id}><h3>{lead.name}</h3><p>{lead.phone ?? copy.noPhone} · {lead.channel ?? copy.unknownChannel}</p><p>{lead.intent ?? copy.unclassified} · Score: {lead.score ?? "—"}</p><form aria-busy={busyId === lead.id} onSubmit={(event) => { event.preventDefault(); void save(lead, event.currentTarget); }}><label>{copy.stageLabel}<select name="stage" defaultValue={lead.stage} disabled={!canWrite || busyId !== null}>{(["new", "contacted", "qualified", "booking_intent", "booked", "follow_up", "lost", "customer"] as const).map((stage) => <option key={stage} value={stage}>{stageLabels[stage]}</option>)}</select></label><label>{copy.nextFollowUpLabel}<input name="nextFollowUpAt" type="datetime-local" defaultValue={followUpLocal} disabled={!canWrite || busyId !== null} /></label><label><input name="humanRequired" type="checkbox" defaultChecked={lead.humanRequired} disabled={!canWrite || busyId !== null} /> {copy.humanRequiredLabel}</label><label><input name="doNotContact" type="checkbox" defaultChecked={lead.doNotContact} disabled={!canWrite || busyId !== null} /> {copy.doNotContactLabel}</label><button disabled={!canWrite || busyId !== null}>{busyId === lead.id ? t("common").saving : copy.saveButton}</button></form>{!canWrite && <small>{t("common").readOnlyNote}</small>}</article>;
   })}</div></>;
