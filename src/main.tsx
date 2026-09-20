@@ -1314,7 +1314,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
         {moreItems.map(([id, Icon]) => (
           <button type="button" key={id} onClick={() => go(id)}>
             <Icon size={18} aria-hidden="true" />
-            <span>{nav[id]}</span>
+            <span>{nav[id]} — {language === "ar" ? "فتح والتحكم" : "Open controls"}</span>
           </button>
         ))}
       </div>
