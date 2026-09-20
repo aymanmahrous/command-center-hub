@@ -39,7 +39,7 @@
 .operation-success { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
 .operations-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .operations-actions button { display: inline-flex; align-items: center; gap: 7px; padding: 8px 11px; border: 1px solid #0891b2; border-radius: 10px; background: #ecfeff; color: #155e75; font: inherit; font-size: .78rem; font-weight: 800; cursor: pointer; }
-.operations-actions button.secondary { border-color: #cbd5e1; background: #fff; color: #475569; }
+	.operations-actions button.secondary { border-color: #cbd5e1; background: #fff; color: #475569; }
 .operations-actions button:disabled { opacity: .55; cursor: wait; }
 .operations-generated { margin: 16px 0 0; font-size: .78rem; color: #64748b; }
 

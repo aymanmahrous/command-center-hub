@@ -280,8 +280,10 @@ export function ContentBatchReviewPanel({
                 </div>
                 <span className={`content-status status-${item.status}`}>{itemStatusLabels[item.status as keyof typeof itemStatusLabels] ?? item.status}</span>
               </header>
-              <p className="item-caption">{item.caption.trim() || copy.noCaption}</p>
-              <ContentBatchMediaPreview item={item} session={session} assetById={assetById} labels={previewLabels} />
+              <details className="content-item-details">
+                <summary>{language === "ar" ? "المزيد والتفاصيل" : "More details"}</summary>
+                <p className="item-caption">{item.caption.trim() || copy.noCaption}</p>
+                <ContentBatchMediaPreview item={item} session={session} assetById={assetById} labels={previewLabels} />
               {(Boolean(item.mediaSource) || Boolean(item.mediaAssetId) || item.mediaPlan != null) && (
                 <p className="item-meta">
                   {copy.mediaSourceLabel}: {String(item.mediaSource ?? "—").toUpperCase()}
@@ -314,7 +316,8 @@ export function ContentBatchReviewPanel({
                 {postLink && pipelineStage === "published_live" && (
                   <a className="publish-live-link" href={postLink} target="_blank" rel="noopener noreferrer">{publishingCopy.openLivePost}</a>
                 )}
-              </div>
+                </div>
+              </details>
               <footer>
                 {!item.mediaAssetId && session && (
                   <button

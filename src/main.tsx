@@ -638,8 +638,8 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
           {selected && <label>{copy.modeLabel}<select value={selected.mode} disabled={!canWriteMode || busyId !== null} onChange={(event) => void changeMode(selected, event.target.value as ConversationMode)}>{(Object.keys(modeLabels) as ConversationMode[]).map((mode) => <option key={mode} value={mode}>{modeLabels[mode]}</option>)}</select></label>}
         </header>
         {selected && canSendReply && <div className="inbox-action-bar">
-          <button type="button" disabled={busyId !== null || selected.mode === "human_takeover"} onClick={() => void handleTakeOver(selected)}>{copy.takeOverButton}</button>
-          <button type="button" disabled={busyId !== null || selected.mode === "ai_active"} onClick={() => void handleReturnToAi(selected)}>{copy.returnToAiButton}</button>
+          <button type="button" className="primary-action" disabled={busyId !== null || selected.mode === "human_takeover"} onClick={() => void handleTakeOver(selected)}>{copy.takeOverButton}</button>
+          <button type="button" className="secondary" disabled={busyId !== null || selected.mode === "ai_active"} onClick={() => void handleReturnToAi(selected)}>{copy.returnToAiButton}</button>
         </div>}
         {(selected?.humanRequired || selected?.needsAttention) && <div className="human-alert">{selected.handoffReason ? `${copy.humanRequiredAlert} (${selected.handoffReason})` : copy.humanRequiredAlert}</div>}
         <div className="message-stream">
@@ -1210,7 +1210,7 @@ function BookingView({ value, session, onChanged, onSessionExpired }: { value: J
         </dl>
         {booking.fear_of_water && <div className="booking-risk">{copy.fearOfWaterAlert}</div>}
         <label htmlFor={`booking-status-${booking.id}`}>{copy.updateStatusLabel}<select id={`booking-status-${booking.id}`} value={booking.status} disabled={!canWrite || busyId !== null} onChange={(event) => void changeStatus(booking, event.target.value as BookingStatus)}>{(Object.keys(statusLabels) as BookingStatus[]).map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}</select></label>
-        {canWrite && bookingNeedsAction && <div className="operations-actions"><button type="button" disabled={busyId !== null} onClick={() => void changeStatus(booking, "confirmed")}>{statusLabels.confirmed}</button><button type="button" className="secondary" disabled={busyId !== null} onClick={() => void changeStatus(booking, "declined")}>{statusLabels.declined}</button></div>}
+        {canWrite && bookingNeedsAction && <div className="operations-actions"><button type="button" className="primary-action" disabled={busyId !== null} onClick={() => void changeStatus(booking, "confirmed")}>{statusLabels.confirmed}</button><button type="button" className="danger" disabled={busyId !== null} onClick={() => void changeStatus(booking, "declined")}>{statusLabels.declined}</button></div>}
         {busyId === booking.id && <small>{copy.savingChange}</small>}
         {!canWrite && <small>{t("common").readOnlyNote}</small>}
       </article>;
