@@ -56,8 +56,8 @@ test("Mutation RPCs are granted only to authenticated callers", () => {
 });
 
 test("Knowledge UI does not expose RPC-rejected actions or allow duplicate mutations", () => {
-  assert.match(ui, /const canGenerate = \["super_admin", "admin", "content_manager"\]\.includes\(session\.role\)/);
-  assert.match(ui, /tab === "categories" \? \["super_admin", "admin", "content_manager"\]/);
+  assert.match(ui, /const canGenerate = canWrite && session\.role !== "coach"/);
+  assert.match(ui, /tab === "categories" \? canGenerate : canWrite/);
   assert.match(ui, /if \(mutationBusy\) return/);
   assert.match(ui, /disabled=\{busy\}/);
 });

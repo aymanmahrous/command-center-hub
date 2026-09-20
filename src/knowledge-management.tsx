@@ -31,7 +31,7 @@ export default function KnowledgeManagement({ session, language, onSessionExpire
   const [editing, setEditing] = useState<Entry | null>(null);
   const [notice, setNotice] = useState("");
   const canWrite = ["super_admin", "admin", "coach", "content_manager"].includes(session.role);
-  const canGenerate = ["super_admin", "admin", "content_manager"].includes(session.role);
+  const canGenerate = canWrite && session.role !== "coach";
   const [mutationBusy, setMutationBusy] = useState(false);
 
   const load = () => {
@@ -61,7 +61,7 @@ export default function KnowledgeManagement({ session, language, onSessionExpire
       <div className="knowledge-metrics"><span>{ar ? "نشطة" : "Active"}: <b>{data?.analytics.activeEntries}</b></span><span>{ar ? "مؤرشفة" : "Archived"}: <b>{data?.analytics.archivedEntries}</b></span><span>{ar ? "وسائط مرتبطة" : "Linked media"}: <b>{data?.analytics.linkedMedia}</b></span><span>{ar ? "محتوى مرتبط" : "Linked content"}: <b>{data?.analytics.linkedContent}</b></span><span>{ar ? "علاقات الحملات" : "Campaign links"}: <b>{data?.analytics.campaignRelationships ?? 0}</b></span><span>{ar ? "أحداث الإسناد" : "Attribution events"}: <b>{data?.analytics.attributionEvents ?? 0}</b></span></div>
       <div className="knowledge-list">{entries.length === 0 ? <div className="knowledge-empty">{ar ? "لا توجد سجلات حقيقية بهذه المرشحات." : "No real records match these filters."}</div> : entries.map((entry) => <EntryCard key={entry.id} entry={entry} ar={ar} canWrite={canWrite} canGenerate={canGenerate} busy={mutationBusy} onEdit={() => setEditing(entry)} onAction={mutate} />)}</div>
     </>}
-    {state === "ready" && tab !== "entries" && <TaxonomyPanel kind={tab} rows={tab === "categories" ? data?.categories ?? [] : data?.skills ?? []} ar={ar} canWrite={tab === "categories" ? ["super_admin", "admin", "content_manager"].includes(session.role) : canWrite} busy={mutationBusy} onMutate={mutate} />}
+    {state === "ready" && tab !== "entries" && <TaxonomyPanel kind={tab} rows={tab === "categories" ? data?.categories ?? [] : data?.skills ?? []} ar={ar} canWrite={tab === "categories" ? canGenerate : canWrite} busy={mutationBusy} onMutate={mutate} />}
     {editing && <EntryForm entry={editing} ar={ar} onClose={() => setEditing(null)} onSave={async (values) => { const name = editing.id ? "update_staff_knowledge_entry" : "create_staff_knowledge_entry"; await mutate(name, editing.id ? { p_id: editing.id, ...values } : values, ar ? "تم حفظ المعرفة." : "Knowledge saved."); setEditing(null); }} />}
   </div>;
 }
