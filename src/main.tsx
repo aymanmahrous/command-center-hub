@@ -907,6 +907,10 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
   }
 
   const panelBusy = busyId !== null || batchBusy;
+  const contentCounts = items.reduce<Record<string, number>>((counts, item) => {
+    counts[item.status] = (counts[item.status] ?? 0) + 1;
+    return counts;
+  }, {});
 
   return <>
     <div className="write-banner"><strong>{copy.writeBannerTitle}</strong><span>{copy.writeBannerSubtitle}</span></div>
@@ -926,6 +930,14 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
       />
     </Suspense>
     {factoryTab === "content" && <>
+    <section className="content-control-room" aria-labelledby="content-control-room-title">
+      <div><span>{language === "ar" ? "مساحة عمل تنفيذية" : "ACTION WORKSPACE"}</span><h2 id="content-control-room-title">{language === "ar" ? "ماذا تريد أن تفعل بالمحتوى؟" : "What do you want to do with content?"}</h2><p>{language === "ar" ? "اختر إجراءً واضحًا أولًا؛ لا تحتاج إلى قراءة القائمة كاملة." : "Choose a clear action first; you do not need to read the full list."}</p></div>
+      <div className="content-control-actions">
+        <button type="button" className="primary-button" onClick={() => { setFactoryTab("factory"); }}>{language === "ar" ? "إنشاء دفعة جديدة" : "Create new batch"}</button>
+        <button type="button" onClick={() => setStatusFilter("needs_review")}>{language === "ar" ? `مراجعة المحتوى (${contentCounts.needs_review ?? 0})` : `Review content (${contentCounts.needs_review ?? 0})`}</button>
+        <button type="button" onClick={() => setStatusFilter("scheduled")}>{language === "ar" ? `فتح المجدول (${contentCounts.scheduled ?? 0})` : `Open scheduled (${contentCounts.scheduled ?? 0})`}</button>
+      </div>
+    </section>
     <div className="content-toolbar">
       <label>{t("common").search}<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={copy.searchPlaceholder} /></label>
       <label>{t("common").status}<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as ContentStatus | "all")}><option value="all">{copy.allStatuses}</option>{(Object.keys(statusLabels) as ContentStatus[]).map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}</select></label>
@@ -942,8 +954,8 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
       const scheduledLocal = formatLocalDateTimeInput(item.scheduledFor);
       const locked = panelBusy || !canWrite || item.status === "published";
       return <article className="content-card" key={item.id}>
-        <header><div><span>{item.platform} · {item.contentType}</span><h3>{item.topic || copy.untitled}</h3></div><span className={`content-status status-${item.status}`}>{statusLabels[item.status]}</span></header>
-        <form onSubmit={(event) => { event.preventDefault(); void save(item, event.currentTarget); }}>
+        <header><div><span>{item.platform} · {item.contentType}</span><h3>{item.topic || copy.untitled}</h3></div><div className="content-card-heading-actions"><span className={`content-status status-${item.status}`}>{statusLabels[item.status]}</span><a href={`#content-editor-${item.id}`}>{language === "ar" ? "فتح التعديل" : "Edit"}</a></div></header>
+        <form id={`content-editor-${item.id}`} onSubmit={(event) => { event.preventDefault(); void save(item, event.currentTarget); }}>
           <div className="content-fields"><label>{copy.topicLabel}<input name="topic" defaultValue={item.topic} maxLength={300} disabled={locked} /></label><label>{copy.hookLabel}<input name="hook" defaultValue={item.hook} maxLength={500} disabled={locked} /></label></div>
           <label>{copy.captionLabel}<textarea name="caption" defaultValue={item.caption} minLength={2} maxLength={5000} rows={6} required disabled={locked} /></label>
           <div className="content-fields"><label>{copy.ctaLabel}<input name="cta" defaultValue={item.cta} maxLength={500} disabled={locked} /></label><label>{copy.hashtagsLabel}<input name="hashtags" defaultValue={item.hashtags.join(", ")} disabled={locked} /></label></div>

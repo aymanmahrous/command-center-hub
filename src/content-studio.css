@@ -105,3 +105,5 @@
   .content-actions > div { width: 100%; }
   .content-actions button { flex: 1 1 140px; }
 }
+
+.content-control-room{display:grid;gap:14px;margin:18px 0;padding:17px;border:1px solid #0ea5e9;border-radius:16px;background:linear-gradient(135deg,rgba(14,165,233,.14),rgba(15,23,42,.86))}.content-control-room>div:first-child{display:grid;gap:5px}.content-control-room span{color:#67e8f9;font-size:.72rem;font-weight:900}.content-control-room h2{margin:0;color:#f8fafc}.content-control-room p{margin:0;color:#bae6fd}.content-control-actions{display:flex;flex-wrap:wrap;gap:9px}.content-control-actions button{border:1px solid #38bdf8;border-radius:10px;padding:10px 14px;background:#123047;color:#e0f2fe;cursor:pointer;font:inherit;font-weight:800}.content-control-actions button.primary-button{background:#0284c7;color:#fff}.content-card-heading-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.content-card-heading-actions a{border:1px solid #38bdf8;border-radius:8px;padding:5px 9px;color:#bae6fd;text-decoration:none;font-size:.78rem;font-weight:800}
