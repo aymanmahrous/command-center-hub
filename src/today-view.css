@@ -5,6 +5,9 @@
 .today-attention-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .today-attention-item { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; border: 1px solid #fecaca; border-radius: 14px; background: #fff1f2; color: #be123c; cursor: pointer; text-align: start; }
 .today-attention-item strong { font-size: 1.4rem; }
+.today-attention-item small { margin-inline-start: auto; font-size: .75rem; font-weight: 800; }
+.today-summary-action { width: 100%; border: 1px solid #e2e8f0; text-align: start; cursor: pointer; font: inherit; color: inherit; transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease; }
+.today-summary-action:hover { border-color: #0891b2; box-shadow: 0 0 0 3px rgba(8,145,178,.1); transform: translateY(-1px); }
 .today-day-nine-banner { display: grid; gap: 10px; padding: 14px 16px; border: 1px solid #f59e0b; border-radius: 14px; background: #fffbeb; color: #92400e; }
 .today-day-nine-banner strong { font-size: .95rem; }
 .today-numbers { grid-template-columns: repeat(5, minmax(0, 1fr)); }

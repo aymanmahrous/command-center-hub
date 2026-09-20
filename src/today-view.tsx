@@ -47,8 +47,8 @@ const OperationsQueueSchema = z.object({
 
 const todayCopy = {
   ar: {
-    boundaryTitle: "لوحة عمليات اليوم",
-    boundaryBody: "تجميع للقراءة فقط من RPCs الحالية: Inbox، CRM، Bookings، Content، Automations، Integrations.",
+    boundaryTitle: "إجراءات اليوم",
+    boundaryBody: "افتح العنصر المطلوب مباشرة من Inbox أو العملاء أو الحجوزات أو المصنع أو التشغيل.",
     snapshotLabel: "اللقطة",
     loadError: "تعذر تحميل لوحة اليوم بأمان.",
     attentionEyebrow: "أولوية التنفيذ",
@@ -90,8 +90,8 @@ const todayCopy = {
     refreshingButton: "جارٍ التحديث…",
   },
   en: {
-    boundaryTitle: "Today operations dashboard",
-    boundaryBody: "Read-only aggregation from existing Inbox, CRM, Bookings, Content, Automations, and Integrations RPCs.",
+    boundaryTitle: "Today actions",
+    boundaryBody: "Open the relevant item directly in Inbox, customers, bookings, Factory or Operations.",
     snapshotLabel: "Snapshot",
     loadError: "Today dashboard could not be loaded securely.",
     attentionEyebrow: "Priority queue",
@@ -351,6 +351,7 @@ export default function TodayOperationsView({
               <button type="button" className="today-attention-item" onClick={() => onNavigate(item.section)}>
                 <span>{item.label}</span>
                 <strong>{item.count}</strong>
+                <small>{language === "ar" ? "فتح الإجراء" : "Open action"}</small>
               </button>
             </li>
           ))}
@@ -360,12 +361,12 @@ export default function TodayOperationsView({
 
     <section className="today-section">
       <header><p>{copy.numbersEyebrow}</p><h3>{copy.numbersTitle}</h3></header>
-      <div className="operations-summary today-numbers" aria-label={copy.numbersTitle}>
-        <div className="summary-alert"><span>{copy.leadsLabel}</span><strong>{leads.length}</strong><small>{copy.leadsHint}</small></div>
-        <div className="summary-alert"><span>{copy.bookingsLabel}</span><strong>{metrics.bookingsToday.length}</strong><small>{copy.bookingsHint}</small></div>
-        <div className="summary-alert"><span>{copy.confirmedLabel}</span><strong>{metrics.confirmedToday.length}</strong><small>{copy.confirmedHint}</small></div>
-        <div className="summary-alert"><span>{copy.followUpsLabel}</span><strong>{metrics.followUpJobs.length + metrics.crmFollowUps.length}</strong><small>{copy.followUpsHint}</small></div>
-        <div className="summary-alert"><span>{copy.contentReviewLabel}</span><strong>{metrics.reviewContent.length}</strong><small>{copy.contentReviewHint}</small></div>
+        <div className="operations-summary today-numbers" aria-label={copy.numbersTitle}>
+        <button type="button" className="summary-alert today-summary-action" onClick={() => onNavigate("crm")}><span>{copy.leadsLabel}</span><strong>{leads.length}</strong><small>{copy.leadsHint}</small></button>
+        <button type="button" className="summary-alert today-summary-action" onClick={() => onNavigate("planner")}><span>{copy.bookingsLabel}</span><strong>{metrics.bookingsToday.length}</strong><small>{copy.bookingsHint}</small></button>
+        <button type="button" className="summary-alert today-summary-action" onClick={() => onNavigate("planner")}><span>{copy.confirmedLabel}</span><strong>{metrics.confirmedToday.length}</strong><small>{copy.confirmedHint}</small></button>
+        <button type="button" className="summary-alert today-summary-action" onClick={() => onNavigate("crm")}><span>{copy.followUpsLabel}</span><strong>{metrics.followUpJobs.length + metrics.crmFollowUps.length}</strong><small>{copy.followUpsHint}</small></button>
+        <button type="button" className="summary-alert today-summary-action" onClick={() => onNavigate("content")}><span>{copy.contentReviewLabel}</span><strong>{metrics.reviewContent.length}</strong><small>{copy.contentReviewHint}</small></button>
       </div>
     </section>
 
