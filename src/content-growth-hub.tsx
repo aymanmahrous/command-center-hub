@@ -35,6 +35,7 @@ type ContentGrowthHubProps = {
   onApproveAll: (items: ContentBatchItem[]) => Promise<void>;
   onBatchCreated?: () => void;
   onSessionExpired?: () => void;
+  onTabChange?: (tab: "overview" | "strategy" | "factory" | "content" | "designs" | "reels" | "campaigns" | "review" | "connections") => void;
 };
 
 async function callRpc(session: GrowthSession, rpcName: string, body: Record<string, unknown> = {}, signal?: AbortSignal) {
@@ -68,6 +69,7 @@ export default function ContentGrowthHub({
   onApproveAll,
   onBatchCreated,
   onSessionExpired,
+  onTabChange,
 }: ContentGrowthHubProps) {
   const { language, t } = useLanguage();
   const copy = t("contentGrowth");
@@ -178,7 +180,7 @@ export default function ContentGrowthHub({
           ["campaigns", language === "ar" ? "الحملات" : "Campaigns"],
           ["review", language === "ar" ? "المراجعة" : "Review"],
           ["connections", language === "ar" ? "الاتصالات" : "Connections"],
-        ] as const).map(([id, label]) => <button type="button" key={id} className={activeFactoryTab === id ? "active" : ""} onClick={() => setActiveFactoryTab(id)}>{label}</button>)}
+        ] as const).map(([id, label]) => <button type="button" key={id} className={activeFactoryTab === id ? "active" : ""} onClick={() => { setActiveFactoryTab(id); onTabChange?.(id); }}>{label}</button>)}
       </nav>
       {batchReady?.show && (
         <div className="content-growth-banner batch-ready-banner" role="status">
