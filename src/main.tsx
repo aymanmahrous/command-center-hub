@@ -495,8 +495,9 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
 
   useEffect(() => {
     if (!parsed.success) return;
-    if (!selectedId && conversations[0]) setSelectedId(conversations[0].id);
-    if (selectedId && !conversations.some((conversation) => conversation.id === selectedId)) setSelectedId(conversations[0]?.id ?? null);
+    const firstActionable = conversations.find((conversation) => conversation.needsAttention || conversation.humanRequired || conversation.mode === "human_required" || conversation.mode === "human_takeover") ?? conversations[0];
+    if (!selectedId && firstActionable) setSelectedId(firstActionable.id);
+    if (selectedId && !conversations.some((conversation) => conversation.id === selectedId)) setSelectedId(firstActionable?.id ?? null);
   }, [conversations, parsed.success, selectedId]);
 
   useEffect(() => {
