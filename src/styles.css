@@ -12,7 +12,7 @@
 .app-shell aside nav button{color:#94a3b8;border:1px solid transparent;padding:11px 12px}
 .app-shell aside nav button:hover{background:#0b1321;color:#fff}
 .app-shell aside nav button.active{background:#172033;color:#fff;border-color:#25344b;box-shadow:inset 3px 0 #f97316}
-.app-shell .workspace{background:radial-gradient(circle at 80% 0,#0b2030 0,transparent 32%),#020617;padding:clamp(18px,3vw,38px);color:#e5e7eb}
+.app-shell .workspace{background:radial-gradient(circle at 80% 0,#0b2030 0,transparent 32%),#020617;padding:clamp(18px,3vw,38px);color:#e5e7eb}.app-shell .workspace{overflow-x:clip}
 .app-shell .workspace h1{color:#f8fafc}
 .owner-header{display:flex;align-items:center;justify-content:space-between;gap:18px;max-width:1500px;margin:0 auto}
 .owner-header .eyebrow{color:#38bdf8}
