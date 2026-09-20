@@ -178,7 +178,7 @@ function legacyKeyRole(key: string) {
   try {
     const encodedPayload = key.split(".")[1];
     if (!encodedPayload) return null;
-    const normalized = encodedPayload.replaceAll("-", "+").replaceAll("_", "/").padEnd(Math.ceil(encodedPayload.length / 4) * 4, "=");
+    const normalized = encodedPayload.replaceAll("-", "+").replaceAll("_", "/").padEnd(encodedPayload.length + 3 & -4, "=");
     return z.object({ role: z.string() }).parse(JSON.parse(atob(normalized))).role;
   } catch { return null; }
 }
