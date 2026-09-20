@@ -751,6 +751,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
   const [statusFilter, setStatusFilter] = useState<ContentStatus | "all">("all");
   const [factoryTab, setFactoryTab] = useState<ContentFactoryTab>("overview");
   const [contentPage, setContentPage] = useState(1);
+  const [expandedContentId, setExpandedContentId] = useState<string | null>(null);
   const canWrite = ["super_admin", "admin", "content_manager"].includes(session.role);
   const items = parsed.success ? parsed.data : [];
   const filteredItems = useMemo(() => {
@@ -954,14 +955,14 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
       const scheduledLocal = formatLocalDateTimeInput(item.scheduledFor);
       const locked = panelBusy || !canWrite || item.status === "published";
       return <article className="content-card" key={item.id}>
-        <header><div><span>{item.platform} · {item.contentType}</span><h3>{item.topic || copy.untitled}</h3></div><div className="content-card-heading-actions"><span className={`content-status status-${item.status}`}>{statusLabels[item.status]}</span><a href={`#content-editor-${item.id}`}>{language === "ar" ? "فتح التعديل" : "Edit"}</a></div></header>
-        <form id={`content-editor-${item.id}`} onSubmit={(event) => { event.preventDefault(); void save(item, event.currentTarget); }}>
+        <header><div><span>{item.platform} · {item.contentType}</span><h3>{item.topic || copy.untitled}</h3><small>{item.status === "published" ? (language === "ar" ? "منشور — لا يحتاج تعديلًا" : "Published — no edit needed") : (language === "ar" ? "اختر إجراءً من الأسفل" : "Choose an action below")}</small></div><div className="content-card-heading-actions"><span className={`content-status status-${item.status}`}>{statusLabels[item.status]}</span><button type="button" onClick={() => setExpandedContentId((current) => current === item.id ? null : item.id)}>{expandedContentId === item.id ? (language === "ar" ? "إغلاق التعديل" : "Close editor") : (language === "ar" ? "تعديل المحتوى" : "Edit content")}</button></div></header>
+        {expandedContentId === item.id && <form id={`content-editor-${item.id}`} onSubmit={(event) => { event.preventDefault(); void save(item, event.currentTarget); }}>
           <div className="content-fields"><label>{copy.topicLabel}<input name="topic" defaultValue={item.topic} maxLength={300} disabled={locked} /></label><label>{copy.hookLabel}<input name="hook" defaultValue={item.hook} maxLength={500} disabled={locked} /></label></div>
           <label>{copy.captionLabel}<textarea name="caption" defaultValue={item.caption} minLength={2} maxLength={5000} rows={6} required disabled={locked} /></label>
           <div className="content-fields"><label>{copy.ctaLabel}<input name="cta" defaultValue={item.cta} maxLength={500} disabled={locked} /></label><label>{copy.hashtagsLabel}<input name="hashtags" defaultValue={item.hashtags.join(", ")} disabled={locked} /></label></div>
           <label>{copy.visualPromptLabel}<textarea name="visualPrompt" defaultValue={item.visualPrompt} maxLength={2000} rows={3} disabled={locked} /></label>
           <button type="submit" disabled={locked}>{busyId === item.id ? t("common").saving : copy.saveButton}</button>
-        </form>
+        </form>}
         <form className="content-actions" onSubmit={(event) => event.preventDefault()}>
           <label>{copy.scheduleTimeLabel}<input name="scheduledFor" type="datetime-local" defaultValue={scheduledLocal} disabled={!canWrite || busyId !== null || !["approved", "scheduled"].includes(item.status)} /></label>
           <div>
