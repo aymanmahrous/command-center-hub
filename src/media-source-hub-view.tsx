@@ -53,6 +53,16 @@ export default function MediaSourceHubView({ onOpenProvider }: Props) {
       </div>; })}
     </section>
 
+    <section className="media-connection-plan" aria-label={ar ? "خطة ربط السحابات" : "Cloud connection plan"}>
+      <div className="media-panel-heading"><div><p>{ar ? "خطة الربط الآمن" : "SAFE CONNECTION PLAN"}</p><h3>{ar ? "ما الذي سيحدث عند ربط السحابة؟" : "What happens when a cloud is connected?"}</h3></div><ShieldCheck size={20} color="#86efac" /></div>
+      <div className="media-plan-grid">
+        <article><span className="media-plan-number">1</span><div><strong>{ar ? "اتصال بصلاحية قراءة فقط" : "Read-only connection"}</strong><p>{ar ? "لا حذف ولا نقل ولا نشر تلقائي." : "No deletion, moving, or automatic publishing."}</p></div></article>
+        <article><span className="media-plan-number">2</span><div><strong>{ar ? "فهرسة الأسماء والمجلدات" : "Index names and folders"}</strong><p>{ar ? "تظهر الأصول الحقيقية فقط بعد موافقة الاتصال." : "Only real assets appear after connection approval."}</p></div></article>
+        <article><span className="media-plan-number">3</span><div><strong>{ar ? "اقتراح الاستخدام ثم المراجعة" : "Suggest use, then review"}</strong><p>{ar ? "تصميم أو معلومة أو Reel — والمالك يقرر قبل أي استخدام." : "Design, information, or Reel — the owner decides before use."}</p></div></article>
+      </div>
+      <p className="media-plan-note">{ar ? "الحالة الحالية: لا توجد اتصالات OAuth نشطة، لذلك لا يتم عرض صور وهمية ولا يتم استهلاك خدمة ذكاء اصطناعي." : "Current state: no active OAuth connections, so no fabricated images are shown and no AI service is consumed."}</p>
+    </section>
+
     <div className="media-hub-grid">
       <section className="media-browser-panel">
         <div className="media-panel-heading"><div><p>{ar ? "المصادر الموحدة" : "Unified sources"}</p><h3>{ar ? "ابحث واختر صورة أو فيديو" : "Search and select an image or video"}</h3></div><span>{items.length} {ar ? "أصل" : "assets"}</span></div>
