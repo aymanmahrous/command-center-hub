@@ -455,11 +455,10 @@ function AutomationsView({ value, onOpenQueue }: { value: JsonValue; onOpenQueue
   const { language, t } = useLanguage();
   const copy = t("automations");
   const openQueue = language === "ar" ? "فتح الطابور" : "Open queue";
-  const takeAction = language === "ar" ? "مراجعة واتخاذ إجراء" : "Review and act";
   const isEmpty = value === null || (Array.isArray(value) && value.length === 0) || (typeof value === "object" && !Array.isArray(value) && Object.keys(value).length === 0);
   return <div className="automations-view">
     <div className="operations-boundary"><div><strong>{copy.bannerTitle}</strong><p>{copy.bannerText}</p></div><button type="button" onClick={onOpenQueue}>{openQueue}</button></div>
-    {isEmpty ? <p className="muted">{copy.empty}</p> : <section className="automation-action-panel"><strong>{copy.bannerTitle}</strong><p>{copy.bannerText}</p><button type="button" onClick={onOpenQueue}>{takeAction}</button><details><summary>{language === "ar" ? "التفاصيل" : "Details"}</summary><DataView value={value} /></details></section>}
+    {isEmpty ? <p className="muted">{copy.empty}</p> : <section className="automation-action-panel"><strong>{copy.bannerTitle}</strong><p>{copy.bannerText}</p><button type="button" onClick={onOpenQueue}>{openQueue}</button></section>}
   </div>;
 }
 
@@ -1198,6 +1197,7 @@ function BookingView({ value, session, onChanged, onSessionExpired }: { value: J
     <div className="booking-list">{filteredBookings.map((booking) => {
       const phone = booking.normalized_phone ?? booking.phone;
       const location = booking.location === "Other" ? booking.other_location : booking.location;
+      const bookingNeedsAction = ["pending", "contacted"].includes(booking.status);
       return <article className="booking-operation-card" key={booking.id}>
         <header><div><h3>{booking.full_name}</h3><p>{phone ? <a href={`tel:${phone}`}>{phone}</a> : copy.noPhone}</p></div><span className={`booking-status status-${booking.status}`}>{statusLabels[booking.status]}</span></header>
         <dl>
@@ -1209,6 +1209,7 @@ function BookingView({ value, session, onChanged, onSessionExpired }: { value: J
         </dl>
         {booking.fear_of_water && <div className="booking-risk">{copy.fearOfWaterAlert}</div>}
         <label htmlFor={`booking-status-${booking.id}`}>{copy.updateStatusLabel}<select id={`booking-status-${booking.id}`} value={booking.status} disabled={!canWrite || busyId !== null} onChange={(event) => void changeStatus(booking, event.target.value as BookingStatus)}>{(Object.keys(statusLabels) as BookingStatus[]).map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}</select></label>
+        {canWrite && bookingNeedsAction && <div className="operations-actions"><button type="button" disabled={busyId !== null} onClick={() => void changeStatus(booking, "confirmed")}>{statusLabels.confirmed}</button><button type="button" className="secondary" disabled={busyId !== null} onClick={() => void changeStatus(booking, "declined")}>{statusLabels.declined}</button></div>}
         {busyId === booking.id && <small>{copy.savingChange}</small>}
         {!canWrite && <small>{t("common").readOnlyNote}</small>}
       </article>;
