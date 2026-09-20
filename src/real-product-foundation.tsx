@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { BadgeCheck, BookOpen, BrainCircuit, Megaphone, RefreshCw, Search, ShieldCheck, Sparkles } from "lucide-react";
 import type { Language } from "./i18n";
 import "./real-product-foundation.css";
+
+const KnowledgeManagement = lazy(() => import("./knowledge-management"));
 
 type Session = { accessToken: string; displayName: string; role: string };
 type Workspace = {
@@ -32,6 +34,7 @@ export default function RealProductFoundation({ session, language }: { session: 
   const [data, setData] = useState<Workspace | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState("");
+  const [knowledgeOpen, setKnowledgeOpen] = useState(false);
 
   const refresh = () => {
     const controller = new AbortController();
@@ -56,7 +59,7 @@ export default function RealProductFoundation({ session, language }: { session: 
   return <div className="real-product-workspace">
     <header className="real-product-hero">
       <div><span className="eyebrow">{ar ? "منتج حقيقي" : "REAL PRODUCT"}</span><h2>{ar ? "مساحة المنتج المتكاملة" : "Integrated product workspace"}</h2><p>{ar ? "حالة حقيقية من Supabase؛ لا بيانات وهمية ولا نشر تلقائي." : "Live Supabase state; no fake data and no automatic publishing."}</p></div>
-      <button type="button" className="refresh" onClick={refresh} disabled={state === "loading"}><RefreshCw size={16} /> {ar ? "تحديث" : "Refresh"}</button>
+      <div className="real-product-actions"><button type="button" className="refresh" onClick={refresh} disabled={state === "loading"}><RefreshCw size={16} /> {ar ? "تحديث" : "Refresh"}</button><button type="button" className="refresh" onClick={() => setKnowledgeOpen(true)}><BookOpen size={16} /> {ar ? "إدارة المعرفة" : "Manage Knowledge"}</button></div>
     </header>
     <div className="real-product-boundaries"><ShieldCheck size={18} /><span>{ar ? "RBAC + RLS + Audit Log" : "RBAC + RLS + Audit Log"}</span><span>{ar ? "Preview → Confirm → Execute" : "Preview → Confirm → Execute"}</span></div>
     {state === "loading" && <p className="muted" role="status">{ar ? "جاري تحميل الحالة الحقيقية..." : "Loading live product state..."}</p>}
@@ -66,5 +69,6 @@ export default function RealProductFoundation({ session, language }: { session: 
       <section className="real-product-next"><Sparkles size={18} /><div><strong>{ar ? "الخطوة التالية" : "Next safe step"}</strong><p>{data?.attribution.status === "incomplete_data" ? (ar ? "لا توجد توصية Attribution حتى تتوفر أحداث حقيقية مرتبطة." : "No attribution recommendation until real linked events exist.") : (ar ? "يمكن مراجعة الأحداث المرتبطة من النظام الحالي." : "Review linked events from the existing system.")}</p></div><Search size={18} aria-hidden="true" /></section>
       {data && <small className="real-product-updated">{ar ? "آخر قراءة" : "Last read"}: {new Date(data.generatedAt).toLocaleString(ar ? "ar-AE" : "en-US")}</small>}
     </>}
+    {knowledgeOpen && <Suspense fallback={<p className="muted" role="status">{ar ? "جاري تحميل إدارة المعرفة..." : "Loading Knowledge management..."}</p>}><KnowledgeManagement session={session} language={language} onSessionExpired={() => setKnowledgeOpen(false)} /></Suspense>}
   </div>;
 }
