@@ -94,6 +94,10 @@ export default function ContentGrowthHub({
   const [mediaAssets, setMediaAssets] = useState<ReturnType<typeof parseMediaAssetRecords>>([]);
   const integrations = useMemo(() => readIntegrationStatuses(automationStatus), [automationStatus]);
   const [activeFactoryTab, setActiveFactoryTab] = useState<"overview" | "strategy" | "factory" | "content" | "designs" | "reels" | "campaigns" | "review" | "connections">("overview");
+  useEffect(() => {
+    const targetId = activeFactoryTab === "content" ? "content-control-room" : ["designs", "reels", "campaigns", "review"].includes(activeFactoryTab) ? "content-review" : `content-${activeFactoryTab}`;
+    requestAnimationFrame(() => document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }, [activeFactoryTab]);
   const showReviewWorkspace = ["designs", "reels", "campaigns", "review"].includes(activeFactoryTab);
   const factoryStages = [
     ["strategy", language === "ar" ? "الاستراتيجية" : "Strategy"],
