@@ -1,0 +1,68 @@
+{
+  "workflowId": "xNwYPSXQiUyzDSyZ",
+  "status": "SAVED_NOT_EXECUTED_NOT_ACTIVATED",
+  "scope": "instagram_scheduled_claim_path_only",
+  "summary": "Insert read-only discovery RPC before gated Instagram claim; switch claim RPC and body.",
+  "nodesAdded": [
+    {
+      "name": "Discover Due Instagram Publish Candidate",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": "insert between Schedule Trigger and Claim Next Publish Job on Instagram branch only",
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/rpc/discover_due_authorized_instagram_publish_candidate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": false
+            }
+          }
+        }
+      },
+      "notes": "Read-only. Returns { found, contentItemId? } or { found:false, code:'NO_CANDIDATE' }. Does not claim or consume authorization."
+    }
+  ],
+  "nodesChanged": [
+    {
+      "name": "Claim Next Publish Job",
+      "scope": "instagram_scheduled_branch_only",
+      "changes": {
+        "url": {
+          "from": "/rest/v1/rpc/claim_next_publish_job",
+          "to": "/rest/v1/rpc/claim_authorized_instagram_publish_job"
+        },
+        "jsonBody": {
+          "from": "{}",
+          "to": {
+            "p_content_item_id": "={{ $('Discover Due Instagram Publish Candidate').item.json.contentItemId }}",
+            "p_platform": "instagram",
+            "p_account_id": "17841439747493221"
+          }
+        }
+      },
+      "executionGuard": "Run only when $('Discover Due Instagram Publish Candidate').item.json.found === true (existing branch/filter if present; do not modify downstream nodes)."
+    }
+  ],
+  "nodesUnchanged": [
+    "Normalize Claim Result",
+    "all downstream Instagram publishing/receipt/error nodes",
+    "all Facebook branch nodes",
+    "all credentials"
+  ],
+  "wiring": [
+    "Schedule Trigger -> Discover Due Instagram Publish Candidate -> Claim Next Publish Job -> Normalize Claim Result -> (existing downstream unchanged)"
+  ],
+  "doNot": [
+    "execute workflow",
+    "activate workflow",
+    "publish content",
+    "modify Facebook path",
+    "change credentials",
+    "change downstream Instagram nodes"
+  ]
+}
