@@ -1,4 +1,4 @@
-import React, { FormEvent, lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, FormEvent, lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, LayoutDashboard, Library, LogOut, Settings2, ShieldAlert, Workflow } from "lucide-react";
 import { z } from "zod";
@@ -437,7 +437,7 @@ function DataView({ value }: { value: JsonValue }) {
     if (value.every((item) => item === null || typeof item !== "object")) return <div className="chip-list">{value.map((item, index) => <span className="chip" key={index}><DataLeaf value={item} /></span>)}</div>;
     return <div className="data-grid">{value.map((item, index) => <article className="data-card" key={index}><DataView value={item} /></article>)}</div>;
   }
-  if (value && typeof value === "object") return <dl className="record">{Object.entries(value).map(([key, item]) => <React.Fragment key={key}><dt>{key.replaceAll("_", " ")}</dt><dd>{typeof item === "object" && item !== null ? <DataView value={item} /> : <DataLeaf value={item} />}</dd></React.Fragment>)}</dl>;
+  if (value && typeof value === "object") return <dl className="record">{Object.entries(value).map(([key, item]) => <Fragment key={key}><dt>{key.replaceAll("_", " ")}</dt><dd>{typeof item === "object" && item !== null ? <DataView value={item} /> : <DataLeaf value={item} />}</dd></Fragment>)}</dl>;
   return <DataLeaf value={value} />;
 }
 
@@ -1444,4 +1444,4 @@ function App() {
   if (!session) return <Login onAuthenticated={setSession} />;
   return <Dashboard session={session} onLogout={() => { sessionStorage.removeItem("relaxfix-command-session"); setSession(null); }} />;
 }
-createRoot(document.getElementById("root")!).render(<React.StrictMode><LanguageProvider><App /></LanguageProvider></React.StrictMode>);
+createRoot(document.getElementById("root")!).render(<LanguageProvider><App /></LanguageProvider>);
