@@ -6,6 +6,7 @@ const envExample = await readFile(new URL("../.env.example", import.meta.url), "
 const gitignore = await readFile(new URL("../.gitignore", import.meta.url), "utf8");
 const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
 const app = await readFile(new URL("../src/main.tsx", import.meta.url), "utf8");
+const operations = await readFile(new URL("../src/operations-queue-view.tsx", import.meta.url), "utf8");
 const growthHub = await readFile(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
 const growthCopyEn = await readFile(new URL("../src/i18n/en.ts", import.meta.url), "utf8");
 const mediaView = await readFile(new URL("../src/media-library-view.tsx", import.meta.url), "utf8");
@@ -176,21 +177,22 @@ test("Analytics validates every metric and preserves the attribution limitation"
   assert.doesNotMatch(app, /style=\{\{/);
 });
 
-test("Integrations uses only the approved operations queue RPC and remains read-only", () => {
+test("Integrations uses the approved operations queue RPC and guarded job commands", () => {
   assert.match(app, /get_staff_operations_queue/);
-  assert.match(app, /active === "integrations" \? <IntegrationsView/);
-  assert.doesNotMatch(app, /retry_staff_(operation|job)|cancel_staff_(operation|job)/);
-  assert.doesNotMatch(app, /\/rest\/v1\/(follow_up_jobs|background_jobs)[^\n]*(PATCH|PUT|DELETE|POST)/i);
-  assert.match(app, /لا توجد أوامر Retry أو Cancel/);
+  assert.match(app, /active === "integrations" \? <Suspense/);
+  assert.match(operations, /retry_staff_publish_job/);
+  assert.match(operations, /cancel_staff_background_job/);
+  assert.doesNotMatch(operations, /\/rest\/v1\/(follow_up_jobs|background_jobs)[^\n]*(PATCH|PUT|DELETE|POST)/i);
+  assert.match(operations, /الأوامر الآمنة متاحة للمهام غير النشطة فقط/);
 });
 
 test("Integrations validates queue records and states operational limits honestly", () => {
-  for (const field of ["followUps", "backgroundJobs", "generatedAt", "leadName", "attemptNumber", "scheduledFor", "stoppedReason", "jobType", "attemptCount", "nextRetryAt", "lastError"]) assert.match(app, new RegExp(field));
-  for (const status of ["queued", "processing", "completed", "failed", "retrying", "dead"]) assert.match(app, new RegExp(`"${status}"`));
-  assert.match(app, /لا تثبت اتصال مزود خارجي لحظيًا/);
-  assert.match(app, /حد المصدر 250 سجلًا لكل طابور/);
-  assert.match(app, /boundedOperationalText/);
-  assert.match(app, /متابعات متأخرة/);
+  for (const field of ["followUps", "backgroundJobs", "generatedAt", "leadName", "attemptNumber", "scheduledFor", "stoppedReason", "jobType", "attemptCount", "nextRetryAt", "lastError"]) assert.match(operations, new RegExp(field));
+  for (const status of ["queued", "processing", "completed", "failed", "retrying", "dead"]) assert.match(operations, new RegExp(`"${status}"`));
+  assert.match(operations, /لا تثبت اتصال مزود خارجي لحظيًا/);
+  assert.match(operations, /حد المصدر 250 سجلًا لكل طابور/);
+  assert.match(operations, /bounded/);
+  assert.match(operations, /متابعات متأخرة/);
 });
 
 test("deployment configuration fails closed and never embeds a live Supabase project", () => {
