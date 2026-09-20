@@ -748,6 +748,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ContentStatus | "all">("all");
   const [factoryTab, setFactoryTab] = useState<ContentFactoryTab>("overview");
+  const [contentPage, setContentPage] = useState(1);
   const canWrite = ["super_admin", "admin", "content_manager"].includes(session.role);
   const items = parsed.success ? parsed.data : [];
   const filteredItems = useMemo(() => {
@@ -759,6 +760,11 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
         .some((field) => field.toLocaleLowerCase("ar").includes(normalized));
     });
   }, [items, query, statusFilter]);
+  const contentPageSize = 10;
+  const contentPageCount = Math.max(1, Math.ceil(filteredItems.length / contentPageSize));
+  const visibleContentItems = filteredItems.slice((contentPage - 1) * contentPageSize, contentPage * contentPageSize);
+  useEffect(() => { setContentPage(1); }, [query, statusFilter]);
+  useEffect(() => { if (contentPage > contentPageCount) setContentPage(contentPageCount); }, [contentPage, contentPageCount]);
 
   if (!parsed.success) return <div className="error-box">{copy.invalidFormat}</div>;
 
@@ -923,9 +929,14 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
       <label>{t("common").status}<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as ContentStatus | "all")}><option value="all">{copy.allStatuses}</option>{(Object.keys(statusLabels) as ContentStatus[]).map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}</select></label>
       <span>{filteredItems.length} {t("common").of} {items.length}</span>
     </div>
+    {filteredItems.length > contentPageSize && <div className="content-pagination" aria-label={language === "ar" ? "تنقل صفحات المحتوى" : "Content pagination"}>
+      <button type="button" disabled={contentPage <= 1} onClick={() => setContentPage((page) => Math.max(1, page - 1))}>{language === "ar" ? "السابق" : "Previous"}</button>
+      <strong>{language === "ar" ? `صفحة ${contentPage} من ${contentPageCount}` : `Page ${contentPage} of ${contentPageCount}`}</strong>
+      <button type="button" disabled={contentPage >= contentPageCount} onClick={() => setContentPage((page) => Math.min(contentPageCount, page + 1))}>{language === "ar" ? "التالي" : "Next"}</button>
+    </div>}
     {items.length === 0 && <p className="muted">{copy.noItems}</p>}
     {items.length > 0 && filteredItems.length === 0 && <p className="muted">{t("common").noResults}</p>}
-    <div className="content-list">{filteredItems.map((item) => {
+    <div className="content-list">{visibleContentItems.map((item) => {
       const scheduledLocal = formatLocalDateTimeInput(item.scheduledFor);
       const locked = panelBusy || !canWrite || item.status === "published";
       return <article className="content-card" key={item.id}>

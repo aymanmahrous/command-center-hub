@@ -100,7 +100,14 @@ export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
         <div className="coach-brain__status"><ShieldCheck size={18} /> {language === "ar" ? "بحث آمن" : "Safe research"}</div>
       </header>
 
-      <section className="coach-brain__card coach-brain__research-card">
+      <nav className="coach-brain__subnav" aria-label={language === "ar" ? "أقسام Coach Brain" : "Coach Brain sections"}>
+        <a href="#coach-question">{language === "ar" ? "سؤال جديد" : "New question"}</a>
+        <a href="#coach-examples">{language === "ar" ? "أمثلة جاهزة" : "Examples"}</a>
+        <a href="#coach-results">{language === "ar" ? "النتائج" : "Results"}</a>
+      </nav>
+
+      <section id="coach-question" className="coach-brain__card coach-brain__research-card">
+        <div className="coach-brain__section-heading"><span className="coach-brain__step">1</span><div><strong>{language === "ar" ? "اكتب سؤالك" : "Write your question"}</strong><p>{language === "ar" ? "ابدأ بسؤال واحد واضح لتحصل على خطة قابلة للتنفيذ." : "Start with one clear question for an actionable plan."}</p></div></div>
         <form onSubmit={research}>
           <label className="coach-brain__question-label" htmlFor="coach-brain-question">{language === "ar" ? "ماذا تريد أن تعرف؟" : "What do you want to know?"}</label>
           <textarea id="coach-brain-question" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder={t.placeholder} rows={6} maxLength={5000} disabled={busy} />
@@ -112,7 +119,8 @@ export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
             <span className="coach-brain__privacy-note">{t.privacyNote}</span>
           </div>
         </form>
-        <div className="coach-brain__examples">
+        <div id="coach-examples" className="coach-brain__examples">
+          <div className="coach-brain__examples-heading"><span className="coach-brain__step">2</span><strong>{language === "ar" ? "أو اختر مثالًا جاهزًا" : "Or choose a ready example"}</strong></div>
           {t.examples.map((example) => <button key={example} type="button" disabled={busy} onClick={() => setQuestion(example)}>{example}</button>)}
         </div>
       </section>
@@ -124,7 +132,8 @@ export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
       {busy && <section className="coach-brain__empty"><Sparkles size={30} className="coach-brain__spin" /><strong>{t.searching}</strong><span>{language === "ar" ? "يتم البحث أولًا ثم تحويل النتائج إلى خطة عملية للمدرب." : "Research comes first, then the findings are turned into a practical coaching plan."}</span></section>}
 
       {result && (
-        <section className="coach-brain__results" aria-live="polite">
+        <section id="coach-results" className="coach-brain__results" aria-live="polite">
+          <div className="coach-brain__results-heading"><span className="coach-brain__step">3</span><div><strong>{language === "ar" ? "النتيجة العملية" : "Practical result"}</strong><p>{language === "ar" ? "اقرأ الإجابة، راجع المصادر، ثم ابدأ سؤالًا جديدًا عند الحاجة." : "Read the answer, review the sources, and start a new question when needed."}</p></div><button type="button" className="coach-brain__reset" onClick={() => { setResult(null); setQuestion(""); setError(""); }}>{language === "ar" ? "بحث جديد" : "New research"}</button></div>
           <article className="coach-brain__card coach-brain__answer">
             <div className="coach-brain__result-title"><Sparkles size={18} /> <h2>{t.direct}</h2></div>
             <div className="coach-brain__answer-text">{result.answer}</div>
