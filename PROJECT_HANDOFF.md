@@ -2,7 +2,7 @@
 
 ## Current stage
 
-Documentation Review on branch `docs/final-documentation-review` after the protected merges of AI Inbox PR #9, Bookings PR #10, Content Studio PR #11, Media Library PR #12, Analytics PR #13, Integrations PR #14, System Polish PR #15, Final Audit PR #16, Final Security Review PR #17, and Performance Review PR #18.
+Release Readiness Review on branch `claude/final-project-execution-imknr5` after the protected merges of AI Inbox PR #9, Bookings PR #10, Content Studio PR #11, Media Library PR #12, Analytics PR #13, Integrations PR #14, System Polish PR #15, Final Audit PR #16, Final Security Review PR #17, Performance Review PR #18, Documentation Review PR #19, Auth Configuration Fix PR #23, and Arabic/English Localization PR #24.
 
 ## Implemented
 
@@ -54,15 +54,19 @@ Documentation Review on branch `docs/final-documentation-review` after the prote
 - Performance Review local verification passed: TypeScript, 33/33 tests, production build, and initial budgets at 302,436 bytes JavaScript / 20,716 bytes CSS raw.
 - Performance Review PR #18 merged after an independent approval and successful required checks on 2026-07-22.
 - Documentation Review local verification passed: TypeScript, 35/35 tests, production build, documentation link/contract checks, and the unchanged performance budget.
+- Documentation Review PR #19, Auth Configuration Fix PR #23, and Arabic/English Localization PR #24 merged to `main`.
+- Release Readiness Review local verification passed on updated `main`: TypeScript, 39/39 tests, production build, and initial budgets at 326,276 bytes JavaScript / 21,927 bytes CSS raw.
 
 ## Pending / blocked
 
-- Complete local Documentation Review verification, then open its dedicated pull request and wait for protected CI and independent approval.
-- No permission or implementation blocker is currently known.
+- Open the Release Readiness Review pull request and wait for protected CI and independent approval.
+- Owner decision needed on whether to align `vercel.json`'s `installCommand` with CI's locked `npm ci` (see `docs/RELEASE_READINESS_REVIEW.md`); no change applied without explicit authority.
+- PR #20 (GOV-B governance) and PR #22 (auth/forgot-password, owner-approved) both have merge conflicts against current `main` and need a rebase/merge from their own branches before they can proceed; not part of this review.
+- PR #25 (safe-content-publisher Edge Function, draft) is a separate production/Edge-Function change requiring its own explicit owner approval before any deploy action.
 
 ## NEXT_REQUIRED_ACTION
 
-Complete Documentation Review, merge its pull request only after CI and protection requirements pass, then begin Release Readiness Review from updated `main`.
+Merge the Release Readiness Review pull request only after CI and protection requirements pass; separately, the owner should resolve the `vercel.json` install-command decision and the merge conflicts on PR #20 and PR #22.
 
 ## Prohibited actions
 
