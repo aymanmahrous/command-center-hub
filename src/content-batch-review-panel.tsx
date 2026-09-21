@@ -18,7 +18,8 @@ import { readContentPillar, readTimeSlot } from "./content-strategy";
 import { readPublishingCopy } from "./content-publishing-copy";
 import { ContentBatchMediaPreview } from "./content-batch-media-preview";
 import { canvaDesignErrorMessage, generateCanvaDesignForContentItem } from "./canva-design-adapter";
-import type { MediaAssetRecord } from "./media-types";
+import { canUseInMarketingBatch, type MediaAssetRecord } from "./media-types";
+import type { CapabilityState } from "./content-growth";
 import { useLanguage } from "./i18n";
 import "./content-batch-review.css";
 
@@ -74,6 +75,10 @@ function canRequestPublish(item: ContentBatchItem): boolean {
   return true;
 }
 
+function canRequestPublishWithMedia(item: ContentBatchItem, asset: MediaAssetRecord | undefined): boolean {
+  return canRequestPublish(item) && Boolean(asset && canUseInMarketingBatch(asset));
+}
+
 const REQUEST_PUBLISH_COPY = {
   en: {
     button: "Request Publish",
@@ -104,6 +109,9 @@ type ContentBatchReviewPanelProps = {
   onApproveAll: (items: ContentBatchItem[]) => Promise<void>;
   onPublishRequested?: () => void;
   onSessionExpired?: () => void;
+  workspaceMode?: "designs" | "reels" | "campaigns" | "review";
+  designCapabilityState?: CapabilityState;
+  videoCapabilityState?: CapabilityState;
 };
 
 function formatWhen(language: "ar" | "en", value: string | null) {
@@ -129,6 +137,9 @@ export function ContentBatchReviewPanel({
   onApproveAll,
   onPublishRequested,
   onSessionExpired,
+  workspaceMode = "review",
+  designCapabilityState = "NOT_CONFIGURED",
+  videoCapabilityState = "NOT_CONFIGURED",
 }: ContentBatchReviewPanelProps) {
   const { language, t } = useLanguage();
   const copy = t("contentBatch");
@@ -151,14 +162,23 @@ export function ContentBatchReviewPanel({
   const batchStatus = overallBatchStatus(batch.items);
   const approveCandidates = approveAllCandidates(batch.items);
   const approveAllEnabled = canWrite && !busy && approveAllWouldChange(batch.items);
-  const visibleItems = itemFilter === "all" ? items : items.filter((item) => item.status === itemFilter);
   const assetById = useMemo(() => new Map(mediaAssets.map((asset) => [asset.id, asset])), [mediaAssets]);
+  const workspaceItems = useMemo(() => {
+    if (workspaceMode === "designs") return items.filter((item) => !item.mediaAssetId);
+    if (workspaceMode === "reels") return items.filter((item) => String(item.contentType).toLowerCase() === "reel");
+    if (workspaceMode === "campaigns") return items.filter((item) => ["approved", "scheduled", "published", "failed"].includes(item.status));
+    return items.filter((item) => ["draft", "generated", "needs_review", "approved"].includes(item.status));
+  }, [items, workspaceMode]);
+  const visibleItems = itemFilter === "all" ? workspaceItems : workspaceItems.filter((item) => item.status === itemFilter);
   const previewLabels = {
     designPreview: copy.designPreview,
     designPending: copy.designPending,
     canvaBriefLabel: copy.canvaBriefLabel,
     noPreview: copy.noPreview,
   };
+  const workspaceLabel = language === "ar"
+    ? ({ designs: "مساحة التصميم", reels: "مساحة الريلز", campaigns: "مساحة الحملات والجدولة", review: "مساحة المراجعة" } as const)[workspaceMode]
+    : ({ designs: "Design workspace", reels: "Reels workspace", campaigns: "Campaigns and scheduling workspace", review: "Review workspace" } as const)[workspaceMode];
 
   async function handleApproveAll() {
     if (!approveAllEnabled || approveCandidates.length === 0) return;
@@ -225,7 +245,7 @@ export function ContentBatchReviewPanel({
     <section className="content-batch-panel" aria-labelledby="content-batch-heading">
       <header>
         <div>
-          <p className="batch-meta">{copy.eyebrow}</p>
+          <p className="batch-meta">{copy.eyebrow} · {workspaceLabel}</p>
           <h2 id="content-batch-heading">{copy.title}</h2>
           <p className="batch-meta">
             {batch.isExplicitBatch ? copy.explicitBatch : copy.heuristicBatch}
@@ -245,6 +265,21 @@ export function ContentBatchReviewPanel({
         <article><span>{copy.failed}</span><strong>{summary.failed}</strong></article>
       </div>
 
+      {workspaceMode === "reels" && (
+        <div className="content-batch-design-notice" role="status">
+          {language === "ar"
+            ? `تحليل واقتراح Reel موجود متاح داخل هذه المساحة. توليد فيديو فعلي: ${videoCapabilityState === "AVAILABLE" ? "متاح" : "LIMITED — يحتاج مزود فيديو حقيقيًا ومتحققًا."}`
+            : `Existing Reel analysis and proposals are available here. Actual video generation: ${videoCapabilityState === "AVAILABLE" ? "AVAILABLE" : "LIMITED — a verified video provider is required."}`}
+        </div>
+      )}
+      {workspaceMode === "campaigns" && (
+        <div className="content-batch-design-notice" role="status">
+          {language === "ar"
+            ? "هذه المساحة تعرض حالة الحملات الحالية. الجدولة وإعادة الجدولة تتم من تبويب المحتوى فقط عندما تسمح حالة العنصر. لا توجد هنا أداة نشر مستقلة."
+            : "This workspace shows current campaign states. Scheduling and rescheduling remain in Content when the item state allows them. There is no separate publish action here."}
+        </div>
+      )}
+
       <div className="content-batch-actions">
         <button type="button" disabled={!approveAllEnabled} title={!canWrite ? copy.actionDisabledReadOnly : busy ? copy.actionDisabledBusy : approveCandidates.length === 0 ? copy.batchNothingToApprove : undefined} onClick={() => void handleApproveAll()}>
           {busy ? t("common").saving : copy.approveAllButton}
@@ -254,7 +289,7 @@ export function ContentBatchReviewPanel({
       {designNotice && <p className="content-batch-design-notice" role="status">{designNotice}</p>}
       {publishNotice && <p className="content-batch-design-notice" role="status">{publishNotice}</p>}
 
-      <div className="content-review-toolbar"><div><strong>{language === "ar" ? "مراجعة الدفعة" : "Batch review"}</strong><span>{language === "ar" ? "اعرض الحالة التي تريد التعامل معها فقط." : "Show only the status you want to work on."}</span></div><div className="content-review-filters" role="group" aria-label={language === "ar" ? "تصفية حالات المحتوى" : "Content status filters"}>{(["all", "needs_review", "approved", "scheduled", "failed"] as const).map((filter) => { const count = filter === "all" ? items.length : items.filter((item) => item.status === filter).length; const label = filter === "all" ? (language === "ar" ? "الكل" : "All") : filter === "needs_review" ? (language === "ar" ? "للمراجعة" : "Needs review") : filter === "approved" ? (language === "ar" ? "معتمد" : "Approved") : filter === "scheduled" ? (language === "ar" ? "مجدول" : "Scheduled") : (language === "ar" ? "فشل" : "Failed"); return <button type="button" key={filter} className={itemFilter === filter ? "active" : ""} onClick={() => setItemFilter(filter)}>{label} <b>{count}</b></button>; })}</div></div>
+      <div className="content-review-toolbar"><div><strong>{language === "ar" ? "مراجعة الدفعة" : "Batch review"}</strong><span>{language === "ar" ? "اعرض الحالة التي تريد التعامل معها فقط." : "Show only the status you want to work on."}</span></div><div className="content-review-filters" role="group" aria-label={language === "ar" ? "تصفية حالات المحتوى" : "Content status filters"}>{(["all", "needs_review", "approved", "scheduled", "failed"] as const).map((filter) => { const count = filter === "all" ? workspaceItems.length : workspaceItems.filter((item) => item.status === filter).length; const label = filter === "all" ? (language === "ar" ? "الكل" : "All") : filter === "needs_review" ? (language === "ar" ? "للمراجعة" : "Needs review") : filter === "approved" ? (language === "ar" ? "معتمد" : "Approved") : filter === "scheduled" ? (language === "ar" ? "مجدول" : "Scheduled") : (language === "ar" ? "فشل" : "Failed"); return <button type="button" key={filter} className={itemFilter === filter ? "active" : ""} onClick={() => setItemFilter(filter)}>{label} <b>{count}</b></button>; })}</div></div>
       {visibleItems.length === 0 ? <p className="content-review-empty">{language === "ar" ? "لا توجد عناصر في هذه الحالة." : "No items match this status."}</p> : <div className="content-batch-grid">
         {visibleItems.map((item) => {
           const canApprove = ["draft", "generated", "needs_review"].includes(item.status);
@@ -268,6 +303,8 @@ export function ContentBatchReviewPanel({
           const platformReceipt = latestReceiptForPlatform(item, item.platform);
           const postLink = buildExternalPostLink(item.platform, platformReceipt?.externalPostId);
           const itemDisabledReason = !canWrite ? copy.actionDisabledReadOnly : busy ? copy.actionDisabledBusy : undefined;
+          const linkedMediaAssetId = typeof item.mediaAssetId === "string" ? item.mediaAssetId : "";
+          const linkedMediaAsset = assetById.get(linkedMediaAssetId);
           return (
             <article className="content-batch-item" key={item.id}>
               <header>
@@ -320,7 +357,7 @@ export function ContentBatchReviewPanel({
                 </div>
               </details>
               <footer>
-                {!item.mediaAssetId && session && (
+                {!item.mediaAssetId && session && designCapabilityState === "AVAILABLE" && (
                   <button
                     type="button"
                     className="secondary"
@@ -330,6 +367,11 @@ export function ContentBatchReviewPanel({
                   >
                     {designBusyId === item.id ? copy.generateDesignBusy : copy.generateDesignButton}
                   </button>
+                )}
+                {!item.mediaAssetId && session && designCapabilityState !== "AVAILABLE" && (
+                  <small className="item-action-disabled-reason">
+                    {language === "ar" ? "إنشاء التصميم محدود: Canva غير متصل أو لم يتم التحقق من قدرته." : "Design generation is limited: Canva is not connected or its capability is unverified."}
+                  </small>
                 )}
                 {canApprove && (
                   <button type="button" disabled={itemLocked} title={itemDisabledReason} onClick={() => void onApproveItem(item)}>
@@ -355,12 +397,17 @@ export function ContentBatchReviewPanel({
                   <button
                     type="button"
                     className="secondary"
-                    disabled={itemLocked || publishBusyId === item.id}
-                    title={itemDisabledReason}
+                    disabled={itemLocked || publishBusyId === item.id || !canRequestPublishWithMedia(item, linkedMediaAsset)}
+                    title={itemDisabledReason ?? (!canRequestPublishWithMedia(item, linkedMediaAsset) ? (language === "ar" ? "الوسائط المرتبطة ليست جاهزة للنشر." : "Linked media is not publish-ready.") : undefined)}
                     onClick={() => void handleRequestPublish(item)}
                   >
                     {publishBusyId === item.id ? requestPublishCopy.busy : requestPublishCopy.button}
                   </button>
+                )}
+                {item.status === "approved" && !canRequestPublishWithMedia(item, linkedMediaAsset) && (
+                  <small className="item-action-disabled-reason">
+                    {language === "ar" ? "طلب النشر متوقف: اربط وسائط معتمدة ومؤكدة الموافقة أولًا." : "Publish request blocked: attach approved media with confirmed consent first."}
+                  </small>
                 )}
               </footer>
               {itemDisabledReason && <small className="item-action-disabled-reason">{itemDisabledReason}</small>}

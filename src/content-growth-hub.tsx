@@ -4,6 +4,7 @@ import { COACH_AYMAN_PROVIDER_ID } from "./content-batch-generator";
 import { attachMediaToCoachAymanBatch, buildCoachAyman30DayBatchWithMedia } from "./media-batch-link";
 import { parseMediaAssetRecords, MediaProviderStrip } from "./media-library-controls";
 import {
+  displayCapabilityState,
   readIntegrationStatuses,
   summarizePipeline,
   type ChangeRequestKind,
@@ -94,6 +95,8 @@ export default function ContentGrowthHub({
   const [generating, setGenerating] = useState(false);
   const [mediaAssets, setMediaAssets] = useState<ReturnType<typeof parseMediaAssetRecords>>([]);
   const integrations = useMemo(() => readIntegrationStatuses(automationStatus), [automationStatus]);
+  const canvaCapabilityState = integrations.find((integration) => integration.key === "canva")?.capabilityState ?? "NOT_CONFIGURED";
+  const videoCapabilityState = integrations.find((integration) => integration.key === "runway")?.capabilityState ?? "NOT_CONFIGURED";
   const [activeFactoryTab, setActiveFactoryTab] = useState<"overview" | "strategy" | "factory" | "content" | "designs" | "reels" | "campaigns" | "review" | "connections">("overview");
   useEffect(() => {
     const targetId = activeFactoryTab === "content" ? "content-control-room" : ["designs", "reels", "campaigns", "review"].includes(activeFactoryTab) ? "content-review" : `content-${activeFactoryTab}`;
@@ -346,7 +349,7 @@ export default function ContentGrowthHub({
           {integrations.map((integration) => (
             <article key={integration.key} className={integration.connected ? "connected" : integration.key === "canva" ? "optional" : "disconnected"}>
               <strong>{copy.integrationLabels[integration.key]}</strong>
-              <small>{integration.key === "canva" ? copy.optionalNotConnected : integration.connected ? copy.connected : copy.notConnected}</small>
+              <small>{displayCapabilityState(integration.capabilityState, language)} · {integration.key === "canva" ? copy.optionalNotConnected : integration.connected ? copy.connected : copy.notConnected}</small>
               <small>{integration.detail}</small>
             </article>
           ))}
@@ -416,10 +419,13 @@ export default function ContentGrowthHub({
       )}
 
       {showReviewWorkspace && selectedBatch && (
-        <ContentBatchReviewPanel
-          items={batchItems}
-          batch={selectedBatch}
-          canWrite={canWrite}
+          <ContentBatchReviewPanel
+            items={batchItems}
+            batch={selectedBatch}
+            workspaceMode={activeFactoryTab === "designs" || activeFactoryTab === "reels" || activeFactoryTab === "campaigns" || activeFactoryTab === "review" ? activeFactoryTab : "review"}
+            designCapabilityState={canvaCapabilityState}
+            videoCapabilityState={videoCapabilityState}
+            canWrite={canWrite}
           busy={panelBusy}
           session={session}
           mediaAssets={mediaAssets}
