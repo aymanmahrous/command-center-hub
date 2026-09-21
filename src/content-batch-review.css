@@ -175,7 +175,8 @@
 }
 
 .change-request-form select,
-.change-request-form textarea {
+.change-request-form textarea,
+.change-request-form input[type="datetime-local"] {
   width: 100%;
   box-sizing: border-box;
   border: 1px solid #334155;
@@ -185,6 +186,8 @@
   padding: 10px 12px;
   font: inherit;
 }
+
+.change-request-form input[type="datetime-local"] { min-width: 220px; }
 
 .change-request-form textarea {
   resize: vertical;

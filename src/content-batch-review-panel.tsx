@@ -21,6 +21,7 @@ import { canvaDesignErrorMessage, generateCanvaDesignForContentItem } from "./ca
 import { canUseInMarketingBatch, type MediaAssetRecord } from "./media-types";
 import type { CapabilityState } from "./content-growth";
 import { useLanguage } from "./i18n";
+import { formatLocalDateTimeInput } from "./date-utils";
 import "./content-batch-review.css";
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
@@ -105,6 +106,7 @@ type ContentBatchReviewPanelProps = {
   mediaAssets?: MediaAssetRecord[];
   onMediaLinked?: () => void;
   onApproveItem: (item: ContentBatchItem) => Promise<void>;
+  onEditItem?: (item: ContentBatchItem, visualPrompt: string, scheduledFor: string | null) => Promise<void>;
   onRequestChanges: (item: ContentBatchItem, kind: ChangeRequestKind, note: string) => Promise<void>;
   onApproveAll: (items: ContentBatchItem[]) => Promise<void>;
   onPublishRequested?: () => void;
@@ -133,6 +135,7 @@ export function ContentBatchReviewPanel({
   mediaAssets = [],
   onMediaLinked,
   onApproveItem,
+  onEditItem,
   onRequestChanges,
   onApproveAll,
   onPublishRequested,
@@ -149,6 +152,7 @@ export function ContentBatchReviewPanel({
   const batchStatusLabels = t("contentBatchStatus");
   const pipelineStageLabels = publishingCopy.pipelineStages;
   const [changeTargetId, setChangeTargetId] = useState<string | null>(null);
+  const [editTargetId, setEditTargetId] = useState<string | null>(null);
   const [changeKind, setChangeKind] = useState<ChangeRequestKind>("caption");
   const [changeNote, setChangeNote] = useState("");
   const [designBusyId, setDesignBusyId] = useState<string | null>(null);
@@ -305,6 +309,7 @@ export function ContentBatchReviewPanel({
           const itemDisabledReason = !canWrite ? copy.actionDisabledReadOnly : busy ? copy.actionDisabledBusy : undefined;
           const linkedMediaAssetId = typeof item.mediaAssetId === "string" ? item.mediaAssetId : "";
           const linkedMediaAsset = assetById.get(linkedMediaAssetId);
+          const showingEditForm = editTargetId === item.id;
           return (
             <article className="content-batch-item" key={item.id}>
               <header>
@@ -393,6 +398,17 @@ export function ContentBatchReviewPanel({
                     {copy.requestChangesButton}
                   </button>
                 )}
+                {onEditItem && item.status !== "published" && (
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={itemLocked}
+                    title={itemDisabledReason}
+                    onClick={() => { setEditTargetId(showingEditForm ? null : item.id); setChangeTargetId(null); }}
+                  >
+                    {showingEditForm ? (language === "ar" ? "إغلاق" : "Close") : (language === "ar" ? "تعديل" : "Edit")}
+                  </button>
+                )}
                 {canRequestPublish(item) && session && (
                   <button
                     type="button"
@@ -438,6 +454,22 @@ export function ContentBatchReviewPanel({
                     />
                   </label>
                   <button type="submit" disabled={itemLocked || !changeNote.trim()}>{growthCopy.submitChangeRequest}</button>
+                </form>
+              )}
+              {showingEditForm && onEditItem && (
+                <form
+                  className="change-request-form factory-edit-form"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const data = new FormData(event.currentTarget);
+                    const localDate = String(data.get("scheduledFor") ?? "").trim();
+                    const scheduledFor = localDate ? new Date(localDate).toISOString() : null;
+                    void onEditItem(item, String(data.get("visualPrompt") ?? "").trim(), scheduledFor).then(() => setEditTargetId(null));
+                  }}
+                >
+                  <label>{language === "ar" ? "موعد النشر" : "Publish time"}<input name="scheduledFor" type="datetime-local" defaultValue={formatLocalDateTimeInput(item.scheduledFor)} disabled={!canWrite || item.status === "published"} /></label>
+                  <label>{language === "ar" ? "طلب التصميم" : "Design request"}<textarea name="visualPrompt" defaultValue={String(item.visualPrompt ?? "")} maxLength={2000} rows={3} disabled={!canWrite || item.status === "published"} /></label>
+                  <button type="submit" disabled={itemLocked}>{language === "ar" ? "حفظ" : "Save"}</button>
                 </form>
               )}
             </article>
