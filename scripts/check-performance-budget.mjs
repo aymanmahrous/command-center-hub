@@ -6,7 +6,8 @@ const distDirectory = resolve(process.env.PERFORMANCE_DIST_DIR ?? "dist");
 const indexPath = resolve(distDirectory, "index.html");
 const budgets = {
   // Vite's raw chunk size varies by about 90 bytes between local Node 22 and Vercel Node 22; gzip remains the stricter signal.
-  js: { raw: 367_700, gzip: 108_000 },
+  // The owner Factory editor and Inbox polish add a measured ~430 raw bytes; gzip remains unchanged.
+  js: { raw: 368_500, gzip: 108_000 },
   css: { raw: 33_000, gzip: 7_000 },
 };
 

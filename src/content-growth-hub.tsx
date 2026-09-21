@@ -33,6 +33,7 @@ type ContentGrowthHubProps = {
   canWrite: boolean;
   busy: boolean;
   onApproveItem: (item: ContentBatchItem) => Promise<void>;
+  onEditItem?: (item: ContentBatchItem, visualPrompt: string, scheduledFor: string | null) => Promise<void>;
   onRequestChanges: (item: ContentBatchItem, kind: ChangeRequestKind, note: string) => Promise<void>;
   onApproveAll: (items: ContentBatchItem[]) => Promise<void>;
   onBatchCreated?: () => void;
@@ -67,6 +68,7 @@ export default function ContentGrowthHub({
   canWrite,
   busy,
   onApproveItem,
+  onEditItem,
   onRequestChanges,
   onApproveAll,
   onBatchCreated,
@@ -436,6 +438,7 @@ export default function ContentGrowthHub({
             onBatchCreated?.();
           }}
           onApproveItem={onApproveItem}
+          onEditItem={onEditItem}
           onRequestChanges={onRequestChanges}
           onApproveAll={onApproveAll}
           onPublishRequested={onBatchCreated}

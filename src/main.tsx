@@ -4,6 +4,7 @@ import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, LayoutDashboard, Lib
 import { z } from "zod";
 import { canApproveContentItem, sharedDatabaseBatchId, type ContentBatchItem } from "./content-batch";
 import { appendChangeRequest, buildChangeRequestNote, type ChangeRequestKind } from "./content-growth";
+import { formatLocalDateTimeInput } from "./date-utils";
 import { LanguageProvider, useLanguage } from "./i18n";
 import type { Language } from "./i18n";
 import { registerServiceWorker } from "./push";
@@ -841,6 +842,35 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
     }, language === "ar" ? "تم إرسال طلب التعديل وإعادة العنصر للمراجعة." : "Change request sent and item returned to review.");
   }
 
+  async function editBatchItem(item: ContentBatchItem, visualPrompt: string, scheduledFor: string | null) {
+    if (!canWrite || busyId || batchBusy || item.status === "published") return;
+    const contentChanged = visualPrompt !== String(item.visualPrompt ?? "");
+    const scheduleChanged = scheduledFor !== item.scheduledFor;
+    if (!contentChanged && !scheduleChanged) {
+      setNotice(language === "ar" ? "لا تغيير." : "No change.");
+      return;
+    }
+    const confirmMessage = language === "ar" ? "تأكيد التعديل؟" : "Confirm edit?";
+    if (!window.confirm(confirmMessage)) return;
+    await runMutation(item.id, async () => {
+      if (contentChanged) {
+        await updateContentItem(session, item.id, {
+          topic: item.topic,
+          hook: String(item.hook ?? ""),
+          caption: item.caption,
+          cta: String(item.cta ?? ""),
+          hashtags: Array.isArray(item.hashtags) ? item.hashtags : [],
+          visualPrompt,
+        });
+        return;
+      }
+      if (scheduledFor) await transitionContentItem(session, item.id, "schedule", scheduledFor);
+      else if (item.status === "scheduled") await transitionContentItem(session, item.id, "unschedule", null);
+    }, contentChanged
+      ? (language === "ar" ? "تم حفظ طلب التصميم." : "Design request saved.")
+      : (language === "ar" ? "تم تحديث الموعد." : "Time updated."));
+  }
+
   async function approveAllBatch(candidates: ContentBatchItem[]) {
     if (!canWrite || busyId || batchBusy) return;
     const pending = candidates.filter(canApproveContentItem);
@@ -913,6 +943,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
         canWrite={canWrite}
         busy={panelBusy}
         onApproveItem={approveBatchItem}
+        onEditItem={editBatchItem}
         onRequestChanges={requestBatchChanges}
         onApproveAll={approveAllBatch}
         onBatchCreated={onChanged}
@@ -1105,14 +1136,6 @@ const bookingStatusLabels: Record<Language, Record<BookingStatus, string>> = {
 function formatBookingDateTime(language: Language, value: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString(language === "ar" ? "ar-AE" : "en-AE");
-}
-
-function formatLocalDateTimeInput(value: string | null) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 }
 
 function BookingView({ value, session, onChanged, onSessionExpired }: { value: JsonValue; session: Session; onChanged: () => void; onSessionExpired: () => void }) {
