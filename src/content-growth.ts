@@ -13,10 +13,12 @@ export type PipelineStats = {
 };
 
 export type IntegrationKey = "buffer" | "canva" | "runway" | "facebook" | "instagram" | "tiktok" | "n8n";
+export type CapabilityState = "AVAILABLE" | "LIMITED" | "BLOCKED" | "NOT_CONFIGURED";
 
 export type IntegrationStatus = {
   key: IntegrationKey;
   connected: boolean;
+  capabilityState: CapabilityState;
   detail: string;
 };
 
@@ -66,7 +68,15 @@ export function readIntegrationStatuses(automationStatus: unknown): IntegrationS
 
 export function displayIntegrationStatus(integration: IntegrationStatus): string {
   if (integration.key === "canva" && !integration.connected) return "OPTIONAL / NOT CONNECTED";
-  return integration.connected ? "CONNECTED" : "NOT CONNECTED";
+  return integration.connected ? "CONNECTED (UNVERIFIED)" : "NOT CONNECTED";
+}
+
+export function displayCapabilityState(state: CapabilityState, language: "ar" | "en"): string {
+  const labels = {
+    ar: { AVAILABLE: "متاح", LIMITED: "محدود", BLOCKED: "متوقف", NOT_CONFIGURED: "غير مهيأ" },
+    en: { AVAILABLE: "AVAILABLE", LIMITED: "LIMITED", BLOCKED: "BLOCKED", NOT_CONFIGURED: "NOT CONFIGURED" },
+  } as const;
+  return labels[language][state];
 }
 
 function statusFromFlag(key: IntegrationKey, connected: boolean | null | undefined, label: string): IntegrationStatus {
@@ -74,12 +84,13 @@ function statusFromFlag(key: IntegrationKey, connected: boolean | null | undefin
     return {
       key,
       connected: false,
+      capabilityState: "NOT_CONFIGURED",
       detail: "Canva — OPTIONAL / NOT CONNECTED (manual design via canvaBrief; not required for batch creation)",
     };
   }
-  if (connected === true) return { key, connected: true, detail: `${label} reported connected` };
-  if (connected === false) return { key, connected: false, detail: `${label} not connected` };
-  return { key, connected: false, detail: `${label} — connection not verified in app` };
+  if (connected === true) return { key, connected: true, capabilityState: "LIMITED", detail: `${label} reported connected; capability not verified in app` };
+  if (connected === false) return { key, connected: false, capabilityState: "NOT_CONFIGURED", detail: `${label} not connected` };
+  return { key, connected: false, capabilityState: "LIMITED", detail: `${label} — connection not verified in app` };
 }
 
 function parseAutomationFlags(value: unknown): Partial<Record<IntegrationKey, boolean>> {
