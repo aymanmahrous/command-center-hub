@@ -246,10 +246,10 @@ export function ContentBatchReviewPanel({
       </div>
 
       <div className="content-batch-actions">
-        <button type="button" disabled={!approveAllEnabled} onClick={() => void handleApproveAll()}>
+        <button type="button" disabled={!approveAllEnabled} title={!canWrite ? copy.actionDisabledReadOnly : busy ? copy.actionDisabledBusy : approveCandidates.length === 0 ? copy.batchNothingToApprove : undefined} onClick={() => void handleApproveAll()}>
           {busy ? t("common").saving : copy.approveAllButton}
         </button>
-        {!canWrite && <small>{t("common").readOnlyNote}</small>}
+        {!canWrite ? <small>{copy.actionDisabledReadOnly}</small> : approveCandidates.length === 0 ? <small>{copy.batchNothingToApprove}</small> : null}
       </div>
       {designNotice && <p className="content-batch-design-notice" role="status">{designNotice}</p>}
       {publishNotice && <p className="content-batch-design-notice" role="status">{publishNotice}</p>}
@@ -267,6 +267,7 @@ export function ContentBatchReviewPanel({
           const receipts = parsePublicationReceipts(item);
           const platformReceipt = latestReceiptForPlatform(item, item.platform);
           const postLink = buildExternalPostLink(item.platform, platformReceipt?.externalPostId);
+          const itemDisabledReason = !canWrite ? copy.actionDisabledReadOnly : busy ? copy.actionDisabledBusy : undefined;
           return (
             <article className="content-batch-item" key={item.id}>
               <header>
@@ -324,13 +325,14 @@ export function ContentBatchReviewPanel({
                     type="button"
                     className="secondary"
                     disabled={itemLocked || designBusyId === item.id}
+                    title={itemDisabledReason}
                     onClick={() => void handleGenerateDesign(item)}
                   >
                     {designBusyId === item.id ? copy.generateDesignBusy : copy.generateDesignButton}
                   </button>
                 )}
                 {canApprove && (
-                  <button type="button" disabled={itemLocked} onClick={() => void onApproveItem(item)}>
+                  <button type="button" disabled={itemLocked} title={itemDisabledReason} onClick={() => void onApproveItem(item)}>
                     {copy.approveButton}
                   </button>
                 )}
@@ -339,6 +341,7 @@ export function ContentBatchReviewPanel({
                     type="button"
                     className="secondary"
                     disabled={itemLocked}
+                    title={itemDisabledReason}
                     onClick={() => {
                       setChangeTargetId(showingForm ? null : item.id);
                       setChangeNote("");
@@ -353,12 +356,14 @@ export function ContentBatchReviewPanel({
                     type="button"
                     className="secondary"
                     disabled={itemLocked || publishBusyId === item.id}
+                    title={itemDisabledReason}
                     onClick={() => void handleRequestPublish(item)}
                   >
                     {publishBusyId === item.id ? requestPublishCopy.busy : requestPublishCopy.button}
                   </button>
                 )}
               </footer>
+              {itemDisabledReason && <small className="item-action-disabled-reason">{itemDisabledReason}</small>}
               {showingForm && (
                 <form
                   className="change-request-form"
