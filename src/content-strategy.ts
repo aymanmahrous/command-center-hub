@@ -210,3 +210,31 @@ function pickTop(entries: Array<{ key: string; avg: number }>) {
   return entries.sort((left, right) => right.avg - left.avg)[0] ?? null;
 }
 
+
+export type StrategySummary = {
+  audience: string;
+  goals: string[];
+  publishingIntent: string;
+  currentBatchStrategy: string;
+  trustConversionBalance: { trust: number; conversion: number };
+  platforms: string[];
+};
+
+export function buildStrategySummary(items: Array<Record<string, unknown>>): StrategySummary {
+  const scheduledOrPublished = items.filter((item) => ["scheduled", "published"].includes(String(item.status ?? "").toLowerCase()));
+  const conversionItems = items.filter((item) => {
+    const pillar = readContentPillar(item);
+    return pillar === "conversion" || /assessment|book|whatsapp|cta/i.test(String(item.cta ?? item.caption ?? ""));
+  });
+  const trustItems = items.filter((item) => ["education", "safety", "water_confidence", "parent_faq", "coach_authority", "local_abu_dhabi"].includes(readContentPillar(item) ?? ""));
+  const platformSet = new Set<string>();
+  items.forEach((item) => { if (typeof item.platform === "string" && item.platform.trim()) platformSet.add(item.platform.trim().toUpperCase()); });
+  return {
+    audience: BRAND.audience,
+    goals: ["Attract parents with useful swimming education", "Build trust through safety and Coach Ayman authority", "Convert intent into a free initial assessment"],
+    publishingIntent: scheduledOrPublished.length > 0 ? "Continue the approved publishing path for scheduled and published items; keep remaining items in review." : "Prepare a reviewable 10-item operating batch before any approval or publishing step.",
+    currentBatchStrategy: items.length > 0 ? `${items.length} item(s) currently visible · ${DEFAULT_BATCH_MIX.length}-slot mix reference · ${scheduledOrPublished.length} already scheduled/published` : "No current content items are available for a batch-specific readout.",
+    trustConversionBalance: { trust: trustItems.length, conversion: conversionItems.length },
+    platforms: platformSet.size > 0 ? [...platformSet] : [...new Set(DEFAULT_BATCH_MIX.map((slot) => slot.platform.toUpperCase()))],
+  };
+}

@@ -22,10 +22,10 @@ const ContentGrowthHub = lazy(() => import("./content-growth-hub"));
 const M = lazy(() => import("./massive-archive-view"));
 const CoachBrain = lazy(() => import("./coach-brain"));
 const RealProductFoundation = lazy(() => import("./real-product-foundation"));
-const PushInstallBar = lazy(() => import("./push-install-bar"));
 const C360 = lazy(() => import("./customer-360-panel"));
 const OperationsQueueView = lazy(() => import("./operations-queue-view"));
 const IntegrationsCenter = lazy(() => import("./integrations-center"));
+const AutomationsView = lazy(() => import("./automations-view"));
 
 const sections = [
   ["dashboard", LayoutDashboard, "get_staff_command_center"],
@@ -449,17 +449,6 @@ function DataView({ value }: { value: JsonValue }) {
   }
   if (value && typeof value === "object") return <dl className="record">{Object.entries(value).map(([key, item]) => <Fragment key={key}><dt>{key.replaceAll("_", " ")}</dt><dd>{typeof item === "object" && item !== null ? <DataView value={item} /> : <DataLeaf value={item} />}</dd></Fragment>)}</dl>;
   return <DataLeaf value={value} />;
-}
-
-function AutomationsView({ value, onOpenQueue }: { value: JsonValue; onOpenQueue: () => void }) {
-  const { language, t } = useLanguage();
-  const copy = t("automations");
-  const openQueue = language === "ar" ? "فتح الطابور" : "Open queue";
-  const isEmpty = value === null || (Array.isArray(value) && value.length === 0) || (typeof value === "object" && !Array.isArray(value) && Object.keys(value).length === 0);
-  return <div className="automations-view">
-    <div className="operations-boundary"><div><strong>{copy.bannerTitle}</strong><p>{copy.bannerText}</p></div><button type="button" onClick={onOpenQueue}>{openQueue}</button></div>
-    {isEmpty ? <p className="muted">{copy.empty}</p> : <section className="automation-action-panel"><strong>{copy.bannerTitle}</strong><p>{copy.bannerText}</p><button type="button" onClick={onOpenQueue}>{openQueue}</button></section>}
-  </div>;
 }
 
 const conversationModeLabels: Record<Language, Record<ConversationMode, string>> = {
@@ -1390,7 +1379,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
           active === "analytics" ? <AnalyticsView value={data} onNavigate={go} /> :
           active === "integrations" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><OperationsQueueView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /></Suspense> :
           active === "connections" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><IntegrationsCenter value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /></Suspense> :
-          active === "automations" ? <AutomationsView value={data} onOpenQueue={() => go("integrations")} /> :
+          active === "automations" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><AutomationsView value={data} onOpenQueue={() => go("integrations")} onOpenContent={() => go("content")} /></Suspense> :
           active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "brain" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><CoachBrain language={language} /></Suspense> :
           active === "workspace" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><RealProductFoundation session={session} language={language} /></Suspense> :

@@ -14,6 +14,7 @@ import { buildDayNineReminder } from "./content-batch";
 import {
   DEFAULT_BATCH_MIX,
   PLATFORM_GUIDANCE,
+  buildStrategySummary,
   buildPerformanceInsights,
 } from "./content-strategy";
 import { ContentBatchReviewPanel } from "./content-batch-review-panel";
@@ -139,6 +140,7 @@ export default function ContentGrowthHub({
   }, [primaryBatch, selectedBatchId]);
 
   const batchItems = selectedBatch?.items ?? [];
+  const strategySummary = useMemo(() => buildStrategySummary(batchItems), [batchItems]);
   const panelBusy = busy || generating;
   const instagramNextStepCopy = {
     review: publishCopyInstagram.livePublishNextReview,
@@ -315,6 +317,8 @@ export default function ContentGrowthHub({
         <button type="button" className="primary-button" disabled={!canWrite || panelBusy} onClick={() => void generateCoachAymanBatch()}>
           {generating ? copy.generateBusy : copy.generateButton}
         </button>
+        <p className="batch-meta" role="status">{generating ? copy.generateStateBusy : selectedBatch ? copy.generateStateReady : copy.generateStateIdle}</p>
+        {selectedBatch && <button type="button" className="secondary" onClick={() => { setActiveFactoryTab("review"); onTabChange?.("review"); }}>{copy.openBatchReview}</button>}
         <p className="batch-meta">{copy.generateMixNote}</p>
       </section>}
 
@@ -363,6 +367,12 @@ export default function ContentGrowthHub({
             <button type="button" className="primary-button" onClick={() => { setActiveFactoryTab("factory"); onTabChange?.("factory"); }}>{language === "ar" ? "إنشاء دفعة من الخطة" : "Create batch from plan"}</button>
             <button type="button" className="secondary" onClick={() => { setActiveFactoryTab("content"); onTabChange?.("content"); }}>{language === "ar" ? "فتح المحتوى للتعديل" : "Open content editor"}</button>
           </div>
+        </div>
+        <div className="strategy-context-grid" aria-label={copy.strategyContextTitle}>
+          <article><span>{copy.strategyAudienceLabel}</span><strong>{strategySummary.audience}</strong><small>{strategySummary.platforms.join(" · ")}</small></article>
+          <article><span>{copy.strategyGoalsLabel}</span><ul>{strategySummary.goals.map((goal) => <li key={goal}>{goal}</li>)}</ul></article>
+          <article><span>{copy.strategyIntentLabel}</span><strong>{strategySummary.publishingIntent}</strong></article>
+          <article><span>{copy.strategyBatchLabel}</span><strong>{strategySummary.currentBatchStrategy}</strong><small>{copy.trustLabel}: {strategySummary.trustConversionBalance.trust} · {copy.conversionLabel}: {strategySummary.trustConversionBalance.conversion}</small></article>
         </div>
         <ul className="strategy-mix-list">
           {DEFAULT_BATCH_MIX.map((slot, index) => (
