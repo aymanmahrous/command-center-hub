@@ -11,7 +11,7 @@ import { normalizeMediaCategory } from "./media-types";
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
 const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
 
-type ControlSession = { accessToken: string };
+type ControlSession = { accessToken: string; role?: string };
 
 async function callRpc(session: ControlSession, rpcName: string, body: Record<string, unknown>) {
   const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${encodeURIComponent(rpcName)}`, {
@@ -179,7 +179,8 @@ export function MediaAssetControls({
   async function update(fields: { category?: MediaCategory; consent_status?: ConsentStatus; media_status?: MediaAssetRecord["mediaStatus"] }) {
     if (!canWrite || busy) return;
     try {
-      await callRpc(session, "update_staff_media_asset", {
+      const rpcName = session.role === "super_admin" ? "update_owner_media_asset" : "update_staff_media_asset";
+      await callRpc(session, rpcName, {
         p_media_asset_id: asset.id,
         ...(fields.category ? { p_category: fields.category } : {}),
         ...(fields.consent_status ? { p_consent_status: fields.consent_status } : {}),
