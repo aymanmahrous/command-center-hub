@@ -1397,7 +1397,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
         {status === "loading" && <p className="muted" role="status">{t("common").loading}</p>}
         {status === "error" && <div className="error-box" role="alert">{error}</div>}
         {status === "ready" && (
-          active === "dashboard" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MarketingCompanyView session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /></Suspense> :
+          active === "dashboard" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><ControlTowerV2 key={`home-${reloadKey}`} session={session} onNavigate={(section) => { if (sections.some(([id]) => id === section)) go(section as SectionId); }} onSessionExpired={onLogout} /></Suspense> :
           active === "today" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><TodayView session={session} onNavigate={go} onSessionExpired={onLogout} /></Suspense> :
           active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :

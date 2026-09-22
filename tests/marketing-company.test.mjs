@@ -5,13 +5,14 @@ import test from "node:test";
 const view = await readFile(new URL("../src/marketing-company-view.tsx", import.meta.url), "utf8");
 const main = await readFile(new URL("../src/main.tsx", import.meta.url), "utf8");
 
-test("Marketing Company is the owner-facing entry without duplicate navigation", () => {
+test("Home is the owner-facing entry and marketing remains an approval workflow", () => {
   assert.match(view, /proposalCopy/);
   assert.match(view, /slice\(0, 10\)/);
   assert.match(view, /Mوافق|موافق على الخطة/);
   assert.match(view, /غير موافق/);
   assert.match(view, /حذف المقترح/);
-  assert.match(main, /active === "dashboard" \? .*MarketingCompanyView/s);
+  assert.match(main, /active === "dashboard" \? .*ControlTowerV2/s);
+  assert.match(main, /active === "command" \? .*ControlTowerV2/s);
 });
 
 test("Marketing Company stays review-first and blocks duplicate planned slots", () => {

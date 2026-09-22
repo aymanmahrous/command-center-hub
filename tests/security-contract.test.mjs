@@ -270,7 +270,7 @@ test("System Polish cancels stale reads and handles session expiry consistently"
 test("System Polish makes controlled interactions accessible and globally locked", () => {
   assert.match(app, /className="skip-link"/);
   assert.match(app, /aria-label="وحدات Command Center"/);
-  assert.match(app, /aria-current=\{active === id \? "page" : undefined\}/);
+  assert.match(app, /aria-current=\{active === (?:id|sectionId) \? "page" : undefined\}/);
   assert.match(app, /aria-busy=\{status === "loading"\}/);
   assert.match(app, /role="status"/);
   assert.match(app, /disabled=\{!canWrite \|\| busyId !== null\}/);
