@@ -4,6 +4,7 @@ import test from "node:test";
 
 const connectors = await readFile(new URL("../src/media-source-connectors.ts", import.meta.url), "utf8");
 const migration = await readFile(new URL("../supabase/migrations/20260922120000_media_external_sources.sql", import.meta.url), "utf8");
+const hardeningMigration = await readFile(new URL("../supabase/migrations/20260922124500_harden_media_external_source_rpc.sql", import.meta.url), "utf8");
 const hub = await readFile(new URL("../src/media-source-hub-view.tsx", import.meta.url), "utf8");
 const library = await readFile(new URL("../src/media-library-view.tsx", import.meta.url), "utf8");
 
@@ -31,6 +32,8 @@ test("external links are registered in Media Library without storing file bytes"
   assert.match(migration, /'unclassified', 'unclassified', 'not_started', 'blocked', 'unknown'/);
   assert.match(migration, /review_status.*needs_review/);
   assert.match(migration, /external_media_asset_linked/);
+  assert.match(hardeningMigration, /REVOKE EXECUTE.*FROM PUBLIC, anon/);
+  assert.match(hardeningMigration, /GRANT EXECUTE.*TO authenticated, service_role/);
   assert.match(library, /external_web_url/);
   assert.match(library, /rel="noopener noreferrer"/);
 });
