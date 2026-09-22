@@ -111,7 +111,12 @@ export async function fetchDropboxMedia(token: string): Promise<RemoteMediaItem[
   const entries: Array<{ id: string; name: string; path_display?: string; server_modified?: string; size?: number; ".tag": string }> = [];
   let cursor: string | undefined;
   do { const result = await jsonFetch<{ entries?: typeof entries; cursor?: string; has_more?: boolean }>(cursor ? "https://api.dropboxapi.com/2/files/list_folder/continue" : "https://api.dropboxapi.com/2/files/list_folder", token, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cursor ? { cursor } : { path: "", recursive: true, include_media_info: true }) }); entries.push(...(result.entries ?? [])); cursor = result.has_more ? result.cursor : undefined; } while (cursor);
-  return entries.filter((file) => file[".tag"] === "file" && /\.(jpe?g|png|gif|webp|mp4|mov|webm)$/i.test(file.name)).map((file) => ({ id: `dropbox:${file.id}`, provider: "dropbox", name: file.name, mimeType: /^video/i.test(file.name.split(".").at(-1) ?? "") ? "video/*" : "image/*", webUrl: "https://www.dropbox.com/home", createdAt: file.server_modified, folder: file.path_display?.split("/").slice(0, -1).join("/") || "Dropbox", sizeBytes: file.size, consent: "needs_review" }));
+  return entries.filter((file) => file[".tag"] === "file" && /\.(jpe?g|png|gif|webp|mp4|mov|webm)$/i.test(file.name)).map((file) => {
+    const extension = file.name.split(".").at(-1)?.toLowerCase() ?? "";
+    const isVideo = ["mp4", "mov", "webm"].includes(extension);
+    const path = file.path_display ?? "";
+    return { id: `dropbox:${file.id}`, provider: "dropbox", name: file.name, mimeType: isVideo ? "video/*" : "image/*", webUrl: path ? `https://www.dropbox.com/home${encodeURI(path)}` : "https://www.dropbox.com/home", createdAt: file.server_modified, folder: path.split("/").slice(0, -1).join("/") || "Dropbox", sizeBytes: file.size, consent: "needs_review" };
+  });
 }
 
 export async function fetchOneDriveMedia(token: string): Promise<RemoteMediaItem[]> {

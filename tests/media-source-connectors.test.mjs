@@ -16,6 +16,8 @@ test("all four media sources use read-only scopes and normalize real provider re
   assert.match(connectors, /fetchProviderMedia/);
   assert.match(connectors, /consent: "needs_review"/);
   assert.doesNotMatch(connectors, /client_secret|service_role|localStorage|sessionStorage/);
+  assert.match(connectors, /const isVideo = \["mp4", "mov", "webm"\]\.includes\(extension\)/);
+  assert.match(connectors, /https:\/\/www\.dropbox\.com\/home\$\{encodeURI\(path\)\}/);
 });
 
 test("external links are registered in Media Library without storing file bytes", () => {
