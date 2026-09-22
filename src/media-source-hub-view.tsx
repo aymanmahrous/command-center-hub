@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
-import { Check, Copy, ExternalLink, Image as ImageIcon, Search, ShieldCheck, Sparkles, Video } from "lucide-react";
+import { Check, Copy, ExternalLink, Image as ImageIcon, LogIn, RefreshCw, Search, ShieldCheck, Sparkles, Video } from "lucide-react";
 import { openCommandCenterWorkspace } from "./command-center-workspace";
 import { useLanguage } from "./i18n";
+import { connectGoogleDriveForMedia, fetchGoogleDriveMedia, isGoogleDriveMediaConfigured } from "./google-drive-media-source";
 import {
   buildCreativeBrief,
   canSelectForCreative,
@@ -25,9 +26,43 @@ export default function MediaSourceHubView({ onOpenProvider }: Props) {
   const [objective, setObjective] = useState(ar ? "تعليم السباحة بثقة وأمان" : "Confident, safe swimming lessons");
   const [briefLanguage, setBriefLanguage] = useState<"ar" | "en">(language);
   const [copied, setCopied] = useState(false);
-  const connections = useMemo(() => readProviderConnections(import.meta.env as unknown as Record<string, unknown>), []);
-  const items = useMemo(() => filterRemoteMedia([], query, provider), [query, provider]);
+  const [driveToken, setDriveToken] = useState("");
+  const [driveItems, setDriveItems] = useState<RemoteMediaItem[]>([]);
+  const [driveBusy, setDriveBusy] = useState(false);
+  const [driveMessage, setDriveMessage] = useState("");
+  const driveConfigured = isGoogleDriveMediaConfigured();
+  const connections = useMemo(() => readProviderConnections(import.meta.env as unknown as Record<string, unknown>).map((connection) =>
+    connection.key === "google_drive" ? { ...connection, connected: Boolean(driveToken) } : connection,
+  ), [driveToken]);
+  const items = useMemo(() => filterRemoteMedia(driveItems, query, provider), [driveItems, query, provider]);
   const brief = selected ? buildCreativeBrief(selected, briefLanguage, objective) : null;
+
+  async function connectDrive() {
+    setDriveBusy(true);
+    setDriveMessage("");
+    try {
+      const token = await connectGoogleDriveForMedia();
+      setDriveToken(token);
+      setDriveItems(await fetchGoogleDriveMedia(token));
+    } catch (cause) {
+      setDriveMessage(cause instanceof Error ? cause.message : (ar ? "تعذر الاتصال بـ Google Drive." : "Could not connect to Google Drive."));
+    } finally {
+      setDriveBusy(false);
+    }
+  }
+
+  async function refreshDrive() {
+    if (!driveToken) return;
+    setDriveBusy(true);
+    setDriveMessage("");
+    try {
+      setDriveItems(await fetchGoogleDriveMedia(driveToken));
+    } catch (cause) {
+      setDriveMessage(cause instanceof Error ? cause.message : (ar ? "تعذر قراءة Google Drive." : "Could not read Google Drive."));
+    } finally {
+      setDriveBusy(false);
+    }
+  }
 
   async function copyBrief() {
     if (!brief) return;
@@ -49,7 +84,7 @@ export default function MediaSourceHubView({ onOpenProvider }: Props) {
     <section className="provider-strip" aria-label={ar ? "مصادر الوسائط" : "Media sources"}>
       {connections.map((connection) => { return <div className={`provider-chip ${connection.configured ? "configured" : ""}`} key={connection.key}>
         <div className="provider-chip-top"><span>{connection.label}</span><small>{connection.configured ? (ar ? "الإعداد موجود · يلزم اتصال OAuth" : "Configuration present · OAuth connection required") : (ar ? "غير متصل · يحتاج إعداداً" : "Not connected · setup required")}</small></div>
-        <div className="provider-chip-actions"><span className="provider-settings" title={connection.authScope}>{connection.configured ? (ar ? "اتصل من اللوحة المخصصة" : "Connect from the provider panel") : (ar ? "راجع متطلبات الإعداد" : "Review setup requirements")}</span></div>
+        <div className="provider-chip-actions">{connection.key === "google_drive" && connection.configured ? <button type="button" className="provider-settings" onClick={() => void (driveToken ? refreshDrive() : connectDrive())} disabled={driveBusy}>{driveBusy ? (ar ? "جاري الاتصال…" : "Connecting…") : driveToken ? (ar ? "تحديث Drive" : "Refresh Drive") : (ar ? "اتصال Google Drive" : "Connect Google Drive")}</button> : <span className="provider-settings" title={connection.authScope}>{connection.configured ? (ar ? "اتصل من اللوحة المخصصة" : "Connect from the provider panel") : (ar ? "راجع متطلبات الإعداد" : "Review setup requirements")}</span>}</div>
       </div>; })}
     </section>
 
@@ -60,7 +95,7 @@ export default function MediaSourceHubView({ onOpenProvider }: Props) {
         <article><span className="media-plan-number">2</span><div><strong>{ar ? "فهرسة الأسماء والمجلدات" : "Index names and folders"}</strong><p>{ar ? "تظهر الأصول الحقيقية فقط بعد موافقة الاتصال." : "Only real assets appear after connection approval."}</p></div></article>
         <article><span className="media-plan-number">3</span><div><strong>{ar ? "اقتراح الاستخدام ثم المراجعة" : "Suggest use, then review"}</strong><p>{ar ? "تصميم أو معلومة أو Reel — والمالك يقرر قبل أي استخدام." : "Design, information, or Reel — the owner decides before use."}</p></div></article>
       </div>
-      <p className="media-plan-note">{ar ? "الحالة الحالية: لا توجد اتصالات OAuth نشطة، لذلك لا يتم عرض صور وهمية ولا يتم استهلاك خدمة ذكاء اصطناعي." : "Current state: no active OAuth connections, so no fabricated images are shown and no AI service is consumed."}</p>
+      <p className="media-plan-note">{driveToken ? (ar ? `Google Drive متصل — تم العثور على ${driveItems.length} صورة/فيديو حقيقي. كل أصل يبدأ بحالة «يحتاج مراجعة».` : `Google Drive connected — ${driveItems.length} real image/video assets found. Every asset starts as “Needs review”.`) : (ar ? "الحالة الحالية: Google Drive غير متصل. لن يتم عرض صور وهمية ولا يتم استهلاك خدمة ذكاء اصطناعي." : "Current state: Google Drive is not connected. No fabricated images are shown and no AI service is consumed.")}</p>{driveMessage && <p className="media-source-note" role="status">{driveMessage}</p>}
     </section>
 
     <div className="media-hub-grid">
@@ -77,7 +112,7 @@ export default function MediaSourceHubView({ onOpenProvider }: Props) {
             <div className="remote-asset-actions"><a href={item.webUrl} target="_blank" rel="noreferrer" aria-label={ar ? "فتح المصدر" : "Open source"}><ExternalLink size={16} /></a><button type="button" disabled={!selectable} onClick={() => setSelected(item)}>{selected?.id === item.id ? <Check size={16} /> : ar ? "اختيار" : "Select"}</button></div>
           </article>; })}
         </div>
-        <p className="media-source-note">{ar ? "لا توجد أصول معروضة حتى يتم توصيل مصدر حقيقي. لن يتم إنشاء أو عرض ملفات تجريبية." : "No assets are shown until a real provider is connected. No demo files are fabricated."}</p>
+        <p className="media-source-note">{driveConfigured ? (driveToken ? (ar ? "الأصول مأخوذة مباشرة من Google Drive. لا يتم تنزيل الملفات أو تخزين رمز الوصول." : "Assets are read directly from Google Drive. Files are not downloaded and the access token is not persisted.") : (ar ? "اضغط اتصال Google Drive لعرض الصور والفيديو الحقيقية." : "Connect Google Drive to load real image and video assets.")) : (ar ? "Google Drive يحتاج إعداد Client ID ومجلد الأرشيف." : "Google Drive requires its Client ID and archive folder configuration.")}</p>
       </section>
 
       <section className="creative-factory-panel">
