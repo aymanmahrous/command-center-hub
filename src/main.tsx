@@ -27,6 +27,7 @@ const C360 = lazy(() => import("./customer-360-panel"));
 const OperationsQueueView = lazy(() => import("./operations-queue-view"));
 const IntegrationsCenter = lazy(() => import("./integrations-center"));
 const AutomationsView = lazy(() => import("./automations-view"));
+const MarketingCompanyView = lazy(() => import("./marketing-company-view"));
 
 const sections = [
   ["dashboard", LayoutDashboard, "get_staff_command_center"],
@@ -1334,7 +1335,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   );
 
   const primary = [
-    ["dashboard", LayoutDashboard, nav.dashboard],
+    ["dashboard", LayoutDashboard, language === "ar" ? "شركة التسويق" : "Marketing Company"],
     ["content", BarChart3, nav.factory],
     ["inbox", Inbox, nav.inbox],
     ["media", Library, nav.media],
@@ -1373,7 +1374,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
       <header className="owner-header">
         <div>
           <p className="eyebrow">{language === "ar" ? "مركز القيادة" : "OWNER COMMAND CENTER"}</p>
-          <h1>{active === "content" ? nav.marketing : nav[current[0]]}</h1>
+          <h1>{active === "dashboard" ? (language === "ar" ? "شركة التسويق" : "Marketing Company") : active === "content" ? nav.marketing : nav[current[0]]}</h1>
         </div>
         <div className="owner-header-actions">
           <button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button>
@@ -1392,6 +1393,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
         {status === "loading" && <p className="muted" role="status">{t("common").loading}</p>}
         {status === "error" && <div className="error-box" role="alert">{error}</div>}
         {status === "ready" && (
+          active === "dashboard" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MarketingCompanyView session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /></Suspense> :
           active === "today" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><TodayView session={session} onNavigate={go} onSessionExpired={onLogout} /></Suspense> :
           active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
@@ -1406,7 +1408,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
           active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "brain" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><CoachBrain language={language} /></Suspense> :
           active === "workspace" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><RealProductFoundation session={session} language={language} /></Suspense> :
-          active === "dashboard" || active === "command" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><ControlTowerV2 key={`${active}-${reloadKey}`} session={session} onNavigate={(section) => { if (sections.some(([id]) => id === section)) go(section as SectionId); }} onSessionExpired={onLogout} initialCommandOpen={active === "command"} /></Suspense> :
+          active === "command" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><ControlTowerV2 key={`${active}-${reloadKey}`} session={session} onNavigate={(section) => { if (sections.some(([id]) => id === section)) go(section as SectionId); }} onSessionExpired={onLogout} initialCommandOpen={active === "command"} /></Suspense> :
           null
         )}
       </section>
