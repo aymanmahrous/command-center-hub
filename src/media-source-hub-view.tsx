@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Check, Copy, ExternalLink, Image as ImageIcon, LogIn, RefreshCw, Search, ShieldCheck, Sparkles, Video } from "lucide-react";
+import { Check, Copy, ExternalLink, Image as ImageIcon, Search, ShieldCheck, Sparkles, Video } from "lucide-react";
 import { openCommandCenterWorkspace } from "./command-center-workspace";
 import { useLanguage } from "./i18n";
 import { connectGoogleDriveForMedia, fetchGoogleDriveMedia, isGoogleDriveMediaConfigured } from "./google-drive-media-source";
@@ -58,6 +58,7 @@ export default function MediaSourceHubView({ onOpenProvider }: Props) {
     try {
       setDriveItems(await fetchGoogleDriveMedia(driveToken));
     } catch (cause) {
+      if (cause instanceof Error && cause.message.startsWith("DRIVE_HTTP_401")) setDriveToken("");
       setDriveMessage(cause instanceof Error ? cause.message : (ar ? "تعذر قراءة Google Drive." : "Could not read Google Drive."));
     } finally {
       setDriveBusy(false);
