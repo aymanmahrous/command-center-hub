@@ -8,8 +8,8 @@ const budgets = {
   // Vite's raw chunk size varies by about 90 bytes between local Node 22 and Vercel Node 22; gzip remains the stricter signal.
   // The owner Factory editor and Inbox polish add a measured ~430 raw bytes; gzip remains unchanged.
   // Marketing Company adds a measured <0.1% owner-entry loader; this preserves the active guard.
-  // Keep only a small 200-byte environmental buffer so a harmless 81-byte Vercel delta cannot fail deployment.
-  js: { raw: 369_200, gzip: 108_500 },
+  // Keep the raw guard aligned with the owner-safe Undo action while gzip remains the stricter signal.
+  js: { raw: 371_000, gzip: 108_500 },
   css: { raw: 33_000, gzip: 7_000 },
 };
 
