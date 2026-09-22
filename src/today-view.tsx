@@ -56,7 +56,7 @@ const todayCopy = {
     allClear: "لا توجد عناصر تتطلب انتباهًا فوريًا في آخر لقطة.",
     attentionHumanConversations: "محادثات تتطلب تدخلًا بشريًا",
     attentionBookingActions: "إجراءات حجز معلّقة",
-    attentionAutomation: "فشل / إعادة محاولة في الأتمتة",
+    attentionAutomation: "فشل / إعادة محاولة فعالة في الأتمتة",
     attentionCrmFollowUps: "متابعات CRM",
     attentionContentReview: "محتوى بانتظار المراجعة",
     numbersEyebrow: "أرقام أساسية",
@@ -84,6 +84,7 @@ const todayCopy = {
     healthTitle: "صحة النظام",
     automationSnapshotTitle: "لقطة حالة الأتمتة",
     automationRecordsLabel: "سجل",
+    terminalJobsNote: "السجلات المنتهية/المؤرشفة: لا تحتاج إجراءً الآن.",
     actionsEyebrow: "تنقل",
     actionsTitle: "إجراءات سريعة",
     refreshButton: "تحديث البيانات",
@@ -99,7 +100,7 @@ const todayCopy = {
     allClear: "Nothing flagged for immediate attention in the latest snapshot.",
     attentionHumanConversations: "Human-required conversations",
     attentionBookingActions: "Booking actions pending",
-    attentionAutomation: "Automation failures / retries",
+    attentionAutomation: "Active automation failures / retries",
     attentionCrmFollowUps: "CRM follow-ups",
     attentionContentReview: "Content requiring review",
     numbersEyebrow: "Key counts",
@@ -127,6 +128,7 @@ const todayCopy = {
     healthTitle: "System health",
     automationSnapshotTitle: "Automation status snapshot",
     automationRecordsLabel: "records",
+    terminalJobsNote: "Closed/archived records are historical and need no action now.",
     actionsEyebrow: "Navigation",
     actionsTitle: "Quick actions",
     refreshButton: "Refresh data",
@@ -135,8 +137,8 @@ const todayCopy = {
 } as const;
 
 const jobStatusLabels: Record<Language, Record<JobStatus, string>> = {
-  ar: { queued: "في الانتظار", processing: "قيد التنفيذ", completed: "مكتملة", failed: "فشلت", retrying: "إعادة محاولة", dead: "متوقفة نهائيًا" },
-  en: { queued: "Queued", processing: "Processing", completed: "Completed", failed: "Failed", retrying: "Retrying", dead: "Dead" },
+  ar: { queued: "في الانتظار", processing: "قيد التنفيذ", completed: "مكتملة", failed: "فشلت", retrying: "إعادة محاولة", dead: "منتهية/مؤرشفة" },
+  en: { queued: "Queued", processing: "Processing", completed: "Completed", failed: "Failed", retrying: "Retrying", dead: "Closed/archived" },
 };
 
 function rpcHeaders(session: TodaySession) {
@@ -264,7 +266,7 @@ export default function TodayOperationsView({
     const humanConversations = inbox.filter((conversation) => conversation.mode === "human_required" || conversation.humanRequired);
     const crmFollowUps = leads.filter((lead) => lead.stage === "follow_up" || lead.humanRequired || isDueNow(lead.nextFollowUpAt, nowMs));
     const followUpJobs = operations?.followUps.filter((job) => ["queued", "retrying", "processing"].includes(job.status)) ?? [];
-    const automationIssues = operations?.backgroundJobs.filter((job) => ["failed", "retrying", "dead"].includes(job.status)) ?? [];
+    const automationIssues = operations?.backgroundJobs.filter((job) => ["failed", "retrying"].includes(job.status)) ?? [];
     const bookingsToday = bookings.filter((booking) => isSameLocalDay(booking.created_at, now));
     const confirmedToday = bookings.filter((booking) => booking.status === "confirmed" && isSameLocalDay(booking.updated_at ?? booking.created_at, now));
 
@@ -294,7 +296,7 @@ export default function TodayOperationsView({
   const attentionItems = useMemo(() => ([
     { key: "humanConversations", count: metrics.humanConversations.length, label: copy.attentionHumanConversations, section: "inbox" as const },
     { key: "bookingActions", count: metrics.pendingBookings.length, label: copy.attentionBookingActions, section: "planner" as const },
-    { key: "automationIssues", count: metrics.automationIssues.length + metrics.followUpJobs.filter((job) => ["failed", "retrying", "dead"].includes(job.status)).length, label: copy.attentionAutomation, section: "automations" as const },
+    { key: "automationIssues", count: metrics.automationIssues.length + metrics.followUpJobs.filter((job) => ["failed", "retrying"].includes(job.status)).length, label: copy.attentionAutomation, section: "automations" as const },
     { key: "crmFollowUps", count: metrics.crmFollowUps.length, label: copy.attentionCrmFollowUps, section: "crm" as const },
     { key: "contentReview", count: metrics.reviewContent.length, label: copy.attentionContentReview, section: "content" as const },
   ]), [copy, metrics]);
@@ -390,6 +392,7 @@ export default function TodayOperationsView({
           <button type="button" className="summary-alert today-summary-action" key={jobStatus} onClick={() => onNavigate("automations")}><span>{statusLabels[jobStatus]}</span><strong>{healthCounts[jobStatus]}</strong><small>{language === "ar" ? "فتح الأتمتة" : "Open automation"}</small></button>
         ))}
       </div>
+      {healthCounts.dead > 0 && <p className="today-automation-note">{copy.terminalJobsNote} ({healthCounts.dead})</p>}
       {automationStatus !== null && (
         <p className="today-automation-note">
           {copy.automationSnapshotTitle}: {Array.isArray(automationStatus) ? automationStatus.length : typeof automationStatus === "object" ? Object.keys(automationStatus).length : 1} {copy.automationRecordsLabel}

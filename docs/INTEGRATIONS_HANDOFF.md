@@ -16,6 +16,7 @@ Document status: historical stage evidence. PR #14 was merged after successful p
 - No retry, cancel, provider test, webhook, credential, or configuration action exists in the UI because no approved mutation RPC exists for those actions.
 - Queue records are evidence of internal processing state, not proof of live external-provider connectivity.
 - Provider errors and stop reasons are truncated in the interface to prevent unbounded rendering.
+- Terminal `dead`/cancelled records are historical evidence, not active failures; the owner dashboard excludes them from urgent attention and does not offer a retry action for them.
 
 ## Verification
 

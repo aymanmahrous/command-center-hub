@@ -121,7 +121,9 @@ export function summarizeAutomationStatus(value: unknown): AutomationSnapshot {
       };
     }
 
-    if (error || ["failed", "dead", "cancelled"].includes(state)) {
+    const activeIssue = ["failed", "retrying"].includes(state)
+      || (Boolean(error) && !["completed", "dead", "cancelled"].includes(state));
+    if (activeIssue) {
       attention.push({
         id: textValue(firstValue(record, ["id", "job_id", "batch_id"])) ?? `record-${index + 1}`,
         title: textValue(firstValue(record, ["job_type", "name", "operation", "type"])) ?? "Recorded automation issue",
@@ -144,8 +146,8 @@ export function summarizeAutomationStatus(value: unknown): AutomationSnapshot {
 
 export function automationStateLabel(state: AutomationState, language: "ar" | "en") {
   const labels = language === "ar"
-    ? { queued: "في الانتظار", processing: "قيد التنفيذ", completed: "مكتملة", failed: "فشلت", retrying: "إعادة محاولة", cancelled: "ملغاة", dead: "متوقفة نهائيًا", unknown: "غير معروفة" }
-    : { queued: "Queued", processing: "Processing", completed: "Completed", failed: "Failed", retrying: "Retrying", cancelled: "Cancelled", dead: "Dead", unknown: "Unknown" };
+    ? { queued: "في الانتظار", processing: "قيد التنفيذ", completed: "مكتملة", failed: "فشلت", retrying: "إعادة محاولة", cancelled: "ملغاة", dead: "منتهية/مؤرشفة", unknown: "غير معروفة" }
+    : { queued: "Queued", processing: "Processing", completed: "Completed", failed: "Failed", retrying: "Retrying", cancelled: "Cancelled", dead: "Closed/archived", unknown: "Unknown" };
   return labels[state];
 }
 
