@@ -1310,7 +1310,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     else if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.pushState({ section: id }, "", nextUrl);
   };
 
-  const moreIds = new Set<SectionId>(["today", "command", "crm", "planner", "archive", "analytics", "integrations", "connections", "radar", "brain", "workspace"]);
+  const moreIds = new Set<SectionId>(["today", "command", "crm", "planner", "media", "archive", "analytics", "integrations", "automations", "connections", "radar", "workspace"]);
   const moreItems = sections.filter(([id]) => moreIds.has(id));
 
   const morePanel = (
@@ -1334,12 +1334,13 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     </div>
   );
 
+  // Owner-first navigation: keep the daily surface to five simple areas.
+  // Advanced modules remain reachable through More; no feature is removed.
   const primary = [
-    ["dashboard", LayoutDashboard, language === "ar" ? "شركة التسويق" : "Marketing Company"],
+    ["dashboard", LayoutDashboard, nav.dashboard],
+    ["brain", Bot, nav.brain],
     ["content", BarChart3, nav.factory],
     ["inbox", Inbox, nav.inbox],
-    ["media", Library, nav.media],
-    ["automations", Workflow, nav.operations],
   ] as const;
 
   return <div className="app-shell">
@@ -1352,17 +1353,20 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
       </div>
       <LanguageSwitcher onDark />
         <nav aria-label="وحدات Command Center">
-        {navigationGroups.map((group) => <div className="nav-group" key={group.id}>
-          <span className="nav-group-label">{group.label === "home" ? nav.dashboard : group.label === "factory" ? nav.factory : group.label === "inbox" ? nav.inbox : group.label === "media" ? nav.media : nav.operations}</span>
-          {group.items.map((id) => {
-            const entry = sections.find(([sectionId]) => sectionId === id);
-            if (!entry) return null;
-            const Icon = entry[1];
-            return <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => go(id)}>
-              <Icon size={18} aria-hidden="true" /><span>{id === "content" ? nav.factory : id === "automations" ? nav.operations : nav[id]}</span>
+        <div className="nav-group">
+          <span className="nav-group-label">{nav.dashboard}</span>
+          {[
+            ["dashboard", LayoutDashboard],
+            ["brain", Bot],
+            ["content", BarChart3],
+            ["inbox", Inbox],
+          ].map(([id, Icon]) => {
+            const sectionId = id as SectionId;
+            return <button type="button" key={sectionId} className={active === sectionId ? "active" : ""} aria-current={active === sectionId ? "page" : undefined} onClick={() => go(sectionId)}>
+              <Icon size={18} aria-hidden="true" /><span>{sectionId === "dashboard" ? nav.dashboard : sectionId === "brain" ? nav.brain : sectionId === "content" ? nav.factory : nav.inbox}</span>
             </button>;
           })}
-        </div>)}
+        </div>
         <button type="button" className={moreOpen ? "active" : ""} onClick={() => setMoreOpen((value) => !value)}>
           <Settings2 size={18} aria-hidden="true" /><span>{nav.more}</span>
         </button>
@@ -1374,7 +1378,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
       <header className="owner-header">
         <div>
           <p className="eyebrow">{language === "ar" ? "مركز القيادة" : "OWNER COMMAND CENTER"}</p>
-          <h1>{active === "dashboard" ? (language === "ar" ? "شركة التسويق" : "Marketing Company") : active === "content" ? nav.marketing : nav[current[0]]}</h1>
+          <h1>{active === "content" ? nav.marketing : active === "dashboard" ? nav.dashboard : nav[current[0]]}</h1>
         </div>
         <div className="owner-header-actions">
           <button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button>
