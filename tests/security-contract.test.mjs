@@ -74,6 +74,11 @@ test("booking operations expose full read-only context and client-side filters",
   assert.match(app, /filteredBookings/);
 });
 
+test("booking workspace opens on the owner confirmation queue", () => {
+  assert.match(app, /statusFilter !== "all" \|\| bookings\.length === 0/);
+  assert.match(app, /counts\.pending > 0 \? "pending"/);
+});
+
 test("booking status is constrained to the server-supported allowlist", () => {
   for (const status of ["pending", "contacted", "confirmed", "declined", "cancelled"]) assert.match(app, new RegExp(`"${status}"`));
   assert.doesNotMatch(app, /service_role/i);

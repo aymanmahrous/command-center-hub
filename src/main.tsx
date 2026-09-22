@@ -1169,6 +1169,12 @@ function BookingView({ value, session, onChanged, onSessionExpired }: { value: J
     });
   }, [bookings, query, statusFilter]);
 
+  useEffect(() => {
+    if (statusFilter !== "all" || bookings.length === 0) return;
+    const nextFilter: BookingStatus | "all" = counts.pending > 0 ? "pending" : counts.contacted > 0 ? "contacted" : "all";
+    if (nextFilter !== "all") setStatusFilter(nextFilter);
+  }, [bookings.length, counts.contacted, counts.pending, statusFilter]);
+
   if (!parsed.success) return <div className="error-box">{copy.invalidFormat}</div>;
 
   async function changeStatus(booking: z.infer<typeof BookingSchema>, next: BookingStatus) {
