@@ -473,7 +473,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
   const [notice, setNotice] = useState("");
   const [replyBody, setReplyBody] = useState("");
   const [conversationPatches, setConversationPatches] = useState<Record<string, Partial<InboxConversation>>>({});
-  const [inboxFilter, setInboxFilter] = useState<"all" | "attention" | "unread">("all");
+  const [inboxFilter, setInboxFilter] = useState<"all" | "attention" | "unread" | "ai_active">("all");
   const [mobileListOpen, setMobileListOpen] = useState(true);
   const canWriteMode = ["super_admin", "admin", "reception", "coach"].includes(session.role);
   const canSendReply = ["super_admin", "admin", "reception", "content_manager"].includes(session.role);
@@ -481,9 +481,12 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
     ? parsed.data.map((conversation) => ({ ...conversation, ...conversationPatches[conversation.id] }))
     : [];
   const selected = conversations.find((conversation) => conversation.id === selectedId) ?? null;
-  const visibleConversations = conversations.filter((conversation) => inboxFilter === "all" || (inboxFilter === "attention" ? conversation.needsAttention || conversation.humanRequired || conversation.mode === "human_required" || conversation.mode === "human_takeover" : conversation.unread > 0));
+  const priorityScore = (conversation: InboxConversation) => (conversation.needsAttention || conversation.humanRequired || conversation.mode === "human_required" || conversation.mode === "human_takeover" ? 3 : conversation.unread > 0 ? 2 : conversation.mode === "ai_active" ? 1 : 0);
+  const prioritizedConversations = [...conversations].sort((left, right) => priorityScore(right) - priorityScore(left));
+  const visibleConversations = prioritizedConversations.filter((conversation) => inboxFilter === "all" || (inboxFilter === "attention" ? priorityScore(conversation) === 3 : inboxFilter === "unread" ? conversation.unread > 0 : conversation.mode === "ai_active" && conversation.unread > 0));
   const attentionCount = conversations.filter((conversation) => conversation.needsAttention || conversation.humanRequired || conversation.mode === "human_required" || conversation.mode === "human_takeover").length;
   const unreadCount = conversations.reduce((total, conversation) => total + conversation.unread, 0);
+  const aiActiveUnreadCount = conversations.filter((conversation) => conversation.mode === "ai_active" && conversation.unread > 0).length;
 
   useEffect(() => {
     if (!parsed.success) return;
@@ -613,7 +616,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
   return <>
     <div className="write-banner"><strong>{copy.writeBannerTitle}</strong><span>{copy.writeBannerSubtitle}</span></div>
     {notice && <div className="notice-box" aria-live="polite">{notice}</div>}
-    <div className="inbox-workspace-head"><div><span className="inbox-eyebrow">{language === "ar" ? "مركز المحادثات" : "CONVERSATION WORKSPACE"}</span><h3>{language === "ar" ? "كل محادثة في مكانها" : "Every conversation in its place"}</h3><p>{language === "ar" ? "اختر محادثة، راجع السياق، ثم نفّذ الإجراء المسموح فقط." : "Select a conversation, review the context, then take only the permitted action."}</p></div><div className="inbox-filters" role="group" aria-label={language === "ar" ? "تصفية المحادثات" : "Conversation filters"}><button type="button" className={inboxFilter === "all" ? "active" : ""} onClick={() => setInboxFilter("all")}>{language === "ar" ? "الكل" : "All"} <b>{conversations.length}</b></button><button type="button" className={inboxFilter === "attention" ? "active" : ""} onClick={() => setInboxFilter("attention")}>{language === "ar" ? "تحتاج انتباهًا" : "Needs attention"} <b>{attentionCount}</b></button><button type="button" className={inboxFilter === "unread" ? "active" : ""} onClick={() => setInboxFilter("unread")}>{language === "ar" ? "غير مقروء" : "Unread"} <b>{unreadCount}</b></button></div></div>
+    <div className="inbox-workspace-head"><div><span className="inbox-eyebrow">{language === "ar" ? "صندوق المالك" : "OWNER INBOX"}</span><h3>{language === "ar" ? "ما يحتاج قرارك أولًا" : "Your decisions first"}</h3><p>{language === "ar" ? "رتّب النظام المحادثات حسب حاجتها لتدخلك، بينما تبقى المحادثات التي يتولاها AI في الخلفية." : "The system prioritizes conversations that need your decision while AI-managed conversations stay in the background."}</p></div><div className="inbox-filters" role="group" aria-label={language === "ar" ? "تصفية المحادثات" : "Conversation filters"}><button type="button" className={inboxFilter === "all" ? "active" : ""} onClick={() => setInboxFilter("all")}>{language === "ar" ? "الكل" : "All"} <b>{conversations.length}</b></button><button type="button" className={inboxFilter === "attention" ? "active" : ""} onClick={() => setInboxFilter("attention")}>{language === "ar" ? "يحتاج قرارك" : "Needs your decision"} <b>{attentionCount}</b></button><button type="button" className={inboxFilter === "ai_active" ? "active" : ""} onClick={() => setInboxFilter("ai_active")}>{language === "ar" ? "يتولاه AI" : "AI handling"} <b>{aiActiveUnreadCount}</b></button><button type="button" className={inboxFilter === "unread" ? "active" : ""} onClick={() => setInboxFilter("unread")}>{language === "ar" ? "غير مقروء" : "Unread"} <b>{unreadCount}</b></button></div></div>
     <div className={`inbox-layout ${mobileListOpen ? "mobile-list-open" : "mobile-conversation-open"}`}>
       <div className="conversation-list" aria-label={copy.listAriaLabel}>
         {visibleConversations.length === 0 && <p className="inbox-filter-empty">{language === "ar" ? "لا توجد محادثات في هذا التصنيف." : "No conversations in this filter."}</p>}
