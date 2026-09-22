@@ -12,3 +12,5 @@
 .coach-brain__reset{border:1px solid rgba(14,165,233,.45);border-radius:10px;background:transparent;color:inherit;padding:9px 12px;font:inherit;cursor:pointer}
 .coach-brain__reset:hover{background:rgba(14,165,233,.12)}
 @media(max-width:800px){.coach-brain__results-heading{flex-wrap:wrap}.coach-brain__reset{width:100%}}
+
+.coach-brain__actions-card{display:grid;gap:12px}.coach-brain__action-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}.coach-brain__action-grid button{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:58px;padding:12px;border:1px solid rgba(14,165,233,.28);border-radius:12px;background:rgba(14,165,233,.08);color:inherit;font:inherit;font-weight:700;text-align:start;cursor:pointer}.coach-brain__action-grid button:hover{border-color:#0ea5e9;background:rgba(14,165,233,.16)}.coach-brain__action-grid button svg{color:#38bdf8;flex:0 0 auto}@media(max-width:1000px){.coach-brain__action-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:800px){.coach-brain__action-grid{grid-template-columns:1fr}.coach-brain__action-grid button{min-height:50px}}

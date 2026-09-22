@@ -74,6 +74,11 @@ test("booking operations expose full read-only context and client-side filters",
   assert.match(app, /filteredBookings/);
 });
 
+test("booking workspace opens on the owner confirmation queue", () => {
+  assert.match(app, /statusFilter !== "all" \|\| bookings\.length === 0/);
+  assert.match(app, /counts\.pending > 0 \? "pending"/);
+});
+
 test("booking status is constrained to the server-supported allowlist", () => {
   for (const status of ["pending", "contacted", "confirmed", "declined", "cancelled"]) assert.match(app, new RegExp(`"${status}"`));
   assert.doesNotMatch(app, /service_role/i);
@@ -270,7 +275,7 @@ test("System Polish cancels stale reads and handles session expiry consistently"
 test("System Polish makes controlled interactions accessible and globally locked", () => {
   assert.match(app, /className="skip-link"/);
   assert.match(app, /aria-label="وحدات Command Center"/);
-  assert.match(app, /aria-current=\{active === id \? "page" : undefined\}/);
+  assert.match(app, /aria-current=\{active === (?:id|sectionId) \? "page" : undefined\}/);
   assert.match(app, /aria-busy=\{status === "loading"\}/);
   assert.match(app, /role="status"/);
   assert.match(app, /disabled=\{!canWrite \|\| busyId !== null\}/);

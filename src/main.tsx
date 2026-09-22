@@ -473,7 +473,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
   const [notice, setNotice] = useState("");
   const [replyBody, setReplyBody] = useState("");
   const [conversationPatches, setConversationPatches] = useState<Record<string, Partial<InboxConversation>>>({});
-  const [inboxFilter, setInboxFilter] = useState<"all" | "attention" | "unread">("all");
+  const [inboxFilter, setInboxFilter] = useState<"all" | "attention" | "unread" | "ai_active">("all");
   const [mobileListOpen, setMobileListOpen] = useState(true);
   const canWriteMode = ["super_admin", "admin", "reception", "coach"].includes(session.role);
   const canSendReply = ["super_admin", "admin", "reception", "content_manager"].includes(session.role);
@@ -481,9 +481,12 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
     ? parsed.data.map((conversation) => ({ ...conversation, ...conversationPatches[conversation.id] }))
     : [];
   const selected = conversations.find((conversation) => conversation.id === selectedId) ?? null;
-  const visibleConversations = conversations.filter((conversation) => inboxFilter === "all" || (inboxFilter === "attention" ? conversation.needsAttention || conversation.humanRequired || conversation.mode === "human_required" || conversation.mode === "human_takeover" : conversation.unread > 0));
+  const priorityScore = (conversation: InboxConversation) => (conversation.needsAttention || conversation.humanRequired || conversation.mode === "human_required" || conversation.mode === "human_takeover" ? 3 : conversation.unread > 0 ? 2 : conversation.mode === "ai_active" ? 1 : 0);
+  const prioritizedConversations = [...conversations].sort((left, right) => priorityScore(right) - priorityScore(left));
+  const visibleConversations = prioritizedConversations.filter((conversation) => inboxFilter === "all" || (inboxFilter === "attention" ? priorityScore(conversation) === 3 : inboxFilter === "unread" ? conversation.unread > 0 : conversation.mode === "ai_active" && conversation.unread > 0));
   const attentionCount = conversations.filter((conversation) => conversation.needsAttention || conversation.humanRequired || conversation.mode === "human_required" || conversation.mode === "human_takeover").length;
   const unreadCount = conversations.reduce((total, conversation) => total + conversation.unread, 0);
+  const aiActiveUnreadCount = conversations.filter((conversation) => conversation.mode === "ai_active" && conversation.unread > 0).length;
 
   useEffect(() => {
     if (!parsed.success) return;
@@ -613,7 +616,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
   return <>
     <div className="write-banner"><strong>{copy.writeBannerTitle}</strong><span>{copy.writeBannerSubtitle}</span></div>
     {notice && <div className="notice-box" aria-live="polite">{notice}</div>}
-    <div className="inbox-workspace-head"><div><span className="inbox-eyebrow">{language === "ar" ? "مركز المحادثات" : "CONVERSATION WORKSPACE"}</span><h3>{language === "ar" ? "كل محادثة في مكانها" : "Every conversation in its place"}</h3><p>{language === "ar" ? "اختر محادثة، راجع السياق، ثم نفّذ الإجراء المسموح فقط." : "Select a conversation, review the context, then take only the permitted action."}</p></div><div className="inbox-filters" role="group" aria-label={language === "ar" ? "تصفية المحادثات" : "Conversation filters"}><button type="button" className={inboxFilter === "all" ? "active" : ""} onClick={() => setInboxFilter("all")}>{language === "ar" ? "الكل" : "All"} <b>{conversations.length}</b></button><button type="button" className={inboxFilter === "attention" ? "active" : ""} onClick={() => setInboxFilter("attention")}>{language === "ar" ? "تحتاج انتباهًا" : "Needs attention"} <b>{attentionCount}</b></button><button type="button" className={inboxFilter === "unread" ? "active" : ""} onClick={() => setInboxFilter("unread")}>{language === "ar" ? "غير مقروء" : "Unread"} <b>{unreadCount}</b></button></div></div>
+    <div className="inbox-workspace-head"><div><span className="inbox-eyebrow">{language === "ar" ? "صندوق المالك" : "OWNER INBOX"}</span><h3>{language === "ar" ? "ما يحتاج قرارك أولًا" : "Your decisions first"}</h3><p>{language === "ar" ? "رتّب النظام المحادثات حسب حاجتها لتدخلك، بينما تبقى المحادثات التي يتولاها AI في الخلفية." : "The system prioritizes conversations that need your decision while AI-managed conversations stay in the background."}</p></div><div className="inbox-filters" role="group" aria-label={language === "ar" ? "تصفية المحادثات" : "Conversation filters"}><button type="button" className={inboxFilter === "all" ? "active" : ""} onClick={() => setInboxFilter("all")}>{language === "ar" ? "الكل" : "All"} <b>{conversations.length}</b></button><button type="button" className={inboxFilter === "attention" ? "active" : ""} onClick={() => setInboxFilter("attention")}>{language === "ar" ? "يحتاج قرارك" : "Needs your decision"} <b>{attentionCount}</b></button><button type="button" className={inboxFilter === "ai_active" ? "active" : ""} onClick={() => setInboxFilter("ai_active")}>{language === "ar" ? "يتولاه AI" : "AI handling"} <b>{aiActiveUnreadCount}</b></button><button type="button" className={inboxFilter === "unread" ? "active" : ""} onClick={() => setInboxFilter("unread")}>{language === "ar" ? "غير مقروء" : "Unread"} <b>{unreadCount}</b></button></div></div>
     <div className={`inbox-layout ${mobileListOpen ? "mobile-list-open" : "mobile-conversation-open"}`}>
       <div className="conversation-list" aria-label={copy.listAriaLabel}>
         {visibleConversations.length === 0 && <p className="inbox-filter-empty">{language === "ar" ? "لا توجد محادثات في هذا التصنيف." : "No conversations in this filter."}</p>}
@@ -1166,6 +1169,12 @@ function BookingView({ value, session, onChanged, onSessionExpired }: { value: J
     });
   }, [bookings, query, statusFilter]);
 
+  useEffect(() => {
+    if (statusFilter !== "all" || bookings.length === 0) return;
+    const nextFilter: BookingStatus | "all" = counts.pending > 0 ? "pending" : counts.contacted > 0 ? "contacted" : "all";
+    if (nextFilter !== "all") setStatusFilter(nextFilter);
+  }, [bookings.length, counts.contacted, counts.pending, statusFilter]);
+
   if (!parsed.success) return <div className="error-box">{copy.invalidFormat}</div>;
 
   async function changeStatus(booking: z.infer<typeof BookingSchema>, next: BookingStatus) {
@@ -1310,7 +1319,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     else if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.pushState({ section: id }, "", nextUrl);
   };
 
-  const moreIds = new Set<SectionId>(["today", "command", "crm", "planner", "archive", "analytics", "integrations", "connections", "radar", "brain", "workspace"]);
+  const moreIds = new Set<SectionId>(["command", "crm", "planner", "media", "archive", "analytics", "integrations", "automations", "connections", "radar", "workspace"]);
   const moreItems = sections.filter(([id]) => moreIds.has(id));
 
   const morePanel = (
@@ -1334,12 +1343,13 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     </div>
   );
 
+  // Owner-first navigation: keep the daily surface to five simple areas.
+  // Advanced modules remain reachable through More; no feature is removed.
   const primary = [
-    ["dashboard", LayoutDashboard, language === "ar" ? "شركة التسويق" : "Marketing Company"],
+    ["dashboard", LayoutDashboard, nav.dashboard],
+    ["brain", Bot, nav.brain],
     ["content", BarChart3, nav.factory],
     ["inbox", Inbox, nav.inbox],
-    ["media", Library, nav.media],
-    ["automations", Workflow, nav.operations],
   ] as const;
 
   return <div className="app-shell">
@@ -1352,17 +1362,20 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
       </div>
       <LanguageSwitcher onDark />
         <nav aria-label="وحدات Command Center">
-        {navigationGroups.map((group) => <div className="nav-group" key={group.id}>
-          <span className="nav-group-label">{group.label === "home" ? nav.dashboard : group.label === "factory" ? nav.factory : group.label === "inbox" ? nav.inbox : group.label === "media" ? nav.media : nav.operations}</span>
-          {group.items.map((id) => {
-            const entry = sections.find(([sectionId]) => sectionId === id);
-            if (!entry) return null;
-            const Icon = entry[1];
-            return <button type="button" key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => go(id)}>
-              <Icon size={18} aria-hidden="true" /><span>{id === "content" ? nav.factory : id === "automations" ? nav.operations : nav[id]}</span>
+        <div className="nav-group">
+          <span className="nav-group-label">{nav.dashboard}</span>
+          {[
+            ["dashboard", LayoutDashboard],
+            ["brain", Bot],
+            ["content", BarChart3],
+            ["inbox", Inbox],
+          ].map(([id, Icon]) => {
+            const sectionId = id as SectionId;
+            return <button type="button" key={sectionId} className={active === sectionId ? "active" : ""} aria-current={active === sectionId ? "page" : undefined} onClick={() => go(sectionId)}>
+              <Icon size={18} aria-hidden="true" /><span>{sectionId === "dashboard" ? nav.dashboard : sectionId === "brain" ? nav.brain : sectionId === "content" ? nav.factory : nav.inbox}</span>
             </button>;
           })}
-        </div>)}
+        </div>
         <button type="button" className={moreOpen ? "active" : ""} onClick={() => setMoreOpen((value) => !value)}>
           <Settings2 size={18} aria-hidden="true" /><span>{nav.more}</span>
         </button>
@@ -1374,7 +1387,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
       <header className="owner-header">
         <div>
           <p className="eyebrow">{language === "ar" ? "مركز القيادة" : "OWNER COMMAND CENTER"}</p>
-          <h1>{active === "dashboard" ? (language === "ar" ? "شركة التسويق" : "Marketing Company") : active === "content" ? nav.marketing : nav[current[0]]}</h1>
+          <h1>{active === "content" ? nav.marketing : active === "dashboard" ? nav.dashboard : nav[current[0]]}</h1>
         </div>
         <div className="owner-header-actions">
           <button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button>
@@ -1393,7 +1406,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
         {status === "loading" && <p className="muted" role="status">{t("common").loading}</p>}
         {status === "error" && <div className="error-box" role="alert">{error}</div>}
         {status === "ready" && (
-          active === "dashboard" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MarketingCompanyView session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /></Suspense> :
+          active === "dashboard" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><ControlTowerV2 key={`home-${reloadKey}`} session={session} onNavigate={(section) => { if (sections.some(([id]) => id === section)) go(section as SectionId); }} onSessionExpired={onLogout} /></Suspense> :
           active === "today" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><TodayView session={session} onNavigate={go} onSessionExpired={onLogout} /></Suspense> :
           active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
@@ -1408,7 +1421,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
           active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "brain" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><CoachBrain language={language} /></Suspense> :
           active === "workspace" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><RealProductFoundation session={session} language={language} /></Suspense> :
-          active === "command" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><ControlTowerV2 key={`${active}-${reloadKey}`} session={session} onNavigate={(section) => { if (sections.some(([id]) => id === section)) go(section as SectionId); }} onSessionExpired={onLogout} initialCommandOpen={active === "command"} /></Suspense> :
+          active === "command" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><ControlTowerV2 key={`${active}-${reloadKey}`} session={session} onNavigate={(section) => { if (sections.some(([id]) => id === section)) go(section as SectionId); }} onSessionExpired={onLogout} approvalOnly /></Suspense> :
           null
         )}
       </section>
