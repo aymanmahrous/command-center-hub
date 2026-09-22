@@ -96,6 +96,7 @@ export default function ContentGrowthHub({
   const [generateNotice, setGenerateNotice] = useState("");
   const [generating, setGenerating] = useState(false);
   const autoFactoryRun = useRef(false);
+  const reviewAutoOpened = useRef(false);
   const [mediaAssets, setMediaAssets] = useState<ReturnType<typeof parseMediaAssetRecords>>([]);
   const integrations = useMemo(() => readIntegrationStatuses(automationStatus), [automationStatus]);
   const canvaCapabilityState = integrations.find((integration) => integration.key === "canva")?.capabilityState ?? "NOT_CONFIGURED";
@@ -144,6 +145,13 @@ export default function ContentGrowthHub({
   useEffect(() => {
     if (!selectedBatchId && primaryBatch) setSelectedBatchId(primaryBatch.batchId);
   }, [primaryBatch, selectedBatchId]);
+
+  useEffect(() => {
+    if (!reviewAutoOpened.current && activeFactoryTab === "overview" && primaryBatch?.items.some((item) => ["draft", "generated", "needs_review"].includes(item.status))) {
+      reviewAutoOpened.current = true;
+      setActiveFactoryTab("review");
+    }
+  }, [activeFactoryTab, primaryBatch]);
 
   const batchItems = selectedBatch?.items ?? [];
   const strategySummary = useMemo(() => buildStrategySummary(batchItems), [batchItems]);

@@ -17,3 +17,9 @@ test("content growth hub loads media assets for batch preview", () => {
   assert.match(hub, /get_staff_media_assets/);
   assert.match(hub, /mediaAssets=\{mediaAssets\}/);
 });
+
+test("content factory opens the owner review workspace when reviewable items exist", () => {
+  assert.match(hub, /reviewAutoOpened/);
+  assert.match(hub, /activeFactoryTab === "overview"/);
+  assert.match(hub, /setActiveFactoryTab\("review"\)/);
+});
