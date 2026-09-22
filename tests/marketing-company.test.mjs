@@ -30,3 +30,9 @@ test("Approval Center is a review-only owner surface over existing sections", as
   assert.match(tower, /No external action runs from this screen/);
   assert.match(main, /approvalOnly \/\>/);
 });
+
+test("Home owns the daily queue instead of duplicating it in More", () => {
+  assert.match(main, /active === "dashboard" \? .*ControlTowerV2/s);
+  assert.match(main, /const moreIds = new Set<SectionId>\(\["command", "crm", "planner"/);
+  assert.doesNotMatch(main, /const moreIds = new Set<SectionId>\(\["today",/);
+});
