@@ -7,7 +7,8 @@ const indexPath = resolve(distDirectory, "index.html");
 const budgets = {
   // Vite's raw chunk size varies by about 90 bytes between local Node 22 and Vercel Node 22; gzip remains the stricter signal.
   // The owner Factory editor and Inbox polish add a measured ~430 raw bytes; gzip remains unchanged.
-  js: { raw: 368_500, gzip: 108_000 },
+  // Marketing Company adds a measured <0.1% owner-entry loader; this preserves the active guard.
+  js: { raw: 369_000, gzip: 108_500 },
   css: { raw: 33_000, gzip: 7_000 },
 };
 
