@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { groupContentBatches, isDatabaseBatchId, selectPrimaryBatch, buildNextBatchReadyNotice, type ContentBatchItem } from "./content-batch";
 import { COACH_AYMAN_PROVIDER_ID } from "./content-batch-generator";
 import { attachMediaToCoachAymanBatch, buildCoachAyman30DayBatchWithMedia } from "./media-batch-link";
@@ -95,6 +95,7 @@ export default function ContentGrowthHub({
   const [automationStatus, setAutomationStatus] = useState<unknown>(null);
   const [generateNotice, setGenerateNotice] = useState("");
   const [generating, setGenerating] = useState(false);
+  const autoFactoryRun = useRef(false);
   const [mediaAssets, setMediaAssets] = useState<ReturnType<typeof parseMediaAssetRecords>>([]);
   const integrations = useMemo(() => readIntegrationStatuses(automationStatus), [automationStatus]);
   const canvaCapabilityState = integrations.find((integration) => integration.key === "canva")?.capabilityState ?? "NOT_CONFIGURED";
@@ -155,9 +156,9 @@ export default function ContentGrowthHub({
     continue_batch: publishCopyInstagram.livePublishNextContinue,
   }[instagramPublishing.nextAction];
 
-  async function generateCoachAymanBatch() {
+  async function generateCoachAymanBatch(options: { automatic?: boolean } = {}) {
     if (!canWrite || panelBusy) return;
-    if (!window.confirm(copy.generateConfirm)) return;
+    if (!options.automatic && !window.confirm(copy.generateConfirm)) return;
     setGenerating(true);
     setGenerateNotice("");
     try {
@@ -200,6 +201,18 @@ export default function ContentGrowthHub({
       setGenerating(false);
     }
   }
+
+  useEffect(() => {
+    if (!canWrite || busy || generating || autoFactoryRun.current || items.length === 0) return;
+    const horizon = Date.now() + 21 * 24 * 60 * 60 * 1000;
+    const futurePlanned = items.filter((item) => {
+      const planned = item.plannedFor ? new Date(String(item.plannedFor)).getTime() : 0;
+      return planned > Date.now() && planned <= horizon && item.status !== "cancelled";
+    }).length;
+    if (futurePlanned >= 10) return;
+    autoFactoryRun.current = true;
+    void generateCoachAymanBatch({ automatic: true });
+  }, [busy, canWrite, generating, items]);
 
   return (
     <div className="content-growth-hub" dir={language === "ar" ? "rtl" : "ltr"}>
@@ -322,6 +335,11 @@ export default function ContentGrowthHub({
         <button type="button" className="primary-button" disabled={!canWrite || panelBusy} onClick={() => void generateCoachAymanBatch()}>
           {generating ? copy.generateBusy : copy.generateButton}
         </button>
+        <p className="batch-meta" role="status">
+          {language === "ar"
+            ? "المصنع يراقب الخطة القادمة تلقائيًا، ويولّد دفعة جديدة فقط عند اقتراب انتهائها. كل العناصر تبدأ للمراجعة ولا يتم نشرها تلقائيًا."
+            : "The factory watches the upcoming plan and generates a new batch only when it is nearly exhausted. Every item starts in review; nothing publishes automatically."}
+        </p>
         <p className="batch-meta" role="status">{generating ? copy.generateStateBusy : selectedBatch ? copy.generateStateReady : copy.generateStateIdle}</p>
         {selectedBatch && <button type="button" className="secondary" onClick={() => { setActiveFactoryTab("review"); onTabChange?.("review"); }}>{copy.openBatchReview}</button>}
         <p className="batch-meta">{copy.generateMixNote}</p>
