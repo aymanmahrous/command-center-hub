@@ -30,10 +30,11 @@ const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || im
 type PublishEnqueueResult = {
   success?: boolean;
   code?: string;
+  providerExternalId?: string;
 };
 
 async function requestPublishJob(session: { accessToken: string }, contentItemId: string): Promise<PublishEnqueueResult> {
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/enqueue_publish_job`, {
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/safe-content-publisher`, {
     method: "POST",
     headers: {
       apikey: SUPABASE_PUBLIC_KEY,
@@ -41,7 +42,7 @@ async function requestPublishJob(session: { accessToken: string }, contentItemId
       "Content-Type": "application/json",
       Accept: "application/json",
     },
-    body: JSON.stringify({ p_content_item_id: contentItemId }),
+    body: JSON.stringify({ contentItemId }),
     cache: "no-store",
   });
   if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
@@ -61,6 +62,10 @@ function publishEnqueueErrorMessage(code: string | undefined, language: "ar" | "
     CONTENT_NOT_READY: { ar: "المحتوى غير جاهز للنشر.", en: "Content is not ready to publish." },
     PLATFORM_NOT_SUPPORTED: { ar: "المنصة غير مدعومة لطلب النشر.", en: "This platform is not supported for publish requests." },
     ACTIVE_AUTHORIZATION_EXISTS: { ar: "يوجد تفويض نشر نشط لهذا العنصر.", en: "An active publish authorization already exists for this item." },
+    META_NOT_CONFIGURED: { ar: "لم يكتمل إعداد Meta الآمن في الخادم.", en: "The secure Meta server configuration is incomplete." },
+    MEDIA_MISSING: { ar: "يلزم وجود صورة أو فيديو محفوظ للنشر.", en: "A stored image or video is required for publishing." },
+    META_API_ERROR: { ar: "رفضت Meta عملية النشر أو تعذر الاتصال بها.", en: "Meta rejected the publish request or could not be reached." },
+    RECORD_FAILED: { ar: "تم إرسال المنشور لكن تعذر تسجيل النتيجة؛ أوقفنا التكرار للمراجعة.", en: "The post was sent but the result could not be recorded; retry is blocked for review." },
   };
   const entry = code ? messages[code] : undefined;
   if (entry) return entry[language];
