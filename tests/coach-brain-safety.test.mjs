@@ -23,6 +23,13 @@ test("Coach Brain protects the no-record workflow", () => {
   assert.match(view, /No swimmer or child profile is created or stored|لا يتم إنشاء ملف للسباح أو حفظ بيانات الأطفال/);
 });
 
+test("Coach Brain starts with ready operational actions", () => {
+  assert.match(view, /actionsTitle/);
+  assert.match(view, /Prepare a 10-day content plan|جهز لي خطة محتوى 10 أيام/);
+  assert.match(view, /Review and improve this copy|راجع هذا النص وحسّنه/);
+  assert.match(view, /coach-brain__action-grid/);
+});
+
 test("Coach Brain is responsive for mobile staff use", () => {
   assert.match(style, /@media\(max-width:800px\)/);
 });

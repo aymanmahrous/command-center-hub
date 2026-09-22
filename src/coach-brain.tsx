@@ -18,6 +18,9 @@ const copy = {
     evidence: "الأدلة",
     safety: "السلامة",
     empty: "اكتب أي سؤال عن السباحة أو التدريب أو التقنية أو الاستارت أو الدوران أو الأدوات.",
+    actionsTitle: "ماذا تريد أن تفعل؟",
+    actionsHint: "اختر مهمة جاهزة بدل كتابة سؤال من الصفر.",
+    actions: ["جهز لي خطة محتوى 10 أيام", "أعطني أفكارًا متنوعة لمحتوى السباحة", "راجع هذا النص وحسّنه", "لخّص هذه المحادثة واقترح الخطوة التالية"],
     error: "تعذر تنفيذ البحث الآن. لم يتم حفظ السؤال أو إنشاء أي بيانات.",
     privacyNote: "البحث يتم عبر خادم آمن، ومفتاح Gemini لا يصل إلى الهاتف.",
     examples: [
@@ -38,6 +41,9 @@ const copy = {
     evidence: "Evidence",
     safety: "Safety",
     empty: "Ask any swimming, coaching, technique, start, turn, training or equipment question.",
+    actionsTitle: "What do you want to do?",
+    actionsHint: "Choose a ready task instead of starting from a blank question.",
+    actions: ["Prepare a 10-day content plan", "Give me varied swimming content ideas", "Review and improve this copy", "Summarize this conversation and suggest the next step"],
     error: "The research could not be completed. The question was not saved and no swimmer record was created.",
     privacyNote: "Research runs through a secure server; the Gemini key never reaches the phone.",
     examples: [
@@ -106,8 +112,13 @@ export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
         <a href="#coach-results">{language === "ar" ? "النتائج" : "Results"}</a>
       </nav>
 
+      <section className="coach-brain__card coach-brain__actions-card" aria-labelledby="coach-actions-title">
+        <div className="coach-brain__section-heading"><span className="coach-brain__step">1</span><div><strong id="coach-actions-title">{t.actionsTitle}</strong><p>{t.actionsHint}</p></div></div>
+        <div className="coach-brain__action-grid">{t.actions.map((action) => <button key={action} type="button" disabled={busy} onClick={() => { setQuestion(action); setResult(null); setError(""); document.getElementById("coach-brain-question")?.focus(); }}>{action}<Sparkles size={15} /></button>)}</div>
+      </section>
+
       <section id="coach-question" className="coach-brain__card coach-brain__research-card">
-        <div className="coach-brain__section-heading"><span className="coach-brain__step">1</span><div><strong>{language === "ar" ? "اكتب سؤالك" : "Write your question"}</strong><p>{language === "ar" ? "ابدأ بسؤال واحد واضح لتحصل على خطة قابلة للتنفيذ." : "Start with one clear question for an actionable plan."}</p></div></div>
+        <div className="coach-brain__section-heading"><span className="coach-brain__step">2</span><div><strong>{language === "ar" ? "راجع المهمة أو اكتب سؤالك" : "Review the task or write your question"}</strong><p>{language === "ar" ? "يمكنك تعديل النص قبل تشغيل البحث." : "You can edit the prompt before running research."}</p></div></div>
         <form onSubmit={research}>
           <label className="coach-brain__question-label" htmlFor="coach-brain-question">{language === "ar" ? "ماذا تريد أن تعرف؟" : "What do you want to know?"}</label>
           <textarea id="coach-brain-question" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder={t.placeholder} rows={6} maxLength={5000} disabled={busy} />
@@ -120,7 +131,7 @@ export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
           </div>
         </form>
         <div id="coach-examples" className="coach-brain__examples">
-          <div className="coach-brain__examples-heading"><span className="coach-brain__step">2</span><strong>{language === "ar" ? "أو اختر مثالًا جاهزًا" : "Or choose a ready example"}</strong></div>
+          <div className="coach-brain__examples-heading"><span className="coach-brain__step">3</span><strong>{language === "ar" ? "أو اختر مثالًا تدريبيًا" : "Or choose a coaching example"}</strong></div>
           {t.examples.map((example) => <button key={example} type="button" disabled={busy} onClick={() => setQuestion(example)}>{example}</button>)}
         </div>
       </section>
@@ -133,7 +144,7 @@ export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
 
       {result && (
         <section id="coach-results" className="coach-brain__results" aria-live="polite">
-          <div className="coach-brain__results-heading"><span className="coach-brain__step">3</span><div><strong>{language === "ar" ? "النتيجة العملية" : "Practical result"}</strong><p>{language === "ar" ? "اقرأ الإجابة، راجع المصادر، ثم ابدأ سؤالًا جديدًا عند الحاجة." : "Read the answer, review the sources, and start a new question when needed."}</p></div><button type="button" className="coach-brain__reset" onClick={() => { setResult(null); setQuestion(""); setError(""); }}>{language === "ar" ? "بحث جديد" : "New research"}</button></div>
+          <div className="coach-brain__results-heading"><span className="coach-brain__step">4</span><div><strong>{language === "ar" ? "النتيجة العملية" : "Practical result"}</strong><p>{language === "ar" ? "اقرأ الإجابة، راجع المصادر، ثم ابدأ مهمة جديدة عند الحاجة." : "Read the answer, review the sources, and start a new task when needed."}</p></div><button type="button" className="coach-brain__reset" onClick={() => { setResult(null); setQuestion(""); setError(""); }}>{language === "ar" ? "مهمة جديدة" : "New task"}</button></div>
           <article className="coach-brain__card coach-brain__answer">
             <div className="coach-brain__result-title"><Sparkles size={18} /> <h2>{t.direct}</h2></div>
             <div className="coach-brain__answer-text">{result.answer}</div>
