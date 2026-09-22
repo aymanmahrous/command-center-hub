@@ -1412,7 +1412,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
           active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "brain" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><CoachBrain language={language} /></Suspense> :
           active === "workspace" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><RealProductFoundation session={session} language={language} /></Suspense> :
-          active === "command" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><ControlTowerV2 key={`${active}-${reloadKey}`} session={session} onNavigate={(section) => { if (sections.some(([id]) => id === section)) go(section as SectionId); }} onSessionExpired={onLogout} initialCommandOpen={active === "command"} /></Suspense> :
+          active === "command" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><ControlTowerV2 key={`${active}-${reloadKey}`} session={session} onNavigate={(section) => { if (sections.some(([id]) => id === section)) go(section as SectionId); }} onSessionExpired={onLogout} approvalOnly /></Suspense> :
           null
         )}
       </section>

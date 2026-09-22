@@ -22,3 +22,11 @@ test("Marketing Company stays review-first and blocks duplicate planned slots", 
   assert.doesNotMatch(view, /enqueue_publish_job/);
   assert.doesNotMatch(view, /scheduledFor.*=.*new Date/);
 });
+
+test("Approval Center is a review-only owner surface over existing sections", async () => {
+  const tower = await readFile(new URL("../src/control-tower-v2.tsx", import.meta.url), "utf8");
+  assert.match(tower, /approvalOnly\?: boolean/);
+  assert.match(tower, /What needs your approval\?/);
+  assert.match(tower, /No external action runs from this screen/);
+  assert.match(main, /approvalOnly \/\>/);
+});
