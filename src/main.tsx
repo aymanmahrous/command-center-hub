@@ -742,6 +742,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
   const [busyId, setBusyId] = useState<string | null>(null);
   const [batchBusy, setBatchBusy] = useState(false);
   const [notice, setNotice] = useState("");
+  const [undoAction, setUndoAction] = useState<{ itemId: string; action: "return_to_review" | "unschedule"; label: string } | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ContentStatus | "all">("all");
   const [factoryTab, setFactoryTab] = useState<ContentFactoryTab>("overview");
@@ -766,11 +767,27 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
 
   if (!parsed.success) return <div className="error-box">{copy.invalidFormat}</div>;
 
-  async function runMutation(itemId: string, operation: () => Promise<unknown>, successMessage: string) {
+  async function runMutation(itemId: string, operation: () => Promise<unknown>, successMessage: string, undo?: { action: "return_to_review" | "unschedule"; label: string }) {
     if (!canWrite || busyId || batchBusy) return;
     setBusyId(itemId); setNotice("");
-    try { await operation(); setNotice(successMessage); onChanged(); }
+    try { await operation(); setUndoAction(undo ? { itemId, ...undo } : null); setNotice(successMessage); onChanged(); }
     catch (cause) {
+      const code = cause instanceof Error ? cause.message : "UPDATE_FAILED";
+      if (code === "SESSION_EXPIRED") { onSessionExpired(); return; }
+      setNotice(contentErrorMessage(language, code));
+    } finally { setBusyId(null); }
+  }
+
+  async function undoLastAction() {
+    if (!undoAction || !canWrite || busyId || batchBusy) return;
+    const action = undoAction;
+    setBusyId(action.itemId); setNotice("");
+    try {
+      await transitionContentItem(session, action.itemId, action.action);
+      setUndoAction(null);
+      setNotice(language === "ar" ? "تم التراجع عن آخر تغيير فقط." : "The last change was undone.");
+      onChanged();
+    } catch (cause) {
       const code = cause instanceof Error ? cause.message : "UPDATE_FAILED";
       if (code === "SESSION_EXPIRED") { onSessionExpired(); return; }
       setNotice(contentErrorMessage(language, code));
@@ -812,7 +829,10 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
       ? `تأكيد «${contentActionLabels[action]}» للعنصر «${item.topic || "محتوى بدون عنوان"}»؟ سيتم تسجيل العملية في Audit Log.`
       : `"${contentActionLabelsEn[action]}" for "${item.topic || copy.untitled}"? Recorded in the Audit Log.`;
     if (!window.confirm(confirmMessage)) return;
-    await runMutation(item.id, () => transitionContentItem(session, item.id, action, scheduledFor), language === "ar" ? `تم تنفيذ «${contentActionLabels[action]}» وتسجيل العملية بنجاح.` : `"${contentActionLabelsEn[action]}" completed and recorded.`);
+    const undo = action === "approve" && item.status !== "published"
+      ? { action: "return_to_review" as const, label: language === "ar" ? "تراجع عن الاعتماد" : "Undo approval" }
+      : action === "schedule" ? { action: "unschedule" as const, label: language === "ar" ? "تراجع عن الجدولة" : "Undo scheduling" } : undefined;
+    await runMutation(item.id, () => transitionContentItem(session, item.id, action, scheduledFor), language === "ar" ? `تم تنفيذ «${contentActionLabels[action]}» وتسجيل العملية بنجاح.` : `"${contentActionLabelsEn[action]}" completed and recorded.`, undo);
   }
 
   async function approveBatchItem(item: ContentBatchItem) {
@@ -822,7 +842,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
       ? `تأكيد اعتماد «${item.topic || "محتوى بدون عنوان"}»؟ لن يتم الجدولة أو النشر من هذه الشاشة.`
       : `Approve "${item.topic || copy.untitled}"? Nothing will be scheduled or published from this screen.`;
     if (!window.confirm(confirmMessage)) return;
-    await runMutation(item.id, () => transitionContentItem(session, item.id, "approve"), language === "ar" ? "تم اعتماد العنصر وتسجيل العملية." : "Item approved and recorded.");
+    await runMutation(item.id, () => transitionContentItem(session, item.id, "approve"), language === "ar" ? "تم اعتماد العنصر وتسجيل العملية." : "Item approved and recorded.", { action: "return_to_review", label: language === "ar" ? "تراجع عن الاعتماد" : "Undo approval" });
   }
 
   async function requestBatchChanges(item: ContentBatchItem, kind: ChangeRequestKind, note: string) {
@@ -939,7 +959,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
 
   return <>
     <div className="write-banner"><strong>{copy.writeBannerTitle}</strong><span>{copy.writeBannerSubtitle}</span></div>
-    {notice && <div className="notice-box" aria-live="polite">{notice}</div>}
+    {notice && <div className="notice-box" aria-live="polite">{notice}{undoAction && <button type="button" className="text-button" disabled={busyId !== null || batchBusy} onClick={() => void undoLastAction()}>{undoAction.label}</button>}</div>}
     <Suspense fallback={null}>
       <ContentGrowthHub
         items={items}
@@ -1149,6 +1169,7 @@ function BookingView({ value, session, onChanged, onSessionExpired }: { value: J
   const parsed = useMemo(() => z.array(BookingSchema).safeParse(value), [value]);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  const [undoBooking, setUndoBooking] = useState<{ id: string; previous: BookingStatus; label: string } | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<BookingStatus | "all">("all");
   const canWrite = ["super_admin", "admin", "reception"].includes(session.role);
@@ -1186,6 +1207,7 @@ function BookingView({ value, session, onChanged, onSessionExpired }: { value: J
     setBusyId(booking.id); setNotice("");
     try {
       await updateBookingStatus(session, booking.id, next);
+      setUndoBooking({ id: booking.id, previous: booking.status, label: language === "ar" ? "تراجع عن آخر تغيير" : "Undo last change" });
       setNotice(language === "ar" ? "تم تحديث الحالة وتسجيل العملية بنجاح." : "Status updated and recorded.");
       onChanged();
     } catch (cause) {
@@ -1204,9 +1226,25 @@ function BookingView({ value, session, onChanged, onSessionExpired }: { value: J
     } finally { setBusyId(null); }
   }
 
+  async function undoLastBookingChange() {
+    if (!undoBooking || !canWrite || busyId) return;
+    const action = undoBooking;
+    setBusyId(action.id); setNotice("");
+    try {
+      await updateBookingStatus(session, action.id, action.previous);
+      setUndoBooking(null);
+      setNotice(language === "ar" ? "تم التراجع عن آخر تغيير فقط." : "The last change was undone.");
+      onChanged();
+    } catch (cause) {
+      const code = cause instanceof Error ? cause.message : "UPDATE_FAILED";
+      if (code === "SESSION_EXPIRED") { onSessionExpired(); return; }
+      setNotice(language === "ar" ? "تعذر التراجع بأمان؛ لم يتم تغيير الحجز." : "Undo failed safely; the booking was not changed.");
+    } finally { setBusyId(null); }
+  }
+
   return <>
     <div className="write-banner"><strong>{copy.writeBannerTitle}</strong><span>{copy.writeBannerSubtitle}</span></div>
-    {notice && <div className="notice-box" aria-live="polite">{notice}</div>}
+    {notice && <div className="notice-box" aria-live="polite">{notice}{undoBooking && <button type="button" className="text-button" disabled={busyId !== null} onClick={() => void undoLastBookingChange()}>{undoBooking.label}</button>}</div>}
     <div className="booking-summary" aria-label={language === "ar" ? "ملخص حالات الحجوزات" : "Booking status summary"}>
       <button type="button" className={statusFilter === "all" ? "active" : ""} onClick={() => setStatusFilter("all")}><span>{copy.totalLabel}</span><strong>{bookings.length}</strong></button>
       {(Object.keys(statusLabels) as BookingStatus[]).map((status) => <button type="button" key={status} className={statusFilter === status ? "active" : ""} onClick={() => setStatusFilter(status)}><span>{statusLabels[status]}</span><strong>{counts[status]}</strong></button>)}
