@@ -24,4 +24,6 @@ test("operations UI exposes only guarded retry and cancel actions", () => {
   assert.match(app, /Cancel job/);
   assert.match(app, /retry_staff_publish_job/);
   assert.match(app, /cancel_staff_background_job/);
+  assert.match(app, /job\.status === "failed"/);
+  assert.doesNotMatch(app, /\["failed", "dead"\]\.includes\(job\.status\)/);
 });

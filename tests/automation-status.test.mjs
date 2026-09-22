@@ -13,13 +13,23 @@ test("automation status derives batch, execution, readiness, and attention from 
   assert.equal(snapshot.states.failed, 1);
   assert.equal(countActiveAutomationStates(snapshot), 1);
   assert.equal(snapshot.publishingReadiness, "review_required");
-  assert.equal(snapshot.attention.length, 1);
-  assert.equal(snapshot.attention[0].action, "open_queue");
+  assert.equal(snapshot.attention.length, 2);
+  assert.ok(snapshot.attention.some((item) => item.action === "open_queue"));
 });
 
 test("automation status does not invent attention when the snapshot has no issue", () => {
   const snapshot = summarizeAutomationStatus({ status: "completed", batch_id: "batch-456", item_count: 10 });
   assert.equal(snapshot.states.completed, 1);
+  assert.equal(snapshot.attention.length, 0);
+});
+
+test("terminal automation records remain historical instead of becoming active alerts", () => {
+  const snapshot = summarizeAutomationStatus({
+    archived: { status: "dead", last_error: "STALE_ORPHAN_QUEUE_ARCHIVED" },
+    cancelled: { status: "cancelled", stopped_reason: "CANCELLED_BY_OWNER" },
+  });
+  assert.equal(snapshot.states.dead, 1);
+  assert.equal(snapshot.states.cancelled, 1);
   assert.equal(snapshot.attention.length, 0);
 });
 
