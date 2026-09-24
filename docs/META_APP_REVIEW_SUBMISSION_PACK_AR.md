@@ -1,149 +1,130 @@
 # حزمة Meta App Review — Command Center Hub
 
-**تاريخ الإعداد:** 24 سبتمبر 2026  
-**التطبيق:** Relax Fix UAE Platform  
-**App ID:** `980385998373405`  
-**الحالة التي تم التحقق منها:** طلب Meta الحالي يعرض `business_management` فقط، وحالة المراجعة قيد التنفيذ. لا يوجد Feedback إضافي غير طلب فيديو يوضح الاستخدام الفعلي بالتفصيل.
+**تاريخ التحقق:** 24 سبتمبر 2026
+**Meta App ID:** `980385998373405`
+**المستودع:** [command-center-hub](https://github.com/aymanmahrous/command-center-hub)
+**رابط الإنتاج الذي فُتح أثناء الفحص:** [Command Center Hub](https://command-center-3plryjgqw-swimmingayman-8492s-projects.vercel.app/)
 
-## قرار التنفيذ
+> **النتيجة التنفيذية: التطبيق منشور على الويب، لكنه غير جاهز الآن لإعادة تقديم صلاحيات صفحات Facebook.** صفحة الإنتاج تعرض تسجيل دخول موظف بالبريد وكلمة المرور. لم يظهر فيها Facebook Login أو شاشة منح صلاحيات Facebook أو اختيار صفحة. لذلك يجب عدم تسجيل فيديو أو إعادة إرسال الطلب بنص يصف هذه الخطوات قبل أن تُنفذ فعلًا داخل التطبيق.
 
-لم يتم تعديل `safe-content-publisher` أو Page ID أو Supabase أو n8n. اختبارات مسار النشر داخل التطبيق نجحت: **17 اختبارًا ناجحًا من 17**. لم يتم تنفيذ نشر خارجي تجريبي لأن ذلك يحتاج إلى اعتماد حي للنشر، ولأن تسجيل فيديو قبل ظهور منشور حقيقي سيؤدي إلى رفض جديد.
+## 1. ما تحققنا منه وما لم نغيّره
 
-> **قاعدة مهمة:** لا تُرسل الصلاحيات ولا تسجل الفيديو إلا بعد نجاح منشور تجريبي واحد وظهوره فعليًا على صفحة Facebook.
+تم فتح نسخة الإنتاج المرتبطة بآخر إصدار من `main`. ظهرت صفحة دخول الموظفين بعنوان **Relax Fix Command Center**، مع حقلي البريد وكلمة المرور. لا يستطيع مراجع Meta الوصول إلى تجربة النشر من دون حساب موظف اختباري صالح.
 
----
+مراجعة مصدر التطبيق تؤكد أن وظيفة النشر الحالية تستخدم `FACEBOOK_PAGE_ID` و`FACEBOOK_PAGE_ACCESS_TOKEN` المحفوظين في الخادم. هذا مسار نشر محمي لمنشور معتمد، لكنه لا يساوي ربط حساب Facebook للمستخدم. لا توجد في ملفات التطبيق التي جرت مراجعتها دعوة فعلية إلى Facebook Login، ولا شاشة لاختيار Page من قائمة المستخدم، ولا شاشة تعرض محتوى Page للمستخدم داخل التطبيق، ولا مسار واجهة لإظهار تعديل المنشور وحذفه.
 
-## 1. الصلاحيات المطلوب تقديمها
+في المهمة السابقة فُتحت صفحة ملاحظات Meta الخاصة بالطلب، وسُجل أنه **لا يوجد Feedback إضافي غير ملاحظة الفيديو**. لم نعد فتح لوحة Meta في هذا التحديث، حتى لا نكرر فحصًا أُنجز. ملاحظة الفيديو وحدها تتفق مع الفجوة التي ظهرت في التطبيق.
 
-قدّم الصلاحيات الثلاث التالية معًا، وبنفس الوصف والمسار في الفيديو:
+لم نعدّل `safe-content-publisher` أو Page ID أو Supabase أو n8n أو إعدادات Meta أو أسرار Vercel. لم ننشر منشورًا تجريبيًا، ولم نرسل طلب مراجعة، ولم نغيّر وضع التطبيق.
 
-| الصلاحية | لماذا يحتاجها التطبيق | ما الذي يجب أن يظهر في الفيديو |
+## 2. المطلوب قبل أن تصبح إعادة المراجعة ممكنة
+
+تقول إرشادات Meta الحالية إن التطبيق يجب أن يكون متاحًا للمراجعين، وإن كل صلاحية مطلوبة يجب أن يكون لها استدعاء API ناجح حديث، كما يجب أن يبيّن التسجيل منح الصلاحية واستخدامها الفعلي داخل التطبيق. توصي Meta بتسجيل واضح بدقة 1080p أو أفضل وبواجهة إنجليزية عندما يكون ذلك ممكنًا. وتوضح إرشادات `pages_manage_posts` أن الفيديو يجب أن يعرض تسجيل الدخول، ثم إنشاء منشور وتعديله وحذفه، مع عرض المنشور بعد تحديثه. كما يجب على التطبيق عرض محتوى Page داخل التطبيق إذا كان طلب المراجعة يشمل `pages_read_engagement`.[1] [2]
+
+| الأولوية | ما يجب أن يعمل داخل التطبيق | دليل النجاح المطلوب |
 |---|---|---|
-| `pages_show_list` | لعرض صفحات Facebook التي يملكها أو يديرها المستخدم بعد تسجيل الدخول، حتى يختار الصفحة الصحيحة داخل Command Center. | ظهور الصفحة في قائمة الاختيار داخل التطبيق. |
-| `pages_read_engagement` | لقراءة حالة وتفاعل المنشور بعد النشر والتحقق من أن النشر تم على الصفحة المختارة. | فتح Facebook Page أو معاينة المنشور والتحقق من ظهوره. |
-| `pages_manage_posts` | لإنشاء منشور على صفحة Facebook التي اختارها المستخدم، وفقًا لصلاحياته. | إنشاء المنشور، تنفيذ Publish داخل التطبيق، ثم ظهور المنشور على الصفحة. |
+| 1 | منح Facebook Login صلاحيات Page المطلوبة من حساب الاختبار. | شاشة Meta الحقيقية تظهر في جلسة جديدة، ثم يعود الحساب إلى التطبيق. |
+| 2 | عرض الصفحات التي يستطيع مستخدم Facebook إدارتها. | قائمة صفحات حقيقية من الحساب، واختيار صفحة اختبار واحدة داخل التطبيق. |
+| 3 | عرض محتوى Page ذي الصلة داخل التطبيق إذا احتجنا `pages_read_engagement`. | يقرأ التطبيق منشورًا على الصفحة المختارة ويعرض محتواه للمستخدم. فتح Facebook في تبويب خارجي وحده لا يثبت هذه الوظيفة. |
+| 4 | نشر منشور موافق عليه على الصفحة المختارة. | يظهر نجاح حقيقي ورابط أو معرف منشور، ثم يظهر المنشور على صفحة الاختبار. |
+| 5 | تعديل المنشور وحذفه من الواجهة، إذا طلبنا `pages_manage_posts`. | يظهر الفيديو عملية التعديل ثم عرض النص المحدث، وبعد توثيق النتيجة يحذف منشور الاختبار فقط. |
+| 6 | توفير مسار دخول مراجعين آمن. | حساب موظف اختباري وحساب Meta اختباري لهما أقل الصلاحيات اللازمة، مع بيانات دخول صالحة في حقل التعليمات الآمن في Meta، لا داخل مستودع عام. |
 
-### نص Permission Usage — `pages_show_list`
+هذه المتطلبات لا تعني إعادة بناء التطبيق كاملًا. لكنها تتطلب تنفيذ تدفق Facebook Login واختيار الصفحة وقراءة المنشور وتعديل/حذف المنشور بصورة حقيقية، ثم اختبارها على صفحة غير إنتاجية. لا ينبغي اعتبار عملية نشر ثابتة إلى Page ID محفوظ في الخادم بديلًا عن تدفق المستخدم الذي يطلبه نموذج المراجعة.
 
-**English — paste into Meta:**
+## 3. نصوص مقترحة للصلاحيات — لا تُلصق قبل تنفيذ التدفق
 
-> Command Center Hub uses `pages_show_list` to display the Facebook Pages that the authorized user manages, so the user can select the correct Page inside the Command Center before creating content. The permission is used only after the user completes Facebook Login and grants access. The selected Page is shown in the publishing workspace and is used to make the destination explicit before the user confirms publishing. The app does not access Pages unrelated to the authorized user. The screen recording shows the login flow, the granted permissions, the list of available Pages, and the user selecting one Page for publishing.
+النصوص الإنجليزية أدناه **مسودات مشروطة**. لا تُرسلها إلى Meta حتى تعمل الشاشات الموضحة ويُسجّل فيديو مطابق لها. اطلب فقط الصلاحيات التي يستخدمها التطبيق فعلًا.[1] [2]
 
-**شرح عربي للفريق:**
+### `pages_show_list`
 
-> نستخدم الصلاحية لعرض صفحات Facebook التي يديرها المستخدم حتى يختار الصفحة الصحيحة داخل Command Center قبل إنشاء المنشور. لا نستخدمها للوصول إلى صفحات غير مرتبطة بالمستخدم.
+> Command Center Hub uses `pages_show_list` to display the Facebook Pages that the signed-in Facebook user is authorized to manage. The user selects the destination Page inside the publishing workspace before reviewing or confirming any publishing action. We request access only to the Pages available to that user. The recording demonstrates Facebook Login, the permission grant, the returned Page list, and the user selecting a test Page.
 
-### نص Permission Usage — `pages_read_engagement`
+**يُرسل فقط بعد:** ظهور Facebook Login وقائمة صفحات حقيقية مع اختيار المستخدم. هذه الصلاحية تابعة أيضًا لمسار `pages_manage_posts`.[1]
 
-**English — paste into Meta:**
+### `pages_read_engagement`
 
-> Command Center Hub uses `pages_read_engagement` to verify the result of a Page publishing action and to read the Page engagement state needed to confirm that the content was published to the selected Facebook Page. The user initiates the action and sees the selected Page before publishing. After publishing, the app presents the publication result and the reviewer can open the Facebook Page to verify the live post. The permission is not used to read unrelated Pages or for advertising, profiling, or any purpose outside the connected Page workflow.
+> Command Center Hub uses `pages_read_engagement` to retrieve Page post content for the Page selected by the authorized user and display that content inside the app for review and verification. The user can open the selected Page’s content in the publishing workspace and confirm the result of a post update. We do not use this permission to read unrelated Pages or for advertising or profiling. The recording shows the user granting access and the selected Page’s post content appearing inside Command Center Hub.
 
-**شرح عربي للفريق:**
+**يُرسل فقط بعد:** أن يعرض التطبيق محتوى منشور Page داخل واجهته. إذا كان الاستخدام الفعلي يقتصر على النشر ولا يتضمن عرض المحتوى داخل التطبيق، فلا تفترض أن هذا النص أو هذه الصلاحية مبرران؛ راجع متطلبات Meta لكل مسار قبل الطلب.[1]
 
-> نستخدم الصلاحية للتحقق من نتيجة النشر على الصفحة المختارة وإظهار حالة النشر، ثم يمكن للمراجع فتح الصفحة والتأكد من ظهور المنشور الحقيقي.
+### `pages_manage_posts`
 
-### نص Permission Usage — `pages_manage_posts`
+> Command Center Hub uses `pages_manage_posts` to create, edit, and delete posts on the Facebook Page explicitly selected by the authorized user. The user signs in with Facebook, grants the requested Page permissions, chooses a Page, reviews an approved content item, and confirms the publishing action in the app. The user can then edit the resulting post, view the updated post, and delete the test post from the app. The recording demonstrates the complete login and permission flow and verifies the updated post on the selected test Page. The app does not publish to Pages that the user has not selected and authorized.
 
-**English — paste into Meta:**
+**يُرسل فقط بعد:** عمل الإنشاء والتعديل والحذف من واجهة التطبيق، وعلى صفحة اختبار، وظهور النسخة المعدلة. يطلب Meta عرض العمليات الثلاث لهذه الصلاحية.[1] [2]
 
-> Command Center Hub uses `pages_manage_posts` to publish an approved content item to the Facebook Page explicitly selected by the authorized user. The user signs in with Facebook, grants the requested Page permissions, selects a Page in Command Center, reviews the content, and confirms the Publish action. The app then sends the approved post to the selected Page and displays the returned publication result. The reviewer can open the Page and verify the live post. The permission is used only for the Page selected and authorized by the user; the app does not publish to unrelated Pages, publish without user confirmation, or use Page publishing data for unrelated purposes. The screen recording demonstrates the complete flow from a fresh login through the live post on the Page.
+## 4. تعليمات المراجع — قالب يُستكمل بعد توفير حساب الاختبار
 
-**شرح عربي للفريق:**
+لا توجد الآن بيانات حساب موظف اختباري أو اسم صفحة اختبار أو رابطها أو محتوى منشور اختبار موثق. لا تضع كلمات مرور أو رموز وصول في هذا الملف أو في GitHub. أضف بيانات الحساب فقط في وسيلة Meta الآمنة المخصصة لتعليمات المراجع بعد إنشائها.[1]
 
-> نستخدم الصلاحية لنشر منشور تمت الموافقة عليه على صفحة Facebook التي اختارها المستخدم بنفسه. المستخدم يسجل الدخول، يمنح الصلاحيات، يختار الصفحة، يراجع المحتوى، ثم يضغط Publish. بعد ذلك يظهر المنشور الحقيقي على الصفحة.
+**قالب English — لا ترسله قبل استبدال الأقواس واختبار كل خطوة:**
 
----
+> 1. Open the Command Center Hub production URL: `https://command-center-3plryjgqw-swimmingayman-8492s-projects.vercel.app/`.
+> 2. Sign in with the reviewer staff account provided in the secure review instructions.
+> 3. Choose **Connect Facebook** and sign in with the Meta test account provided for this review.
+> 4. Grant `pages_show_list`, `pages_read_engagement`, and `pages_manage_posts` when prompted.
+> 5. In Command Center Hub, select the test Page: `[EXACT TEST PAGE NAME]`.
+> 6. Open the Page content view and confirm that the test Page’s post content is displayed in the app.
+> 7. Open the approved test item titled `[EXACT ITEM TITLE]`, review its destination and text, and select **Publish**.
+> 8. Verify that the app displays a successful result and the post identifier or link.
+> 9. Open the post-management view in Command Center Hub, edit the test post, save the change, and verify that the updated post is displayed.
+> 10. Delete only the test post after the reviewer has verified the updated result.
+> 11. The selected test Page is `[EXACT PAGE URL]`. The expected unique test prefix is `[UNIQUE PREFIX]`.
 
-## 2. Test Instructions للمراجع
+إذا تعذّر تنفيذ خطوة من هذه الخطوات في الواجهة، احذف الصلاحية أو الخطوة من طلب المراجعة بدل الادعاء بأنها تعمل. لا تضع اسم مستخدم أو كلمة مرور تخمينية.
 
-**English — paste into Meta:**
+## 5. سيناريو التسجيل الصحيح
 
-> 1. Open Command Center Hub in a fresh private/incognito browser session.
-> 2. Start Facebook Login and sign in with the Facebook test account listed in the App Roles/Testers section.
-> 3. Accept the requested permissions: `pages_show_list`, `pages_read_engagement`, and `pages_manage_posts`.
-> 4. Return to Command Center Hub. The connected Facebook Pages will appear in the Page selector.
-> 5. Select the test Page: `[INSERT EXACT TEST PAGE NAME]`.
-> 6. Open the content publishing area and use the prepared approved test item titled: `[INSERT EXACT TEST ITEM TITLE]`.
-> 7. Review the caption and destination Page, then click **Publish** / **نشر الآن**.
-> 8. Wait for the success state and copy the returned post link or post ID if it is displayed.
-> 9. Open the selected Facebook Page at: `[INSERT EXACT PAGE URL]`.
-> 10. Verify that the test post is visible on the Page. The expected text begins with: `[INSERT UNIQUE TEST POST PREFIX]`.
-> 11. Optional verification: open the post menu and demonstrate edit or delete only if the current test account and Page flow support it. This optional step is not required to approve the three permissions.
->
-> If the reviewer cannot see the Page, confirm that the test account has Page access and that the exact test Page is assigned to the app/test account. No external n8n workflow is required for this test; the publish action is initiated from inside Command Center Hub.
+سجّل الشاشة بعد نجاح كل الخطوات أعلاه، وابدأ من نافذة خاصة جديدة. اجعل لغة الواجهة الإنجليزية إن أمكن. سجّل بدقة 1080p أو أعلى، وبدون صوت؛ إرشادات Meta تقول إن المراجعين لن يستمعوا إلى الصوت. أظهر المؤشر والنقرات، ولا تعرض أي كلمات مرور أو مفاتيح أو رموز وصول.[1]
 
-### نسخة عربية للفريق غير التقني
+| الجزء | ما يجب أن يظهر بوضوح |
+|---|---|
+| البداية | رابط التطبيق، صفحة الدخول، ثم تسجيل دخول الموظف الاختباري. |
+| Facebook Login | اختيار ربط Facebook، حساب الاختبار، شاشة الموافقة، والصلاحيات المطلوبة كما تظهر فعلًا. |
+| اختيار الصفحة | قائمة Pages الحقيقية، ثم اختيار صفحة الاختبار وظهور اسمها داخل التطبيق. |
+| `pages_read_engagement` | فتح محتوى منشور من الصفحة وعرضه داخل Command Center Hub. |
+| `pages_manage_posts` | اختيار محتوى معتمد، مراجعة الوجهة والنص، نشره، ثم تعديل المنشور والتحقق من ظهور النسخة المحدثة وحذف منشور الاختبار. |
+| التحقق | إظهار نتيجة العملية ومعرف المنشور، ثم فتح صفحة الاختبار لإثبات النتيجة الحقيقية. لا تحذف المنشور قبل إثبات التحديث. |
 
-1. افتح Command Center Hub في نافذة خاصة جديدة.
-2. اضغط Facebook Login وسجّل بحساب الاختبار.
-3. وافق على الصلاحيات الثلاث.
-4. اختر صفحة الاختبار من القائمة.
-5. افتح قسم النشر واختر المنشور التجريبي الجاهز.
-6. راجع النص والصفحة واضغط **نشر الآن**.
-7. انتظر رسالة النجاح.
-8. افتح صفحة Facebook نفسها وتأكد أن المنشور ظهر فعلًا.
-9. لا تسجل الفيديو ولا ترسل الطلب إذا لم يظهر المنشور.
+لا تستخدم شاشة تجريبية أو مقطعًا مركبًا يوحي أن وظائف غير موجودة تعمل. أظهر المسار الحقيقي فقط.
 
----
+## 6. تحقق الإصدار قبل اختبار النشر
 
-## 3. سيناريو الفيديو — حوالي 2 إلى 3 دقائق
+وظيفة النشر في المصدر تستخدم `META_GRAPH_VERSION` إن وُجد، وإلا ترجع إلى `v21.0`. لا نعرف من فحص المصدر وحده القيمة الحالية المحفوظة في أسرار Supabase. أعلنت Meta أن `v21.0` سيُزال في **21 يناير 2027**، وأن أحدث نسخة موثقة في 24 سبتمبر 2026 هي `v26.0`.[3] لا تغيّر سر الإنتاج أو ترقية API مباشرة قبل اختبار التوافق على بيئة اختبار؛ لكن يجب تسجيل النسخة الفعلية والتحقق منها قبل توثيق نجاح النشر.
 
-| الزمن | ما يظهر على الشاشة | التعليق الصوتي أو النص المقترح |
-|---|---|---|
-| 0:00–0:10 | نافذة خاصة جديدة وفتح Command Center Hub | “This is Command Center Hub. I am starting from a fresh login session.” |
-| 0:10–0:30 | الضغط على Facebook Login | “The business owner connects a Facebook account to manage an authorized Facebook Page.” |
-| 0:30–0:50 | شاشة Meta التي تعرض الصلاحيات الثلاث | “The requested permissions are pages_show_list, pages_read_engagement, and pages_manage_posts.” لا تُخفِ هذه الشاشة. |
-| 0:50–1:05 | منح الصلاحية والعودة للتطبيق | “After authorization, the app returns to Command Center Hub.” |
-| 1:05–1:20 | ظهور قائمة الصفحات واختيار صفحة الاختبار | “The app lists the Pages available to this authorized user. I select the test Page.” |
-| 1:20–1:45 | فتح قسم النشر واختيار المنشور التجريبي | “This is an approved content item. The destination Page is visible before publishing.” |
-| 1:45–2:00 | مراجعة النص والضغط على Publish | “I confirm the post from inside Command Center Hub.” |
-| 2:00–2:15 | ظهور نجاح النشر أو رابط المنشور | “The app displays the result returned by Meta.” |
-| 2:15–2:40 | فتح Facebook Page وإظهار المنشور الحقيقي | “The post is now visible on the selected Facebook Page. This verifies the complete use case.” |
-| 2:40–2:55 | اختياري: إظهار edit/delete إن كان متاحًا | “The Page owner can manage the resulting post according to the Page’s normal controls.” |
+وتشترط Meta وجود استدعاء API ناجح لكل صلاحية خلال 30 يومًا من تقديم طلب App Review. يمكن إجراء هذا الاستدعاء من التطبيق أو Graph API Explorer، لكن يجب الاحتفاظ بدليل واضح وعدم إدخال رموز وصول في هذا المستودع.[1]
 
-### قواعد تسجيل مهمة
+## 7. حالة الفحوص والتسليم
 
-- لا تستخدم فيديو تجريبيًا أو شاشة ثابتة بدل النتيجة الحقيقية.
-- لا تعرض كلمات مرور أو رموز وصول أو مفاتيح Supabase.
-- لا تسجل n8n أو لوحة Supabase؛ المطلوب هو تجربة المستخدم داخل Command Center Hub ونتيجة Facebook.
-- ابدأ من تسجيل دخول جديد حتى يرى المراجع شاشة الصلاحيات.
-- استخدم منشورًا فريدًا، مثل بادئة: `META-REVIEW-2026-09-24 — Command Center test post`.
-- اترك اسم الصفحة ومعرّف المنشور ظاهرين عند التحقق، مع إخفاء أي بيانات شخصية غير لازمة.
+- رابط إنتاج Vercel الذي جرى فتحه أعاد صفحة تسجيل دخول موظفين قابلة للعرض؛ لم يتم تجاوز تسجيل الدخول.
+- مجموعة اختبارات المستودع نجحت بعد تثبيت الاعتماديات: **222 اختبارًا ناجحًا من 222**. كانت المحاولة الأولى غير مكتملة بسبب غياب `node_modules` محليًا، لا بسبب فشل اختبار في مسار Meta.
+- نتائج الاختبارات تثبت سلوك الشيفرة المختبر، لكنها لا تثبت صحة Page ID أو صلاحية رمز Meta أو نجاح نشر حي.
+- حالة آخر فحص لصفحة Meta في المهمة السابقة: لا يوجد Feedback إضافي غير ملاحظة التسجيل/إثبات الاستخدام. ينبغي التحقق مجددًا من الحالة فقط قبل الإرسال النهائي لأن حالة لوحة Meta قد تتغير.
+- لا يوجد تسجيل شاشة ناجح ولا منشور اختبار حي ولا بيانات مراجعين في هذه الحزمة. هذه عناصر مطلوبة لإكمال الإرسال، ولا يجوز الادعاء بأنها أُنجزت.
 
----
+### ملاحظة منفصلة عن خصوصية المستودع
 
-## 4. قائمة تحقق قبل الإرسال
+وصف مستودع GitHub يقول إنه خاص وداخلي، لكن فحص الصلاحية أعاد أن المستودع **عام**. لم يُعثر على ملف `.env` متعقب؛ الموجود هو `.env.example` فقط. لم نغيّر الخصوصية لأن ذلك تغيير في ملكية/إتاحة المستودع ويجب أن يختاره المالك. قبل إضافة أي بيانات اختبار، يجب إبقاء كلمات المرور ورموز Meta وأسرار Supabase خارج المستودع العام.
 
-- [ ] نجح منشور واحد حقيقي على صفحة الاختبار.
-- [ ] ظهر المنشور على Facebook Page نفسها.
-- [ ] الصلاحيات الثلاث مضافة إلى نفس طلب المراجعة.
-- [ ] وصف كل صلاحية يذكر بوضوح أين تظهر في الفيديو.
-- [ ] Test Instructions تحتوي اسم الصفحة والرابط واسم المنشور الفريد.
-- [ ] الفيديو يبدأ من نافذة تسجيل دخول جديدة.
-- [ ] شاشة Meta للصلاحيات ظاهرة بوضوح.
-- [ ] لا توجد أسرار أو رموز وصول في الفيديو.
-- [ ] رابط التطبيق يعمل للمراجع وحساب الاختبار لديه Page access.
-- [ ] لا يتم الضغط على Submit/Send for Review قبل مراجعة الفيديو مرة واحدة.
+## 8. الترتيب الأقل تكلفة والأكثر أمانًا
 
----
+1. إنشاء مستخدم Meta اختباري وصفحة Facebook غير إنتاجية، وإنشاء حساب موظف اختباري لا يحتوي إلا على الصلاحيات اللازمة للمراجعة.
+2. تنفيذ Facebook Login ومنح الصلاحيات واختيار Page داخل التطبيق. لا تغيّر أسرار الإنتاج أثناء البناء.
+3. إظهار محتوى الصفحة داخل التطبيق إذا كان طلب `pages_read_engagement` سيبقى ضمن الطلب.
+4. اختبار إنشاء منشور واحد واضح العلامة على صفحة الاختبار، ثم التحقق منه. لا تنشر على صفحة العملاء أو الصفحة التسويقية الحية.
+5. اختبار تعديل المنشور ثم حذفه من حساب الاختبار فقط؛ لا تلمس منشورًا حقيقيًا.
+6. التحقق من نسخة Graph API ورمز صفحة الاختبار. احفظ نتيجة الخطأ فقط إذا فشل الطلب، ولا تكرر المحاولة بلا معرفة ما إذا كانت المحاولة السابقة قد وصلت إلى Meta.
+7. سجّل فيديو الشاشة الحقيقي بعد نجاح التدفق، ثم الصق النصوص أعلاه في الطلب.
+8. راجع الصفحة والفيديو وتعليمات الدخول مرة أخيرة. بعد ذلك يرسل مالك التطبيق الطلب من لوحة Meta.
 
-## 5. ما تم التحقق منه في الكود
+**لا تُرسل الطلب الحالي بالنصوص القديمة**؛ فهي تصف Facebook Login واختيار Pages وعرض المحتوى داخل التطبيق، وهي خطوات لم تظهر في نسخة الإنتاج التي فُحصت. لا نُعدّل مسار النشر أو أسرار Meta ضمن هذا التحديث.
 
-- النشر اليدوي المعتمد يمر عبر `supabase/functions/safe-content-publisher`.
-- الواجهة ترسل `contentItemId` إلى وظيفة Meta المحمية.
-- النتيجة تُسجل عبر RPC مدققة وقابلة للتكرار في سجل التدقيق.
-- لا يوجد في الاختبارات توجيه للنشر عبر n8n.
-- اختبارات Meta والنشر المستهدفة: **17/17 ناجحة**.
-- الاختبار العام للمشروع لديه فشل منفصل في `tests/today-view-schema.test.mjs` بسبب اعتماد مفقود؛ لم نغيّره لأنه غير متعلق بمسار Meta ولا نريد استهلاك تعديل إضافي.
+## المراجع
 
-## 6. ترتيب العمل الأقل تكلفة
+[1]: https://developers.facebook.com/documentation/resp-plat-initiatives/individual-processes/app-review/submission-guide "Meta App Review submission walkthrough"
+[2]: https://developers.facebook.com/documentation/development/permissions "Meta Platform permissions reference"
+[3]: https://developers.facebook.com/docs/graph-api/changelog/version26.0/ "Meta Graph API v26.0 changelog and deprecation schedule"
+[4]: https://developers.facebook.com/documentation/pages-api/posts "Meta Pages API posts guide"
 
-1. تأكيد أن إعداد Meta يعرض الصلاحيات الثلاث في طلب جديد.
-2. تنفيذ منشور تجريبي واحد فقط.
-3. إذا ظهر المنشور: تسجيل الفيديو بنفس المسار.
-4. لصق النصوص أعلاه وإرفاق الفيديو.
-5. إرسال `pages_manage_posts` و`pages_show_list` و`pages_read_engagement` للمراجعة.
-6. إذا فشل المنشور: حفظ كود الخطأ فقط وعدم تسجيل الفيديو، ثم إصلاح الخطأ المحدد دون إعادة بناء النظام.
-
-**لا توجد أي خطوة أخرى مطلوبة الآن من Meta قبل اكتمال منشور تجريبي حقيقي.**
+**إعداد:** Manus AI
