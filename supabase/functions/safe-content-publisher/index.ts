@@ -69,11 +69,27 @@ async function readPublishJob(jobId: string, contentItemId: string, platform: st
   return job;
 }
 
-async function readPublishedReceipt(contentItemId: string, platform: string) {
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/content_publication_receipts?content_item_id=eq.${encodeURIComponent(contentItemId)}&platform=eq.${encodeURIComponent(platform)}&status=eq.published&select=external_post_id&order=created_at.desc&limit=1`, { headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` } });
-  if (!response.ok) throw new Error("PUBLISH_RECEIPT_READ_FAILED");
-  const receipts = await response.json();
-  return (receipts[0] as { external_post_id?: string } | undefined)?.external_post_id ?? null;
+async function callServiceRpc(functionName: string, body: Record<string, unknown>) {
+  const response = await fetch(SUPABASE_URL + "/rest/v1/rpc/" + functionName, {
+    method: "POST",
+    headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: "Bearer " + SUPABASE_SERVICE_ROLE_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error("RPC_" + functionName + "_FAILED");
+  return data as Record<string, unknown>;
+}
+
+async function claimPublicationReceipt(contentItemId: string, platform: string) {
+  return callServiceRpc("claim_publication_receipt", { p_content_item_id: contentItemId, p_platform: platform, p_provider: "meta-graph-publishing" });
+}
+
+async function completePublicationReceipt(contentItemId: string, platform: string, externalPostId: string) {
+  return callServiceRpc("complete_publication_receipt", { p_content_item_id: contentItemId, p_platform: platform, p_provider: "meta-graph-publishing", p_external_post_id: externalPostId });
+}
+
+async function markPublicationReceiptAmbiguous(contentItemId: string, platform: string, error: string) {
+  return callServiceRpc("mark_publication_receipt_ambiguous", { p_content_item_id: contentItemId, p_platform: platform, p_provider: "meta-graph-publishing", p_error: error });
 }
 
 async function publishAutomation(req: Request): Promise<Response> {
@@ -87,7 +103,7 @@ async function publishAutomation(req: Request): Promise<Response> {
   } catch { return fail("INVALID_ACTION", 400); }
   let item: Awaited<ReturnType<typeof readAutomationContentItem>>;
   let job: Awaited<ReturnType<typeof readPublishJob>>;
-  let existingProviderExternalId: string | null;
+  let receipt: Record<string, unknown>;
   try {
     item = await readAutomationContentItem(contentItemId);
     if (!item) return fail("NOT_FOUND", 404);
@@ -96,15 +112,24 @@ async function publishAutomation(req: Request): Promise<Response> {
     job = await readPublishJob(jobId, contentItemId, platform);
     if (!job) return fail("INVALID_PUBLISH_JOB", 409);
     if (item.status !== "approved" && item.status !== "scheduled") return fail("INVALID_TRANSITION", 409);
-    existingProviderExternalId = await readPublishedReceipt(contentItemId, platform);
+    receipt = await claimPublicationReceipt(contentItemId, platform);
   } catch {
     return new Response(JSON.stringify({ success: false, ambiguous: true, code: "AMBIGUOUS_RESULT", jobId }), { status: 504, headers: JSON_HEADERS });
   }
   const platform = String(item.platform ?? "").toLowerCase();
   if (platform !== "facebook" && platform !== "instagram") return fail("UNSUPPORTED_PLATFORM", 400);
   if (!job) return fail("INVALID_PUBLISH_JOB", 409);
-  if (existingProviderExternalId) {
-    return new Response(JSON.stringify({ success: true, alreadyPublished: true, providerExternalId: existingProviderExternalId ?? item.provider_external_id ?? null, platform, jobId }), { status: 200, headers: JSON_HEADERS });
+
+  const receiptStatus = String(receipt.status ?? "");
+  const receiptExternalPostId = typeof receipt.externalPostId === "string" ? receipt.externalPostId.trim() : "";
+  if (receiptStatus === "published" && receiptExternalPostId) {
+    return new Response(JSON.stringify({ success: true, alreadyPublished: true, providerExternalId: receiptExternalPostId, platform, jobId }), { status: 200, headers: JSON_HEADERS });
+  }
+  if (receiptStatus === "ambiguous") {
+    return new Response(JSON.stringify({ success: false, ambiguous: true, code: "AMBIGUOUS_RESULT", jobId, platform }), { status: 504, headers: JSON_HEADERS });
+  }
+  if (receiptStatus === "failed") {
+    return new Response(JSON.stringify({ success: false, confirmed: true, code: "PUBLICATION_RECEIPT_FAILED", jobId, platform }), { status: 502, headers: JSON_HEADERS });
   }
   if (platform === "facebook" && (!FACEBOOK_PAGE_ID || !FACEBOOK_PAGE_ACCESS_TOKEN)) return fail("META_NOT_CONFIGURED", 500);
   if (platform === "instagram" && (!INSTAGRAM_ACCOUNT_ID || !INSTAGRAM_ACCESS_TOKEN)) return fail("META_NOT_CONFIGURED", 500);
@@ -116,11 +141,29 @@ async function publishAutomation(req: Request): Promise<Response> {
     publishResult = platform === "facebook" ? await publishToFacebook(caption, imageUrl) : await publishToInstagram(caption, imageUrl);
   } catch (cause) {
     console.error("safe-content-publisher: ambiguous automation result", { contentItemId, jobId, platform, error: cause instanceof Error ? cause.name : "NETWORK_ERROR" });
+    try {
+      await markPublicationReceiptAmbiguous(contentItemId, platform, cause instanceof Error ? cause.name : "NETWORK_ERROR");
+    } catch (receiptError) {
+      console.error("safe-content-publisher: failed to mark receipt ambiguous", { contentItemId, jobId, platform, error: receiptError instanceof Error ? receiptError.name : "RECEIPT_MARK_FAILED" });
+    }
     return new Response(JSON.stringify({ success: false, ambiguous: true, code: "AMBIGUOUS_RESULT", jobId, platform }), { status: 504, headers: JSON_HEADERS });
   }
   if (!publishResult.success || !publishResult.providerExternalId) {
     return new Response(JSON.stringify({ success: false, confirmed: true, code: publishResult.errorCode ?? "META_API_ERROR", jobId, platform }), { status: 502, headers: JSON_HEADERS });
   }
+
+  try {
+    await completePublicationReceipt(contentItemId, platform, publishResult.providerExternalId);
+  } catch (cause) {
+    console.error("safe-content-publisher: publication succeeded but receipt completion was ambiguous", { contentItemId, jobId, platform, error: cause instanceof Error ? cause.name : "RECEIPT_COMPLETE_FAILED" });
+    try {
+      await markPublicationReceiptAmbiguous(contentItemId, platform, "RECEIPT_COMPLETE_FAILED");
+    } catch (receiptError) {
+      console.error("safe-content-publisher: failed to mark receipt ambiguous after completion failure", { contentItemId, jobId, platform, error: receiptError instanceof Error ? receiptError.name : "RECEIPT_MARK_FAILED" });
+    }
+    return new Response(JSON.stringify({ success: false, ambiguous: true, code: "AMBIGUOUS_RESULT", jobId, platform }), { status: 504, headers: JSON_HEADERS });
+  }
+
   return new Response(JSON.stringify({ success: true, providerExternalId: publishResult.providerExternalId, platform, jobId }), { status: 200, headers: JSON_HEADERS });
 }
 
