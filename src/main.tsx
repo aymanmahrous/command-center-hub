@@ -225,6 +225,18 @@ function authMessage(code: string) {
   if (code === "NETWORK_UNAVAILABLE" || code === "SERVICE_UNAVAILABLE" || code === "TOO_MANY_ATTEMPTS") return AUTH_MESSAGES.SERVICE_UNAVAILABLE;
   return AUTH_MESSAGES.LOGIN_FAILED;
 }
+function startFacebookLogin() {
+  if (!configurationReady()) throw new Error("CONFIGURATION_REQUIRED");
+  const redirectTo = encodeURIComponent(`${window.location.origin}${window.location.pathname}`);
+  window.location.assign(`${SUPABASE_URL}/auth/v1/authorize?provider=facebook&redirect_to=${redirectTo}&scopes=pages_show_list%2Cpages_read_engagement%2Cpages_manage_posts`);
+}
+function readOAuthAccessToken() {
+  const hash = new URLSearchParams(window.location.hash.slice(1));
+  const accessToken = hash.get("access_token");
+  if (!accessToken) return null;
+  window.location.hash = "";
+  return accessToken;
+}
 function rpcHeaders(session: Session) { return { apikey: SUPABASE_PUBLIC_KEY, Authorization: `Bearer ${session.accessToken}`, "Content-Type": "application/json", Accept: "application/json" }; }
 
 async function loadStaffProfile(accessToken: string, userId: string, signal?: AbortSignal) {
@@ -399,6 +411,7 @@ function Login({ onAuthenticated }: { onAuthenticated: (session: Session) => voi
   const [resetBusy, setResetBusy] = useState(false);
   const [resetError, setResetError] = useState("");
   const [resetNotice, setResetNotice] = useState("");
+  const [oauthBusy, setOauthBusy] = useState(false);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -431,7 +444,13 @@ function Login({ onAuthenticated }: { onAuthenticated: (session: Session) => voi
     }
   }
 
-  return <main className="login-page"><section className="login-card" aria-busy={busy || resetBusy}><div className="login-card-top"><div className="brand-mark"><ShieldAlert size={28} /></div><LanguageSwitcher /></div><p className="eyebrow">{copy.eyebrow}</p><h1>{copy.title}</h1><p className="muted">{copy.subtitle}</p><form onSubmit={submit}><label>{copy.emailLabel}<input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} /></label><label>{copy.passwordLabel}<input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></label><button type="button" className="text-button forgot-password" disabled={busy || resetBusy} onClick={() => void forgotPassword()}>{language === "ar" ? <span lang="ar" dir="rtl">نسيت كلمة المرور؟</span> : <span lang="en" dir="ltr">Forgot password?</span>}</button>{resetNotice && <div className="notice-box" role="status">{resetNotice}</div>}{resetError && <div className="error-box" role="alert">{resetError}</div>}{error && <div className="error-box" role="alert">{error}</div>}<button disabled={busy || resetBusy}>{busy ? copy.submitting : copy.submit}</button></form><p className="security-note">{copy.securityNote}</p></section></main>;
+  async function facebookLogin() {
+    setOauthBusy(true);
+    setError("");
+    try { startFacebookLogin(); } catch (cause) { setError(authMessage(authErrorCode(cause))); setOauthBusy(false); }
+  }
+
+  return <main className="login-page"><section className="login-card" aria-busy={busy || resetBusy || oauthBusy}><div className="login-card-top"><div className="brand-mark"><ShieldAlert size={28} /></div><LanguageSwitcher /></div><p className="eyebrow">{copy.eyebrow}</p><h1>{copy.title}</h1><p className="muted">{copy.subtitle}</p><button type="button" className="secondary-button" disabled={busy || resetBusy || oauthBusy} onClick={() => void facebookLogin()}>{oauthBusy ? copy.facebookConnecting : copy.facebookLogin}</button><div className="login-divider" aria-hidden="true"><span>{copy.or}</span></div><form onSubmit={submit}><label>{copy.emailLabel}<input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} /></label><label>{copy.passwordLabel}<input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></label><button type="button" className="text-button forgot-password" disabled={busy || resetBusy || oauthBusy} onClick={() => void forgotPassword()}>{language === "ar" ? <span lang="ar" dir="rtl">نسيت كلمة المرور؟</span> : <span lang="en" dir="ltr">Forgot password?</span>}</button>{resetNotice && <div className="notice-box" role="status">{resetNotice}</div>}{resetError && <div className="error-box" role="alert">{resetError}</div>}{error && <div className="error-box" role="alert">{error}</div>}<button disabled={busy || resetBusy || oauthBusy}>{busy ? copy.submitting : copy.submit}</button></form><p className="security-note">{copy.securityNote}</p></section></main>;
 }
 
 const ID_LIKE_PATTERN = /^[0-9a-fA-F-]{16,}$/;
@@ -1485,6 +1504,18 @@ function App() {
   useEffect(() => {
     const controller = new AbortController();
     try {
+      const oauthAccessToken = readOAuthAccessToken();
+      if (oauthAccessToken) {
+        restoreSession(oauthAccessToken, controller.signal).then((restored) => {
+          if (controller.signal.aborted) return;
+          sessionStorage.setItem("relaxfix-command-session", JSON.stringify({ accessToken: restored.accessToken }));
+          setSession(restored);
+        }).catch((cause) => {
+          if (cause instanceof DOMException && cause.name === "AbortError") return;
+          sessionStorage.removeItem("relaxfix-command-session");
+        }).finally(() => { if (!controller.signal.aborted) setRestoring(false); });
+        return () => controller.abort();
+      }
       const raw = sessionStorage.getItem("relaxfix-command-session");
       if (!raw) { setRestoring(false); return () => controller.abort(); }
       const stored = StoredSessionSchema.parse(JSON.parse(raw));

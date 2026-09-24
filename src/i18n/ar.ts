@@ -56,6 +56,9 @@ export const ar: Dictionary = {
     passwordLabel: "كلمة المرور",
     submit: "تسجيل الدخول",
     submitting: "جاري التحقق...",
+    facebookLogin: "المتابعة باستخدام Facebook",
+    facebookConnecting: "جاري فتح Facebook...",
+    or: "أو",
     securityNote: "لا يتم تخزين كلمة المرور. الجلسة تبقى في هذه النافذة فقط.",
   },
   dashboard: {
