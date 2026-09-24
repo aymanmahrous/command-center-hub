@@ -224,6 +224,80 @@ async function processOnePublishJob(supabase: ReturnType<typeof createClient>) {
   return { attempts: 1, processed: 0, outcome: { code: "AMBIGUOUS_RESULT", jobId, ambiguous: true } };
 }
 
+async function processOneMediaJob(supabase: ReturnType<typeof createClient>) {
+  const claimed = await supabase.rpc("claim_next_content_media_job");
+  if (claimed.error) throw claimed.error;
+  if (!claimed.data?.claimed) return { attempts: 0, processed: 0, outcome: claimed.data ?? { code: "NO_MEDIA_JOB" } };
+
+  const jobId = String(claimed.data.jobId ?? "");
+  const contentItemId = String(claimed.data.contentItemId ?? "");
+  if (!jobId || !contentItemId) {
+    return { attempts: 1, processed: 0, outcome: { code: "MEDIA_CLAIM_PAYLOAD_INVALID", jobId, contentItemId } };
+  }
+
+  const { data: item, error: itemError } = await supabase
+    .from("content_items")
+    .select("topic,hook,caption,content_type")
+    .eq("id", contentItemId)
+    .maybeSingle();
+  if (itemError || !item) {
+    await supabase.rpc("fail_content_media_job", { p_job_id: jobId, p_error: "CONTENT_ITEM_READ_FAILED" });
+    return { attempts: 1, processed: 0, outcome: { code: "CONTENT_ITEM_READ_FAILED", jobId } };
+  }
+
+  if (!CONTENT_PUBLISHER_AUTOMATION_SECRET) {
+    return { attempts: 1, processed: 0, outcome: { code: "PUBLISHER_AUTOMATION_SECRET_MISSING", jobId, ambiguous: true } };
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 120_000);
+  try {
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/canva-design`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-content-publisher-automation-secret": CONTENT_PUBLISHER_AUTOMATION_SECRET,
+      },
+      body: JSON.stringify({
+        mode: "generate",
+        contentItemId,
+        topic: String(item.topic ?? ""),
+        hook: String(item.hook ?? ""),
+        caption: String(item.caption ?? ""),
+      }),
+      signal: controller.signal,
+    });
+    const body = await response.json().catch(() => ({})) as Record<string, unknown>;
+    if (body.success === true && typeof body.mediaAssetId === "string") {
+      const completed = await supabase.rpc("complete_content_media_job", {
+        p_job_id: jobId,
+        p_storage_path: String(body.storagePath ?? ""),
+        p_provider: "canva",
+        p_provider_job_id: String(body.mediaAssetId),
+        p_metadata: { mediaAssetId: body.mediaAssetId, automated: true },
+      });
+      if (completed.error || !completed.data?.success) {
+        return { attempts: 1, processed: 0, outcome: { code: "MEDIA_COMPLETE_FAILED", jobId, ambiguous: true } };
+      }
+      return { attempts: 1, processed: 1, outcome: { code: "MEDIA_COMPLETED", jobId, mediaAssetId: body.mediaAssetId } };
+    }
+
+    const confirmed = response.status >= 400 && response.status < 500 && body.code !== "CANVA_TOKEN_REFRESH_FAILED";
+    if (confirmed) {
+      const failed = await supabase.rpc("fail_content_media_job", { p_job_id: jobId, p_error: String(body.code ?? "MEDIA_GENERATION_FAILED") });
+      return { attempts: 1, processed: 0, outcome: { code: failed.error ? "MEDIA_FAIL_RECORD_FAILED" : "MEDIA_FAILED", jobId, failure: body.code ?? "MEDIA_GENERATION_FAILED" } };
+    }
+
+    await supabase.rpc("defer_content_media_job", { p_job_id: jobId, p_reason: String(body.code ?? "MEDIA_RETRY"), p_delay_seconds: 1800 });
+    return { attempts: 1, processed: 0, outcome: { code: "MEDIA_DEFERRED", jobId, reason: body.code ?? "MEDIA_RETRY" } };
+  } catch (cause) {
+    await supabase.rpc("defer_content_media_job", { p_job_id: jobId, p_reason: cause instanceof Error ? cause.name : "NETWORK_ERROR", p_delay_seconds: 1800 });
+    return { attempts: 1, processed: 0, outcome: { code: "MEDIA_DEFERRED", jobId, ambiguous: true } };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function saveBatchWithShift(
   supabase: ReturnType<typeof createClient>,
   items: JsonObject[],
@@ -315,14 +389,17 @@ Deno.serve(async (request) => {
       };
     }
 
+    const media = await processOneMediaJob(supabase);
+    summary = { ...summary, media: [media.outcome] };
+
     const publishing = await processOnePublishJob(supabase);
     summary = { ...summary, publishing: [publishing.outcome] };
 
     await supabase.rpc("complete_content_automation_run", {
       p_run_id: runId,
       p_status: "completed",
-      p_media_attempts: 0,
-      p_media_processed: 0,
+      p_media_attempts: media.attempts,
+      p_media_processed: media.processed,
       p_publish_attempts: publishing.attempts,
       p_publish_processed: publishing.processed,
       p_summary: summary,

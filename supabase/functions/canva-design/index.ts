@@ -18,11 +18,12 @@ const CANVA_TOKEN_URL = "https://api.canva.com/rest/v1/oauth/token";
 const CANVA_API_BASE = "https://api.canva.com/rest/v1";
 const MEDIA_BUCKET = "relax-fix-media";
 const ALLOWED_ROLES = new Set(["super_admin", "admin", "content_manager"]);
+const CONTENT_PUBLISHER_AUTOMATION_SECRET = Deno.env.get("CONTENT_PUBLISHER_AUTOMATION_SECRET") ?? "";
 const POLL_MS = 1500;
 const POLL_ATTEMPTS = 40;
 const CORS_HEADERS = {
   "access-control-allow-origin": "*",
-  "access-control-allow-headers": "authorization, apikey, content-type",
+  "access-control-allow-headers": "authorization, apikey, content-type, x-content-publisher-automation-secret",
   "access-control-allow-methods": "POST, OPTIONS",
 };
 
@@ -33,6 +34,15 @@ function json(body: JsonObject, status = 200) {
     status,
     headers: { "content-type": "application/json", ...CORS_HEADERS },
   });
+}
+
+function constantTimeEqual(a: string, b: string): boolean {
+  const aBytes = new TextEncoder().encode(a);
+  const bBytes = new TextEncoder().encode(b);
+  let diff = aBytes.length ^ bBytes.length;
+  const length = Math.max(aBytes.length, bBytes.length);
+  for (let i = 0; i < length; i++) diff |= (aBytes[i] ?? 0) ^ (bBytes[i] ?? 0);
+  return diff === 0;
 }
 
 function bearerToken(request: Request) {
@@ -305,17 +315,37 @@ Deno.serve(async (request) => {
   if (request.method !== "POST") return json({ success: false, code: "METHOD_NOT_ALLOWED" }, 405);
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) return json({ success: false, code: "SERVER_MISCONFIGURED" }, 500);
 
-  const token = bearerToken(request);
-  if (!token) return json({ success: false, code: "AUTH_REQUIRED" }, 401);
+  const automationSecret = request.headers.get("x-content-publisher-automation-secret") ?? "";
+  const automationMode = Boolean(
+    CONTENT_PUBLISHER_AUTOMATION_SECRET &&
+    automationSecret &&
+    constantTimeEqual(automationSecret, CONTENT_PUBLISHER_AUTOMATION_SECRET),
+  );
 
   const serviceSupabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-  const staff = await requireStaff(serviceSupabase, token);
-  if ("error" in staff && staff.error) return staff.error;
+  let staffId = "";
+  if (automationMode) {
+    const { data: tokenRow, error: tokenError } = await serviceSupabase
+      .from("staff_canva_tokens")
+      .select("staff_id")
+      .not("refresh_token", "is", null)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (tokenError || !tokenRow?.staff_id) return json({ success: false, code: "CANVA_NOT_CONNECTED" }, 424);
+    staffId = String(tokenRow.staff_id);
+  } else {
+    const token = bearerToken(request);
+    if (!token) return json({ success: false, code: "AUTH_REQUIRED" }, 401);
+    const staff = await requireStaff(serviceSupabase, token);
+    if ("error" in staff && staff.error) return staff.error;
+    staffId = staffId;
+  }
 
   const body = await request.json().catch(() => ({})) as JsonObject;
 
   if (body.mode === "status") {
-    const tokenResult = await refreshCanvaAccessToken(serviceSupabase, staff.staffId!);
+    const tokenResult = await refreshCanvaAccessToken(serviceSupabase, staffId);
     return json({
       success: true,
       credentialsConfigured: credentialsConfigured(),
@@ -346,7 +376,7 @@ Deno.serve(async (request) => {
     return json({ success: false, code: "INVALID_INPUT" }, 400);
   }
 
-  const tokenResult = await refreshCanvaAccessToken(serviceSupabase, staff.staffId!);
+  const tokenResult = await refreshCanvaAccessToken(serviceSupabase, staffId);
   if ("error" in tokenResult) return json({ success: false, code: tokenResult.error }, 424);
 
   const autofill = await createAutofillDesign(
@@ -362,7 +392,7 @@ Deno.serve(async (request) => {
 
   const stored = await storeDesignForContentItem(
     serviceSupabase,
-    staff.staffId!,
+    staffId,
     contentItemId,
     exported.downloadUrl,
     topic,
