@@ -54,6 +54,9 @@ export const en = {
     passwordLabel: "Password",
     submit: "Sign in",
     submitting: "Verifying...",
+    facebookLogin: "Continue with Facebook",
+    facebookConnecting: "Opening Facebook...",
+    or: "or",
     securityNote: "Your password is never stored. The session stays in this window.",
   },
   dashboard: {

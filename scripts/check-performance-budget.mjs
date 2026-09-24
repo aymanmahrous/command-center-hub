@@ -9,7 +9,8 @@ const budgets = {
   // The owner Factory editor and Inbox polish add a measured ~430 raw bytes; gzip remains unchanged.
   // Marketing Company adds a measured <0.1% owner-entry loader; this preserves the active guard.
   // Keep both guards strict while allowing the measured cross-environment gzip variance (local vs Vercel).
-  js: { raw: 371_000, gzip: 108_700 },
+  // Facebook OAuth adds a small login control and callback parser to the initial entry.
+  js: { raw: 372_100, gzip: 108_900 },
   css: { raw: 33_000, gzip: 7_000 },
 };
 
