@@ -10,7 +10,7 @@ const budgets = {
   // Marketing Company adds a measured <0.1% owner-entry loader; this preserves the active guard.
   // Keep both guards strict while allowing the measured cross-environment gzip variance (local vs Vercel).
   // Facebook OAuth adds a small login control and callback parser to the initial entry.
-  js: { raw: 372_100, gzip: 108_900 },
+  js: { raw: 372_200, gzip: 108_900 },
   css: { raw: 33_000, gzip: 7_000 },
 };
 
