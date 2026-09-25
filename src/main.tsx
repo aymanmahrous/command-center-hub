@@ -1357,7 +1357,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     else if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.pushState({ section: id }, "", nextUrl);
   };
 
-  const moreIds = new Set<SectionId>(["command", "crm", "planner", "media", "archive", "analytics", "integrations", "automations", "connections", "radar", "workspace"]);
+  const moreIds = new Set<SectionId>(["today", "command", "crm", "planner", "archive", "analytics", "integrations", "connections", "radar", "brain", "workspace"]);
   const moreItems = sections.filter(([id]) => moreIds.has(id));
 
   const morePanel = (
@@ -1381,13 +1381,22 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     </div>
   );
 
-  // Owner-first navigation: keep the daily surface to five simple areas.
+  // Owner-first navigation: keep the daily surface simple and operational.
   // Advanced modules remain reachable through More; no feature is removed.
   const primary = [
     ["dashboard", LayoutDashboard, nav.dashboard],
-    ["brain", Bot, nav.brain],
     ["content", BarChart3, nav.factory],
     ["inbox", Inbox, nav.inbox],
+    ["media", Library, nav.media],
+    ["automations", Workflow, nav.operations],
+  ] as const;
+  const desktopPrimary = [
+    ["dashboard", LayoutDashboard, nav.dashboard],
+    ["content", BarChart3, nav.factory],
+    ["inbox", Inbox, nav.inbox],
+    ["media", Library, nav.media],
+    ["automations", Workflow, nav.operations],
+    ["connections", Settings2, nav.connections],
   ] as const;
 
   return <div className="app-shell">
@@ -1401,16 +1410,11 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
       <LanguageSwitcher onDark />
         <nav aria-label="وحدات Command Center">
         <div className="nav-group">
-          <span className="nav-group-label">{nav.dashboard}</span>
-          {[
-            ["dashboard", LayoutDashboard],
-            ["brain", Bot],
-            ["content", BarChart3],
-            ["inbox", Inbox],
-          ].map(([id, Icon]) => {
+          <span className="nav-group-label">{language === "ar" ? "التنقل الرئيسي" : "MAIN NAVIGATION"}</span>
+          {desktopPrimary.map(([id, Icon, label]) => {
             const sectionId = id as SectionId;
             return <button type="button" key={sectionId} className={active === sectionId ? "active" : ""} aria-current={active === sectionId ? "page" : undefined} onClick={() => go(sectionId)}>
-              <Icon size={18} aria-hidden="true" /><span>{sectionId === "dashboard" ? nav.dashboard : sectionId === "brain" ? nav.brain : sectionId === "content" ? nav.factory : nav.inbox}</span>
+              <Icon size={18} aria-hidden="true" /><span>{label}</span>
             </button>;
           })}
         </div>
