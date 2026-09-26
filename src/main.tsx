@@ -1357,8 +1357,12 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     else if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.pushState({ section: id }, "", nextUrl);
   };
 
-  const moreIds = new Set<SectionId>(["command", "crm", "planner", "media", "archive", "analytics", "integrations", "automations", "connections", "radar", "workspace"]);
-  const moreItems = sections.filter(([id]) => moreIds.has(id));
+  // Primary navigation is intentionally limited to the owner operating loop.
+  // Secondary capabilities remain reachable through More without removing routes.
+  const moreOrder: SectionId[] = ["today", "command", "crm", "planner", "radar", "analytics", "connections", "automations", "archive", "workspace"];
+  const moreItems = moreOrder
+    .map((id) => sections.find(([sectionId]) => sectionId === id))
+    .filter((item): item is (typeof sections)[number] => Boolean(item));
 
   const morePanel = (
     <div className="owner-more-panel">
@@ -1381,13 +1385,15 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     </div>
   );
 
-  // Owner-first navigation: keep the daily surface to five simple areas.
+  // Owner-first navigation: one primary entry per operating capability.
   // Advanced modules remain reachable through More; no feature is removed.
   const primary = [
     ["dashboard", LayoutDashboard, nav.dashboard],
     ["brain", Bot, nav.brain],
     ["content", BarChart3, nav.factory],
     ["inbox", Inbox, nav.inbox],
+    ["media", Library, nav.media],
+    ["integrations", Workflow, nav.operations],
   ] as const;
 
   return <div className="app-shell">
@@ -1407,10 +1413,18 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
             ["brain", Bot],
             ["content", BarChart3],
             ["inbox", Inbox],
+            ["media", Library],
+            ["integrations", Workflow],
           ].map(([id, Icon]) => {
             const sectionId = id as SectionId;
+            const label = sectionId === "dashboard" ? nav.dashboard
+              : sectionId === "brain" ? nav.brain
+              : sectionId === "content" ? nav.factory
+              : sectionId === "inbox" ? nav.inbox
+              : sectionId === "media" ? nav.media
+              : nav.operations;
             return <button type="button" key={sectionId} className={active === sectionId ? "active" : ""} aria-current={active === sectionId ? "page" : undefined} onClick={() => go(sectionId)}>
-              <Icon size={18} aria-hidden="true" /><span>{sectionId === "dashboard" ? nav.dashboard : sectionId === "brain" ? nav.brain : sectionId === "content" ? nav.factory : nav.inbox}</span>
+              <Icon size={18} aria-hidden="true" /><span>{label}</span>
             </button>;
           })}
         </div>
