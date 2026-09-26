@@ -1,5 +1,7 @@
 # Command Center Hub Project Handoff
 
+> **SUPERSEDED — NOT THE ACTIVE HANDOFF.** The sole active and final handoff reference is [`MASTER_PROJECT_HANDOFF.md`](MASTER_PROJECT_HANDOFF.md). Read that file first; do not use this historical file to start execution.
+
 ## Current stage
 
 Documentation Review on branch `docs/final-documentation-review` after the protected merges of AI Inbox PR #9, Bookings PR #10, Content Studio PR #11, Media Library PR #12, Analytics PR #13, Integrations PR #14, System Polish PR #15, Final Audit PR #16, Final Security Review PR #17, and Performance Review PR #18.

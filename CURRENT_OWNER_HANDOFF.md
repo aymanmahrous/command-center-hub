@@ -1,9 +1,9 @@
 # Current Owner Handoff
 
+> **SUPERSEDED — NOT THE ACTIVE HANDOFF.** The sole active and final handoff reference is [`MASTER_PROJECT_HANDOFF.md`](MASTER_PROJECT_HANDOFF.md). Read that file first; do not use this historical file to start execution.
+
 **Status:** Active reference for Command Center Hub
-
 ## What is already complete
-
 PR #146 added the Owner Media Controls. The Media Library is not read-only when the owner has the required role. Its existing controls use the current staff media RPC path for category, consent, media status, and review actions.
 
 The Factory already contains the stages Overview, Strategy, Generate, Content, Designs, Reels, Campaigns, Review, and Connections. Content editing uses the existing content update and transition paths. Batch generation and batch approval use the existing staff batch procedures.

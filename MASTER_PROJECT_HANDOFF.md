@@ -1,6 +1,8 @@
 # MASTER_PROJECT_HANDOFF.md — الحوكمة الدائمة لمشروع Relax Fix UAE / Swim Fluent UAE
 
-هذا الملف هو **مصدر الحقيقة الإداري الدائم** للمشروع. أي مدير أو مستشار أو Agent جديد يجب أن يقرأه أولًا (بالإضافة إلى `AGENTS.md`، `OWNER_WORKING_PROFILE.md`، `OWNER_PROTECTION_AND_BUDGET_POLICY.md`، و`PROJECT_HANDOFF.md`) قبل أي تنفيذ.
+> **CANONICAL / FINAL ACTIVE HANDOFF:** هذا هو مرجع الـHandoff النشط والنهائي الوحيد للوكلاء التنفيذيين اللاحقين. الملفان `CURRENT_OWNER_HANDOFF.md` و`PROJECT_HANDOFF.md` محفوظان كسجلين تاريخيين فقط وموسومان بأنهما `SUPERSEDED`؛ لا يُستخدمان كنقطة بدء للتنفيذ.
+
+هذا الملف هو **مصدر الحقيقة الإداري الدائم** للمشروع. أي مدير أو مستشار أو Agent جديد يجب أن يقرأه أولًا (بالإضافة إلى `AGENTS.md`، `OWNER_WORKING_PROFILE.md`، و`OWNER_PROTECTION_AND_BUDGET_POLICY.md`) قبل أي تنفيذ.
 
 ## 1. تعريف المشروع والأنظمة المرتبطة
 
