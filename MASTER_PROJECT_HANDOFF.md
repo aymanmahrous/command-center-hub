@@ -138,3 +138,11 @@
 - **Supabase**: جداول `conversations`/`leads`/`knowledge_entries` جاهزة هيكليًا للمرحلة 8 لكنها فارغة (0 صف).
 - لا يوجد اتصال حي مؤكد بـ WhatsApp Business API أو Facebook Messenger أو Instagram Messaging (لا Webhooks، لا بيانات مسجَّلة).
 - **Vercel Production / الدومين / Google Search Console / Google Business Profile**: BLOCKED_BY_ACCESS أو UNVERIFIED — لم تُفحص مباشرة في هذا الجرد؛ تتطلب دخول المالك عند وصول دور المرحلة المعنية فقط.
+
+## 14. خطة اعتماد Coach Brain وIntegrations — 2026-09-27
+
+تم تسجيل خطة المالك العربية في [`docs/COACH_BRAIN_INTEGRATIONS_APPROVAL_PLAN_AR.md`](docs/COACH_BRAIN_INTEGRATIONS_APPROVAL_PLAN_AR.md). هذه الخطة **للاعتماد والتوثيق فقط** وليست تفويضًا للتعديل أو الدمج أو النشر أو الاختبار الخارجي.
+
+الترتيب الملزم هو: **Continuity Gate → Owner UX Smoke Test → Integrations Owner-UX Audit → Integrations Atomic Step → Coach Brain والتكلفة → Facebook Publish Block**. تبقى نقطة البداية `PR #161` بحالة **Verified / Ready for Review / Not Merged / Not Deployed**، ولا تُعاد الفحوص الموثقة كمكتملة. لا تبدأ أي مرحلة تنفيذية لاحقة إلا بعد مخرج المرحلة السابقة وموافقة مستقلة مناسبة لها.
+
+تُحفظ قواعد الخطة التالية: لا إعادة بناء أو تكرار، لا أسرار hard-coded، لا ادعاء `Connected` دون دليل اتصال خارجي، لا إضافة Provider/OAuth/Credential خلال تدقيق Integrations، وإظهار مجاني/مدفوع/غير متحقق قبل أي توليد في Coach Brain. عند ظهور تعارض أو حاجة لصلاحية محمية أو بلوغ حد الوقت/الرصيد، يكون المسار **STOP IMMEDIATELY → SAFE STOP HANDOFF → WAIT**. أي تغيير في ترتيب الخطة يحتاج تسجيل السبب والدليل الجديد والمخاطر والبديل الأقل خطورة وموافقة المالك.
