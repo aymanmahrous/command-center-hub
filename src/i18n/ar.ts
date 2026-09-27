@@ -176,6 +176,7 @@ export const ar: Dictionary = {
     canvaBriefLabel: "تعليمات Canva:",
     noPreview: "تعذّرت المعاينة — لم يُحمَّل ملف الوسائط.",
     generateDesignButton: "إنشاء تصميم Canva",
+    regenerateDesignButton: "إعادة إنشاء تصميم Canva",
     generateDesignBusy: "جاري إنشاء التصميم…",
     designGeneratedNotice: "تم ربط تصميم Canva بالمنشور. راجع المعاينة أعلاه.",
     batchApprovedNotice: "تم اعتماد الدفعة بأمان. الجدولة تتم بشكل منفصل.",

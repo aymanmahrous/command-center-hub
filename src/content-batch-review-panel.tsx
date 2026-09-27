@@ -314,6 +314,7 @@ export function ContentBatchReviewPanel({
           const itemDisabledReason = !canWrite ? copy.actionDisabledReadOnly : busy ? copy.actionDisabledBusy : undefined;
           const linkedMediaAssetId = typeof item.mediaAssetId === "string" ? item.mediaAssetId : "";
           const linkedMediaAsset = assetById.get(linkedMediaAssetId);
+          const canRegenerateDesign = Boolean(linkedMediaAsset && !canUseInMarketingBatch(linkedMediaAsset));
           const showingEditForm = editTargetId === item.id;
           return (
             <article className="content-batch-item" key={item.id}>
@@ -367,7 +368,7 @@ export function ContentBatchReviewPanel({
                 </div>
               </details>
               <footer>
-                {!item.mediaAssetId && session && designCapabilityState === "AVAILABLE" && (
+                {session && designCapabilityState === "AVAILABLE" && (!item.mediaAssetId || canRegenerateDesign) && (
                   <button
                     type="button"
                     className="secondary"
@@ -375,10 +376,14 @@ export function ContentBatchReviewPanel({
                     title={itemDisabledReason}
                     onClick={() => void handleGenerateDesign(item)}
                   >
-                    {designBusyId === item.id ? copy.generateDesignBusy : copy.generateDesignButton}
+                    {designBusyId === item.id
+                      ? copy.generateDesignBusy
+                      : item.mediaAssetId
+                        ? copy.regenerateDesignButton
+                        : copy.generateDesignButton}
                   </button>
                 )}
-                {!item.mediaAssetId && session && designCapabilityState !== "AVAILABLE" && (
+                {session && designCapabilityState !== "AVAILABLE" && (!item.mediaAssetId || canRegenerateDesign) && (
                   <small className="item-action-disabled-reason">
                     {language === "ar" ? "إنشاء التصميم محدود: Canva غير متصل أو لم يتم التحقق من قدرته." : "Design generation is limited: Canva is not connected or its capability is unverified."}
                   </small>
