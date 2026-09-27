@@ -189,11 +189,11 @@ It does not replace, reorder, close, or authorize the project's separate marketi
 The following sequence is the approved working path for the next Command Center Hub work. It must not be reordered, merged, skipped, or expanded merely because another path appears faster.
 
 1. **Phase 0 — Continuity Gate**
-2. **Phase 1 — Owner UX Smoke Test**
+2. **Phase 1 — Owner UX + Factory Smoke Test**
 3. **Phase 2 — Integrations Owner-UX Audit**
-4. **Phase 3 — Integrations Atomic Step**
-5. **Phase 4 — Coach Brain & Cost Transparency**
-6. **Phase 5 — Facebook Publish Block / Guardrail**
+4. **Phase 3 — Smallest Required Integrations Fix (conditional)**
+5. **Phase 4 — Controlled Generate + Design + Review + Cost Gate**
+6. **Phase 5 — One Controlled Facebook Publish / Guardrail**
 
 Each phase has one defined output. After that output is produced and the required verification is complete, the responsible agent must stop and wait for the next approved point.
 
@@ -249,55 +249,47 @@ If the current state, active Handoff, or last verified evidence cannot be identi
 
 ---
 
-# PHASE 1 — OWNER UX SMOKE TEST
+# PHASE 1 — OWNER UX + FACTORY SMOKE TEST
 
 ## Entry conditions
 
-This phase may begin only when all of the following are true:
+This phase may begin only when PR #161 is merged, official deployment is directly verified, and the required independent approval is recorded.
 
-1. PR #161 is merged.
-2. Official deployment is directly verified.
-3. The required independent approval for this focused smoke test is recorded.
-4. The Manager provides a complete Execution Brief.
-
-If any entry condition is missing:
-
-> **BLOCKED — OWNER UX SMOKE TEST CANNOT START**
-
-## Focused path
-
-Verify only the owner navigation and unified Owner UX:
+## Focused paths
 
 ```text
 Home → Content → Inbox → Media → Operations → More
+Home → Content → Factory → Generate → Designs → Review → More
 ```
 
 ## Verify
 
 - One Owner-facing interface is visible.
-- The old navigation interface is not visible.
-- No duplicate link exposes the same function unnecessarily.
-- Each button routes to the correct Owner section.
+- No duplicate UI or duplicate route exposes the same function unnecessarily.
+- Each visible control routes to or performs its intended existing capability.
 - No blank page or broken route appears.
 - Existing capabilities are not missing.
+- Content Factory, Generate, Designs, and Review are reachable through the existing UI.
+- Generate is shown only when its capability is available or its limited/unverified state is clear.
+- Designs and Review show truthful capability and readiness states.
 - Home summarizes rather than duplicating the content of other sections.
-- Internal pages preserve their parent section and back behavior where applicable.
+- Internal pages preserve their parent section and back behavior.
 - Only one main section is active at a time.
+- Loading, empty, disabled, success, and error states are understandable.
+- Existing controls remain reachable after navigation changes.
 
 ## Prohibited actions
 
-- No navigation rebuild.
-- No new Router merely because a state problem is suspected.
-- No Full Scan.
-- No repeat of already verified Build or test evidence without a qualifying reason.
-- No Merge or Deploy from the smoke test.
+- No navigation or Factory rebuild.
+- No new Router or parallel control system.
+- No paid generation or external publishing in this smoke test.
+- No Full Scan or repeat of already verified Build/tests without Change, Conflict, or New Evidence.
+- No Merge or Deploy from this test.
 - If a defect appears, record the file/path, observed effect, and evidence, then stop modification.
 
 ## Required output
 
-A focused Owner UX Smoke Test report. It is not authorization for Phase 2.
-
----
+An Owner UX + Factory Smoke Test report. It is not authorization for Phase 2 or Phase 4.
 
 # PHASE 2 — INTEGRATIONS OWNER-UX AUDIT
 
@@ -389,42 +381,52 @@ Focused verification of the affected area only. Then stop.
 
 ---
 
-# PHASE 4 — COACH BRAIN & COST TRANSPARENCY
+# PHASE 4 — CONTROLLED GENERATE + DESIGN + REVIEW + COST GATE
 
-## Canonical entry rule
+## Entry conditions
 
-Coach Brain remains one canonical entry. Contextual links from Home, Content, or More may point to it, but they must not create duplicate AI pages or parallel Coach Brain systems.
+This phase may begin only after the required preceding report, a clear capability/cost decision, and separate approval for the exact one-item action.
 
 ## Before any generation or paid capability
 
-The Owner-facing experience must clearly state, in simple language:
+The Owner-facing experience must clearly state:
 
 - What will be created.
 - Which source, capability, service, or provider will be used.
 - Whether it is Free or Paid.
-- The estimated cost, only when confirmed by reliable evidence.
-- A free alternative, when available.
-- Why the capability is being suggested, when relevant.
+- The estimated cost only when confirmed by reliable evidence.
+- A free alternative when available.
+- A clear confirmation step before any paid action.
 
-The experience must include a clear confirmation step before a paid action.
+## Controlled sequence
+
+```text
+One Content Item
+→ One Generate or Design Action
+→ One Review
+→ Record Result
+→ STOP
+```
 
 ## Prohibited actions
 
+- No batch generation or batch design.
 - No silent paid service.
 - No choosing a Token, API, or Model ID on behalf of the Owner.
-- No claiming a cost or capability is confirmed without evidence.
-- No duplicate Coach Brain page.
-- No paid generation before the capability and cost evidence are clear.
+- No creating multiple variants merely for trial and error.
+- No treating a visible button as proof that the capability works.
+- No automatic move to publishing after generation or design.
+- No duplicate Coach Brain or parallel AI entry.
 
 If cost, provider capability, or pricing is uncertain:
 
 > **UNVERIFIED — NO PAID ACTION**
 
-This phase does not authorize a paid generation or provider configuration by itself.
+## Required output
 
----
+A one-item Generate/Design/Review result with evidence, or a Blocked report with the exact reason. Then stop.
 
-# PHASE 5 — FACEBOOK PUBLISH BLOCK / GUARDRAIL
+# PHASE 5 — ONE CONTROLLED FACEBOOK PUBLISH / GUARDRAIL
 
 This phase is a separate protection gate. It does not authorize live publishing by itself.
 
@@ -499,6 +501,7 @@ The Executive Agent must not guess, expand the scope, or begin a trial-and-error
 The Manager must:
 
 - Read the active Handoff first.
+- Keep the approved plan unchanged; do not reorder, merge, skip, or replace phases without a documented approved Change Request.
 - Confirm the current phase and previous evidence.
 - Choose the lowest-risk path.
 - Keep the sequence fixed.
@@ -523,6 +526,7 @@ The Manager may not:
 The Executive Agent must:
 
 - Read the active Handoff and relevant evidence before acting.
+- Preserve/save all work and evidence before ending the Atomic Step or session.
 - Execute only the approved Atomic Step.
 - Work only within the Allowed Scope.
 - Preserve existing work and reuse existing capability.
@@ -657,6 +661,8 @@ UNFINISHED WORK:
 
 NEXT APPROVED POINT:
 ```
+
+Before ending the step, preserve/save all approved work and evidence.
 
 After the report:
 
