@@ -174,6 +174,7 @@ export const en = {
     canvaBriefLabel: "Canva brief:",
     noPreview: "Preview unavailable — media file could not be loaded.",
     generateDesignButton: "Generate Canva design",
+    regenerateDesignButton: "Regenerate Canva design",
     generateDesignBusy: "Generating design…",
     designGeneratedNotice: "Canva design linked to this post. Review the preview above.",
     batchApprovedNotice: "Batch approval completed safely. Scheduling happens separately.",
