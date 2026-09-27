@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { AiSuitabilityVerdict, MediaAssetRecord, MediaCategory, ConsentStatus } from "./media-types";
 import { displayMediaWorkflowStatus } from "./media-types";
 import { analyzeMediaWithProvider, fetchGeminiIntegrationStatus, type GeminiIntegrationStatus } from "./media-gemini-adapter";
-import { CANVA_OPEN_URL, canvaConnectErrorMessage, fetchCanvaIntegrationStatus, readCanvaCallbackNotice, startCanvaConnect, type CanvaIntegrationStatus } from "./canva-adapter";
+import { CANVA_OPEN_URL, canvaConnectErrorMessage, fetchCanvaIntegrationStatus, readCanvaCallbackNotice, type CanvaIntegrationStatus } from "./canva-adapter";
 import { readStoredMediaAnalysis, type MediaAnalysisResult } from "./media-ai-analysis";
 import { displayProviderStatus, readMediaProviderStatuses } from "./media-providers";
 import { normalizeMediaCategory } from "./media-types";
@@ -65,11 +65,10 @@ export function parseMediaAssetRecords(value: unknown): MediaAssetRecord[] {
   }));
 }
 
-export function MediaProviderStrip({ session, canWrite = false }: { session?: ControlSession; canWrite?: boolean } = {}) {
+export function MediaProviderStrip({ session, onNavigate }: { session?: ControlSession; onNavigate?: (section: string) => void } = {}) {
   const [geminiStatus, setGeminiStatus] = useState<GeminiIntegrationStatus | null>(null);
   const [canvaStatus, setCanvaStatus] = useState<CanvaIntegrationStatus | null>(null);
   const [canvaDetail, setCanvaDetail] = useState("");
-  const [canvaBusy, setCanvaBusy] = useState(false);
   const [canvaNotice, setCanvaNotice] = useState("");
 
   useEffect(() => {
@@ -110,22 +109,6 @@ export function MediaProviderStrip({ session, canWrite = false }: { session?: Co
       .catch(() => setCanvaStatus("NOT CONNECTED"));
   }, [session]);
 
-  async function connectCanva() {
-    if (!session || !canWrite || canvaBusy) return;
-    setCanvaBusy(true);
-    setCanvaNotice("");
-    try {
-      const { authorizationUrl } = await startCanvaConnect(session);
-      window.location.assign(authorizationUrl);
-    } catch (cause) {
-      if (cause instanceof Error && cause.message === "SESSION_EXPIRED") throw cause;
-      const code = cause instanceof Error ? cause.message : undefined;
-      setCanvaNotice(canvaConnectErrorMessage(code));
-    } finally {
-      setCanvaBusy(false);
-    }
-  }
-
   const canvaConnected = canvaStatus === "CONNECTED";
   const providers = readMediaProviderStatuses({ canva: canvaConnected });
 
@@ -149,8 +132,8 @@ export function MediaProviderStrip({ session, canWrite = false }: { session?: Co
         {canvaConnected ? (
           <a className="canva-action" href={CANVA_OPEN_URL} target="_blank" rel="noopener noreferrer">Open Canva</a>
         ) : (
-          <button type="button" className="canva-action" disabled={!session || !canWrite || canvaBusy} onClick={() => void connectCanva()}>
-            Connect Canva
+          <button type="button" className="canva-action" disabled={!onNavigate} onClick={() => onNavigate?.("connections")}>
+            {language === "ar" ? "إدارة اتصال Canva" : "Manage Canva connection"}
           </button>
         )}
       </div>
