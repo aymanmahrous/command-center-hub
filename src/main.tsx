@@ -48,12 +48,14 @@ const sections = [
   ["workspace", Library, "x"],
 ] as const;
 
+const OPERATIONS_SECTION = "automations" as const;
+
 const navigationGroups = [
   { id: "home", label: "home", items: ["dashboard"] },
   { id: "factory", label: "factory", items: ["content"] },
   { id: "inbox", label: "inbox", items: ["inbox"] },
   { id: "media", label: "media", items: ["media"] },
-  { id: "operations", label: "operations", items: ["automations"] },
+  { id: "operations", label: "operations", items: [OPERATIONS_SECTION] },
 ] as const;
 
 type SectionId = (typeof sections)[number][0];
@@ -75,8 +77,9 @@ type MediaSource = "upload" | "ai_generated" | "external";
 type JobStatus = "queued" | "processing" | "completed" | "failed" | "retrying" | "dead";
 
 function sectionFromLocation(): SectionId {
-  const requested = new URLSearchParams(window.location.search).get("section") as SectionId | null;
-  return requested && sections.some(([id]) => id === requested) ? requested : "dashboard";
+  const requested = new URLSearchParams(window.location.search).get("section");
+  const normalized = requested === "operations" ? OPERATIONS_SECTION : requested as SectionId | null;
+  return normalized && sections.some(([id]) => id === normalized) ? normalized : "dashboard";
 }
 
 function sectionUrl(section: SectionId) {
@@ -1388,14 +1391,14 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     ["content", BarChart3, nav.factory],
     ["inbox", Inbox, nav.inbox],
     ["media", Library, nav.media],
-    ["automations", Workflow, nav.operations],
+    [OPERATIONS_SECTION, Workflow, nav.operations],
   ] as const;
   const desktopPrimary = [
     ["dashboard", LayoutDashboard, nav.dashboard],
     ["content", BarChart3, nav.factory],
     ["inbox", Inbox, nav.inbox],
     ["media", Library, nav.media],
-    ["automations", Workflow, nav.operations],
+    [OPERATIONS_SECTION, Workflow, nav.operations],
     ["connections", Settings2, nav.connections],
   ] as const;
 
@@ -1459,7 +1462,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
           active === "analytics" ? <AnalyticsView value={data} onNavigate={go} /> :
           active === "integrations" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><OperationsQueueView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /></Suspense> :
           active === "connections" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><IntegrationsCenter value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /></Suspense> :
-          active === "automations" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><AutomationsView value={data} onOpenQueue={() => go("integrations")} onOpenContent={() => go("content")} /></Suspense> :
+          active === OPERATIONS_SECTION ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><AutomationsView value={data} onOpenQueue={() => go("integrations")} onOpenContent={() => go("content")} /></Suspense> :
           active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "brain" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><CoachBrain language={language} /></Suspense> :
           active === "workspace" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><RealProductFoundation session={session} language={language} /></Suspense> :
