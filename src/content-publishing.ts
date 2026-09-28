@@ -61,7 +61,7 @@ export const FACEBOOK_PAGE_ID = "1164107840123575";
 export const INSTAGRAM_ACCOUNT_ID = "17841439747493221";
 export const AUTHORIZED_FACEBOOK_PUBLISH_ITEM_ID = "9cf29b08-aaa3-4278-80bc-08a4cf3bc381";
 /** Set after the owner approves one Instagram test post for controlled n8n publish. */
-export const AUTHORIZED_INSTAGRAM_PUBLISH_ITEM_ID = "ffb9f795-c359-43c5-861c-5594eda75eef";
+export const AUTHORIZED_INSTAGRAM_PUBLISH_ITEM_ID = "ff0e7a44-9466-46df-82f8-ee029ee46c8c";
 
 export type PublishChannel = "facebook" | "instagram";
 
