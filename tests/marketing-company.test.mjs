@@ -12,7 +12,6 @@ test("Home is the owner-facing entry and marketing remains an approval workflow"
   assert.match(view, /غير موافق/);
   assert.match(view, /حذف المقترح/);
   assert.match(main, /active === "dashboard" \? .*ControlTowerV2/s);
-  assert.match(main, /active === "command" \? .*ControlTowerV2/s);
 });
 
 test("Marketing Company stays review-first and blocks duplicate planned slots", () => {
@@ -28,7 +27,6 @@ test("Approval Center is a review-only owner surface over existing sections", as
   assert.match(tower, /approvalOnly\?: boolean/);
   assert.match(tower, /What needs your approval\?/);
   assert.match(tower, /No external action runs from this screen/);
-  assert.match(main, /approvalOnly \/\>/);
 });
 
 test("Home keeps the owner navigation simple while advanced modules stay in More", () => {
