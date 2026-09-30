@@ -23,7 +23,10 @@ test("authenticated V2 navigation exposes existing Today, Command, and Coach Bra
   assert.match(app, /\["command", Bot, "x"\]/);
   assert.match(app, /\["brain", Bot, "x"\]/);
   assert.match(app, /<TodayView session=\{session\} onNavigate=\{go\} onSessionExpired=\{onLogout\} \/>/);
-  assert.match(app, /<ControlTowerV2 key=\{`\$\{active\}-\$\{reloadKey\}`\} session=\{session\} onNavigate=\{\(section\) =>/);
+  assert.match(app, /function normalizeOwnerSection\(section: SectionId\)/);
+  assert.match(app, /return section === "command" \? "dashboard" : section;/);
+  assert.match(app, /active === "dashboard" \? .*ControlTowerV2/s);
+  assert.doesNotMatch(app, /active === "command" \? .*ControlTowerV2/s);
 });
 
 test("Coach Brain remains an authenticated direct route with evidence links rendered by its component", () => {

@@ -74,9 +74,14 @@ type MediaAssetType = "image" | "video" | "logo" | "other";
 type MediaSource = "upload" | "ai_generated" | "external";
 type JobStatus = "queued" | "processing" | "completed" | "failed" | "retrying" | "dead";
 
+// `command` is a historical URL alias. ControlTowerV2 is the single owner decision gateway.
+function normalizeOwnerSection(section: SectionId): SectionId {
+  return section === "command" ? "dashboard" : section;
+}
+
 function sectionFromLocation(): SectionId {
   const requested = new URLSearchParams(window.location.search).get("section") as SectionId | null;
-  return requested && sections.some(([id]) => id === requested) ? requested : "dashboard";
+  return requested && sections.some(([id]) => id === requested) ? normalizeOwnerSection(requested) : "dashboard";
 }
 
 function sectionUrl(section: SectionId) {
@@ -1349,7 +1354,8 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     ? dashboardCopy.controlledWrite
     : dashboardCopy.readOnly;
 
-  const go = (id: SectionId, replace = false) => {
+  const go = (requestedId: SectionId, replace = false) => {
+    const id = normalizeOwnerSection(requestedId);
     setMoreOpen(false);
     setActive(id);
     const nextUrl = sectionUrl(id);
@@ -1463,7 +1469,6 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
           active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "brain" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><CoachBrain language={language} /></Suspense> :
           active === "workspace" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><RealProductFoundation session={session} language={language} /></Suspense> :
-          active === "command" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><ControlTowerV2 key={`${active}-${reloadKey}`} session={session} onNavigate={(section) => { if (sections.some(([id]) => id === section)) go(section as SectionId); }} onSessionExpired={onLogout} approvalOnly /></Suspense> :
           null
         )}
       </section>

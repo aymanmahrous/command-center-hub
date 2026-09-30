@@ -59,27 +59,24 @@
 
 ## 6. ترتيب المراحل المتبقية المعتمد
 
-1. Complete and safely test Facebook publishing ← المرحلة الحالية (انظر CURRENT_PHASE في القسم 7).
-2. Complete and test Instagram.
-3. Approve and schedule week-one content.
-4. Create and approve media after text approval.
-5. Live publishing with receipts.
-6. GA4 / UTM / Attribution / Conversion Tracking.
-7. SEO / Local SEO.
-8. Chatbot for service and leads.
-9. n8n alerts / follow-ups / reports.
-10. Google Ads.
-11. Meta Ads.
+1. Owner Decision Consolidation — ControlTowerV2 كبوابة القرار الوحيدة (قيد التحقق النهائي).
+2. Content Experience Simplification — فحص وتنظيم الموجود فقط.
+3. Media Experience Simplification — Content → Media → Ready، مع الحفاظ على الموافقات.
+4. Connections / Truthful Status — حالة حقيقية دون إصلاح أو تنفيذ تلقائي.
+5. Operational Flow Verification — Content → Media → Approval → Publish → External Result → Receipt.
+6. Controlled Publishing — اختبار محدود وبموافقة يدوية فقط.
+7. Measurement — GA4 / UTM / Attribution / Conversion Tracking بعد ثبات التشغيل.
+8. Growth Systems — SEO / Local SEO / Chatbot / n8n alerts ثم الإعلانات لاحقًا.
 
 لا يجوز تغيير هذا الترتيب أو تجاوز مرحلة قبل إغلاق التي تسبقها. Release Readiness Review لتطبيق Command Center Hub بند تقني مؤجل (القسم 5) ولا يُدرَج بين هذه المراحل.
 
 ## 7. CURRENT_PHASE
 
-**Instagram Controlled Publishing Test**
+**Owner Decision Consolidation — ControlTowerV2**
 
 ## 8. CURRENT_BLOCKER
 
-**Instagram Controlled Publishing Test — جاهز للنشر عبر n8n فقط.** عنصر الاختبار `ffb9f795-c359-43c5-861c-5594eda75eef` («3 calm breathing habits…»): محتوى **approved**، تصميم Canva **approved** + معاينة تعمل (PR #84)، `consent_confirmed`، `publishability_status=ready_for_review`، `ai_analysis_status=completed`. **المعوق الوحيد:** تشغيل n8n workflow `xNwYPSXQiUyzDSyZ` يدويًا (enqueue يتطلب `service_role` — خارج Hub). لا Boost ولا إعلانات ولا إعادة نشر تلقائي.
+**تم ربط المسار الرئيسي بحيث يعرض `ControlTowerV2` في `dashboard` فقط.** الاسم القديم `?section=command` أصبح alias يعاد تطبيعه إلى `dashboard` ولا يفتح مركز قرار مكررًا. التغيير لا يضيف Backend ولا Migration ولا تنفيذًا خارجيًا. **المتبقي للإغلاق الرسمي:** تحقق واجهة مصادق عليها بحساب مالك/موظف؛ التحقق المحلي غير المصادق مرّ عبر خادم التطوير.
 
 ## 9. آخر نتيجة مؤكدة
 
@@ -103,11 +100,9 @@
 
 ## 10. الخطوة الحالية (NEXT)
 
-1. ~~إنشاء دفعة محتوى (10 عناصر)~~ — **مغلق** (`17ce0f07-…`).
-2. ~~اعتماد منشور Instagram واحد~~ — **مغلق** (`ffb9f795-…`).
-3. تشغيل n8n workflow `xNwYPSXQiUyzDSyZ` للنشر الحي لذلك المنشور فقط.
-4. تقديم: Instagram Post ID، رابط المنشور، وقت النشر، execution ID، receipt status.
-5. عند غموض النتيجة: لا إعادة نشر — إبلاغ المالك.
+1. تنفيذ فحص واجهة مصادق عليها لـ`dashboard` والتأكد من أن `?section=command` يعيد نفس بوابة القرار.
+2. عند PASS: تحديث `CURRENT_PHASE` إلى Content Experience Simplification فقط.
+3. لا يبدأ النشر أو n8n أو أي إجراء خارجي ضمن هذه المرحلة.
 
 ## 11. تذكير إلزامي لكل Agent
 
