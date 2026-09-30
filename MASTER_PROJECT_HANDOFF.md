@@ -60,8 +60,8 @@
 ## 6. ترتيب المراحل المتبقية المعتمد
 
 1. Owner Decision Consolidation — ControlTowerV2 كبوابة القرار الوحيدة (مغلق برمجيًا؛ تحقق الواجهة المصادق عليه مؤجل).
-2. Content Experience Simplification — فحص وتنظيم الموجود فقط (المرحلة الحالية).
-3. Media Experience Simplification — Content → Media → Ready، مع الحفاظ على الموافقات.
+2. Content Experience Simplification — فحص وتنظيم الموجود فقط (مغلق: التوليد يدوي ومؤكد).
+3. Media Experience Simplification — Content → Media → Ready، مع الحفاظ على الموافقات (المرحلة الحالية).
 4. Connections / Truthful Status — حالة حقيقية دون إصلاح أو تنفيذ تلقائي.
 5. Operational Flow Verification — Content → Media → Approval → Publish → External Result → Receipt.
 6. Controlled Publishing — اختبار محدود وبموافقة يدوية فقط.
@@ -72,11 +72,11 @@
 
 ## 7. CURRENT_PHASE
 
-**Content Experience Simplification**
+**Media Experience Simplification**
 
 ## 8. CURRENT_BLOCKER
 
-**تم إغلاق ربط `ControlTowerV2` برمجيًا ودمجه في `main` عبر PR #166.** الاسم القديم `?section=command` أصبح alias إلى `dashboard`. في المرحلة الحالية تم إيقاف توليد دفعات المحتوى التلقائي؛ التوليد لا يحدث إلا بزر يدوي وبعد تأكيد المالك. لا يوجد نشر تلقائي ولا Migration ولا تغيير Backend.
+**تم إغلاق Content Experience عبر PR #167.** التوليد يدوي وبعد تأكيد المالك. في مرحلة الوسائط، `MediaProviderStrip` كان يظهر في Content Factory وMedia Library؛ تم توحيد نقطة التحكم في Media Library فقط، بينما يعرض Content Factory حالة الاتصالات دون أزرار اتصال مكررة. لا حذف للوسائط ولا Migration ولا نشر خارجي.
 
 ## 9. آخر نتيجة مؤكدة
 
@@ -100,9 +100,9 @@
 
 ## 10. الخطوة الحالية (NEXT)
 
-1. فحص واجهة المحتوى الحالية فقط: Content → Media → Ready، وتسجيل أي تكرار حقيقي.
-2. إبقاء التوليد يدويًا ومؤكدًا؛ لا تشغيل تلقائي أو نشر خارجي.
-3. بعد إغلاق الفحص: الانتقال إلى Media Experience Simplification دون بناء مركز جديد.
+1. التحقق من أن Media Library هي نقطة الاتصال والتحكم الوحيدة.
+2. فحص حالة الأصل: linked → needs_review → approved → publish-ready.
+3. بعد الإغلاق: الانتقال إلى Connections / Truthful Status دون إضافة مزود أو OAuth جديد.
 
 ## 11. تذكير إلزامي لكل Agent
 
