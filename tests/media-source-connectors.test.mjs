@@ -7,6 +7,7 @@ const migration = await readFile(new URL("../supabase/migrations/20260922120000_
 const hardeningMigration = await readFile(new URL("../supabase/migrations/20260922124500_harden_media_external_source_rpc.sql", import.meta.url), "utf8");
 const hub = await readFile(new URL("../src/media-source-hub-view.tsx", import.meta.url), "utf8");
 const library = await readFile(new URL("../src/media-library-view.tsx", import.meta.url), "utf8");
+const growthHub = await readFile(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
 
 test("all four media sources use read-only scopes and normalize real provider results", () => {
   for (const provider of ["google_drive", "google_photos", "dropbox", "onedrive"]) assert.match(connectors, new RegExp(provider));
@@ -42,4 +43,10 @@ test("external assets never become marketing-ready during linking", () => {
   assert.match(migration, /'unclassified', 'unclassified', 'not_started', 'blocked', 'unknown'/);
   assert.doesNotMatch(hub, /create_staff_generated_content_batch/);
   assert.doesNotMatch(hub, /create_staff_generated_content_batch|enqueue_publish_job/);
+});
+
+test("Media Library is the single connection control surface", () => {
+  assert.match(library, /MediaProviderStrip/);
+  assert.doesNotMatch(growthHub, /MediaProviderStrip/);
+  assert.match(growthHub, /managed only in Media Library|تتم من مكتبة الوسائط فقط/);
 });

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { groupContentBatches, isDatabaseBatchId, selectPrimaryBatch, buildNextBatchReadyNotice, type ContentBatchItem } from "./content-batch";
 import { COACH_AYMAN_PROVIDER_ID } from "./content-batch-generator";
 import { attachMediaToCoachAymanBatch, buildCoachAyman30DayBatchWithMedia } from "./media-batch-link";
-import { parseMediaAssetRecords, MediaProviderStrip } from "./media-library-controls";
+import { parseMediaAssetRecords } from "./media-library-controls";
 import {
   displayCapabilityState,
   readIntegrationStatuses,
@@ -370,7 +370,11 @@ export default function ContentGrowthHub({
           ))}
         </div>
         <p className="batch-meta">{copy.integrationsNote}</p>
-        <MediaProviderStrip session={session} canWrite={canWrite} />
+        <p className="batch-meta" role="status">
+          {language === "ar"
+            ? "إدارة اتصال Canva ومصادر الوسائط تتم من مكتبة الوسائط فقط؛ هذه الصفحة تعرض الحالة ولا تنشئ نقطة اتصال ثانية."
+            : "Canva and media-source connections are managed only in Media Library; this page shows status without creating a second connection control."}
+        </p>
       </section>}
 
       {activeFactoryTab === "strategy" && <section id="content-strategy" className="content-growth-section" aria-labelledby="strategy-mix-heading">
