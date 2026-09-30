@@ -59,8 +59,8 @@
 
 ## 6. ترتيب المراحل المتبقية المعتمد
 
-1. Owner Decision Consolidation — ControlTowerV2 كبوابة القرار الوحيدة (قيد التحقق النهائي).
-2. Content Experience Simplification — فحص وتنظيم الموجود فقط.
+1. Owner Decision Consolidation — ControlTowerV2 كبوابة القرار الوحيدة (مغلق برمجيًا؛ تحقق الواجهة المصادق عليه مؤجل).
+2. Content Experience Simplification — فحص وتنظيم الموجود فقط (المرحلة الحالية).
 3. Media Experience Simplification — Content → Media → Ready، مع الحفاظ على الموافقات.
 4. Connections / Truthful Status — حالة حقيقية دون إصلاح أو تنفيذ تلقائي.
 5. Operational Flow Verification — Content → Media → Approval → Publish → External Result → Receipt.
@@ -72,11 +72,11 @@
 
 ## 7. CURRENT_PHASE
 
-**Owner Decision Consolidation — ControlTowerV2**
+**Content Experience Simplification**
 
 ## 8. CURRENT_BLOCKER
 
-**تم ربط المسار الرئيسي بحيث يعرض `ControlTowerV2` في `dashboard` فقط.** الاسم القديم `?section=command` أصبح alias يعاد تطبيعه إلى `dashboard` ولا يفتح مركز قرار مكررًا. التغيير لا يضيف Backend ولا Migration ولا تنفيذًا خارجيًا. **المتبقي للإغلاق الرسمي:** تحقق واجهة مصادق عليها بحساب مالك/موظف؛ التحقق المحلي غير المصادق مرّ عبر خادم التطوير.
+**تم إغلاق ربط `ControlTowerV2` برمجيًا ودمجه في `main` عبر PR #166.** الاسم القديم `?section=command` أصبح alias إلى `dashboard`. في المرحلة الحالية تم إيقاف توليد دفعات المحتوى التلقائي؛ التوليد لا يحدث إلا بزر يدوي وبعد تأكيد المالك. لا يوجد نشر تلقائي ولا Migration ولا تغيير Backend.
 
 ## 9. آخر نتيجة مؤكدة
 
@@ -100,9 +100,9 @@
 
 ## 10. الخطوة الحالية (NEXT)
 
-1. تنفيذ فحص واجهة مصادق عليها لـ`dashboard` والتأكد من أن `?section=command` يعيد نفس بوابة القرار.
-2. عند PASS: تحديث `CURRENT_PHASE` إلى Content Experience Simplification فقط.
-3. لا يبدأ النشر أو n8n أو أي إجراء خارجي ضمن هذه المرحلة.
+1. فحص واجهة المحتوى الحالية فقط: Content → Media → Ready، وتسجيل أي تكرار حقيقي.
+2. إبقاء التوليد يدويًا ومؤكدًا؛ لا تشغيل تلقائي أو نشر خارجي.
+3. بعد إغلاق الفحص: الانتقال إلى Media Experience Simplification دون بناء مركز جديد.
 
 ## 11. تذكير إلزامي لكل Agent
 

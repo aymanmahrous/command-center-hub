@@ -5,11 +5,12 @@ import test from "node:test";
 const hub = await readFile(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
 const batch = await readFile(new URL("../src/content-batch.ts", import.meta.url), "utf8");
 
-test("factory auto-run is low-cost and guarded by a future-plan horizon", () => {
-  assert.match(hub, /autoFactoryRun/);
-  assert.match(hub, /futurePlanned/);
-  assert.match(hub, /futurePlanned >= 10/);
-  assert.match(hub, /generateCoachAymanBatch\(\{ automatic: true \}\)/);
+test("factory generation stays manual and requires owner confirmation", () => {
+  assert.doesNotMatch(hub, /autoFactoryRun/);
+  assert.doesNotMatch(hub, /futurePlanned/);
+  assert.doesNotMatch(hub, /generateCoachAymanBatch\(\{ automatic: true \}\)/);
+  assert.match(hub, /window\.confirm\(copy\.generateConfirm\)/);
+  assert.match(hub, /No batch is generated automatically/);
   assert.match(hub, /content-growth-hub/);
 });
 
