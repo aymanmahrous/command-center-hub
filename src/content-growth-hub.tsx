@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { groupContentBatches, isDatabaseBatchId, selectPrimaryBatch, buildNextBatchReadyNotice, type ContentBatchItem } from "./content-batch";
-import { COACH_AYMAN_PROVIDER_ID } from "./content-batch-generator";
+import { COACH_AYMAN_PROVIDER_ID, parseCoachKnowledgeContext } from "./content-batch-generator";
 import { attachMediaToCoachAymanBatch, buildCoachAyman30DayBatchWithMedia } from "./media-batch-link";
 import { parseMediaAssetRecords } from "./media-library-controls";
 import {
@@ -172,13 +172,20 @@ export default function ContentGrowthHub({
       const nonce = crypto.randomUUID();
       const mediaRaw = await callRpc(session, "get_staff_media_assets", {});
       const assets = parseMediaAssetRecords(mediaRaw);
+      let knowledgeContext = parseCoachKnowledgeContext(null);
+      try {
+        const knowledgeRaw = await callRpc(session, "get_staff_knowledge_management", { p_search: null, p_language: null, p_status: "active" });
+        knowledgeContext = parseCoachKnowledgeContext(knowledgeRaw);
+      } catch {
+        knowledgeContext = parseCoachKnowledgeContext(null);
+      }
       let saved: { success?: boolean; batchId?: string; code?: string } | null = null;
 
       for (let shiftDays = 0; shiftDays <= 45 && !saved; shiftDays += 1) {
         const start = new Date();
         start.setUTCDate(start.getUTCDate() + shiftDays);
         const batchNonce = shiftDays === 0 ? nonce : `${nonce}-${shiftDays}`;
-        const items = await buildCoachAyman30DayBatchWithMedia(assets, start, batchNonce);
+        const items = await buildCoachAyman30DayBatchWithMedia(assets, start, batchNonce, knowledgeContext);
 
         try {
           saved = await callRpc(session, "create_staff_generated_content_batch", {

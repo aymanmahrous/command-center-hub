@@ -1,6 +1,6 @@
 import { buildFallbackAssetPlan } from "./media-providers";
 import type { GeneratedBatchItem } from "./content-batch-generator";
-import { buildCoachAyman2026BatchItems } from "./content-batch-generator";
+import { buildCoachAyman2026BatchItems, type CoachKnowledgeContext } from "./content-batch-generator";
 import { canUseInMarketingBatch, type MediaAssetRecord, type MediaSourceKind } from "./media-types";
 
 export type BatchMediaAttachment = {
@@ -67,8 +67,9 @@ export async function buildCoachAyman2026BatchWithMedia(
   assets: MediaAssetRecord[],
   start = new Date(),
   batchNonce = start.toISOString(),
+  knowledgeContext?: CoachKnowledgeContext,
 ) {
-  const base = await buildCoachAyman2026BatchItems(start, batchNonce);
+  const base = await buildCoachAyman2026BatchItems(start, batchNonce, knowledgeContext);
   return attachMediaToCoachAymanBatch(base, assets);
 }
 
@@ -81,6 +82,7 @@ export async function buildCoachAyman30DayBatchWithMedia(
   assets: MediaAssetRecord[],
   start = new Date(),
   batchNonce = start.toISOString(),
+  knowledgeContext?: CoachKnowledgeContext,
 ) {
-  return buildCoachAyman2026BatchWithMedia(assets, start, batchNonce);
+  return buildCoachAyman2026BatchWithMedia(assets, start, batchNonce, knowledgeContext);
 }

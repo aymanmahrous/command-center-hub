@@ -23,7 +23,7 @@ const CANVA_REDIRECT_URI = normalizeRedirectUri(
   Deno.env.get("CANVA_REDIRECT_URI") ?? `${SUPABASE_URL}/functions/v1/canva-oauth`,
 );
 const CANVA_LEGACY_REDIRECT_URI = `${SUPABASE_URL}/functions/v1/canva-oauth?action=callback`;
-const COMMAND_CENTER_RETURN_URL = (Deno.env.get("COMMAND_CENTER_RETURN_URL") ?? "https://command-center-hub-lilac.vercel.app").replace(/\/$/, "");
+const COMMAND_CENTER_RETURN_URL = (Deno.env.get("COMMAND_CENTER_RETURN_URL") ?? "https://hub.relaxfixuae.com").replace(/\/$/, "");
 const CANVA_AUTH_URL = "https://www.canva.com/api/oauth/authorize";
 const CANVA_TOKEN_URL = "https://api.canva.com/rest/v1/oauth/token";
 const CANVA_SCOPES = "profile:read design:meta:read design:content:read design:content:write brandtemplate:meta:read brandtemplate:content:read";

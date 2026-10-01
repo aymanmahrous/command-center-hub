@@ -49,7 +49,36 @@ export type GeneratedBatchItem = {
   mediaAssetId?: string | null;
   mediaSource?: "real" | "ai_generated" | "pending";
   mediaPlan?: Record<string, unknown> | null;
+  knowledgeContext?: {
+    source: "approved_knowledge" | "fallback";
+    verified: boolean;
+    categories: string[];
+    guidance: string[];
+  };
 };
+
+export type CoachKnowledgeContext = {
+  source: "approved_knowledge" | "fallback";
+  verified: boolean;
+  entries: Array<{ category: string; question: string | null; content: string; language: "ar" | "en" }>;
+};
+
+const EMPTY_COACH_KNOWLEDGE: CoachKnowledgeContext = { source: "fallback", verified: false, entries: [] };
+
+export function parseCoachKnowledgeContext(value: unknown): CoachKnowledgeContext {
+  if (!value || typeof value !== "object") return EMPTY_COACH_KNOWLEDGE;
+  const rawEntries = Array.isArray((value as { entries?: unknown }).entries) ? (value as { entries: unknown[] }).entries : [];
+  const entries = rawEntries.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") return [];
+    const row = entry as Record<string, unknown>;
+    const category = typeof row.category === "string" ? row.category.trim() : "";
+    const content = typeof row.content === "string" ? row.content.trim().slice(0, 500) : "";
+    const language = row.language === "ar" ? "ar" : row.language === "en" ? "en" : null;
+    if (!category || !content || !language || row.is_active === false) return [];
+    return [{ category, question: typeof row.question === "string" ? row.question.trim().slice(0, 180) || null : null, content, language }];
+  }).slice(0, 24);
+  return entries.length ? { source: "approved_knowledge", verified: true, entries } : EMPTY_COACH_KNOWLEDGE;
+}
 
 type SlotTemplate = Omit<GeneratedBatchItem, "plannedFor" | "contentFingerprint"> & {
   dayOffset: number;
@@ -69,6 +98,18 @@ const PRIMARY_CTAS = {
   whatsapp: "Send us a WhatsApp message to chat about your child's comfort in the water.",
   book: "Book a free initial assessment — no pressure, just clarity.",
 } as const;
+
+function knowledgeForSlot(slot: SlotTemplate, context: CoachKnowledgeContext) {
+  const searchText = `${slot.contentPillar} ${slot.topic} ${slot.primaryCta}`.toLowerCase();
+  const matched = context.entries.filter((entry) => `${entry.category} ${entry.question ?? ""} ${entry.content}`.toLowerCase().split(/\s+/).some((term) => term.length > 3 && searchText.includes(term))).slice(0, 3);
+  const selected = matched.length ? matched : context.entries.slice(0, 2);
+  return {
+    source: context.source,
+    verified: context.verified,
+    categories: [...new Set(selected.map((entry) => entry.category))],
+    guidance: selected.map((entry) => entry.content.slice(0, 240)),
+  };
+}
 
 function gstSlotUtc(dayOffset: number, hourGst: number, start: Date): string {
   const base = new Date(start);
@@ -540,7 +581,7 @@ function buildCaptionBody(slot: SlotTemplate): string {
   return `${branded}\n\n${slot.primaryCta}`;
 }
 
-export async function buildCoachAyman2026BatchItems(start = new Date(), batchNonce = start.toISOString()): Promise<GeneratedBatchItem[]> {
+export async function buildCoachAyman2026BatchItems(start = new Date(), batchNonce = start.toISOString(), knowledgeContext: CoachKnowledgeContext = EMPTY_COACH_KNOWLEDGE): Promise<GeneratedBatchItem[]> {
   const items: GeneratedBatchItem[] = [];
   for (let index = 0; index < SLOT_TEMPLATES.length; index += 1) {
     const slot = SLOT_TEMPLATES[index];
@@ -561,6 +602,7 @@ export async function buildCoachAyman2026BatchItems(start = new Date(), batchNon
       hashtags: buildHashtags(slot.platform, slot.contentType, slot.topicHashtags),
       visualPrompt: slot.visualPrompt,
       contentFingerprint: await contentFingerprint(fingerprintSeed),
+      knowledgeContext: knowledgeForSlot(slot, knowledgeContext),
     });
   }
   return items;
@@ -1066,6 +1108,7 @@ function buildMonthCaptionBody(slot: SlotTemplate): string {
 export async function buildCoachAyman30DayCalendarItems(
   start = new Date(),
   batchNonce = start.toISOString(),
+  knowledgeContext: CoachKnowledgeContext = EMPTY_COACH_KNOWLEDGE,
 ): Promise<GeneratedBatchItem[]> {
   const items: GeneratedBatchItem[] = [];
   for (let index = 0; index < COACH_AYMAN_30DAY_SLOT_TEMPLATES.length; index += 1) {
@@ -1087,6 +1130,7 @@ export async function buildCoachAyman30DayCalendarItems(
       hashtags: buildHashtags(slot.platform, slot.contentType, slot.topicHashtags),
       visualPrompt: slot.visualPrompt,
       contentFingerprint: await contentFingerprint(fingerprintSeed),
+      knowledgeContext: knowledgeForSlot(slot, knowledgeContext),
     });
   }
   return items;
