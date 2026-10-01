@@ -21,7 +21,7 @@ export function requireCanvaBearer(request: Request): GateResult<string> {
   const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
   return token
     ? { ok: true, value: token }
-    : { ok: false, response: jsonError("AUTH_REQUIRED", 401) };
+    : { ok: false, response: jsonError("AUTH_REQUIRED", 400) };
 }
 
 /** Call only after requireCanvaBearer and the staff-role check succeed. */

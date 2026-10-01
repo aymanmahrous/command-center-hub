@@ -19,7 +19,7 @@ async function assertError(response, { status, code }) {
   assert.deepEqual(await response.json(), { success: false, code });
 }
 
-test("missing, malformed, or unsupported Authorization returns 401 AUTH_REQUIRED", async (t) => {
+test("missing, malformed, or unsupported Authorization returns 400 AUTH_REQUIRED", async (t) => {
   const cases = [
     ["missing header", undefined],
     ["Basic scheme", "Basic abc"],
@@ -32,7 +32,7 @@ test("missing, malformed, or unsupported Authorization returns 401 AUTH_REQUIRED
       const result = requireCanvaBearer(postRequest({ authorization }));
       assert.equal(result.ok, false);
       if (result.ok) return;
-      await assertError(result.response, { status: 401, code: "AUTH_REQUIRED" });
+      await assertError(result.response, { status: 400, code: "AUTH_REQUIRED" });
     });
   }
 });
