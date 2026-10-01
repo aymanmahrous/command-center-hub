@@ -3,7 +3,27 @@ import { AlertTriangle, BookOpen, Brain, Search, ShieldCheck, Sparkles } from "l
 import "./coach-brain.css";
 
 type Source = { title: string; url: string };
-type ResearchResult = { answer: string; sources: Source[]; searchQueries?: string[] };
+type ResearchUsage = {
+  requestedModel: string;
+  modelVersion: string | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  thinkingTokens: number | null;
+  totalTokens: number | null;
+  toolUsePromptTokens: number | null;
+  groundingSearchQueries: number | null;
+  estimatedTokenCostUsd: number | null;
+  pricingStatus: "estimated" | "unavailable";
+  pricingAsOf: string;
+  pricingEffectiveFrom: string | null;
+  pricingEffectiveThrough: string | null;
+  inputUsdPerMillion: number | null;
+  outputUsdPerMillion: number | null;
+  pricingSource: string;
+  groundingFeeIncluded: false;
+  groundingQuotaStatus: "unknown";
+};
+type ResearchResult = { answer: string; sources: Source[]; searchQueries?: string[]; usage: ResearchUsage | null };
 
 const copy = {
   ar: {
@@ -17,6 +37,18 @@ const copy = {
     sources: "المصادر التي اعتمد عليها البحث",
     evidence: "الأدلة",
     safety: "السلامة",
+    usageTitle: "استخدام Gemini والتكلفة التقديرية",
+    inputTokens: "رموز الإدخال",
+    responseTokens: "رموز الإجابة والتفكير",
+    totalTokens: "إجمالي الرموز",
+    searchQueries: "عمليات بحث Google",
+    usageEstimate: "تقدير رموز النموذج (مرجع السعر المدفوع)",
+    usageUnavailable: "التكلفة التقديرية غير متاحة؛ لم تصل بيانات استخدام كافية من المزود.",
+    usageCaveat: "هذا تقدير وليس فاتورة. لا يشمل رسوم Google Search؛ لا نعرف الحصة الشهرية المتبقية أو فئة الفوترة من هذه الشاشة.",
+    searchUsageUnknown: "غير متاحة",
+    modelLabel: "النموذج",
+    pricingSource: "مصدر السعر الرسمي",
+    rateAsOf: "مرجع السعر بتاريخ",
     empty: "اكتب أي سؤال عن السباحة أو التدريب أو التقنية أو الاستارت أو الدوران أو الأدوات.",
     actionsTitle: "ماذا تريد أن تفعل؟",
     actionsHint: "اختر مهمة جاهزة بدل كتابة سؤال من الصفر.",
@@ -40,6 +72,18 @@ const copy = {
     sources: "Sources used by the research",
     evidence: "Evidence",
     safety: "Safety",
+    usageTitle: "Gemini usage & estimated cost",
+    inputTokens: "Input tokens",
+    responseTokens: "Answer and thinking tokens",
+    totalTokens: "Total tokens",
+    searchQueries: "Google Search queries",
+    usageEstimate: "Estimated model-token cost (published paid-tier reference)",
+    usageUnavailable: "Cost estimate unavailable because the provider did not return enough usage data.",
+    usageCaveat: "Estimate only, not an invoice. Google Search fees are excluded; this screen cannot see the monthly quota remaining or billing tier.",
+    searchUsageUnknown: "Not returned",
+    modelLabel: "Model",
+    pricingSource: "Official pricing source",
+    rateAsOf: "Pricing reference date",
     empty: "Ask any swimming, coaching, technique, start, turn, training or equipment question.",
     actionsTitle: "What do you want to do?",
     actionsHint: "Choose a ready task instead of starting from a blank question.",
@@ -63,12 +107,27 @@ function getSessionToken() {
   } catch { return ""; }
 }
 
+function formatTokenCount(value: number | null, language: "ar" | "en") {
+  return value === null ? "—" : new Intl.NumberFormat(language === "ar" ? "ar-AE" : "en-US").format(value);
+}
+
+function formatUsd(value: number, language: "ar" | "en") {
+  if (value > 0 && value < 0.000001) return language === "ar" ? "أقل من 0.000001 دولار" : "Less than $0.000001";
+  return new Intl.NumberFormat(language === "ar" ? "ar-AE" : "en-US", {
+    style: "currency", currency: "USD", minimumFractionDigits: 6, maximumFractionDigits: 6,
+  }).format(value);
+}
+
 export type CoachBrainProps = { language?: "ar" | "en" };
 
 export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
   const t = copy[language];
   const [question, setQuestion] = useState("");
   const [result, setResult] = useState<ResearchResult | null>(null);
+  const usage = result?.usage ?? null;
+  const responseTokens = usage?.outputTokens !== null && usage?.outputTokens !== undefined && usage?.thinkingTokens !== null && usage?.thinkingTokens !== undefined
+    ? usage.outputTokens + usage.thinkingTokens
+    : null;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -87,9 +146,9 @@ export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
         headers: { "Content-Type": "application/json", apikey: publicKey, Authorization: `Bearer ${token}` },
         body: JSON.stringify({ question: value }),
       });
-      const payload = await response.json().catch(() => ({})) as { success?: boolean; answer?: string; sources?: Source[]; searchQueries?: string[] };
+      const payload = await response.json().catch(() => ({})) as { success?: boolean; answer?: string; sources?: Source[]; searchQueries?: string[]; usage?: ResearchUsage | null };
       if (!response.ok || !payload.success || !payload.answer) throw new Error("RESEARCH_FAILED");
-      setResult({ answer: payload.answer, sources: Array.isArray(payload.sources) ? payload.sources : [], searchQueries: payload.searchQueries });
+      setResult({ answer: payload.answer, sources: Array.isArray(payload.sources) ? payload.sources : [], searchQueries: payload.searchQueries, usage: payload.usage ?? null });
     } catch {
       setError(t.error);
     } finally { setBusy(false); }
@@ -148,6 +207,23 @@ export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
           <article className="coach-brain__card coach-brain__answer">
             <div className="coach-brain__result-title"><Sparkles size={18} /> <h2>{t.direct}</h2></div>
             <div className="coach-brain__answer-text">{result.answer}</div>
+          </article>
+          <article className="coach-brain__card coach-brain__usage" aria-label={t.usageTitle}>
+            <div className="coach-brain__result-title"><strong>{t.usageTitle}</strong></div>
+            {usage ? <>
+              <dl className="coach-brain__usage-grid">
+                <div><dt>{t.modelLabel}</dt><dd>{usage.requestedModel}</dd></div>
+                <div><dt>{t.inputTokens}</dt><dd>{formatTokenCount(usage.inputTokens, language)}</dd></div>
+                <div><dt>{t.responseTokens}</dt><dd>{formatTokenCount(responseTokens, language)}</dd></div>
+                <div><dt>{t.totalTokens}</dt><dd>{formatTokenCount(usage.totalTokens, language)}</dd></div>
+                <div><dt>{t.searchQueries}</dt><dd>{usage.groundingSearchQueries === null ? t.searchUsageUnknown : formatTokenCount(usage.groundingSearchQueries, language)}</dd></div>
+              </dl>
+              {usage.estimatedTokenCostUsd === null
+                ? <p role="status">{t.usageUnavailable}</p>
+                : <p className="coach-brain__usage-cost"><strong>{t.usageEstimate}:</strong> {formatUsd(usage.estimatedTokenCostUsd, language)}</p>}
+              <p className="coach-brain__usage-note">{t.usageCaveat} {t.rateAsOf}: {usage.pricingAsOf}.</p>
+              <a href={usage.pricingSource} target="_blank" rel="noreferrer">{t.pricingSource}</a>
+            </> : <p role="status">{t.usageUnavailable}</p>}
           </article>
           <article className="coach-brain__card coach-brain__sources">
             <div className="coach-brain__result-title"><BookOpen size={18} /> <h2>{t.sources}</h2></div>
