@@ -162,3 +162,19 @@
 - **Supabase**: جداول `conversations`/`leads`/`knowledge_entries` جاهزة هيكليًا للمرحلة 8 لكنها فارغة (0 صف).
 - لا يوجد اتصال حي مؤكد بـ WhatsApp Business API أو Facebook Messenger أو Instagram Messaging (لا Webhooks، لا بيانات مسجَّلة).
 - **Vercel Production / الدومين / Google Search Console / Google Business Profile**: BLOCKED_BY_ACCESS أو UNVERIFIED — لم تُفحص مباشرة في هذا الجرد؛ تتطلب دخول المالك عند وصول دور المرحلة المعنية فقط.
+
+
+## 14. Owner-directed technical task — BLK-01 (2026-10-01)
+
+- Branch: `blk-01-coachbrain-cost-transparency`, based on latest main `a56d54c`.
+- **Draft PR #171:** https://github.com/aymanmahrous/command-center-hub/pull/171. It is for review only; no merge or deployment is authorized by this record. This technical task does not change the content-stage `CURRENT_PHASE` above.
+- Coach Brain now forwards Gemini usage metadata and displays bilingual token counts plus a dated, paid-tier token-cost estimate. Missing usage is shown as unavailable; Google Search grounding costs and remaining quota are not guessed. Provider error detail is no longer returned.
+- Validation on latest main: 15 focused tests passed; application TypeScript, strict pricing-helper TypeScript, Edge Function syntax transpile, and `git diff --check` passed. The Vite build compiles but the existing performance gate fails on both base and branch: limit 371,000 raw / 108,700 gzip; clean `origin/main` 400,062 / 117,338; PR branch 400,062 / 117,344. Raw size is unchanged; gzip differs by 6 bytes. No Gemini or Canva request, DB/schema/auth/secret change, publication, or deployment was performed.
+
+### Canva safe-verification boundary
+
+- A read-only Supabase function/version listing is the safe first check. If endpoint reachability also needs confirmation, use a no-credential `OPTIONS` request or a method-rejected request; that proves routing only, not OAuth health.
+- Do **not** use `POST mode: "status"` as a health check: current source calls `refreshCanvaAccessToken` and upserts refreshed credentials in `staff_canva_tokens`. Do **not** use `POST mode: "generate"`: it creates/exports a Canva design and stores media.
+- Current source still contains `staffId = staffId` in the user-auth path. Whether the deployed version matches is unverified. No live Canva check was made; any fix or authenticated runtime test is a separate atomic step.
+
+**NEXT ATOMIC STEP:** Review Draft PR #171. Do not merge or deploy without a separate decision. Canva's read-only metadata/route check, if wanted, is a separate step.
