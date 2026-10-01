@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   AUTHORIZED_FACEBOOK_PUBLISH_ITEM_ID,
+  INSTAGRAM_ACCOUNT_ID,
   buildExternalPostLink,
   buildFacebookPublishAudit,
   buildTrackedCta,
@@ -11,6 +12,10 @@ import {
   resolvePublishPipelineStage,
   summarizeLivePublishingReadiness,
 } from "../src/content-publishing.ts";
+
+test("Instagram account ID matches the official Relax Fix Meta asset", () => {
+  assert.equal(INSTAGRAM_ACCOUNT_ID, "17841400516801494");
+});
 
 test("video pipeline keeps facebook primary path without openai fallback", () => {
   const stage = resolvePublishPipelineStage({
