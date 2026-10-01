@@ -26,8 +26,8 @@ npm run verify
 ```
 
 `npm run verify` runs TypeScript validation, all contract tests, the production build, and the initial-load performance budget.
-
 Run `npm run deps:check` to report outdated direct/transitive packages and known vulnerabilities. It requires dependencies to be installed and npm registry access; it is read-only, never updates packages or the lockfile, and exits nonzero when it finds issues.
+The dependency report groups records by installed package location, shows the project’s direct wanted version separately from every requesting parent, and excludes optional packages that are not installed on the current platform.
 
 ## Browser-safe environment contract
 

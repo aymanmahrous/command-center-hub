@@ -1,4 +1,12 @@
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { basename } from "node:path";
+import { fileURLToPath } from "node:url";
+import { normalizeOutdatedDependencies } from "./dependency-paths.mjs";
+
+const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+const packageRoot = fileURLToPath(new URL("../", import.meta.url));
+const projectNames = [...new Set([packageJson.name, basename(packageRoot)])];
 
 function runNpmJson(args, allowedStatuses) {
   const result = spawnSync("npm", args, {
@@ -25,23 +33,25 @@ try {
   const outdated = runNpmJson(["outdated", "--json", "--all"], [0, 1]);
   // npm audit exits with status 1 when its report contains vulnerabilities.
   const audit = runNpmJson(["audit", "--json"], [0, 1]);
-  const outdatedPackages = Object.entries(outdated).flatMap(([name, result]) => {
-    const entries = Array.isArray(result) ? result : [result];
-    const installedEntry = entries.find((entry) => typeof entry.current === "string");
-    // npm --all includes optional binaries for other operating systems; they are not stale locally.
-    return installedEntry ? [[name, installedEntry]] : [];
-  });
+  // Keep one record per installed location and preserve each parent/root version request.
+  // npm --all includes optional binaries for other operating systems without a current version;
+  // the normalizer excludes those while retaining every installed dependency path.
+  const outdatedPackages = normalizeOutdatedDependencies(outdated, projectNames);
   const vulnerabilities = Object.entries(audit.vulnerabilities ?? {});
   const severityCounts = audit.metadata?.vulnerabilities ?? {};
 
   console.log("Repository dependency check (read-only)");
-  console.log(`Outdated packages: ${outdatedPackages.length}`);
-  for (const [name, details] of outdatedPackages) {
-    const current = details.current ?? "not installed";
-    const wanted = details.wanted ?? "unknown";
-    const latest = details.latest ?? "unknown";
-    const location = details.location ? ` [${details.location}]` : "";
-    console.log(`- ${name}: ${current} -> wanted ${wanted} -> latest ${latest}${location}`);
+  console.log(`Outdated installed package paths: ${outdatedPackages.length}`);
+  for (const details of outdatedPackages) {
+    const latest = details.latestVersions.join(", ") || "unknown";
+    console.log(`- ${details.name}: ${details.current} -> latest ${latest} [${details.location}]`);
+    if (details.projectWants.length > 0) {
+      const wanted = [...new Set(details.projectWants.map((request) => request.wanted))].join(", ");
+      console.log(`  Project manifest (${packageJson.name}) wants: ${wanted}`);
+    }
+    for (const request of details.requests) {
+      console.log(`  Via ${request.dependent} wants: ${request.wanted}`);
+    }
   }
 
   const totalVulnerabilities = typeof severityCounts.total === "number"
