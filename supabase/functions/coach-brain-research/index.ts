@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { buildGeminiUsageSummary } from "./usage.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -52,20 +53,24 @@ async function callGemini(prompt: string) {
     body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], tools: [{ google_search: {} }], generationConfig: { temperature: 0.2 } }),
   });
   if (!response.ok) {
-    const payload = await response.json().catch(() => null) as JsonObject | null;
-    const error = payload?.error;
-    const detail = typeof error === "object" && error ? String((error as JsonObject).message ?? "").slice(0, 300) : "";
-    return { error: json({ success: false, code: "GEMINI_REQUEST_FAILED", providerStatus: response.status, ...(detail ? { detail } : {}) }, 502) };
+    return { error: json({ success: false, code: "GEMINI_REQUEST_FAILED", providerStatus: response.status }, 502) };
   }
   const payload = await response.json().catch(() => null) as JsonObject | null;
   const candidate = (payload?.candidates as JsonObject[] | undefined)?.[0];
+  if (!payload) return { error: json({ success: false, code: "GEMINI_EMPTY_RESPONSE" }, 502) };
   const parts = (candidate?.content as JsonObject | undefined)?.parts as JsonObject[] | undefined;
   const text = parts?.map((part) => part.text).find((value) => typeof value === "string" && value.trim());
   if (!text) return { error: json({ success: false, code: "GEMINI_EMPTY_RESPONSE" }, 502) };
   const grounding = candidate?.groundingMetadata as JsonObject | undefined;
   const chunks = Array.isArray(grounding?.groundingChunks) ? grounding.groundingChunks : [];
   const sources = chunks.map((chunk) => { const web = (chunk as JsonObject).web as JsonObject | undefined; return web && typeof web.uri === "string" ? { title: String(web.title ?? web.uri), url: web.uri } : null; }).filter(Boolean) as { title: string; url: string }[];
-  return { data: { answer: String(text), sources: [...new Map(sources.map((source) => [source.url, source])).values()], searchQueries: Array.isArray(grounding?.webSearchQueries) ? grounding.webSearchQueries : [] } };
+  const usage = buildGeminiUsageSummary({
+    requestedModel: GEMINI_MODEL,
+    modelVersion: payload.modelVersion,
+    metadata: payload.usageMetadata,
+    webSearchQueries: grounding?.webSearchQueries,
+  });
+  return { data: { answer: String(text), sources: [...new Map(sources.map((source) => [source.url, source])).values()], searchQueries: Array.isArray(grounding?.webSearchQueries) ? grounding.webSearchQueries : [], usage } };
 }
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });

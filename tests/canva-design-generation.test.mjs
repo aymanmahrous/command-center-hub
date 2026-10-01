@@ -25,3 +25,13 @@ test("batch review panel exposes generate Canva design action", () => {
   assert.match(panel, /generateCanvaDesignForContentItem/);
   assert.match(panel, /generateDesignButton/);
 });
+
+test("Canva status path does not generate or export, but refreshes and stores OAuth credentials", () => {
+  const statusStart = edge.indexOf('if (body.mode === "status")');
+  const generateStart = edge.indexOf('if (body.mode !== "generate")', statusStart);
+  assert.ok(statusStart >= 0 && generateStart > statusStart, "status branch must remain before generation");
+  const statusBranch = edge.slice(statusStart, generateStart);
+  assert.match(statusBranch, /refreshCanvaAccessToken/);
+  assert.doesNotMatch(statusBranch, /createAutofillDesign|exportDesignPng|storeDesignForContentItem/);
+  assert.match(edge, /from\("staff_canva_tokens"\)\.upsert/);
+});
