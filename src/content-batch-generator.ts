@@ -75,7 +75,7 @@ export function parseCoachKnowledgeContext(value: unknown): CoachKnowledgeContex
     const content = typeof row.content === "string" ? row.content.trim().slice(0, 500) : "";
     const language = row.language === "ar" ? "ar" : row.language === "en" ? "en" : null;
     if (!category || !content || !language || row.is_active === false) return [];
-    return [{ category, question: typeof row.question === "string" ? row.question.trim().slice(0, 180) || null : null, content, language }];
+    return [{ category, question: typeof row.question === "string" ? row.question.trim().slice(0, 180) || null : null, content, language: language as "ar" | "en" }];
   }).slice(0, 24);
   return entries.length ? { source: "approved_knowledge", verified: true, entries } : EMPTY_COACH_KNOWLEDGE;
 }
