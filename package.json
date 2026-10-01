@@ -8,6 +8,7 @@
     "build": "tsc --noEmit && vite build && node scripts/check-performance-budget.mjs",
     "preview": "vite preview --host 0.0.0.0 --port 5000",
     "typecheck": "tsc --noEmit",
+    "deps:check": "node scripts/check-dependencies.mjs",
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
     "verify": "npm run typecheck && npm test && npm run build"
   },
