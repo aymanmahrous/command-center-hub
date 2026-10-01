@@ -23,3 +23,15 @@ test("build tooling stays outside the runtime dependency surface", () => {
     assert.equal(typeof packageJson.dependencies[dependency], "string");
   }
 });
+
+test("dependency check mode reports drift and vulnerabilities without updating packages", async () => {
+  const scanner = await readFile(new URL("../scripts/check-dependencies.mjs", import.meta.url), "utf8");
+  assert.equal(packageJson.scripts["deps:check"], "node scripts/check-dependencies.mjs");
+  assert.match(scanner, /\["outdated", "--json", "--all"\]/);
+  assert.match(scanner, /\["audit", "--json"\]/);
+  assert.match(scanner, /typeof severityCounts\.total === "number"/);
+  assert.match(scanner, /Array\.isArray\(result\)/);
+  assert.match(scanner, /entries\.find\(\(entry\) => typeof entry\.current === "string"\)/);
+  assert.match(scanner, /No packages or lockfiles were changed/);
+  assert.doesNotMatch(scanner, /\["(?:install|update|audit fix)"/);
+});
