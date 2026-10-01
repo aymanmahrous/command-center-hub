@@ -26,12 +26,14 @@ test("build tooling stays outside the runtime dependency surface", () => {
 
 test("dependency check mode reports drift and vulnerabilities without updating packages", async () => {
   const scanner = await readFile(new URL("../scripts/check-dependencies.mjs", import.meta.url), "utf8");
+  const pathNormalizer = await readFile(new URL("../scripts/dependency-paths.mjs", import.meta.url), "utf8");
   assert.equal(packageJson.scripts["deps:check"], "node scripts/check-dependencies.mjs");
   assert.match(scanner, /\["outdated", "--json", "--all"\]/);
   assert.match(scanner, /\["audit", "--json"\]/);
   assert.match(scanner, /typeof severityCounts\.total === "number"/);
-  assert.match(scanner, /Array\.isArray\(result\)/);
-  assert.match(scanner, /entries\.find\(\(entry\) => typeof entry\.current === "string"\)/);
+  assert.match(scanner, /normalizeOutdatedDependencies\(outdated, projectNames\)/);
+  assert.match(pathNormalizer, /projectNames\.has\(request\.dependent\)/);
+  assert.match(pathNormalizer, /!projectNames\.has\(request\.dependent\)/);
   assert.match(scanner, /No packages or lockfiles were changed/);
   assert.doesNotMatch(scanner, /\["(?:install|update|audit fix)"/);
 });
