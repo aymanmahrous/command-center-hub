@@ -1,6 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { CANVA_CORS_HEADERS as CORS_HEADERS, parseCanvaAction, requireCanvaBearer } from "./contract.ts";
 
 const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/$/, "");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -30,6 +29,11 @@ const CANVA_TOKEN_URL = "https://api.canva.com/rest/v1/oauth/token";
 const CANVA_SCOPES = "profile:read design:meta:read design:content:read design:content:write brandtemplate:meta:read brandtemplate:content:read";
 const ALLOWED_ROLES = new Set(["super_admin", "admin", "content_manager"]);
 const STATE_TTL_MS = 15 * 60 * 1000;
+const CORS_HEADERS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-headers": "authorization, apikey, content-type",
+  "access-control-allow-methods": "GET, POST, OPTIONS",
+};
 
 type JsonObject = Record<string, unknown>;
 
@@ -38,6 +42,11 @@ function json(body: JsonObject, status = 200) {
     status,
     headers: { "content-type": "application/json", ...CORS_HEADERS },
   });
+}
+
+function bearerToken(request: Request) {
+  const authorization = request.headers.get("authorization") ?? "";
+  return authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
 }
 
 function redirectUriCandidates(): string[] {
@@ -269,15 +278,14 @@ Deno.serve(async (request) => {
 
   if (request.method !== "POST") return json({ success: false, code: "METHOD_NOT_ALLOWED" }, 405);
 
-  const auth = requireCanvaBearer(request);
-  if (!auth.ok) return auth.response;
-  const staff = await requireStaff(supabase, auth.value);
+  const token = bearerToken(request);
+  if (!token) return json({ success: false, code: "AUTH_REQUIRED" }, 401);
+  const staff = await requireStaff(supabase, token);
   if ("error" in staff && staff.error) return staff.error;
 
-  const action = await parseCanvaAction(request);
-  if (!action.ok) return action.response;
-  if (action.value === "status") return handleStatus(supabase, staff.staffId!);
-  if (action.value === "authorize") return handleAuthorize(supabase, staff.staffId!);
+  const body = await request.json().catch(() => ({})) as JsonObject;
+  if (body.mode === "status") return handleStatus(supabase, staff.staffId!);
+  if (body.mode === "authorize") return handleAuthorize(supabase, staff.staffId!);
 
   return json({ success: false, code: "INVALID_INPUT" }, 400);
 });
