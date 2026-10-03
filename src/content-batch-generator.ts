@@ -57,10 +57,17 @@ export type GeneratedBatchItem = {
   };
 };
 
+export type CoachBrainFactoryContext = {
+  question: string;
+  answer: string;
+  sources: Array<{ title: string; url: string }>;
+};
+
 export type CoachKnowledgeContext = {
   source: "approved_knowledge" | "fallback";
   verified: boolean;
   entries: Array<{ category: string; question: string | null; content: string; language: "ar" | "en" }>;
+  researchContext?: CoachBrainFactoryContext;
 };
 
 const EMPTY_COACH_KNOWLEDGE: CoachKnowledgeContext = { source: "fallback", verified: false, entries: [] };
@@ -103,11 +110,15 @@ function knowledgeForSlot(slot: SlotTemplate, context: CoachKnowledgeContext) {
   const searchText = `${slot.contentPillar} ${slot.topic} ${slot.primaryCta}`.toLowerCase();
   const matched = context.entries.filter((entry) => `${entry.category} ${entry.question ?? ""} ${entry.content}`.toLowerCase().split(/\s+/).some((term) => term.length > 3 && searchText.includes(term))).slice(0, 3);
   const selected = matched.length ? matched : context.entries.slice(0, 2);
+  const guidance = selected.map((entry) => entry.content.slice(0, 240));
+  if (context.researchContext?.answer) {
+    guidance.push(`Coach Brain research (supporting context only): ${context.researchContext.answer.slice(0, 600)}`);
+  }
   return {
     source: context.source,
     verified: context.verified,
     categories: [...new Set(selected.map((entry) => entry.category))],
-    guidance: selected.map((entry) => entry.content.slice(0, 240)),
+    guidance: guidance.slice(0, 4),
   };
 }
 
