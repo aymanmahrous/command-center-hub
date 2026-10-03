@@ -98,7 +98,7 @@ const copy = {
   },
 };
 
-const COACH_BRAIN_FACTORY_HANDOFF_KEY = "coach-brain-factory-handoff";
+export const COACH_BRAIN_FACTORY_HANDOFF_KEY = "coach-brain-factory-handoff";
 
 function getSessionToken() {
   try {
@@ -219,10 +219,7 @@ export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
 
       {result && (
         <section id="coach-results" className="coach-brain__results" aria-live="polite">
-          <div className="coach-brain__results-heading"><span className="coach-brain__step">4</span><div><strong>{language === "ar" ? "النتيجة العملية" : "Practical result"}</strong><p>{language === "ar" ? "اقرأ الإجابة، راجع المصادر، ثم ابدأ مهمة جديدة عند الحاجة." : "Read the answer, review the sources, and start a new task when needed."}</p></div><div className="coach-brain__result-actions">
-            <button type="button" className="coach-brain__reset" onClick={() => { setResult(null); setQuestion(""); setError(""); }}>{language === "ar" ? "مهمة جديدة" : "New task"}</button>
-            <button type="button" className="coach-brain__reset" onClick={sendResultToFactory}>{language === "ar" ? "إرسال إلى مصنع المحتوى" : "Send to Content Factory"}</button>
-          </div></div>
+          <div className="coach-brain__results-heading"><span className="coach-brain__step">4</span><div><strong>{language === "ar" ? "النتيجة العملية" : "Practical result"}</strong><p>{language === "ar" ? "اقرأ الإجابة، راجع المصادر، ثم أرسلها لمصنع المحتوى عند الحاجة." : "Read the answer, review the sources, then send it to Content Factory when useful."}</p></div><div className="coach-brain__results-actions"><button type="button" className="coach-brain__reset" onClick={() => { setResult(null); setQuestion(""); setError(""); }}>{language === "ar" ? "مهمة جديدة" : "New task"}</button><button type="button" className="coach-brain__reset" onClick={sendResultToFactory}>{language === "ar" ? "إرسال إلى مصنع المحتوى" : "Send to Content Factory"}</button></div></div>
           <article className="coach-brain__card coach-brain__answer">
             <div className="coach-brain__result-title"><Sparkles size={18} /> <h2>{t.direct}</h2></div>
             <div className="coach-brain__answer-text">{result.answer}</div>
