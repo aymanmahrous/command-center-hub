@@ -44,7 +44,7 @@ test('V2 Home exposes quick operating navigation and filters decision signals', 
 test('Command Center guidance is derived from current summary data and cannot execute external actions', () => {
   assert.match(view, /AI ACTIVITY/);
   assert.match(view, /conversations for human review/);
-  assert.match(view, /content items waiting approval/);
+  assert.match(view, /content needs review or recovery/);
   assert.match(view, /booking requests need confirmation/);
   assert.match(view, /never executes actions automatically/);
   assert.match(view, /Review All/);
