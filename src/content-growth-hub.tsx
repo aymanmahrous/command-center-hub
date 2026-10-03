@@ -27,7 +27,7 @@ const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || im
 
 type GrowthSession = { accessToken: string };
 
-const COACH_BRAIN_FACTORY_HANDOFF_KEY = "coach-brain-factory-handoff";
+export const COACH_BRAIN_FACTORY_HANDOFF_KEY = "coach-brain-factory-handoff";
 
 function readCoachBrainFactoryContext(): CoachBrainFactoryContext | null {
   try {
