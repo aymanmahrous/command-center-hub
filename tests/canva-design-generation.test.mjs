@@ -31,6 +31,8 @@ test("Canva status path does not generate or export, but refreshes and stores OA
   const generateStart = edge.indexOf('if (body.mode !== "generate")', statusStart);
   assert.ok(statusStart >= 0 && generateStart > statusStart, "status branch must remain before generation");
   const statusBranch = edge.slice(statusStart, generateStart);
+  assert.match(edge, /staffId = staff\.staffId/);
+  assert.doesNotMatch(edge, /staffId = staffId/);
   assert.match(statusBranch, /refreshCanvaAccessToken/);
   assert.doesNotMatch(statusBranch, /createAutofillDesign|exportDesignPng|storeDesignForContentItem/);
   assert.match(edge, /from\("staff_canva_tokens"\)\.upsert/);
