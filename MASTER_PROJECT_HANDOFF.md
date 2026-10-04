@@ -101,11 +101,11 @@
 
 ## 7. CURRENT_PHASE
 
-**Media Experience Simplification**
+**BUTTON AUDIT — بعد إغلاق FACTORY CONNECTION**
 
 ## 8. CURRENT_BLOCKER
 
-**تم إغلاق Content Experience عبر PR #167.** التوليد يدوي وبعد تأكيد المالك. في مرحلة الوسائط، `MediaProviderStrip` كان يظهر في Content Factory وMedia Library؛ تم توحيد نقطة التحكم في Media Library فقط، بينما يعرض Content Factory حالة الاتصالات دون أزرار اتصال مكررة. لا حذف للوسائط ولا Migration ولا نشر خارجي.
+**لا يوجد عطل Production مثبت حاليًا.** آخر Production deployment مربوط بـ`main` والـcommit `6a5e2f8` وحالته READY، ولم تظهر Runtime Errors في آخر 6 ساعات عند آخر فحص. كانت هناك فجوة توثيقية: هذا الـHandoff كان متأخرًا عن الكود. تم تصحيح ترتيب المراحل ليعكس الحقيقة الحالية.
 
 ## 9. آخر نتيجة مؤكدة
 
@@ -129,9 +129,12 @@
 
 ## 10. الخطوة الحالية (NEXT)
 
-1. التحقق من أن Media Library هي نقطة الاتصال والتحكم الوحيدة.
-2. فحص حالة الأصل: linked → needs_review → approved → publish-ready.
-3. بعد الإغلاق: الانتقال إلى Connections / Truthful Status دون إضافة مزود أو OAuth جديد.
+1. إغلاق Button Audit باستخدام `OWNER_CAPABILITY_MATRIX.md` والاختبارات الموجودة، وعدم إعادة اختبار البنود المغلقة بلا سبب.
+2. الانتقال مباشرة إلى Connection Truth: التحقق من أن حالات Connected / Ready / Needs Attention / Action Required / Pending تعكس الأدلة الفعلية، دون إضافة مزود أو OAuth أو نظام جديد.
+3. إذا ظهرت فجوة حقيقية، تنفيذ Atomic Step واحد فقط ثم التوقف للتحقق.
+4. تأجيل الفحص البصري إلى Final Owner Test بعد اكتمال الإصلاحات.
+
+**آخر نقطة آمنة مؤكدة:** `main` = `6a5e2f8`، Production = READY.
 
 ## 11. تذكير إلزامي لكل Agent
 
