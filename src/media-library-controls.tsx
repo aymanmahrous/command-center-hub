@@ -138,13 +138,13 @@ export function MediaProviderStrip({ session, canWrite = false }: { session?: Co
             className={(provider.connected || (geminiStatus === "CONNECTED" && provider.key === "gemini") || (canvaConnected && provider.key === "canva")) ? "connected" : provider.optional ? "optional" : provider.manual ? "manual" : "disconnected"}
             title={provider.key === "canva" ? canvaDetail || provider.detail : provider.detail}
           >
-            {provider.key}: {displayProviderStatus(provider, { geminiIntegration: geminiStatus ?? undefined, canvaConnected })}
+            {provider.key}: {provider.key === "canva" && canvaConnected ? "NEEDS ATTENTION" : displayProviderStatus(provider, { geminiIntegration: geminiStatus ?? undefined, canvaConnected })}
           </span>
         ))}
       </div>
       <div className="canva-connect-control" aria-label="Canva connection">
-        <span className={canvaConnected ? "connected" : "optional"}>
-          Canva: {canvaConnected ? "CONNECTED" : "OPTIONAL / NOT CONNECTED"}
+        <span className={canvaConnected ? "optional" : "optional"}>
+          Canva: {canvaConnected ? "NEEDS ATTENTION" : "OPTIONAL / NOT CONNECTED"}
         </span>
         {canvaConnected ? (
           <a className="canva-action" href={CANVA_OPEN_URL} target="_blank" rel="noopener noreferrer">Open Canva</a>
