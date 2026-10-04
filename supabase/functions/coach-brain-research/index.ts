@@ -1,10 +1,12 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { buildCostTransparency, pricingFromEnvironment } from "./cost.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const GEMINI_API_KEY = (Deno.env.get("GEMINI_API_KEY") ?? "").trim();
 const GEMINI_MODEL = "gemini-3.7-flash";
+const COACH_BRAIN_PRICING = pricingFromEnvironment((name) => Deno.env.get(name));
 const ALLOWED_ROLES = new Set(["super_admin", "admin", "coach", "reception"]);
 const CORS_HEADERS = { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, apikey, content-type", "access-control-allow-methods": "POST, OPTIONS" };
 
@@ -65,7 +67,14 @@ async function callGemini(prompt: string) {
   const grounding = candidate?.groundingMetadata as JsonObject | undefined;
   const chunks = Array.isArray(grounding?.groundingChunks) ? grounding.groundingChunks : [];
   const sources = chunks.map((chunk) => { const web = (chunk as JsonObject).web as JsonObject | undefined; return web && typeof web.uri === "string" ? { title: String(web.title ?? web.uri), url: web.uri } : null; }).filter(Boolean) as { title: string; url: string }[];
-  return { data: { answer: String(text), sources: [...new Map(sources.map((source) => [source.url, source])).values()], searchQueries: Array.isArray(grounding?.webSearchQueries) ? grounding.webSearchQueries : [] } };
+  return {
+    data: {
+      answer: String(text),
+      sources: [...new Map(sources.map((source) => [source.url, source])).values()],
+      searchQueries: Array.isArray(grounding?.webSearchQueries) ? grounding.webSearchQueries : [],
+      costTransparency: buildCostTransparency(GEMINI_MODEL, payload?.usageMetadata as JsonObject | undefined, COACH_BRAIN_PRICING),
+    },
+  };
 }
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });

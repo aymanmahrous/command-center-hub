@@ -3,7 +3,8 @@ import { AlertTriangle, BookOpen, Brain, Search, ShieldCheck, Sparkles } from "l
 import "./coach-brain.css";
 
 type Source = { title: string; url: string };
-type ResearchResult = { answer: string; sources: Source[]; searchQueries?: string[] };
+type CostTransparency = { model: string; inputTokens: number | null; outputTokens: number | null; totalTokens: number | null; pricingConfigured: boolean; estimatedCostUsd: number | null; pricingSource: string };
+type ResearchResult = { answer: string; sources: Source[]; searchQueries?: string[]; costTransparency?: CostTransparency };
 
 const copy = {
   ar: {
@@ -17,6 +18,14 @@ const copy = {
     sources: "المصادر التي اعتمد عليها البحث",
     evidence: "الأدلة",
     safety: "السلامة",
+    cost: "شفافية الاستخدام والتكلفة",
+    model: "النموذج",
+    inputTokens: "توكنات الإدخال",
+    outputTokens: "توكنات الإخراج",
+    totalTokens: "إجمالي التوكنات",
+    estimatedCost: "التكلفة المقدرة بالدولار",
+    unavailable: "غير متاح",
+    notPriced: "لم تُضبط أسعار المزود؛ نعرض الاستخدام دون اختلاق مبلغ.",
     empty: "اكتب أي سؤال عن السباحة أو التدريب أو التقنية أو الاستارت أو الدوران أو الأدوات.",
     actionsTitle: "ماذا تريد أن تفعل؟",
     actionsHint: "اختر مهمة جاهزة بدل كتابة سؤال من الصفر.",
@@ -40,6 +49,14 @@ const copy = {
     sources: "Sources used by the research",
     evidence: "Evidence",
     safety: "Safety",
+    cost: "Usage and cost transparency",
+    model: "Model",
+    inputTokens: "Input tokens",
+    outputTokens: "Output tokens",
+    totalTokens: "Total tokens",
+    estimatedCost: "Estimated cost (USD)",
+    unavailable: "Unavailable",
+    notPriced: "Provider pricing is not configured; usage is shown without inventing a dollar amount.",
     empty: "Ask any swimming, coaching, technique, start, turn, training or equipment question.",
     actionsTitle: "What do you want to do?",
     actionsHint: "Choose a ready task instead of starting from a blank question.",
@@ -87,9 +104,9 @@ export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
         headers: { "Content-Type": "application/json", apikey: publicKey, Authorization: `Bearer ${token}` },
         body: JSON.stringify({ question: value }),
       });
-      const payload = await response.json().catch(() => ({})) as { success?: boolean; answer?: string; sources?: Source[]; searchQueries?: string[] };
+      const payload = await response.json().catch(() => ({})) as { success?: boolean; answer?: string; sources?: Source[]; searchQueries?: string[]; costTransparency?: CostTransparency };
       if (!response.ok || !payload.success || !payload.answer) throw new Error("RESEARCH_FAILED");
-      setResult({ answer: payload.answer, sources: Array.isArray(payload.sources) ? payload.sources : [], searchQueries: payload.searchQueries });
+      setResult({ answer: payload.answer, sources: Array.isArray(payload.sources) ? payload.sources : [], searchQueries: payload.searchQueries, costTransparency: payload.costTransparency });
     } catch {
       setError(t.error);
     } finally { setBusy(false); }
@@ -153,6 +170,17 @@ export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
             <div className="coach-brain__result-title"><BookOpen size={18} /> <h2>{t.sources}</h2></div>
             {result.sources.length ? result.sources.map((source) => <a key={source.url} href={source.url} target="_blank" rel="noreferrer" className="coach-brain__source-link"><strong>{source.title}</strong><span>{source.url}</span></a>) : <p>{language === "ar" ? "لم يعرض مزود البحث مصادر مباشرة لهذه الإجابة." : "The research provider did not return direct source links for this answer."}</p>}
           </article>
+          {result.costTransparency && <article className="coach-brain__card coach-brain__cost" aria-label={t.cost}>
+            <div className="coach-brain__result-title"><ShieldCheck size={18} /> <h2>{t.cost}</h2></div>
+            <dl className="coach-brain__cost-grid">
+              <div><dt>{t.model}</dt><dd>{result.costTransparency.model}</dd></div>
+              <div><dt>{t.inputTokens}</dt><dd>{result.costTransparency.inputTokens?.toLocaleString() ?? t.unavailable}</dd></div>
+              <div><dt>{t.outputTokens}</dt><dd>{result.costTransparency.outputTokens?.toLocaleString() ?? t.unavailable}</dd></div>
+              <div><dt>{t.totalTokens}</dt><dd>{result.costTransparency.totalTokens?.toLocaleString() ?? t.unavailable}</dd></div>
+              <div><dt>{t.estimatedCost}</dt><dd>{result.costTransparency.estimatedCostUsd === null ? t.unavailable : `$${result.costTransparency.estimatedCostUsd.toFixed(8)}`}</dd></div>
+            </dl>
+            <p className="coach-brain__cost-note">{result.costTransparency.pricingConfigured ? result.costTransparency.pricingSource : t.notPriced}</p>
+          </article>}
           <div className="coach-brain__safety"><AlertTriangle size={17} /><strong>{t.safety}:</strong><span>{language === "ar" ? "Coach Brain لا يشخّص ولا يقدم علاجًا طبيًا، ولا يوصي بالغمر القسري. في الإصابة أو الألم أو التأهيل السريري يجب الرجوع للمختص المناسب." : "Coach Brain does not diagnose or provide medical treatment, and it does not recommend forced submersion. For injury, pain or clinical rehabilitation, use the appropriate licensed professional."}</span></div>
         </section>
       )}
