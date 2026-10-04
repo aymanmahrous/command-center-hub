@@ -1391,6 +1391,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   // Advanced modules remain reachable through More; no feature is removed.
   const primary = [
     ["dashboard", LayoutDashboard, nav.dashboard],
+    ["brain", Bot, nav.brain],
     ["content", BarChart3, nav.factory],
     ["inbox", Inbox, nav.inbox],
     ["media", Library, nav.media],
@@ -1398,11 +1399,11 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   ] as const;
   const desktopPrimary = [
     ["dashboard", LayoutDashboard, nav.dashboard],
+    ["brain", Bot, nav.brain],
     ["content", BarChart3, nav.factory],
     ["inbox", Inbox, nav.inbox],
     ["media", Library, nav.media],
     ["automations", Workflow, nav.operations],
-    ["connections", Settings2, nav.connections],
   ] as const;
 
   return <div className="app-shell">
