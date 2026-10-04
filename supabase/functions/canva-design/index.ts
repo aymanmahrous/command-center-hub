@@ -339,7 +339,7 @@ Deno.serve(async (request) => {
     if (!token) return json({ success: false, code: "AUTH_REQUIRED" }, 401);
     const staff = await requireStaff(serviceSupabase, token);
     if ("error" in staff && staff.error) return staff.error;
-    staffId = staffId;
+    staffId = staff.staffId;
   }
 
   const body = await request.json().catch(() => ({})) as JsonObject;
