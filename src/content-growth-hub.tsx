@@ -293,7 +293,24 @@ export default function ContentGrowthHub({
         </div>
       )}
 
-      {coachBrainContext && <div className="content-growth-banner" role="status"><strong>{language === "ar" ? "سياق Coach Brain متاح للمصنع" : "Coach Brain context is available to Factory"}</strong><p>{coachBrainContext.question}</p><small>{language === "ar" ? "يُستخدم كسياق بحثي مساعد فقط؛ المعرفة الأكاديمية الأساسية تبقى من المصدر الحالي." : "Used only as supporting research context; canonical Academy Knowledge remains the existing source."}</small></div>}
+      {coachBrainContext && (
+        <section className="content-growth-banner" aria-labelledby="coach-brain-factory-context-heading">
+          <strong id="coach-brain-factory-context-heading">{language === "ar" ? "Coach Brain → مصنع المحتوى" : "Coach Brain → Content Factory"}</strong>
+          <p>{coachBrainContext.question}</p>
+          <details>
+            <summary>{language === "ar" ? "عرض نتيجة البحث التي وصلت للمصنع" : "Show the research result received by Factory"}</summary>
+            <p className="batch-meta">{coachBrainContext.answer}</p>
+            {coachBrainContext.sources.length > 0 && (
+              <ul className="batch-meta">
+                {coachBrainContext.sources.map((source) => (
+                  <li key={source.url}><a href={source.url} target="_blank" rel="noreferrer noopener">{source.title}</a></li>
+                ))}
+              </ul>
+            )}
+          </details>
+          <small>{language === "ar" ? "هذا السياق يدخل محرك التوليد كمعلومة بحثية مساعدة؛ معرفة الأكاديمية المعتمدة تظل المصدر الأساسي. لا يغيّر الخطة أو أعمدة المحتوى من تلقاء نفسه." : "This context feeds the generation engine as supporting research; approved Academy Knowledge remains canonical. It does not silently change the plan or content pillars."}</small>
+        </section>
+      )}
 
       {generateNotice && <div className="notice-box" aria-live="polite">{generateNotice}</div>}
 
