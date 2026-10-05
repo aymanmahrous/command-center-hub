@@ -1363,7 +1363,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     else if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.pushState({ section: id }, "", nextUrl);
   };
 
-  const moreIds = new Set<SectionId>(["today", "command", "crm", "planner", "archive", "analytics", "integrations", "connections", "radar", "brain", "workspace"]);
+  const moreIds = new Set<SectionId>(["today", "crm", "planner", "archive", "analytics", "integrations", "connections", "radar", "workspace"]);
   const moreItems = sections.filter(([id]) => moreIds.has(id));
 
   const morePanel = (
@@ -1391,6 +1391,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   // Advanced modules remain reachable through More; no feature is removed.
   const primary = [
     ["dashboard", LayoutDashboard, nav.dashboard],
+    ["brain", Bot, nav.brain],
     ["content", BarChart3, nav.factory],
     ["inbox", Inbox, nav.inbox],
     ["media", Library, nav.media],
@@ -1398,18 +1399,18 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   ] as const;
   const desktopPrimary = [
     ["dashboard", LayoutDashboard, nav.dashboard],
+    ["brain", Bot, nav.brain],
     ["content", BarChart3, nav.factory],
     ["inbox", Inbox, nav.inbox],
     ["media", Library, nav.media],
     ["automations", Workflow, nav.operations],
-    ["connections", Settings2, nav.connections],
   ] as const;
 
   return <div className="app-shell">
     <a className="skip-link" href="#main-workspace">{nav.skipToContent}</a>
       <aside>
       <div className="side-brand">
-        <strong>Relax Fix AI OS</strong>
+        <strong>Command Center Hub</strong>
         <span>{language === "ar" ? "مركز تشغيل السباحة" : "Swimming Academy OS"}</span>
         <small>{session.displayName} · {session.role}</small>
       </div>
@@ -1435,7 +1436,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
       <header className="owner-header">
         <div>
           <p className="eyebrow">{language === "ar" ? "مركز القيادة" : "OWNER COMMAND CENTER"}</p>
-          <h1>{active === "content" ? nav.marketing : active === "dashboard" ? nav.dashboard : nav[current[0]]}</h1>
+          <h1>{active === "content" ? nav.factory : active === "dashboard" ? nav.dashboard : nav[current[0]]}</h1>
         </div>
         <div className="owner-header-actions">
           <button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button>

@@ -162,11 +162,22 @@ export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
         headers: { "Content-Type": "application/json", apikey: publicKey, Authorization: `Bearer ${token}` },
         body: JSON.stringify({ question: value }),
       });
-      const payload = await response.json().catch(() => ({})) as { success?: boolean; answer?: string; sources?: Source[]; searchQueries?: string[]; usage?: ResearchUsage | null };
-      if (!response.ok || !payload.success || !payload.answer) throw new Error("RESEARCH_FAILED");
+      const payload = await response.json().catch(() => ({})) as { success?: boolean; code?: string; answer?: string; sources?: Source[]; searchQueries?: string[]; usage?: ResearchUsage | null };
+      if (!response.ok || !payload.success || !payload.answer) {
+        const code = payload.code ?? (response.status === 401 ? "AUTH_REQUIRED" : response.status === 403 ? "STAFF_ACCESS_DENIED" : "RESEARCH_FAILED");
+        if (code === "NEEDS_CREDENTIAL") throw new Error("NEEDS_CREDENTIAL");
+        if (code === "AUTH_REQUIRED" || response.status === 401) throw new Error("AUTH_REQUIRED");
+        if (code === "STAFF_ACCESS_DENIED" || response.status === 403) throw new Error("STAFF_ACCESS_DENIED");
+        if (code === "ACADEMY_CONTEXT_FAILED") throw new Error("ACADEMY_CONTEXT_FAILED");
+        throw new Error("RESEARCH_FAILED");
+      }
       setResult({ answer: payload.answer, sources: Array.isArray(payload.sources) ? payload.sources : [], searchQueries: payload.searchQueries, usage: payload.usage ?? null });
-    } catch {
-      setError(t.error);
+    } catch (cause) {
+      const code = cause instanceof Error ? cause.message : "RESEARCH_FAILED";
+      if (code === "NEEDS_CREDENTIAL") setError(language === "ar" ? "Coach Brain يحتاج مفتاح Gemini في Supabase Edge Function باسم GEMINI_API_KEY. لا تضع المفتاح داخل التطبيق." : "Coach Brain needs the Gemini key in Supabase Edge Function secrets as GEMINI_API_KEY. Do not put the key in the app.");
+      else if (code === "AUTH_REQUIRED" || code === "STAFF_ACCESS_DENIED") setError(language === "ar" ? "جلسة الدخول غير صالحة أو لا تملك صلاحية Coach Brain. سجّل الدخول مرة أخرى." : "The staff session is invalid or does not have Coach Brain access. Sign in again.");
+      else if (code === "ACADEMY_CONTEXT_FAILED") setError(language === "ar" ? "Coach Brain وصل للخدمة لكن لم يستطع تحميل Academy Knowledge. سأحتاج إصلاح مسار المعرفة، وليس مفتاحًا جديدًا." : "Coach Brain reached the service but could not load Academy Knowledge. This needs a knowledge-path fix, not a new key.");
+      else setError(t.error);
     } finally { setBusy(false); }
   }
 

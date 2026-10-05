@@ -7,6 +7,12 @@ import { deriveWorkflowActions } from "./workflow-intelligence";
 import "./v2-command-center.css";
 
 type Session = { accessToken: string; role: string; displayName?: string };
+type OperationsQueue = {
+  followUps: Array<{ id: string; status: "queued" | "processing" | "completed" | "failed" | "retrying" | "dead" }>;
+  backgroundJobs: Array<{ id: string; status: "queued" | "processing" | "completed" | "failed" | "retrying" | "dead" }>;
+  generatedAt: string;
+};
+
 type Summary = {
   generatedAt: string;
   leads: { total: number; customers: number; new: number; hot: number };
@@ -23,8 +29,8 @@ type Summary = {
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
 const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
 
-async function loadSummary(session: Session, signal: AbortSignal) {
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_staff_control_tower_summary`, {
+async function callStaffRpc<T>(session: Session, rpcName: string, signal: AbortSignal) {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${encodeURIComponent(rpcName)}`, {
     method: "POST",
     headers: { apikey: SUPABASE_PUBLIC_KEY, Authorization: `Bearer ${session.accessToken}`, "Content-Type": "application/json", Accept: "application/json" },
     body: "{}",
@@ -33,7 +39,22 @@ async function loadSummary(session: Session, signal: AbortSignal) {
   if (response.status === 401) throw new Error("SESSION_EXPIRED");
   if (response.status === 403) throw new Error("STAFF_ACCESS_DENIED");
   if (!response.ok) throw new Error(`RPC_FAILED_${response.status}`);
-  return (await response.json()) as Summary;
+  return (await response.json()) as T;
+}
+
+async function loadSummary(session: Session, signal: AbortSignal) {
+  const [summary, operations] = await Promise.all([
+    callStaffRpc<Summary>(session, "get_staff_control_tower_summary", signal),
+    callStaffRpc<OperationsQueue>(session, "get_staff_operations_queue", signal),
+  ]);
+  const operationalFailed = operations.backgroundJobs.filter((job) => job.status === "failed").length
+    + operations.followUps.filter((job) => job.status === "failed").length;
+  const operationalActive = operations.backgroundJobs.filter((job) => ["queued", "processing", "retrying"].includes(job.status)).length
+    + operations.followUps.filter((job) => ["queued", "processing", "retrying"].includes(job.status)).length;
+  return {
+    ...summary,
+    automation: { failed: operationalFailed, active: operationalActive },
+  };
 }
 
 function n(language: Language, value: number) { return new Intl.NumberFormat(language === "ar" ? "ar-AE" : "en-AE").format(value || 0); }
@@ -73,7 +94,7 @@ export default function ControlTowerV2({ session, onNavigate, onSessionExpired, 
     <header className="v2-topbar"><div><span className="v2-kicker">COMMAND CENTER V2</span><h2>{language === "ar" ? `صباح الخير${session.displayName ? `، ${session.displayName}` : ""}` : `Good morning${session.displayName ? `, ${session.displayName}` : ""}`}</h2></div><div className="v2-top-actions"><button className="v2-search" type="button" onClick={() => setCommandOpen(true)}><Search size={17} />{language === "ar" ? "بحث أو أمر…" : "Search or Command…"}<kbd>⌘K</kbd></button><span className={`v2-system ${healthy ? "ok" : "warn"}`}><span />{healthy ? "SYSTEM OPERATIONAL" : "REVIEW REQUIRED"}</span></div></header>
     <section className="v2-action-center"><div className="v2-section-head"><div><span>NEEDS YOUR DECISION</span><h3>{language === "ar" ? "ما الذي يحتاج قرارك الآن؟" : "What needs your decision now?"}</h3><p className="v2-panel-note">{language === "ar" ? "كل بطاقة تفتح القرار، ثم توصلك للإجراء التالي في القسم الصحيح." : "Each card opens the decision, then takes you to the next action in the right section."}</p></div><button type="button" onClick={() => setCommandOpen(true)}>{language === "ar" ? "مراجعة الكل" : "Review All"}<ArrowRight size={16} /></button></div>{actions.length === 0 ? <div className="v2-empty"><CheckCircle2 size={21} />{language === "ar" ? "لا توجد إجراءات عاجلة في اللقطة الحالية." : "No urgent actions in the current snapshot."}</div> : <div className="v2-action-grid">{actions.map((item) => { const Icon = item.icon; return <button type="button" className="v2-action-card" key={item.section} onClick={() => setSelectedActionSection(item.section)}><span className="v2-action-icon"><Icon size={20} /></span><strong>{n(language, item.count)}</strong><span>{item.label}</span><small>{language === "ar" ? "فتح القرار ثم الإجراء التالي" : "Open decision, then next action"}</small><ArrowRight size={16} /></button>; })}</div>}</section>
     <section className="v2-panel v2-priorities"><div className="v2-section-head"><div><span>TODAY'S PRIORITIES</span><h3>{language === "ar" ? "أولويات اليوم" : "Today's priorities"}</h3></div><button type="button" onClick={() => setCommandOpen(true)}>{language === "ar" ? "افتح مركز الأوامر" : "Open command bar"}<Command size={15} /></button></div>{actions.length === 0 ? <div className="v2-empty">{language === "ar" ? "لا توجد أولوية من البيانات الحالية." : "No priorities from the current data."}</div> : <div className="v2-quick-list">{actions.slice(0, 4).map((item) => <button type="button" key={`priority-${item.section}`} onClick={() => onNavigate(item.section)}><span><strong>{n(language, item.count)}</strong> {item.label}</span><small>{item.section === "content" || item.section === "inbox" ? (language === "ar" ? "موافقة المالك مطلوبة" : "Owner approval required") : (language === "ar" ? "الإجراء التالي" : "Next action")}</small><ArrowRight /></button>)}</div>}</section>
-    <section className="v2-panel v2-marketing-plan"><div className="v2-section-head"><div><span>MARKETING PLAN · 10 DAYS</span><h3>{language === "ar" ? "خطة التسويق الذكية" : "Smart 10-day marketing plan"}</h3><p className="v2-panel-note">{language === "ar" ? "الخطة مقترح قابل للمراجعة؛ لا يتم نشر شيء من هذه الشاشة." : "This is a reviewable proposal; nothing publishes from this screen."}</p></div><button type="button" onClick={() => onNavigate("content")}>{language === "ar" ? "فتح التسويق" : "Open Marketing"}<ArrowRight size={15} /></button></div><div className="v2-plan-list">{planSlots.map((slot, index) => <button type="button" key={`${slot.labelKey}-${index}`} onClick={() => onNavigate("content")}><span className="v2-plan-day">{language === "ar" ? `اليوم ${index + 1}` : `Day ${index + 1}`}</span><strong>{mixLabels[slot.labelKey as keyof typeof mixLabels] ?? slot.labelKey}</strong><small>{slot.platform.toUpperCase()} · {slot.contentType} · {language === "ar" ? "لماذا هذا؟ البيانات غير كافية بعد" : "Why this? Not enough data yet."}</small><span className="v2-plan-focus">{PLATFORM_GUIDANCE[slot.platform].focus}</span></button>)}</div></section>
+    <section className="v2-panel v2-marketing-plan"><div className="v2-section-head"><div><span>MARKETING PLAN · 10 DAYS</span><h3>{language === "ar" ? "خطة التسويق الذكية" : "Smart 10-day marketing plan"}</h3><p className="v2-panel-note">{language === "ar" ? "الخطة مقترح قابل للمراجعة؛ لا يتم نشر شيء من هذه الشاشة." : "This is a reviewable proposal; nothing publishes from this screen."}</p></div><button type="button" onClick={() => onNavigate("content")}>{language === "ar" ? "فتح المصنع" : "Open Factory"}<ArrowRight size={15} /></button></div><div className="v2-plan-list">{planSlots.map((slot, index) => <button type="button" key={`${slot.labelKey}-${index}`} onClick={() => onNavigate("content")}><span className="v2-plan-day">{language === "ar" ? `اليوم ${index + 1}` : `Day ${index + 1}`}</span><strong>{mixLabels[slot.labelKey as keyof typeof mixLabels] ?? slot.labelKey}</strong><small>{slot.platform.toUpperCase()} · {slot.contentType} · {language === "ar" ? "لماذا هذا؟ البيانات غير كافية بعد" : "Why this? Not enough data yet."}</small><span className="v2-plan-focus">{PLATFORM_GUIDANCE[slot.platform].focus}</span></button>)}</div></section>
     <section className="v2-pulse"><div className="v2-section-head"><div><span>BUSINESS PULSE</span><h3>{language === "ar" ? "نبض النشاط" : "Business pulse"}</h3></div></div><div className="v2-metric-grid">{cards.map(({ icon: Icon, label, value, hint, section }) => <button type="button" className="v2-metric" key={label} onClick={() => onNavigate(section)}><Icon size={19} /><span>{label}</span><strong>{value}</strong><small>{hint}</small></button>)}</div></section>
     <section className="v2-panel v2-customer-ops"><div className="v2-section-head"><div><span>CUSTOMER OPERATIONS</span><h3>{language === "ar" ? "رحلة العميل من الاهتمام إلى الحجز" : "Customer journey from interest to booking"}</h3><p className="v2-panel-note">{language === "ar" ? "مؤشرات تشغيلية موحدة — لا يوجد تنفيذ تلقائي من هذه الشاشة." : "Unified operational signals — this view never executes actions automatically."}</p></div><button type="button" onClick={() => onNavigate("crm")}>{language === "ar" ? "فتح مركز العملاء" : "Open customer center"}<ArrowRight size={16} /></button></div><div className="v2-journey">{journey.map((item, index) => <button type="button" className="v2-journey-step" key={item.label} onClick={() => onNavigate(item.section)}><span className="v2-journey-index">{index + 1}</span><strong>{n(language, item.value)}</strong><span>{item.label}</span><small>{item.hint}</small>{index < journey.length - 1 && <ArrowRight className="v2-journey-arrow" size={15} />}</button>)}</div></section>
     <div className="v2-two-col"><section className="v2-panel"><div className="v2-section-head"><div><span>AI ACTIVITY</span><h3>{language === "ar" ? "نشاط الذكاء الاصطناعي" : "AI activity"}</h3></div><span className="v2-live"><span />LIVE DATA</span></div><div className="v2-activity"><p><CheckCircle2 />{n(language, summary.content.published)} {language === "ar" ? "محتوى منشور" : "content items published"}</p><p><MessageCircle />{n(language, human)} {language === "ar" ? "محادثات للمراجعة البشرية" : "conversations for human review"}</p><p><Sparkles />{n(language, summary.radar.hot)} {language === "ar" ? "فرص ساخنة مكتشفة" : "hot opportunities detected"}</p><p><Workflow />{n(language, summary.automation.active)} {language === "ar" ? "أتمتات نشطة" : "active automations"}</p></div></section><section className="v2-panel"><div className="v2-section-head"><div><span>TODAY</span><h3>{language === "ar" ? "الوصول السريع" : "Quick operating view"}</h3></div></div><div className="v2-quick-list"><button type="button" onClick={() => onNavigate("crm")}><Users />{language === "ar" ? "العملاء المحتملون" : "Open leads"}<ArrowRight /></button><button type="button" onClick={() => onNavigate("planner")}><CalendarDays />{language === "ar" ? "الحجوزات" : "Review bookings"}<ArrowRight /></button><button type="button" onClick={() => onNavigate("content")}><Sparkles />{language === "ar" ? "مصنع المحتوى" : "Content Factory"}<ArrowRight /></button><button type="button" onClick={() => onNavigate("automations")}><Workflow />{language === "ar" ? "الأتمتة" : "Automation health"}<ArrowRight /></button></div></section></div>
