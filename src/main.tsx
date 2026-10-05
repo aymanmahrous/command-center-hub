@@ -1389,21 +1389,17 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
 
   // Owner-first navigation: keep the daily surface simple and operational.
   // Advanced modules remain reachable through More; no feature is removed.
+  // Coach Brain is the primary owner entry point. Production capabilities remain available,
+  // but Factory/Media/Operations are not repeated in the main navigation.
   const primary = [
     ["dashboard", LayoutDashboard, nav.dashboard],
     ["brain", Bot, nav.brain],
-    ["content", BarChart3, nav.factory],
     ["inbox", Inbox, nav.inbox],
-    ["media", Library, nav.media],
-    ["automations", Workflow, nav.operations],
   ] as const;
   const desktopPrimary = [
     ["dashboard", LayoutDashboard, nav.dashboard],
     ["brain", Bot, nav.brain],
-    ["content", BarChart3, nav.factory],
     ["inbox", Inbox, nav.inbox],
-    ["media", Library, nav.media],
-    ["automations", Workflow, nav.operations],
   ] as const;
 
   return <div className="app-shell">
