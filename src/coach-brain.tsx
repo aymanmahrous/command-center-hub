@@ -105,8 +105,6 @@ const copy = {
   },
 };
 
-export const COACH_BRAIN_FACTORY_HANDOFF_KEY = "coach-brain-factory-handoff";
-
 function getSessionToken() {
   try {
     const raw = sessionStorage.getItem("relaxfix-command-session");
@@ -142,20 +140,6 @@ export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
   const [actionBusy, setActionBusy] = useState(false);
   const [actionNotice, setActionNotice] = useState("");
 
-  function sendResultToFactory() {
-    if (!result) return;
-    sessionStorage.setItem(COACH_BRAIN_FACTORY_HANDOFF_KEY, JSON.stringify({
-      question: question.trim().slice(0, 1000),
-      answer: result.answer.slice(0, 4000),
-      sources: result.sources.slice(0, 5).map((source) => ({ title: source.title, url: source.url })),
-      createdAt: new Date().toISOString(),
-    }));
-    const url = new URL(window.location.href);
-    url.searchParams.set("section", "content");
-    url.searchParams.set("factoryContext", "coach-brain");
-    window.location.assign(url.toString());
-  }
-
   async function executeTask() {
     if (!question.trim() || busy || actionBusy) return;
     const normalized = question.trim().toLocaleLowerCase();
@@ -170,7 +154,7 @@ export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
     try {
       const token = getSessionToken();
       if (!token) throw new Error("AUTH_REQUIRED");
-      const result = await executeCoachBrainContentGeneration({ accessToken: token });
+      const result = await executeCoachBrainContentGeneration({ accessToken: token }, question);
       setActionNotice(`${t.generationReady} ${result.itemCount} items${result.batchId ? ` · Batch ${result.batchId}` : ""}`);
     } catch (cause) {
       const code = cause instanceof Error ? cause.message : "ACTION_FAILED";
@@ -272,7 +256,7 @@ export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
 
       {result && (
         <section id="coach-results" className="coach-brain__results" aria-live="polite">
-          <div className="coach-brain__results-heading"><span className="coach-brain__step">4</span><div><strong>{language === "ar" ? "النتيجة العملية" : "Practical result"}</strong><p>{language === "ar" ? "اقرأ الإجابة، راجع المصادر، ثم أرسلها لمصنع المحتوى عند الحاجة." : "Read the answer, review the sources, then send it to Content Factory when useful."}</p></div><div className="coach-brain__results-actions"><button type="button" className="coach-brain__reset" onClick={() => { setResult(null); setQuestion(""); setError(""); }}>{language === "ar" ? "مهمة جديدة" : "New task"}</button><button type="button" className="coach-brain__reset" onClick={sendResultToFactory}>{language === "ar" ? "إرسال إلى مصنع المحتوى" : "Send to Content Factory"}</button></div></div>
+          <div className="coach-brain__results-heading"><span className="coach-brain__step">4</span><div><strong>{language === "ar" ? "النتيجة العملية" : "Practical result"}</strong><p>{language === "ar" ? "راجع النتيجة. Coach Brain يوجّه العمل داخليًا؛ لا تحتاج لفتح مساحة أخرى." : "Review the result. Coach Brain routes the work internally; you do not need to open another workspace."}</p></div><div className="coach-brain__results-actions"><button type="button" className="coach-brain__reset" onClick={() => { setResult(null); setQuestion(""); setError(""); }}>{language === "ar" ? "مهمة جديدة" : "New task"}</button></div></div>
           <article className="coach-brain__card coach-brain__answer">
             <div className="coach-brain__result-title"><Sparkles size={18} /> <h2>{t.direct}</h2></div>
             <div className="coach-brain__answer-text">{result.answer}</div>
