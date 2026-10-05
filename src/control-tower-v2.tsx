@@ -7,6 +7,12 @@ import { deriveWorkflowActions } from "./workflow-intelligence";
 import "./v2-command-center.css";
 
 type Session = { accessToken: string; role: string; displayName?: string };
+type OperationsQueue = {
+  followUps: Array<{ id: string; status: "queued" | "processing" | "completed" | "failed" | "retrying" | "dead" }>;
+  backgroundJobs: Array<{ id: string; status: "queued" | "processing" | "completed" | "failed" | "retrying" | "dead" }>;
+  generatedAt: string;
+};
+
 type Summary = {
   generatedAt: string;
   leads: { total: number; customers: number; new: number; hot: number };
@@ -23,8 +29,8 @@ type Summary = {
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
 const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
 
-async function loadSummary(session: Session, signal: AbortSignal) {
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_staff_control_tower_summary`, {
+async function callStaffRpc<T>(session: Session, rpcName: string, signal: AbortSignal) {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${encodeURIComponent(rpcName)}`, {
     method: "POST",
     headers: { apikey: SUPABASE_PUBLIC_KEY, Authorization: `Bearer ${session.accessToken}`, "Content-Type": "application/json", Accept: "application/json" },
     body: "{}",
@@ -33,7 +39,22 @@ async function loadSummary(session: Session, signal: AbortSignal) {
   if (response.status === 401) throw new Error("SESSION_EXPIRED");
   if (response.status === 403) throw new Error("STAFF_ACCESS_DENIED");
   if (!response.ok) throw new Error(`RPC_FAILED_${response.status}`);
-  return (await response.json()) as Summary;
+  return (await response.json()) as T;
+}
+
+async function loadSummary(session: Session, signal: AbortSignal) {
+  const [summary, operations] = await Promise.all([
+    callStaffRpc<Summary>(session, "get_staff_control_tower_summary", signal),
+    callStaffRpc<OperationsQueue>(session, "get_staff_operations_queue", signal),
+  ]);
+  const operationalFailed = operations.backgroundJobs.filter((job) => job.status === "failed").length
+    + operations.followUps.filter((job) => job.status === "failed").length;
+  const operationalActive = operations.backgroundJobs.filter((job) => ["queued", "processing", "retrying"].includes(job.status)).length
+    + operations.followUps.filter((job) => ["queued", "processing", "retrying"].includes(job.status)).length;
+  return {
+    ...summary,
+    automation: { failed: operationalFailed, active: operationalActive },
+  };
 }
 
 function n(language: Language, value: number) { return new Intl.NumberFormat(language === "ar" ? "ar-AE" : "en-AE").format(value || 0); }
