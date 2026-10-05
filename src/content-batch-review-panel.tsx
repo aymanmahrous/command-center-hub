@@ -162,6 +162,7 @@ export function ContentBatchReviewPanel({
   const [changeNote, setChangeNote] = useState("");
   const [designBusyId, setDesignBusyId] = useState<string | null>(null);
   const [designNotice, setDesignNotice] = useState("");
+  const [selectedDesignProvider, setSelectedDesignProvider] = useState<Record<string, "canva" | "runway" | "capcut" | "manual">>>({});
   const [publishBusyId, setPublishBusyId] = useState<string | null>(null);
   const [publishNotice, setPublishNotice] = useState("");
   const [itemFilter, setItemFilter] = useState<"all" | "needs_review" | "approved" | "scheduled" | "failed">("all");
@@ -206,11 +207,34 @@ export function ContentBatchReviewPanel({
     setChangeKind("caption");
   }
 
+  function recommendedDesignProvider(item: ContentBatchItem): "canva" | "runway" | "capcut" | "manual" {
+    const isVideo = /reel|video/i.test(String(item.contentType));
+    if (isVideo) return videoCapabilityState === "AVAILABLE" ? "runway" : designCapabilityState === "AVAILABLE" ? "canva" : "capcut";
+    return designCapabilityState === "AVAILABLE" ? "canva" : "manual";
+  }
+
+  function availableDesignProviders(item: ContentBatchItem) {
+    const isVideo = /reel|video/i.test(String(item.contentType));
+    return [
+      { key: "canva" as const, label: "Canva", available: designCapabilityState === "AVAILABLE", detail: language === "ar" ? "تصميمات ثابتة / Carousel" : "Static / carousel design" },
+      { key: "runway" as const, label: "Runway", available: videoCapabilityState === "AVAILABLE", detail: language === "ar" ? "توليد فيديو" : "Video generation" },
+      { key: "capcut" as const, label: "CapCut", available: true, detail: language === "ar" ? "تحرير فيديو يدوي" : "Manual video editing" },
+      { key: "manual" as const, label: language === "ar" ? "يدوي" : "Manual", available: true, detail: language === "ar" ? "استخدم الـBrief بدون ربط مزود" : "Use the prepared brief without a provider" },
+    ].filter((provider) => provider.key !== "runway" || isVideo);
+  }
+
   async function handleGenerateDesign(item: ContentBatchItem) {
     if (!session || !canWrite || busy || designBusyId) return;
     setDesignBusyId(item.id);
     setDesignNotice("");
     try {
+      const provider = selectedDesignProvider[item.id] ?? recommendedDesignProvider(item);
+      if (provider !== "canva") {
+        setDesignNotice(language === "ar"
+          ? provider === "runway" ? "Runway هو الاختيار المناسب للفيديو، لكن التوليد الفعلي غير متاح حتى تكون قدرته متصلة ومتحققًا منها." : provider === "capcut" ? "CapCut متاح كمسار تحرير يدوي؛ الـBrief جاهز ولا ندّعي توليدًا آليًا غير موجود." : "تم اختيار المسار اليدوي؛ استخدم الـBrief الجاهز من الوسائط."
+          : provider === "runway" ? "Runway is the right video choice, but actual generation stays unavailable until its capability is connected and verified." : provider === "capcut" ? "CapCut is available as a manual editing path; the brief is ready and no unsupported automation is claimed." : "Manual path selected; use the prepared media brief.");
+        return;
+      }
       await generateCanvaDesignForContentItem(session, item);
       setDesignNotice(copy.designGeneratedNotice);
       onMediaLinked?.();
@@ -368,25 +392,35 @@ export function ContentBatchReviewPanel({
                 </div>
               </details>
               <footer>
-                {session && designCapabilityState === "AVAILABLE" && (!item.mediaAssetId || canRegenerateDesign) && (
-                  <button
-                    type="button"
-                    className="secondary"
-                    disabled={itemLocked || designBusyId === item.id}
-                    title={itemDisabledReason}
-                    onClick={() => void handleGenerateDesign(item)}
-                  >
-                    {designBusyId === item.id
-                      ? copy.generateDesignBusy
-                      : item.mediaAssetId
-                        ? copy.regenerateDesignButton
-                        : copy.generateDesignButton}
-                  </button>
-                )}
-                {session && designCapabilityState !== "AVAILABLE" && (!item.mediaAssetId || canRegenerateDesign) && (
-                  <small className="item-action-disabled-reason">
-                    {language === "ar" ? "إنشاء التصميم محدود: Canva غير متصل أو لم يتم التحقق من قدرته." : "Design generation is limited: Canva is not connected or its capability is unverified."}
-                  </small>
+                {session && (!item.mediaAssetId || canRegenerateDesign) && (
+                  <div className="content-design-provider-picker" role="group" aria-label={language === "ar" ? "اختيار مزود التصميم" : "Design provider choice"}>
+                    <label>
+                      <span>{language === "ar" ? "اختيار التصميم" : "Design provider"}</span>
+                      <select
+                        value={selectedDesignProvider[item.id] ?? recommendedDesignProvider(item)}
+                        onChange={(event) => setSelectedDesignProvider((current) => ({ ...current, [item.id]: event.target.value as "canva" | "runway" | "capcut" | "manual" }))}
+                        disabled={itemLocked || designBusyId === item.id}
+                      >
+                        {availableDesignProviders(item).map((provider) => (
+                          <option key={provider.key} value={provider.key}>
+                            {provider.label}{provider.key === recommendedDesignProvider(item) ? (language === "ar" ? " — الموصى به" : " — Recommended") : ""}{!provider.available ? (language === "ar" ? " — غير متصل" : " — Not connected") : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <small>{availableDesignProviders(item).find((provider) => provider.key === (selectedDesignProvider[item.id] ?? recommendedDesignProvider(item)))?.detail}</small>
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={itemLocked || designBusyId === item.id || (selectedDesignProvider[item.id] ?? recommendedDesignProvider(item)) === "canva" && designCapabilityState !== "AVAILABLE"}
+                      title={itemDisabledReason}
+                      onClick={() => void handleGenerateDesign(item)}
+                    >
+                      {designBusyId === item.id
+                        ? copy.generateDesignBusy
+                        : language === "ar" ? "استخدام الاختيار" : "Use selected provider"}
+                    </button>
+                  </div>
                 )}
                 {canApprove && (
                   <button type="button" disabled={itemLocked} title={itemDisabledReason} onClick={() => void onApproveItem(item)}>
