@@ -179,7 +179,6 @@ export default function ContentGrowthHub({
       } catch {
         knowledgeContext = parseCoachKnowledgeContext(null);
       }
-      if (coachBrainContext) knowledgeContext = { ...knowledgeContext, researchContext: coachBrainContext };
       let saved: { success?: boolean; batchId?: string; code?: string } | null = null;
 
       for (let shiftDays = 0; shiftDays <= 45 && !saved; shiftDays += 1) {
