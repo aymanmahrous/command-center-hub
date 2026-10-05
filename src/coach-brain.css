@@ -16,3 +16,30 @@
 .coach-brain__actions-card{display:grid;gap:12px}.coach-brain__action-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}.coach-brain__action-grid button{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:58px;padding:12px;border:1px solid rgba(14,165,233,.28);border-radius:12px;background:rgba(14,165,233,.08);color:inherit;font:inherit;font-weight:700;text-align:start;cursor:pointer}.coach-brain__action-grid button:hover{border-color:#0ea5e9;background:rgba(14,165,233,.16)}.coach-brain__action-grid button svg{color:#38bdf8;flex:0 0 auto}@media(max-width:1000px){.coach-brain__action-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:800px){.coach-brain__action-grid{grid-template-columns:1fr}.coach-brain__action-grid button{min-height:50px}}
 
 .coach-brain__usage{display:grid;gap:12px}.coach-brain__usage-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px;margin:0}.coach-brain__usage-grid>div{display:grid;gap:5px;padding:11px;border:1px solid rgba(100,116,139,.2);border-radius:12px;background:rgba(100,116,139,.07)}.coach-brain__usage-grid dt{font-size:12px;opacity:.72}.coach-brain__usage-grid dd{margin:0;font-weight:750;overflow-wrap:anywhere}.coach-brain__usage-cost{font-size:15px}.coach-brain__usage-note{font-size:12px}.coach-brain__usage>a{width:fit-content;color:#7dd3fc}
+
+
+/* Real owner command execution: uses existing backend capabilities, not navigation. */
+.coach-brain__execute {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid currentColor;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.coach-brain__execute:disabled { opacity: .55; cursor: not-allowed; }
+.coach-brain__action-notice {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(34, 197, 94, .10);
+  border: 1px solid rgba(34, 197, 94, .28);
+  font-weight: 700;
+}
