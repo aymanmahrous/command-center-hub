@@ -31,6 +31,6 @@ test("Approval Center is a review-only owner surface over existing sections", as
 
 test("Home keeps the owner navigation simple while advanced modules stay in More", () => {
   assert.match(main, /active === "dashboard" \? .*ControlTowerV2/s);
-  assert.match(main, /const moreIds = new Set<SectionId>\(\["today", "command", "crm", "planner"/);
+  assert.match(main, /const moreIds = new Set<SectionId>\(\["today", "crm", "planner"/);\n  assert.doesNotMatch(main, /moreIds[^\n]*"brain"/);
   assert.doesNotMatch(main, /const moreIds = new Set<SectionId>\(\["command", "crm", "planner"/);
 });
