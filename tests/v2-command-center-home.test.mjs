@@ -9,6 +9,8 @@ const shell = fs.readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf8
 test('V2 Home exposes the operating center and required sections', () => {
   for (const label of ['COMMAND CENTER V2', "NEEDS YOUR DECISION", "TODAY'S PRIORITIES", 'MARKETING PLAN', 'AI ACTIVITY', 'BUSINESS PULSE', 'UPCOMING', 'DECISION RADAR', 'OPERATING SYSTEM']) assert.match(view, new RegExp(label));
   for (const target of ['crm', 'planner', 'content', 'automations']) assert.match(view, new RegExp(`onNavigate\\("${target}"\\)`));
+  assert.match(view, /Ask Coach Brain/);
+  assert.match(view, /onNavigate\("brain"\)/);
 });
 
 test('Home plan is data-derived, conservative, and does not poll', () => {
