@@ -162,7 +162,7 @@ export function ContentBatchReviewPanel({
   const [changeNote, setChangeNote] = useState("");
   const [designBusyId, setDesignBusyId] = useState<string | null>(null);
   const [designNotice, setDesignNotice] = useState("");
-  const [selectedDesignProvider, setSelectedDesignProvider] = useState<Record<string, "canva" | "runway" | "capcut" | "manual">>>({});
+  const [selectedDesignProvider, setSelectedDesignProvider] = useState<Record<string, "canva" | "runway" | "capcut" | "manual">>({});
   const [publishBusyId, setPublishBusyId] = useState<string | null>(null);
   const [publishNotice, setPublishNotice] = useState("");
   const [itemFilter, setItemFilter] = useState<"all" | "needs_review" | "approved" | "scheduled" | "failed">("all");
