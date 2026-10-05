@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { groupContentBatches, isDatabaseBatchId, selectPrimaryBatch, buildNextBatchReadyNotice, type ContentBatchItem } from "./content-batch";
-import { COACH_AYMAN_PROVIDER_ID, parseCoachKnowledgeContext, type CoachBrainFactoryContext } from "./content-batch-generator";
+import { COACH_AYMAN_PROVIDER_ID, parseCoachKnowledgeContext } from "./content-batch-generator";
 import { attachMediaToCoachAymanBatch, buildCoachAyman30DayBatchWithMedia } from "./media-batch-link";
 import { parseMediaAssetRecords } from "./media-library-controls";
 import {
@@ -26,19 +26,6 @@ const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\
 const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
 
 type GrowthSession = { accessToken: string };
-
-export const COACH_BRAIN_FACTORY_HANDOFF_KEY = "coach-brain-factory-handoff";
-
-function readCoachBrainFactoryContext(): CoachBrainFactoryContext | null {
-  try {
-    const raw = sessionStorage.getItem(COACH_BRAIN_FACTORY_HANDOFF_KEY);
-    if (!raw) return null;
-    const value = JSON.parse(raw) as Partial<CoachBrainFactoryContext>;
-    if (typeof value.question !== "string" || typeof value.answer !== "string") return null;
-    const sources = Array.isArray(value.sources) ? value.sources.filter((source): source is { title: string; url: string } => !!source && typeof source === "object" && typeof source.title === "string" && typeof source.url === "string").slice(0, 5) : [];
-    return { question: value.question.slice(0, 1000), answer: value.answer.slice(0, 4000), sources };
-  } catch { return null; }
-}
 
 type ContentGrowthHubProps = {
   items: ContentBatchItem[];
@@ -108,7 +95,6 @@ export default function ContentGrowthHub({
   const [automationStatus, setAutomationStatus] = useState<unknown>(null);
   const [generateNotice, setGenerateNotice] = useState("");
   const [generating, setGenerating] = useState(false);
-  const [coachBrainContext, setCoachBrainContext] = useState<CoachBrainFactoryContext | null>(() => readCoachBrainFactoryContext());
   const reviewAutoOpened = useRef(false);
   const [mediaAssets, setMediaAssets] = useState<ReturnType<typeof parseMediaAssetRecords>>([]);
   const integrations = useMemo(() => readIntegrationStatuses(automationStatus), [automationStatus]);
@@ -176,10 +162,6 @@ export default function ContentGrowthHub({
     verify_receipt: publishCopyInstagram.livePublishNextVerify,
     continue_batch: publishCopyInstagram.livePublishNextContinue,
   }[instagramPublishing.nextAction];
-
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("factoryContext") === "coach-brain") setCoachBrainContext(readCoachBrainFactoryContext());
-  }, []);
 
   async function generateCoachAymanBatch(options: { automatic?: boolean } = {}) {
     if (!canWrite || panelBusy) return;
@@ -291,25 +273,6 @@ export default function ContentGrowthHub({
           <strong>{copy.dayNineTitle}</strong>
           <p>{copy.dayNineBody.replace("{count}", String(dayNine.reviewableCount)).replace("{day}", String(dayNine.cycleDay))}</p>
         </div>
-      )}
-
-      {coachBrainContext && (
-        <section className="content-growth-banner" aria-labelledby="coach-brain-factory-context-heading">
-          <strong id="coach-brain-factory-context-heading">{language === "ar" ? "Coach Brain → مصنع المحتوى" : "Coach Brain → Content Factory"}</strong>
-          <p>{coachBrainContext.question}</p>
-          <details>
-            <summary>{language === "ar" ? "عرض نتيجة البحث التي وصلت للمصنع" : "Show the research result received by Factory"}</summary>
-            <p className="batch-meta">{coachBrainContext.answer}</p>
-            {coachBrainContext.sources.length > 0 && (
-              <ul className="batch-meta">
-                {coachBrainContext.sources.map((source) => (
-                  <li key={source.url}><a href={source.url} target="_blank" rel="noreferrer noopener">{source.title}</a></li>
-                ))}
-              </ul>
-            )}
-          </details>
-          <small>{language === "ar" ? "هذا السياق يدخل محرك التوليد كمعلومة بحثية مساعدة؛ معرفة الأكاديمية المعتمدة تظل المصدر الأساسي. لا يغيّر الخطة أو أعمدة المحتوى من تلقاء نفسه." : "This context feeds the generation engine as supporting research; approved Academy Knowledge remains canonical. It does not silently change the plan or content pillars."}</small>
-        </section>
       )}
 
       {generateNotice && <div className="notice-box" aria-live="polite">{generateNotice}</div>}
