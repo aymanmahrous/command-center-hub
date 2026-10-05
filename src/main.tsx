@@ -1291,8 +1291,8 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   const canvaCallback = launchParams.get("canva");
   const initialSection: SectionId = canvaCallback
     ? "media"
-    : sectionFromLocation() === "dashboard" && !launchParams.get("section")
-      ? "dashboard"
+    : !launchParams.get("section")
+      ? "brain"
       : sectionFromLocation();
   const [active, setActive] = useState<SectionId>(initialSection);
   const [reloadKey, setReloadKey] = useState(0);
@@ -1363,43 +1363,20 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     else if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.pushState({ section: id }, "", nextUrl);
   };
 
-  const moreIds = new Set<SectionId>(["today", "content", "media", "automations", "crm", "planner", "archive", "analytics", "integrations", "connections", "radar", "workspace"]);
-  const moreItems = sections.filter(([id]) => moreIds.has(id));
-
-  const morePanel = (
-    <div className="owner-more-panel">
-      <div className="owner-more-heading">
-        <div>
-          <span className="eyebrow">{nav.more}</span>
-          <h2>{language === "ar" ? "الأدوات المتقدمة" : "Advanced tools"}</h2>
-          <p>{language === "ar" ? "كل الأدوات موجودة دون ازدحام." : "Existing tools remain available without clutter."}</p>
-        </div>
-        <button type="button" className="refresh" onClick={() => setMoreOpen(false)}>×</button>
-      </div>
-      <div className="owner-more-grid">
-        {moreItems.map(([id, Icon]) => (
-          <button type="button" key={id} onClick={() => go(id)}>
-            <Icon size={18} aria-hidden="true" />
-            <span>{nav[id]} — {language === "ar" ? "فتح والتحكم" : "Open controls"}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
+  // Owner surface: Coach Brain is the only normal destination.
+  // Existing modules remain implemented and reachable by internal routing/legacy URLs,
+  // but are deliberately removed from the owner's navigation model.
+  const morePanel = null;
 
   // Owner-first navigation: keep the daily surface simple and operational.
   // Advanced modules remain reachable through More; no feature is removed.
   // Coach Brain is the primary owner entry point. Production capabilities remain available,
   // but Factory/Media/Operations are not repeated in the main navigation.
   const primary = [
-    ["dashboard", LayoutDashboard, nav.dashboard],
     ["brain", Bot, nav.brain],
-    ["inbox", Inbox, nav.inbox],
   ] as const;
   const desktopPrimary = [
-    ["dashboard", LayoutDashboard, nav.dashboard],
     ["brain", Bot, nav.brain],
-    ["inbox", Inbox, nav.inbox],
   ] as const;
 
   return <div className="app-shell">
@@ -1421,9 +1398,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
             </button>;
           })}
         </div>
-        <button type="button" className={moreOpen ? "active" : ""} onClick={() => setMoreOpen((value) => !value)}>
-          <Settings2 size={18} aria-hidden="true" /><span>{nav.more}</span>
-        </button>
+        <span className="nav-owner-mode">{language === "ar" ? "Coach Brain هو مركز التشغيل" : "Coach Brain is the operating center"}</span>
       </nav>
       <button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button>
     </aside>
@@ -1476,9 +1451,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
             <Icon size={18} aria-hidden="true" /><span>{label}</span>
           </button>
         ))}
-        <button type="button" className={moreOpen ? "active" : ""} onClick={() => setMoreOpen((value) => !value)}>
-          <Settings2 size={18} aria-hidden="true" /><span>{nav.more}</span>
-        </button>
+        <span className="nav-owner-mode">{language === "ar" ? "Coach Brain هو مركز التشغيل" : "Coach Brain is the operating center"}</span>
       </nav>
     </main>
   </div>;
