@@ -1363,7 +1363,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     else if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.pushState({ section: id }, "", nextUrl);
   };
 
-  const moreIds = new Set<SectionId>(["today", "command", "crm", "planner", "archive", "analytics", "integrations", "connections", "radar", "workspace"]);
+  const moreIds = new Set<SectionId>(["today", "crm", "planner", "archive", "analytics", "integrations", "connections", "radar", "workspace"]);
   const moreItems = sections.filter(([id]) => moreIds.has(id));
 
   const morePanel = (
