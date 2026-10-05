@@ -246,12 +246,17 @@ export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
           <label className="coach-brain__question-label" htmlFor="coach-brain-question">{language === "ar" ? "ماذا تريد أن تعرف؟" : "What do you want to know?"}</label>
           <textarea id="coach-brain-question" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder={t.placeholder} rows={6} maxLength={5000} disabled={busy} />
           <div className="coach-brain__actions">
-            <div className="coach-brain__actions">\n            <button className="coach-brain__primary" type="submit" disabled={busy || actionBusy || !question.trim()}>
+            <button className="coach-brain__primary" type="submit" disabled={busy || actionBusy || !question.trim()}>
               {busy ? <Sparkles size={17} className="coach-brain__spin" /> : <Search size={17} />}
               {busy ? t.searching : t.search}
             </button>
+            <button className="coach-brain__execute" type="button" onClick={() => void executeTask()} disabled={busy || actionBusy || !question.trim()}>
+              {actionBusy ? <Sparkles size={17} className="coach-brain__spin" /> : <Brain size={17} />}
+              {actionBusy ? t.executing : t.execute}
+            </button>
             <span className="coach-brain__privacy-note">{t.privacyNote}</span>
           </div>
+          {actionNotice && <div className="coach-brain__action-notice" role="status">{actionNotice}</div>}
         </form>
         <div id="coach-examples" className="coach-brain__examples">
           <div className="coach-brain__examples-heading"><span className="coach-brain__step">3</span><strong>{language === "ar" ? "أو اختر مثالًا تدريبيًا" : "Or choose a coaching example"}</strong></div>
