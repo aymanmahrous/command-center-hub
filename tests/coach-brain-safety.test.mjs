@@ -24,6 +24,14 @@ test("Coach Brain protects the no-record workflow", () => {
   assert.match(view, /No swimmer or child profile is created or stored|لا يتم إنشاء ملف للسباح أو حفظ بيانات الأطفال/);
 });
 
+test("Coach Brain hands research to the existing Factory without direct execution", () => {
+  assert.match(view, /COACH_BRAIN_FACTORY_HANDOFF_KEY = "coach-brain-factory-handoff"/);
+  assert.match(view, /sessionStorage\.setItem\(COACH_BRAIN_FACTORY_HANDOFF_KEY/);
+  assert.match(view, /factoryContext.*coach-brain/);
+  assert.match(view, /إرسال إلى مصنع المحتوى|Send to Content Factory/);
+  assert.doesNotMatch(view, /executeCoachBrainContentGeneration/);
+});
+
 test("Coach Brain starts with ready operational actions", () => {
   assert.match(view, /actionsTitle/);
   assert.match(view, /Prepare a 10-day content plan|جهز لي خطة محتوى 10 أيام/);

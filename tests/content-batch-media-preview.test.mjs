@@ -23,3 +23,10 @@ test("content factory opens the owner review workspace when reviewable items exi
   assert.match(hub, /activeFactoryTab === "overview"/);
   assert.match(hub, /setActiveFactoryTab\("review"\)/);
 });
+
+test("content factory consumes the existing Coach Brain handoff as supporting context", () => {
+  assert.match(hub, /COACH_BRAIN_FACTORY_HANDOFF_KEY = "coach-brain-factory-handoff"/);
+  assert.match(hub, /factoryContext.*coach-brain/);
+  assert.match(hub, /researchContext: coachBrainContext/);
+  assert.match(hub, /canonical Academy Knowledge remains the existing source/);
+});
