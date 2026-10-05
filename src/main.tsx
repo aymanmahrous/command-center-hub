@@ -1410,7 +1410,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     <a className="skip-link" href="#main-workspace">{nav.skipToContent}</a>
       <aside>
       <div className="side-brand">
-        <strong>Relax Fix AI OS</strong>
+        <strong>Command Center Hub</strong>
         <span>{language === "ar" ? "مركز تشغيل السباحة" : "Swimming Academy OS"}</span>
         <small>{session.displayName} · {session.role}</small>
       </div>
@@ -1436,7 +1436,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
       <header className="owner-header">
         <div>
           <p className="eyebrow">{language === "ar" ? "مركز القيادة" : "OWNER COMMAND CENTER"}</p>
-          <h1>{active === "content" ? nav.marketing : active === "dashboard" ? nav.dashboard : nav[current[0]]}</h1>
+          <h1>{active === "content" ? nav.factory : active === "dashboard" ? nav.dashboard : nav[current[0]]}</h1>
         </div>
         <div className="owner-header-actions">
           <button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button>
