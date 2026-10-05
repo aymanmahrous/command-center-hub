@@ -87,17 +87,17 @@ function canRequestPublishWithMedia(item: ContentBatchItem, asset: MediaAssetRec
 
 const REQUEST_PUBLISH_COPY = {
   en: {
-    button: "Request Publish",
-    confirm: "Schedule this approved item for its planned publish time? Authorization is created automatically at due time by the existing publish workflow.",
-    success: "Publish scheduled for the planned time. Authorization will be created automatically at due time.",
-    already: "Publish is already scheduled for this item.",
+    button: "Publish Now",
+    confirm: "Publish this approved item to its connected platform now? The existing secure publisher will publish immediately and record the real result.",
+    success: "Published now. The real publication result was recorded.",
+    already: "This item is already published or already has a publish result.",
     busy: "Requesting publish…",
   },
   ar: {
-    button: "طلب النشر",
-    confirm: "جدولة هذا العنصر المعتمد لوقت النشر المخطط؟ يُنشأ التفويض تلقائيًا عند موعد النشر عبر مسار النشر الحالي.",
-    success: "تمت جدولة النشر لوقتها المخطط. سيُنشأ التفويض تلقائيًا عند موعد النشر.",
-    already: "النشر مجدول بالفعل لهذا العنصر.",
+    button: "نشر الآن",
+    confirm: "نشر هذا العنصر المعتمد الآن على المنصة المتصلة؟ مسار النشر الآمن الحالي سينفذ النشر فورًا ويسجل النتيجة الحقيقية.",
+    success: "تم النشر الآن وتسجيل النتيجة الحقيقية.",
+    already: "هذا العنصر منشور بالفعل أو توجد له نتيجة نشر مسجلة.",
     busy: "جاري طلب النشر…",
   },
 } as const;
@@ -308,8 +308,8 @@ export function ContentBatchReviewPanel({
       {workspaceMode === "campaigns" && (
         <div className="content-batch-design-notice" role="status">
           {language === "ar"
-            ? "هذه المساحة تعرض حالة الحملات الحالية. الجدولة وإعادة الجدولة تتم من تبويب المحتوى فقط عندما تسمح حالة العنصر. لا توجد هنا أداة نشر مستقلة."
-            : "This workspace shows current campaign states. Scheduling and rescheduling remain in Content when the item state allows them. There is no separate publish action here."}
+            ? "هذه المساحة تعرض حالة الحملات الحالية. النشر الفوري يظهر داخل العنصر المعتمد نفسه؛ لا توجد غرفة نشر ثانية."
+            : "This workspace shows current campaign states. Immediate publish stays on the approved item itself; there is no second publishing room."}
         </div>
       )}
 
@@ -458,7 +458,7 @@ export function ContentBatchReviewPanel({
                 {canRequestPublish(item) && session && (
                   <button
                     type="button"
-                    className="secondary"
+                    className="primary-button"
                     disabled={itemLocked || publishBusyId === item.id || !canRequestPublishWithMedia(item, linkedMediaAsset)}
                     title={itemDisabledReason ?? (!canRequestPublishWithMedia(item, linkedMediaAsset) ? (language === "ar" ? "الوسائط المرتبطة ليست جاهزة للنشر." : "Linked media is not publish-ready.") : undefined)}
                     onClick={() => void handleRequestPublish(item)}
