@@ -143,11 +143,11 @@ export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
   async function executeTask() {
     if (!question.trim() || busy || actionBusy) return;
     const normalized = question.trim().toLocaleLowerCase();
-    const isContentGeneration = /خطة محتوى|دفعة محتوى|محتوى|content plan|content batch|generate content|content generation/i.test(normalized);
-    if (!isContentGeneration) {
+    const isExecutable = /خطة محتوى|دفعة محتوى|محتوى|content plan|content batch|generate content|content generation|صورة|صور|image|photo|design|تصميم|canva|كانفا|فيديو|فديو|video|reel|runway/i.test(normalized);
+    if (!isExecutable) {
       setError(language === "ar"
-        ? "Coach Brain لم ينفذ هذا الطلب لأن القدرة التنفيذية الحالية لا تطابقه بعد. لم يتم تغيير أي بيانات."
-        : "Coach Brain did not execute this request because the available execution capability does not match it yet. No data was changed.");
+        ? "شغّل «ابحث وحلل» أولًا لهذه المهمة؛ Coach Brain سيحوّل النتيجة إلى إجراء عندما تتوفر قدرة تنفيذ مناسبة."
+        : "Run Research & analyze first for this task; Coach Brain will route the result to an execution capability when appropriate.");
       return;
     }
     setActionBusy(true); setError(""); setActionNotice("");
@@ -155,7 +155,14 @@ export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
       const token = getSessionToken();
       if (!token) throw new Error("AUTH_REQUIRED");
       const result = await executeCoachBrainContentGeneration({ accessToken: token }, question);
-      setActionNotice(`${t.generationReady} ${result.itemCount} items${result.batchId ? ` · Batch ${result.batchId}` : ""}`);
+      const notice = result.kind === "video"
+        ? (language === "ar" ? "تم تشغيل توليد الفيديو عبر Runway." : "Video generation started through Runway.")
+        : result.kind === "image"
+          ? (language === "ar" ? "تم توليد الصورة عبر مسار الذكاء الاصطناعي." : "Image generation completed through the AI generation route.")
+          : result.kind === "design"
+            ? (language === "ar" ? "تم إنشاء التصميم عبر Canva وحفظه داخل النظام." : "The Canva design was created and saved in the system.")
+            : `${t.generationReady} ${result.itemCount} items${result.batchId ? ` · Batch ${result.batchId}` : ""}`;
+      setActionNotice(notice);
     } catch (cause) {
       const code = cause instanceof Error ? cause.message : "ACTION_FAILED";
       if (code === "SESSION_EXPIRED" || code === "AUTH_REQUIRED") {
