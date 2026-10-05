@@ -87,17 +87,17 @@ function canRequestPublishWithMedia(item: ContentBatchItem, asset: MediaAssetRec
 
 const REQUEST_PUBLISH_COPY = {
   en: {
-    button: "Request Publish",
-    confirm: "Schedule this approved item for its planned publish time? Authorization is created automatically at due time by the existing publish workflow.",
-    success: "Publish scheduled for the planned time. Authorization will be created automatically at due time.",
-    already: "Publish is already scheduled for this item.",
+    button: "Publish Now",
+    confirm: "Publish this approved item to its connected platform now? The existing secure publisher will publish immediately and record the real result.",
+    success: "Published now. The real publication result was recorded.",
+    already: "This item is already published or already has a publish result.",
     busy: "Requesting publish…",
   },
   ar: {
-    button: "طلب النشر",
-    confirm: "جدولة هذا العنصر المعتمد لوقت النشر المخطط؟ يُنشأ التفويض تلقائيًا عند موعد النشر عبر مسار النشر الحالي.",
-    success: "تمت جدولة النشر لوقتها المخطط. سيُنشأ التفويض تلقائيًا عند موعد النشر.",
-    already: "النشر مجدول بالفعل لهذا العنصر.",
+    button: "نشر الآن",
+    confirm: "نشر هذا العنصر المعتمد الآن على المنصة المتصلة؟ مسار النشر الآمن الحالي سينفذ النشر فورًا ويسجل النتيجة الحقيقية.",
+    success: "تم النشر الآن وتسجيل النتيجة الحقيقية.",
+    already: "هذا العنصر منشور بالفعل أو توجد له نتيجة نشر مسجلة.",
     busy: "جاري طلب النشر…",
   },
 } as const;
@@ -162,7 +162,6 @@ export function ContentBatchReviewPanel({
   const [changeNote, setChangeNote] = useState("");
   const [designBusyId, setDesignBusyId] = useState<string | null>(null);
   const [designNotice, setDesignNotice] = useState("");
-  const [selectedDesignProvider, setSelectedDesignProvider] = useState<Record<string, "canva" | "runway" | "capcut" | "manual">>({});
   const [publishBusyId, setPublishBusyId] = useState<string | null>(null);
   const [publishNotice, setPublishNotice] = useState("");
   const [itemFilter, setItemFilter] = useState<"all" | "needs_review" | "approved" | "scheduled" | "failed">("all");
@@ -228,7 +227,7 @@ export function ContentBatchReviewPanel({
     setDesignBusyId(item.id);
     setDesignNotice("");
     try {
-      const provider = selectedDesignProvider[item.id] ?? recommendedDesignProvider(item);
+      const provider = recommendedDesignProvider(item);
       if (provider !== "canva") {
         setDesignNotice(language === "ar"
           ? provider === "runway" ? "Runway هو الاختيار المناسب للفيديو، لكن التوليد الفعلي غير متاح حتى تكون قدرته متصلة ومتحققًا منها." : provider === "capcut" ? "CapCut متاح كمسار تحرير يدوي؛ الـBrief جاهز ولا ندّعي توليدًا آليًا غير موجود." : "تم اختيار المسار اليدوي؛ استخدم الـBrief الجاهز من الوسائط."
@@ -308,8 +307,8 @@ export function ContentBatchReviewPanel({
       {workspaceMode === "campaigns" && (
         <div className="content-batch-design-notice" role="status">
           {language === "ar"
-            ? "هذه المساحة تعرض حالة الحملات الحالية. الجدولة وإعادة الجدولة تتم من تبويب المحتوى فقط عندما تسمح حالة العنصر. لا توجد هنا أداة نشر مستقلة."
-            : "This workspace shows current campaign states. Scheduling and rescheduling remain in Content when the item state allows them. There is no separate publish action here."}
+            ? "هذه المساحة تعرض حالة الحملات الحالية. النشر الفوري يظهر داخل العنصر المعتمد نفسه؛ لا توجد غرفة نشر ثانية."
+            : "This workspace shows current campaign states. Immediate publish stays on the approved item itself; there is no second publishing room."}
         </div>
       )}
 
@@ -393,34 +392,25 @@ export function ContentBatchReviewPanel({
               </details>
               <footer>
                 {session && (!item.mediaAssetId || canRegenerateDesign) && (
-                  <div className="content-design-provider-picker" role="group" aria-label={language === "ar" ? "اختيار مزود التصميم" : "Design provider choice"}>
-                    <label>
-                      <span>{language === "ar" ? "اختيار التصميم" : "Design provider"}</span>
-                      <select
-                        value={selectedDesignProvider[item.id] ?? recommendedDesignProvider(item)}
-                        onChange={(event) => setSelectedDesignProvider((current) => ({ ...current, [item.id]: event.target.value as "canva" | "runway" | "capcut" | "manual" }))}
-                        disabled={itemLocked || designBusyId === item.id}
-                      >
-                        {availableDesignProviders(item).map((provider) => (
-                          <option key={provider.key} value={provider.key}>
-                            {provider.label}{provider.key === recommendedDesignProvider(item) ? (language === "ar" ? " — الموصى به" : " — Recommended") : ""}{!provider.available ? (language === "ar" ? " — غير متصل" : " — Not connected") : ""}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <small>{availableDesignProviders(item).find((provider) => provider.key === (selectedDesignProvider[item.id] ?? recommendedDesignProvider(item)))?.detail}</small>
+                  <div className="content-design-provider-picker" role="group" aria-label={language === "ar" ? "إنشاء التصميم تلقائيًا" : "Automatic design creation"}>
+                    <strong>{language === "ar" ? "التصميم" : "Design"}</strong>
+                    <small>
+                      {language === "ar"
+                        ? `المسار المناسب تلقائيًا: ${availableDesignProviders(item).find((provider) => provider.key === recommendedDesignProvider(item))?.label ?? "يدوي"}`
+                        : `Best available path: ${availableDesignProviders(item).find((provider) => provider.key === recommendedDesignProvider(item))?.label ?? "Manual"}`}
+                    </small>
                     <button
                       type="button"
                       className="secondary"
                       data-testid="generateDesignButton"
                       aria-label={item.mediaAssetId ? copy.regenerateDesignButton : copy.generateDesignButton}
-                      disabled={itemLocked || designBusyId === item.id || (selectedDesignProvider[item.id] ?? recommendedDesignProvider(item)) === "canva" && designCapabilityState !== "AVAILABLE"}
+                      disabled={itemLocked || designBusyId === item.id || (recommendedDesignProvider(item) === "canva" && designCapabilityState !== "AVAILABLE")}
                       title={itemDisabledReason}
                       onClick={() => void handleGenerateDesign(item)}
                     >
                       {designBusyId === item.id
                         ? copy.generateDesignBusy
-                        : language === "ar" ? "استخدام الاختيار" : "Use selected provider"}
+                        : language === "ar" ? "إنشاء التصميم" : "Create design"}
                     </button>
                   </div>
                 )}
@@ -458,7 +448,7 @@ export function ContentBatchReviewPanel({
                 {canRequestPublish(item) && session && (
                   <button
                     type="button"
-                    className="secondary"
+                    className="primary-button"
                     disabled={itemLocked || publishBusyId === item.id || !canRequestPublishWithMedia(item, linkedMediaAsset)}
                     title={itemDisabledReason ?? (!canRequestPublishWithMedia(item, linkedMediaAsset) ? (language === "ar" ? "الوسائط المرتبطة ليست جاهزة للنشر." : "Linked media is not publish-ready.") : undefined)}
                     onClick={() => void handleRequestPublish(item)}

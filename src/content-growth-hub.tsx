@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { groupContentBatches, isDatabaseBatchId, selectPrimaryBatch, buildNextBatchReadyNotice, type ContentBatchItem } from "./content-batch";
-import { COACH_AYMAN_PROVIDER_ID, parseCoachKnowledgeContext, type CoachBrainFactoryContext } from "./content-batch-generator";
+import { COACH_AYMAN_PROVIDER_ID, parseCoachKnowledgeContext } from "./content-batch-generator";
 import { attachMediaToCoachAymanBatch, buildCoachAyman30DayBatchWithMedia } from "./media-batch-link";
 import { parseMediaAssetRecords } from "./media-library-controls";
 import {
@@ -26,19 +26,6 @@ const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\
 const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
 
 type GrowthSession = { accessToken: string };
-
-export const COACH_BRAIN_FACTORY_HANDOFF_KEY = "coach-brain-factory-handoff";
-
-function readCoachBrainFactoryContext(): CoachBrainFactoryContext | null {
-  try {
-    const raw = sessionStorage.getItem(COACH_BRAIN_FACTORY_HANDOFF_KEY);
-    if (!raw) return null;
-    const value = JSON.parse(raw) as Partial<CoachBrainFactoryContext>;
-    if (typeof value.question !== "string" || typeof value.answer !== "string") return null;
-    const sources = Array.isArray(value.sources) ? value.sources.filter((source): source is { title: string; url: string } => !!source && typeof source === "object" && typeof source.title === "string" && typeof source.url === "string").slice(0, 5) : [];
-    return { question: value.question.slice(0, 1000), answer: value.answer.slice(0, 4000), sources };
-  } catch { return null; }
-}
 
 type ContentGrowthHubProps = {
   items: ContentBatchItem[];
@@ -108,7 +95,6 @@ export default function ContentGrowthHub({
   const [automationStatus, setAutomationStatus] = useState<unknown>(null);
   const [generateNotice, setGenerateNotice] = useState("");
   const [generating, setGenerating] = useState(false);
-  const [coachBrainContext, setCoachBrainContext] = useState<CoachBrainFactoryContext | null>(() => readCoachBrainFactoryContext());
   const reviewAutoOpened = useRef(false);
   const [mediaAssets, setMediaAssets] = useState<ReturnType<typeof parseMediaAssetRecords>>([]);
   const integrations = useMemo(() => readIntegrationStatuses(automationStatus), [automationStatus]);
@@ -177,10 +163,6 @@ export default function ContentGrowthHub({
     continue_batch: publishCopyInstagram.livePublishNextContinue,
   }[instagramPublishing.nextAction];
 
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("factoryContext") === "coach-brain") setCoachBrainContext(readCoachBrainFactoryContext());
-  }, []);
-
   async function generateCoachAymanBatch(options: { automatic?: boolean } = {}) {
     if (!canWrite || panelBusy) return;
     if (!options.automatic && !window.confirm(copy.generateConfirm)) return;
@@ -197,7 +179,6 @@ export default function ContentGrowthHub({
       } catch {
         knowledgeContext = parseCoachKnowledgeContext(null);
       }
-      if (coachBrainContext) knowledgeContext = { ...knowledgeContext, researchContext: coachBrainContext };
       let saved: { success?: boolean; batchId?: string; code?: string } | null = null;
 
       for (let shiftDays = 0; shiftDays <= 45 && !saved; shiftDays += 1) {
@@ -292,8 +273,6 @@ export default function ContentGrowthHub({
           <p>{copy.dayNineBody.replace("{count}", String(dayNine.reviewableCount)).replace("{day}", String(dayNine.cycleDay))}</p>
         </div>
       )}
-
-      {coachBrainContext && <div className="content-growth-banner" role="status"><strong>{language === "ar" ? "سياق Coach Brain متاح للمصنع" : "Coach Brain context is available to Factory"}</strong><p>{coachBrainContext.question}</p><small>{language === "ar" ? "يُستخدم كسياق بحثي مساعد فقط؛ المعرفة الأكاديمية الأساسية تبقى من المصدر الحالي." : "Used only as supporting research context; canonical Academy Knowledge remains the existing source."}</small></div>}
 
       {generateNotice && <div className="notice-box" aria-live="polite">{generateNotice}</div>}
 

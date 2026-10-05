@@ -36,9 +36,10 @@ export type CoachBrainActionResult = {
   status: "created";
 };
 
-export async function executeCoachBrainContentGeneration(session: Session): Promise<CoachBrainActionResult> {
+export async function executeCoachBrainContentGeneration(session: Session, request = ""): Promise<CoachBrainActionResult> {
   if (!SUPABASE_URL || !SUPABASE_PUBLIC_KEY || !session.accessToken) throw new Error("AUTH_REQUIRED");
 
+  const requestedOutcome = request.trim().slice(0, 4000);
   const mediaRaw = await callRpc(session, "get_staff_media_assets");
   const assets = parseMediaAssetRecords(mediaRaw);
 
