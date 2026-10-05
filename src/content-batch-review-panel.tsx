@@ -412,6 +412,8 @@ export function ContentBatchReviewPanel({
                     <button
                       type="button"
                       className="secondary"
+                      data-testid="generateDesignButton"
+                      aria-label={item.mediaAssetId ? copy.regenerateDesignButton : copy.generateDesignButton}
                       disabled={itemLocked || designBusyId === item.id || (selectedDesignProvider[item.id] ?? recommendedDesignProvider(item)) === "canva" && designCapabilityState !== "AVAILABLE"}
                       title={itemDisabledReason}
                       onClick={() => void handleGenerateDesign(item)}
