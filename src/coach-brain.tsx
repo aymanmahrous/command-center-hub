@@ -120,9 +120,9 @@ function formatUsd(value: number, language: "ar" | "en") {
   }).format(value);
 }
 
-export type CoachBrainProps = { language?: "ar" | "en" };
+export type CoachBrainProps = { language?: "ar" | "en"; onNavigate?: (section: string) => void };
 
-export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
+export default function CoachBrain({ language = "ar", onNavigate = () => undefined }: CoachBrainProps) {
   const t = copy[language];
   const [question, setQuestion] = useState("");
   const [result, setResult] = useState<ResearchResult | null>(null);
@@ -191,6 +191,35 @@ export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
         </div>
         <div className="coach-brain__status"><ShieldCheck size={18} /> {language === "ar" ? "بحث آمن" : "Safe research"}</div>
       </header>
+
+      <section className="coach-brain__command-dock" aria-label={language === "ar" ? "قدرات Coach Brain" : "Coach Brain capabilities"}>
+        <div className="coach-brain__dock-heading">
+          <div>
+            <span className="coach-brain__dock-eyebrow">{language === "ar" ? "العقل التنفيذي" : "EXECUTIVE BRAIN"}</span>
+            <h2>{language === "ar" ? "كل قدرات Command Center من مكان واحد" : "Command Center capabilities from one place"}</h2>
+            <p>{language === "ar" ? "لا تحتاج إلى إدارة الأنظمة واحدًا واحدًا. اختر المهمة، وCoach Brain يوصلك إلى مساحة التنفيذ الصحيحة." : "You do not need to manage systems one by one. Choose the task and Coach Brain routes you to the right execution space."}</p>
+          </div>
+          <span className="coach-brain__dock-status"><ShieldCheck size={16} /> {language === "ar" ? "متصل بالمنظومة الحالية" : "Connected to the existing system"}</span>
+        </div>
+        <div className="coach-brain__capability-grid">
+          {[
+            ["content", "🏭", language === "ar" ? "المصنع" : "Factory", language === "ar" ? "حوّل البحث والفكرة إلى محتوى." : "Turn research and ideas into content."],
+            ["media", "🖼️", language === "ar" ? "الوسائط" : "Media", language === "ar" ? "راجع الأصول والمصادر والموافقات." : "Review assets, sources and approvals."],
+            ["inbox", "📥", language === "ar" ? "Inbox" : "Inbox", language === "ar" ? "تعامل مع المحادثات التي تحتاجك." : "Handle conversations that need you."],
+            ["planner", "📅", language === "ar" ? "الحجوزات" : "Bookings", language === "ar" ? "راجع الطلبات والمواعيد." : "Review requests and appointments."],
+            ["crm", "👥", language === "ar" ? "العملاء" : "Customers", language === "ar" ? "تابع العملاء والمتابعات." : "Follow customers and follow-ups."],
+            ["automations", "⚙️", language === "ar" ? "التشغيل" : "Operations", language === "ar" ? "راقب التشغيل والطوابير." : "Monitor operations and queues."],
+            ["analytics", "📊", language === "ar" ? "النتائج" : "Analytics", language === "ar" ? "اقرأ نبض النشاط والنتائج." : "Read business pulse and results."],
+            ["connections", "🔌", language === "ar" ? "الاتصالات" : "Connections", language === "ar" ? "راجع حالة المزودين والاتصالات." : "Review provider and connection truth."]
+          ].map(([section, icon, title, description]) => (
+            <button type="button" className="coach-brain__capability" key={section} onClick={() => onNavigate(section)}>
+              <span className="coach-brain__capability-icon" aria-hidden="true">{icon}</span>
+              <span className="coach-brain__capability-copy"><strong>{title}</strong><small>{description}</small></span>
+              <span className="coach-brain__capability-arrow" aria-hidden="true">←</span>
+            </button>
+          ))}
+        </div>
+      </section>
 
       <nav className="coach-brain__subnav" aria-label={language === "ar" ? "أقسام Coach Brain" : "Coach Brain sections"}>
         <a href="#coach-question">{language === "ar" ? "سؤال جديد" : "New question"}</a>
