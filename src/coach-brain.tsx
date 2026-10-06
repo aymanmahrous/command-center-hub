@@ -1,5 +1,6 @@
 import { FormEvent, useState } from "react";
 import { AlertTriangle, BookOpen, Brain, Search, ShieldCheck, Sparkles } from "lucide-react";
+import { buildCoachBrainSummaryRequest } from "./coach-brain-conversation";
 import "./coach-brain.css";
 
 type Source = { title: string; url: string };
@@ -23,7 +24,7 @@ type ResearchUsage = {
   groundingFeeIncluded: false;
   groundingQuotaStatus: "unknown";
 };
-type ResearchResult = { answer: string; sources: Source[]; searchQueries?: string[]; usage: ResearchUsage | null };
+type ResearchResult = { question: string; answer: string; isSummary: boolean; sources: Source[]; searchQueries?: string[]; usage: ResearchUsage | null };
 
 const copy = {
   ar: {
@@ -53,6 +54,7 @@ const copy = {
     actionsTitle: "ماذا تريد أن تفعل؟",
     actionsHint: "اختر مهمة جاهزة بدل كتابة سؤال من الصفر.",
     actions: ["جهز لي خطة محتوى 10 أيام", "أعطني أفكارًا متنوعة لمحتوى السباحة", "راجع هذا النص وحسّنه", "لخّص هذه المحادثة واقترح الخطوة التالية"],
+    summaryPrompt: "لخّص إجابة البحث الأخيرة واقترح خطوة عملية تالية.",
     error: "تعذر تنفيذ البحث الآن. لم يتم حفظ السؤال أو إنشاء أي بيانات.",
     privacyNote: "البحث يتم عبر خادم آمن، ومفتاح Gemini لا يصل إلى الهاتف.",
     examples: [
@@ -88,6 +90,7 @@ const copy = {
     actionsTitle: "What do you want to do?",
     actionsHint: "Choose a ready task instead of starting from a blank question.",
     actions: ["Prepare a 10-day content plan", "Give me varied swimming content ideas", "Review and improve this copy", "Summarize this conversation and suggest the next step"],
+    summaryPrompt: "Summarize the latest research answer and suggest one practical next step.",
     error: "The research could not be completed. The question was not saved and no swimmer record was created.",
     privacyNote: "Research runs through a secure server; the Gemini key never reaches the phone.",
     examples: [
@@ -126,6 +129,7 @@ export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
   const t = copy[language];
   const [question, setQuestion] = useState("");
   const [result, setResult] = useState<ResearchResult | null>(null);
+  const [summaryRequested, setSummaryRequested] = useState(false);
   const usage = result?.usage ?? null;
   const responseTokens = usage?.outputTokens !== null && usage?.outputTokens !== undefined && usage?.thinkingTokens !== null && usage?.thinkingTokens !== undefined
     ? usage.outputTokens + usage.thinkingTokens
@@ -151,7 +155,9 @@ export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
     event.preventDefault();
     const value = question.trim();
     if (!value || busy) return;
+    const reference = summaryRequested && result && !result.isSummary ? result : null;
     setBusy(true); setError(""); setResult(null);
+    setSummaryRequested(false);
     try {
       const baseUrl = String(import.meta.env.VITE_SUPABASE_URL ?? "").replace(/\/$/, "");
       const publicKey = String(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "");
@@ -160,7 +166,9 @@ export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
       const response = await fetch(`${baseUrl}/functions/v1/coach-brain-research`, {
         method: "POST",
         headers: { "Content-Type": "application/json", apikey: publicKey, Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ question: value }),
+        body: JSON.stringify(reference
+          ? buildCoachBrainSummaryRequest(reference.question, reference.answer)
+          : { question: value }),
       });
       const payload = await response.json().catch(() => ({})) as { success?: boolean; code?: string; answer?: string; sources?: Source[]; searchQueries?: string[]; usage?: ResearchUsage | null };
       if (!response.ok || !payload.success || !payload.answer) {
@@ -171,13 +179,14 @@ export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
         if (code === "ACADEMY_CONTEXT_FAILED") throw new Error("ACADEMY_CONTEXT_FAILED");
         throw new Error("RESEARCH_FAILED");
       }
-      setResult({ answer: payload.answer, sources: Array.isArray(payload.sources) ? payload.sources : [], searchQueries: payload.searchQueries, usage: payload.usage ?? null });
+      setResult({ question: value, answer: payload.answer, isSummary: Boolean(reference), sources: Array.isArray(payload.sources) ? payload.sources : [], searchQueries: payload.searchQueries, usage: payload.usage ?? null });
     } catch (cause) {
       const code = cause instanceof Error ? cause.message : "RESEARCH_FAILED";
       if (code === "NEEDS_CREDENTIAL") setError(language === "ar" ? "Coach Brain يحتاج مفتاح Gemini في Supabase Edge Function باسم GEMINI_API_KEY. لا تضع المفتاح داخل التطبيق." : "Coach Brain needs the Gemini key in Supabase Edge Function secrets as GEMINI_API_KEY. Do not put the key in the app.");
       else if (code === "AUTH_REQUIRED" || code === "STAFF_ACCESS_DENIED") setError(language === "ar" ? "جلسة الدخول غير صالحة أو لا تملك صلاحية Coach Brain. سجّل الدخول مرة أخرى." : "The staff session is invalid or does not have Coach Brain access. Sign in again.");
       else if (code === "ACADEMY_CONTEXT_FAILED") setError(language === "ar" ? "Coach Brain وصل للخدمة لكن لم يستطع تحميل Academy Knowledge. سأحتاج إصلاح مسار المعرفة، وليس مفتاحًا جديدًا." : "Coach Brain reached the service but could not load Academy Knowledge. This needs a knowledge-path fix, not a new key.");
       else setError(t.error);
+      if (reference) setResult(reference);
     } finally { setBusy(false); }
   }
 
@@ -200,14 +209,29 @@ export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
 
       <section className="coach-brain__card coach-brain__actions-card" aria-labelledby="coach-actions-title">
         <div className="coach-brain__section-heading"><span className="coach-brain__step">1</span><div><strong id="coach-actions-title">{t.actionsTitle}</strong><p>{t.actionsHint}</p></div></div>
-        <div className="coach-brain__action-grid">{t.actions.map((action) => <button key={action} type="button" disabled={busy} onClick={() => { setQuestion(action); setResult(null); setError(""); document.getElementById("coach-brain-question")?.focus(); }}>{action}<Sparkles size={15} /></button>)}</div>
+        <div className="coach-brain__action-grid">{t.actions.map((action, index) => {
+          const isSummaryAction = index === 3;
+          return <button key={action} type="button" disabled={busy || (isSummaryAction && (!result || result.isSummary))} onClick={() => {
+            if (isSummaryAction) {
+              if (!result || result.isSummary) return;
+              setSummaryRequested(true);
+              setQuestion(t.summaryPrompt);
+            } else {
+              setSummaryRequested(false);
+              setQuestion(action);
+              setResult(null);
+            }
+            setError("");
+            document.getElementById("coach-brain-question")?.focus();
+          }}>{action}<Sparkles size={15} /></button>;
+        })}</div>
       </section>
 
       <section id="coach-question" className="coach-brain__card coach-brain__research-card">
         <div className="coach-brain__section-heading"><span className="coach-brain__step">2</span><div><strong>{language === "ar" ? "راجع المهمة أو اكتب سؤالك" : "Review the task or write your question"}</strong><p>{language === "ar" ? "يمكنك تعديل النص قبل تشغيل البحث." : "You can edit the prompt before running research."}</p></div></div>
         <form onSubmit={research}>
           <label className="coach-brain__question-label" htmlFor="coach-brain-question">{language === "ar" ? "ماذا تريد أن تعرف؟" : "What do you want to know?"}</label>
-          <textarea id="coach-brain-question" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder={t.placeholder} rows={6} maxLength={5000} disabled={busy} />
+          <textarea id="coach-brain-question" value={question} onChange={(event) => { setQuestion(event.target.value); setSummaryRequested(false); }} placeholder={t.placeholder} rows={6} maxLength={5000} disabled={busy} />
           <div className="coach-brain__actions">
             <button className="coach-brain__primary" type="submit" disabled={busy || !question.trim()}>
               {busy ? <Sparkles size={17} className="coach-brain__spin" /> : <Search size={17} />}
@@ -230,7 +254,7 @@ export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
 
       {result && (
         <section id="coach-results" className="coach-brain__results" aria-live="polite">
-          <div className="coach-brain__results-heading"><span className="coach-brain__step">4</span><div><strong>{language === "ar" ? "النتيجة العملية" : "Practical result"}</strong><p>{language === "ar" ? "اقرأ الإجابة، راجع المصادر، ثم أرسلها لمصنع المحتوى عند الحاجة." : "Read the answer, review the sources, then send it to Content Factory when useful."}</p></div><div className="coach-brain__results-actions"><button type="button" className="coach-brain__reset" onClick={() => { setResult(null); setQuestion(""); setError(""); }}>{language === "ar" ? "مهمة جديدة" : "New task"}</button><button type="button" className="coach-brain__reset" onClick={sendResultToFactory}>{language === "ar" ? "إرسال إلى مصنع المحتوى" : "Send to Content Factory"}</button></div></div>
+          <div className="coach-brain__results-heading"><span className="coach-brain__step">4</span><div><strong>{language === "ar" ? "النتيجة العملية" : "Practical result"}</strong><p>{language === "ar" ? "اقرأ الإجابة، راجع المصادر، ثم أرسلها لمصنع المحتوى عند الحاجة." : "Read the answer, review the sources, then send it to Content Factory when useful."}</p></div><div className="coach-brain__results-actions"><button type="button" className="coach-brain__reset" onClick={() => { setResult(null); setQuestion(""); setSummaryRequested(false); setError(""); }}>{language === "ar" ? "مهمة جديدة" : "New task"}</button><button type="button" className="coach-brain__reset" onClick={sendResultToFactory}>{language === "ar" ? "إرسال إلى مصنع المحتوى" : "Send to Content Factory"}</button></div></div>
           <article className="coach-brain__card coach-brain__answer">
             <div className="coach-brain__result-title"><Sparkles size={18} /> <h2>{t.direct}</h2></div>
             <div className="coach-brain__answer-text">{result.answer}</div>
