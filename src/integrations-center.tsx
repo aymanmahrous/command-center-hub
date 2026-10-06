@@ -3,6 +3,7 @@ import { z } from "zod";
 import { useLanguage } from "./i18n";
 import type { Language } from "./i18n";
 import { canvaConnectErrorMessage, startCanvaConnect } from "./canva-adapter";
+import { googleCalendarConnectErrorMessage, startGoogleCalendarConnect } from "./google-calendar-adapter";
 import "./integrations-center.css";
 
 type Role = "super_admin" | "admin" | "reception" | "coach" | "content_manager";
@@ -70,6 +71,24 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
   async function connectOAuth(provider: string) {
     setBusy(provider); setNotice("");
     try {
+      if (provider === "google_calendar") {
+        const { authorizationUrl } = await startGoogleCalendarConnect(session);
+        window.location.assign(authorizationUrl);
+        return;
+      }
+      if (provider === "facebook") {
+        const response = await fetch(`${URL}/functions/v1/facebook-oauth`, {
+          method: "POST",
+          headers: rpcHeaders(session),
+          body: JSON.stringify({ mode: "authorize" }),
+          cache: "no-store",
+        });
+        const result = await response.json().catch(() => ({}));
+        if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
+        if (!response.ok || !result.success || !result.authorizationUrl) throw new Error(String(result.code ?? "FACEBOOK_AUTHORIZE_FAILED"));
+        window.location.assign(String(result.authorizationUrl));
+        return;
+      }
       if (provider !== "canva") {
         setNotice(language === "ar"
           ? "هذا الربط يحتاج تهيئة OAuth داخلية مرة واحدة. لا تدخل Token أو مفتاحًا هنا."
@@ -81,7 +100,7 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
     } catch (cause) {
       if (cause instanceof Error && cause.message === "SESSION_EXPIRED") { onSessionExpired(); return; }
       const code = cause instanceof Error ? cause.message.replace(/^CANVA_/, "") : undefined;
-      setNotice(language === "ar" ? canvaConnectErrorMessage(code) : "Canva OAuth could not start. Command Center remains usable without Canva.");
+      setNotice(provider === "google_calendar" ? (language === "ar" ? googleCalendarConnectErrorMessage(code) : `Google Calendar OAuth could not start (${code ?? "unknown"}).`) : language === "ar" ? canvaConnectErrorMessage(code) : "OAuth could not start. Command Center remains usable.");
     } finally { setBusy(null); }
   }
   function open(provider: string) { setSelected(provider); setSecret(""); setAccount(""); setNotice(""); }
