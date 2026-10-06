@@ -25,7 +25,7 @@ export default function MediaSourceHubView({ onOpenProvider, onNavigate, session
   const [query, setQuery] = useState(""); const [provider, setProvider] = useState<MediaProviderKey | "all">("all");
   const [selected, setSelected] = useState<RemoteMediaItem | null>(null); const [objective, setObjective] = useState(ar ? "تعليم السباحة بثقة وأمان" : "Confident, safe swimming lessons");
   const [briefLanguage, setBriefLanguage] = useState<"ar" | "en">(language); const [copied, setCopied] = useState(false);
-  const [items, setItems] = useState<RemoteMediaItem[]>([]); const [busy, setBusy] = useState<MediaProviderKey | null>(null); const [notice, setNotice] = useState("");
+  const [items, setItems] = useState<RemoteMediaItem[]>([]); const [busy, setBusy] = useState<MediaProviderKey | "factory" | null>(null); const [notice, setNotice] = useState("");
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const connections = useMemo(() => readProviderConnections(import.meta.env as unknown as Record<string, unknown>), []);
   const filteredItems = useMemo(() => filterRemoteMedia(items, query, provider), [items, query, provider]);
