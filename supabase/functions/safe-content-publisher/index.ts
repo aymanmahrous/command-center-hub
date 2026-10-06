@@ -228,8 +228,6 @@ Deno.serve(async (req) => {
   if (item.status !== "approved") return fail("INVALID_TRANSITION", 409);
   const platform = String(item.platform ?? "").toLowerCase();
   if (platform !== "facebook" && platform !== "instagram") return fail("UNSUPPORTED_PLATFORM", 400);
-  if (platform === "facebook" && (!FACEBOOK_PAGE_ID || !FACEBOOK_PAGE_ACCESS_TOKEN)) return fail("META_NOT_CONFIGURED", 500);
-  if (platform === "instagram" && (!INSTAGRAM_ACCOUNT_ID || !INSTAGRAM_ACCESS_TOKEN)) return fail("META_NOT_CONFIGURED", 500);
   const connectedCredential = await readConnectedMetaCredential(platform as "facebook" | "instagram");
   const pageId = connectedCredential?.facebookPageId ?? FACEBOOK_PAGE_ID;
   const instagramAccountId = connectedCredential?.instagramAccountId ?? INSTAGRAM_ACCOUNT_ID;
@@ -289,5 +287,5 @@ async function publishToInstagram(caption: string, imageUrl: string | null, acco
   if (!accountId || !accessToken) return { success: false, errorCode: "META_NOT_CONFIGURED" }; const createParams = new URLSearchParams({ access_token: accessToken, appsecret_proof: await hmacProof(accessToken), image_url: imageUrl, caption });
   const createResponse = await fetch(`https://graph.facebook.com/${META_GRAPH_VERSION}/${accountId}/media`, { method: "POST", body: createParams }); const created = await createResponse.json(); if (!createResponse.ok || created.error || !created.id) return { success: false, errorCode: "META_API_ERROR" };
   const publishParams = new URLSearchParams({ access_token: accessToken, appsecret_proof: await hmacProof(accessToken), creation_id: created.id });
-  const publishResponse = await fetch(`https://graph.facebook.com/${META_GRAPH_VERSION}/${INSTAGRAM_ACCOUNT_ID}/media_publish`, { method: "POST", body: publishParams }); const published = await publishResponse.json(); if (!publishResponse.ok || published.error || !published.id) return { success: false, errorCode: "META_API_ERROR" }; return { success: true, providerExternalId: String(published.id) };
+  const publishResponse = await fetch(`https://graph.facebook.com/${META_GRAPH_VERSION}/${accountId}/media_publish`, { method: "POST", body: publishParams }); const published = await publishResponse.json(); if (!publishResponse.ok || published.error || !published.id) return { success: false, errorCode: "META_API_ERROR" }; return { success: true, providerExternalId: String(published.id) };
 }
