@@ -414,8 +414,8 @@ export function ContentBatchReviewPanel({
                     <strong>{language === "ar" ? "التصميم" : "Design"}</strong>
                     <small>
                       {language === "ar"
-                        ? `اقتراح Coach Brain: ${availableDesignProviders(item).find((provider) => provider.key === recommendedDesignProvider(item))?.label ?? "يدوي"}`
-                        : `Coach Brain recommendation: ${availableDesignProviders(item).find((provider) => provider.key === recommendedDesignProvider(item))?.label ?? "Manual"}`}
+                        ? `اقتراح النظام: ${availableDesignProviders(item).find((provider) => provider.key === recommendedDesignProvider(item))?.label ?? "يدوي"}`
+                        : `System recommendation: ${availableDesignProviders(item).find((provider) => provider.key === recommendedDesignProvider(item))?.label ?? "Manual"}`}
                     </small>
                     <label>
                       <span className="sr-only">{language === "ar" ? "مزود التصميم" : "Design provider"}</span>
@@ -426,7 +426,7 @@ export function ContentBatchReviewPanel({
                         disabled={itemLocked || designBusyId === item.id}
                       >
                         {availableDesignProviders(item).map((provider) => (
-                          <option key={provider.key} value={provider.key} disabled={!provider.available}>
+                          <option key={provider.key} value={provider.key}>
                             {provider.label}{provider.available ? "" : language === "ar" ? " — غير متاح حاليًا" : " — unavailable"}
                           </option>
                         ))}
