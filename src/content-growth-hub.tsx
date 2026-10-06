@@ -112,8 +112,7 @@ ${canonical.cta}`;
     const canonicalCaptionBody = canonical.caption.endsWith(trackedCtaSuffix)
       ? canonical.caption.slice(0, -trackedCtaSuffix.length).trim()
       : "";
-    const canonicalPrimaryCta = canonicalCaptionBody.split(/\r?
-/).map((line) => line.trim()).filter(Boolean).at(-1);
+    const canonicalPrimaryCta = canonicalCaptionBody.split(/\\r?\\n/).map((line) => line.trim()).filter(Boolean).at(-1);
     if (!canonicalPrimaryCta || !generatedCaptionBody.endsWith(canonicalPrimaryCta)) return null;
 
     const topic = generated.topic.trim();
@@ -202,7 +201,10 @@ export default function ContentGrowthHub({
     if (new URLSearchParams(window.location.search).get("factoryContext") !== "coach-brain") return null;
     return readCoachBrainFactoryContext();
   });
-  const [mediaFactoryHandoff] = useState<MediaFactoryHandoff | null>(() => readMediaFactoryHandoff());
+  const [mediaFactoryHandoff, setMediaFactoryHandoff] = useState<MediaFactoryHandoff | null>(() => readMediaFactoryHandoff());
+  const [mediaLinkTargetId, setMediaLinkTargetId] = useState("");
+  const [mediaLinkBusy, setMediaLinkBusy] = useState(false);
+  const [mediaLinkNotice, setMediaLinkNotice] = useState("");
   const reviewAutoOpened = useRef(false);
   const [mediaAssets, setMediaAssets] = useState<ReturnType<typeof parseMediaAssetRecords>>([]);
   const integrations = useMemo(() => readIntegrationStatuses(automationStatus), [automationStatus]);
@@ -261,8 +263,36 @@ export default function ContentGrowthHub({
   }, [activeFactoryTab, primaryBatch]);
 
   const batchItems = selectedBatch?.items ?? [];
+  const mediaLinkCandidates = useMemo(() => batchItems.filter((item) => ["draft", "generated", "needs_review"].includes(item.status) && !item.mediaAssetId), [batchItems]);
   const strategySummary = useMemo(() => buildStrategySummary(batchItems), [batchItems]);
   const panelBusy = busy || generating;
+  useEffect(() => {
+    if (!mediaLinkTargetId || !mediaLinkCandidates.some((item) => item.id === mediaLinkTargetId)) {
+      setMediaLinkTargetId(mediaLinkCandidates[0]?.id ?? "");
+    }
+  }, [mediaLinkCandidates, mediaLinkTargetId]);
+
+  async function linkSelectedMediaToContent() {
+    if (!session || !canWrite || mediaLinkBusy || !mediaFactoryHandoff || !mediaLinkTargetId) return;
+    setMediaLinkBusy(true);
+    setMediaLinkNotice("");
+    try {
+      const result = await callRpc(session, "link_staff_media_to_content_item", {
+        p_content_item_id: mediaLinkTargetId,
+        p_media_asset_id: mediaFactoryHandoff.asset.id,
+      }) as Record<string, unknown>;
+      if (result.success !== true) throw new Error(String(result.code ?? "MEDIA_LINK_FAILED"));
+      sessionStorage.removeItem(MEDIA_FACTORY_HANDOFF_KEY);
+      setMediaFactoryHandoff(null);
+      setMediaLinkNotice(language === "ar" ? "تم ربط الوسائط بالمحتوى فعليًا. أعيدت الحالة إلى المراجعة قبل أي نشر." : "Media is now linked to the content. The item returned to review before any publish.");
+      onBatchCreated?.();
+    } catch (cause) {
+      if (cause instanceof Error && cause.message === "SESSION_EXPIRED") onSessionExpired?.();
+      else setMediaLinkNotice(cause instanceof Error ? cause.message : "MEDIA_LINK_FAILED");
+    } finally {
+      setMediaLinkBusy(false);
+    }
+  }
   const instagramNextStepCopy = {
     review: publishCopyInstagram.livePublishNextReview,
     approve: publishCopyInstagram.livePublishNextApprove,
@@ -408,8 +438,22 @@ export default function ContentGrowthHub({
       {mediaFactoryHandoff && <div className="content-growth-banner" role="status">
         <strong>{language === "ar" ? "أصل وسائط جاهز داخل المصنع" : "Media asset ready in Factory"}</strong>
         <p>{mediaFactoryHandoff.asset.name} · {mediaFactoryHandoff.asset.provider}</p>
-        <small>{language === "ar" ? "تم اختياره من مكتبة الوسائط. لا يتم ربطه أو نشره حتى تختار عنصر المحتوى وتراجعه." : "Selected from Media Library. It is not linked or published until you choose a content item and review it."}</small>
+        <small>{language === "ar" ? "اختر عنصر محتوى حقيقيًا لربط الأصل به. لن يتم النشر تلقائيًا؛ بعد الربط يعود العنصر للمراجعة." : "Choose a real content item to link this asset to. Nothing publishes automatically; the item returns to review after linking."}</small>
+        {mediaLinkCandidates.length > 0 ? (
+          <div className="media-factory-link-control">
+            <label htmlFor="media-factory-target">{language === "ar" ? "اربطه بهذا المحتوى" : "Link it to this content"}</label>
+            <select id="media-factory-target" value={mediaLinkTargetId} onChange={(event) => setMediaLinkTargetId(event.target.value)} disabled={mediaLinkBusy || !canWrite}>
+              {mediaLinkCandidates.map((item) => <option key={item.id} value={item.id}>{item.platform} · {item.contentType} · {item.topic || item.hook || item.id.slice(0, 8)}</option>)}
+            </select>
+            <button type="button" className="primary-button" disabled={mediaLinkBusy || !canWrite || !mediaLinkTargetId} onClick={() => void linkSelectedMediaToContent()}>
+              {mediaLinkBusy ? (language === "ar" ? "جاري الربط…" : "Linking…") : (language === "ar" ? "ربط الوسائط الآن" : "Link media now")}
+            </button>
+          </div>
+        ) : (
+          <small>{language === "ar" ? "لا يوجد حاليًا محتوى مسودة يحتاج وسائط. اختر/أنشئ محتوى أولًا، ثم سيظهر هنا للربط." : "There is no draft content waiting for media right now. Create or select content first, then it will appear here."}</small>
+        )}
         <a className="today-quick-action" href={mediaFactoryHandoff.asset.webUrl} target="_blank" rel="noreferrer noopener">{language === "ar" ? "فتح الأصل" : "Open asset"}</a>
+        {mediaLinkNotice && <small role="status">{mediaLinkNotice}</small>}
       </div>}
 
       {generateNotice && <div className="notice-box" aria-live="polite">{generateNotice}</div>}
