@@ -108,7 +108,10 @@ export default function ContentGrowthHub({
   const [automationStatus, setAutomationStatus] = useState<unknown>(null);
   const [generateNotice, setGenerateNotice] = useState("");
   const [generating, setGenerating] = useState(false);
-  const [coachBrainContext, setCoachBrainContext] = useState<CoachBrainFactoryContext | null>(() => readCoachBrainFactoryContext());
+  const [coachBrainContext, setCoachBrainContext] = useState<CoachBrainFactoryContext | null>(() => {
+    if (new URLSearchParams(window.location.search).get("factoryContext") !== "coach-brain") return null;
+    return readCoachBrainFactoryContext();
+  });
   const reviewAutoOpened = useRef(false);
   const [mediaAssets, setMediaAssets] = useState<ReturnType<typeof parseMediaAssetRecords>>([]);
   const integrations = useMemo(() => readIntegrationStatuses(automationStatus), [automationStatus]);
@@ -178,7 +181,9 @@ export default function ContentGrowthHub({
   }[instagramPublishing.nextAction];
 
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("factoryContext") === "coach-brain") setCoachBrainContext(readCoachBrainFactoryContext());
+    if (new URLSearchParams(window.location.search).get("factoryContext") !== "coach-brain") return;
+    setCoachBrainContext(readCoachBrainFactoryContext());
+    sessionStorage.removeItem(COACH_BRAIN_FACTORY_HANDOFF_KEY);
   }, []);
 
   async function generateCoachAymanBatch(options: { automatic?: boolean } = {}) {
