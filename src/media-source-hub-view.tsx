@@ -9,7 +9,7 @@ import {
 import "./media-source-hub.css";
 
 type HubSession = { accessToken: string };
-type Props = { onOpenProvider?: (provider: MediaProviderKey) => void; session?: HubSession; canWrite?: boolean; onChanged?: () => void; onSessionExpired?: () => void };
+type Props = { onOpenProvider?: (provider: MediaProviderKey) => void; onNavigate?: (section: string) => void; session?: HubSession; canWrite?: boolean; onChanged?: () => void; onSessionExpired?: () => void };
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
 const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
 
@@ -20,7 +20,7 @@ async function callRpc(session: HubSession, rpcName: string, body: Record<string
   return response.json();
 }
 
-export default function MediaSourceHubView({ onOpenProvider, session, canWrite = false, onChanged, onSessionExpired }: Props) {
+export default function MediaSourceHubView({ onOpenProvider, onNavigate, session, canWrite = false, onChanged, onSessionExpired }: Props) {
   const { language } = useLanguage(); const ar = language === "ar";
   const [query, setQuery] = useState(""); const [provider, setProvider] = useState<MediaProviderKey | "all">("all");
   const [selected, setSelected] = useState<RemoteMediaItem | null>(null); const [objective, setObjective] = useState(ar ? "تعليم السباحة بثقة وأمان" : "Confident, safe swimming lessons");
@@ -71,7 +71,7 @@ export default function MediaSourceHubView({ onOpenProvider, session, canWrite =
         createdAt: new Date().toISOString(),
       }));
       setNotice(ar ? "تم تجهيز الأصل لمصنع المحتوى. سيتم فتحه هناك للمراجعة." : "Asset prepared for Content Factory. It will open there for review.");
-      onOpenProvider?.(selected.provider);
+      onNavigate?.("content");
     } catch {
       setNotice(ar ? "تعذر تجهيز الأصل للمصنع." : "Could not prepare the asset for Factory.");
     }
