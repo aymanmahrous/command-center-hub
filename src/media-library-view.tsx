@@ -229,6 +229,7 @@ export default function MediaLibraryView({
     rejectMedia: copy.rejectMedia,
     unsuitableMedia: copy.unsuitableMedia,
     analyzeMedia: copy.analyzeMedia,
+    useInFactory: language === "ar" ? "استخدام في مصنع المحتوى" : "Use in Content Factory",
     publishabilityLabel: copy.publishabilityLabel,
     aiStatusLabel: copy.aiStatusLabel,
     workflowStatusLabel: copy.workflowStatusLabel,
