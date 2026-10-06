@@ -29,7 +29,9 @@ test("Approval Center is a review-only owner surface over existing sections", as
   assert.match(tower, /No external action runs from this screen/);
 });
 
-test("Home keeps the owner navigation simple while advanced modules stay in More", () => {
+test("Home keeps Coach Brain as the primary owner entry without duplicating operational modules in navigation", () => {
   assert.match(main, /active === "dashboard" \? .*ControlTowerV2/s);
-  assert.match(main, /const moreIds = new Set<SectionId>\(\["today", "content", "media", "automations", "crm", "planner"/);
-  assert.doesNotMatch(main, /const moreIds[^\n]*"brain"/);});
+  assert.match(main, /const primary = \[\s*\["brain", Bot, nav\.brain\]\,?\s*\] as const;/);
+  assert.match(main, /const desktopPrimary = \[\s*\["brain", Bot, nav\.brain\]\,?\s*\] as const;/);
+  assert.match(main, /const morePanel = null;/);
+});

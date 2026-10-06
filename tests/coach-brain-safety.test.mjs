@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 const view = readFileSync(new URL("../src/coach-brain.tsx", import.meta.url), "utf8");
 const style = readFileSync(new URL("../src/coach-brain.css", import.meta.url), "utf8");
 const app = readFileSync(new URL("../src/main.tsx", import.meta.url), "utf8");
+const hub = readFileSync(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
 const edge = readFileSync(new URL("../supabase/functions/coach-brain-research/index.ts", import.meta.url), "utf8");
 
 test("Coach Brain exposes non-diagnostic safety boundaries", () => {
@@ -26,7 +27,7 @@ test("Coach Brain protects the no-record workflow", () => {
 
 test("Factory consumes Coach Brain handoff only on explicit factory entry", () => {
   assert.match(hub, /factoryContext.*coach-brain/);
-  assert.match(hub, /sessionStorage\\.removeItem\\(COACH_BRAIN_FACTORY_HANDOFF_KEY\\)/);
+  assert.match(hub, /sessionStorage\.removeItem\(COACH_BRAIN_FACTORY_HANDOFF_KEY\)/);
   assert.match(hub, /get\("factoryContext"\).*coach-brain/);
 });
 
