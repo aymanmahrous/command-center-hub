@@ -21,7 +21,7 @@ const definitions: Record<string, { icon: string; description: Record<Language, 
   canva: { icon: "CV", method: "oauth", description: { ar: "ربط التصاميم بالمنشورات من مكتبة الوسائط.", en: "Link designs to posts from Media Library." } },
   ai_provider: { icon: "AI", method: "api_key", description: { ar: "تخزين مفتاح مزود الذكاء الاصطناعي بأمان.", en: "Store an AI provider key securely." } },
 };
-const statusLabels: Record<Language, Record<string, string>> = { ar: { not_connected: "غير مربوط", pending: "جاري الربط", connected: "متصل", needs_test: "يحتاج اختبار", error: "فشل", disabled: "متوقف" }, en: { not_connected: "Not connected", pending: "Pending", connected: "Connected", needs_test: "Needs test", error: "Error", disabled: "Disabled" } };
+const statusLabels: Record<Language, Record<string, string>> = { ar: { not_connected: "غير مربوط", pending: "جاري الربط", connected: "اجتاز اختبار الإعداد المحلي", needs_test: "يحتاج اختبار", error: "فشل", disabled: "متوقف" }, en: { not_connected: "Not connected", pending: "Pending", connected: "Local config test passed", needs_test: "Needs test", error: "Error", disabled: "Disabled" } };
 const capabilityLabels: Record<Language, Record<CapabilityState, string>> = {
   ar: { AVAILABLE: "القدرة متاحة", LIMITED: "محدود — غير متحقق بالكامل", BLOCKED: "متوقف", NOT_CONFIGURED: "غير مهيأ" },
   en: { AVAILABLE: "Capability available", LIMITED: "Limited — not fully verified", BLOCKED: "Blocked", NOT_CONFIGURED: "Not configured" },

@@ -6,6 +6,13 @@ const migration = await readFile(new URL("../supabase/migrations/20260920130000_
 const view = await readFile(new URL("../src/integrations-center.tsx", import.meta.url), "utf8");
 const app = await readFile(new URL("../src/main.tsx", import.meta.url), "utf8");
 
+test("connected status reports a successful local configuration check, not external operation", () => {
+  assert.match(view, /connected: "اجتاز اختبار الإعداد المحلي"/);
+  assert.match(view, /connected: "Local config test passed"/);
+  assert.match(migration, /result', 'configured'/);
+  assert.match(view, /لم يتم استدعاء مزود خارجي بعد/);
+});
+
 test("first-batch integrations are in-app, masked, audited, and fail closed", () => {
   assert.match(migration, /staff_integration_secrets/);
   assert.match(migration, /revoke all on public\.staff_integration_secrets from public, anon, authenticated/i);
