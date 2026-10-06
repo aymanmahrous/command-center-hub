@@ -48,7 +48,9 @@ test("Coach Brain exposes non-diagnostic safety boundaries", () => {
   assert.match(view, /clinical rehabilitation|التأهيل السريري/);
   assert.match(app, /const CoachBrain = lazy\(\(\) => import\("\.\/coach-brain"\)\)/);
   assert.match(app, /\["brain", Bot, "x"\]/);
-  assert.match(app, /<CoachBrain language=\{language\} \/>/);
+  assert.match(app, /<CoachBrain language=\{language\}/);
+  assert.match(app, /onNavigate=\{\(section\) =>/);
+  assert.match(app, /go\(section as SectionId\)/);
 });
 
 test("Coach Brain includes a no-forced-submersion boundary", () => {
