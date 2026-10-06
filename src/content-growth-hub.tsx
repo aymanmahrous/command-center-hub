@@ -30,6 +30,37 @@ const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || im
 type GrowthSession = { accessToken: string };
 
 export const COACH_BRAIN_FACTORY_HANDOFF_KEY = "coach-brain-factory-handoff";
+const MEDIA_FACTORY_HANDOFF_KEY = "media-factory-handoff";
+
+type MediaFactoryHandoff = {
+  asset: { id: string; provider: string; name: string; mimeType: string; webUrl: string; previewUrl: string | null; folder: string };
+  createdAt: string;
+};
+
+function readMediaFactoryHandoff(): MediaFactoryHandoff | null {
+  try {
+    const raw = sessionStorage.getItem(MEDIA_FACTORY_HANDOFF_KEY);
+    if (!raw) return null;
+    const value = JSON.parse(raw) as Partial<MediaFactoryHandoff>;
+    if (!value.asset || typeof value.asset !== "object") return null;
+    const asset = value.asset as Partial<MediaFactoryHandoff["asset"]>;
+    if (typeof asset.id !== "string" || typeof asset.name !== "string" || typeof asset.webUrl !== "string") return null;
+    return {
+      asset: {
+        id: asset.id,
+        provider: typeof asset.provider === "string" ? asset.provider : "unknown",
+        name: asset.name,
+        mimeType: typeof asset.mimeType === "string" ? asset.mimeType : "application/octet-stream",
+        webUrl: asset.webUrl,
+        previewUrl: typeof asset.previewUrl === "string" ? asset.previewUrl : null,
+        folder: typeof asset.folder === "string" ? asset.folder : "",
+      },
+      createdAt: typeof value.createdAt === "string" ? value.createdAt : "",
+    };
+  } catch {
+    return null;
+  }
+}
 
 function readCoachBrainFactoryContext(): CoachBrainFactoryContext | null {
   try {
@@ -168,12 +199,13 @@ export default function ContentGrowthHub({
     if (new URLSearchParams(window.location.search).get("factoryContext") !== "coach-brain") return null;
     return readCoachBrainFactoryContext();
   });
+  const [mediaFactoryHandoff] = useState<MediaFactoryHandoff | null>(() => readMediaFactoryHandoff());
   const reviewAutoOpened = useRef(false);
   const [mediaAssets, setMediaAssets] = useState<ReturnType<typeof parseMediaAssetRecords>>([]);
   const integrations = useMemo(() => readIntegrationStatuses(automationStatus), [automationStatus]);
   const canvaCapabilityState = integrations.find((integration) => integration.key === "canva")?.capabilityState ?? "NOT_CONFIGURED";
   const videoCapabilityState = integrations.find((integration) => integration.key === "runway")?.capabilityState ?? "NOT_CONFIGURED";
-  const [activeFactoryTab, setActiveFactoryTab] = useState<"overview" | "strategy" | "factory" | "content" | "designs" | "reels" | "campaigns" | "review" | "connections">("overview");
+  const [activeFactoryTab, setActiveFactoryTab] = useState<"overview" | "strategy" | "factory" | "content" | "designs" | "reels" | "campaigns" | "review" | "connections">(mediaFactoryHandoff ? "content" : "overview");
   useEffect(() => {
     const targetId = activeFactoryTab === "content" ? "content-control-room" : ["designs", "reels", "campaigns", "review"].includes(activeFactoryTab) ? "content-review" : `content-${activeFactoryTab}`;
     requestAnimationFrame(() => document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" }));
@@ -370,6 +402,12 @@ export default function ContentGrowthHub({
       )}
 
       {coachBrainContext && <div className="content-growth-banner" role="status"><strong>{language === "ar" ? "سياق Coach Brain متاح للمصنع" : "Coach Brain context is available to Factory"}</strong><p>{coachBrainContext.question}</p><small>{language === "ar" ? "يُستخدم كسياق بحثي مساعد فقط؛ المعرفة الأكاديمية الأساسية تبقى من المصدر الحالي." : "Used only as supporting research context; canonical Academy Knowledge remains the existing source."}</small></div>}
+      {mediaFactoryHandoff && <div className="content-growth-banner" role="status">
+        <strong>{language === "ar" ? "أصل وسائط جاهز داخل المصنع" : "Media asset ready in Factory"}</strong>
+        <p>{mediaFactoryHandoff.asset.name} · {mediaFactoryHandoff.asset.provider}</p>
+        <small>{language === "ar" ? "تم اختياره من مكتبة الوسائط. لا يتم ربطه أو نشره حتى تختار عنصر المحتوى وتراجعه." : "Selected from Media Library. It is not linked or published until you choose a content item and review it."}</small>
+        <a className="today-quick-action" href={mediaFactoryHandoff.asset.webUrl} target="_blank" rel="noreferrer noopener">{language === "ar" ? "فتح الأصل" : "Open asset"}</a>
+      </div>}
 
       {generateNotice && <div className="notice-box" aria-live="polite">{generateNotice}</div>}
 
