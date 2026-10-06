@@ -1,12 +1,46 @@
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
+import { BRAND, CONTENT_CYCLE_DAYS, DEFAULT_BATCH_MIX, PLATFORM_GUIDANCE, buildCoachBrainBusinessContext, buildStrategySummary } from "../src/content-strategy.ts";
 
 const view = readFileSync(new URL("../src/coach-brain.tsx", import.meta.url), "utf8");
 const style = readFileSync(new URL("../src/coach-brain.css", import.meta.url), "utf8");
 const app = readFileSync(new URL("../src/main.tsx", import.meta.url), "utf8");
 const hub = readFileSync(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
 const edge = readFileSync(new URL("../supabase/functions/coach-brain-research/index.ts", import.meta.url), "utf8");
+
+test("Coach Brain uses bounded business strategy from the existing source only for business/content questions", () => {
+  const context = buildCoachBrainBusinessContext("Write an Instagram content caption for parents in Abu Dhabi");
+  assert.ok(context);
+  assert.ok(context.length < 4000);
+  const parsed = JSON.parse(context);
+  assert.deepEqual(parsed.business, {
+    brand: BRAND.name,
+    audience: BRAND.audience,
+    experience: BRAND.experience,
+    offers: BRAND.offers,
+    serviceAreas: BRAND.locations,
+  });
+  assert.equal(parsed.content.cycleDays, CONTENT_CYCLE_DAYS);
+  assert.deepEqual(parsed.content.goals, buildStrategySummary([]).goals);
+  assert.deepEqual(parsed.content.batchMix, DEFAULT_BATCH_MIX.map(({ pillar, platform, contentType, timeSlot }) => ({ pillar, platform, contentType, timeSlot })));
+  assert.deepEqual(parsed.content.platformGuidance, PLATFORM_GUIDANCE);
+  assert.doesNotMatch(context, /0588219130|971588219130|0551378660/);
+  assert.ok(buildCoachBrainBusinessContext("اكتب منشورًا تسويقيًا للأكاديمية"));
+  assert.equal(buildCoachBrainBusinessContext("How can I improve freestyle breathing?"), null);
+});
+
+test("Business context is reference-only and cannot override research, medical or water-safety rules", () => {
+  assert.match(edge, /buildCoachBrainBusinessContext\(question\)/);
+  assert.match(edge, /if \(businessContext\)/);
+  assert.match(edge, /reference only; include only for business\/content questions/);
+  assert.match(edge, /never override the evidence hierarchy, medical boundaries, or water-safety rules/);
+  assert.match(edge, /Do not invent or infer prices, branch names, service details, or packages/);
+  assert.match(edge, /tools: \[\{ google_search: \{\} \}\]/);
+  assert.match(edge, /Academy Knowledge context:/);
+  assert.match(edge, /const GEMINI_MODEL = "gemini-3.7-flash"/);
+  assert.ok(edge.indexOf("Do not diagnose ADHD") < edge.indexOf("Business and content strategy context"));
+});
 
 test("Coach Brain exposes non-diagnostic safety boundaries", () => {
   assert.match(view, /does not diagnose|لا يشخّص/);

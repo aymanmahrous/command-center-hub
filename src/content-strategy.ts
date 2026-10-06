@@ -238,3 +238,26 @@ export function buildStrategySummary(items: Array<Record<string, unknown>>): Str
     platforms: platformSet.size > 0 ? [...platformSet] : [...new Set(DEFAULT_BATCH_MIX.map((slot) => slot.platform.toUpperCase()))],
   };
 }
+
+const COACH_BRAIN_BUSINESS_QUERY = /\b(?:academy|brand|business|marketing|content|post|posts|caption|campaign|promotion|advertising|advertisement|social media|instagram|facebook|tiktok|reel|reels|video|videos|platform|audience|pricing|price|prices|fee|fees|cost|costs|how much|package|packages|service|services|branch|branches|location|locations|booking|bookings|whatsapp|cta|conversion|strategy|offer|offers|lead|leads)\b|(?:الأكاديمية|الاكاديمية|أكاديمية|اكاديمية|العلامة|الأعمال|الاعمال|عمل تجاري|تجاري|تسويق|محتوى|منشور|منشورات|مقال|مقالات|ريلز|فيديو|حملة|إعلان|اعلان|انستغرام|إنستغرام|فيسبوك|تيك توك|سعر|أسعار|اسعار|كم السعر|رسوم|تكلفة|تكاليف|باقة|باقات|خدمة|خدمات|فرع|الفروع|موقع|حجز|حجوزات|واتساب|تحويل|استراتيجية|جمهور|عرض|عروض)/i;
+
+export function buildCoachBrainBusinessContext(question: string): string | null {
+  if (!COACH_BRAIN_BUSINESS_QUERY.test(question)) return null;
+
+  const strategy = buildStrategySummary([]);
+  return JSON.stringify({
+    business: {
+      brand: BRAND.name,
+      audience: BRAND.audience,
+      experience: BRAND.experience,
+      offers: BRAND.offers,
+      serviceAreas: BRAND.locations,
+    },
+    content: {
+      cycleDays: CONTENT_CYCLE_DAYS,
+      goals: strategy.goals,
+      batchMix: DEFAULT_BATCH_MIX.map(({ pillar, platform, contentType, timeSlot }) => ({ pillar, platform, contentType, timeSlot })),
+      platformGuidance: PLATFORM_GUIDANCE,
+    },
+  }, null, 2);
+}
