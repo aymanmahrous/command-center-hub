@@ -175,21 +175,6 @@ async function findInstagramBusinessAccount(pageId: string, pageAccessToken: str
   if (typeof account.id !== "string") return null;
   return { id: account.id, username: typeof account.username === "string" ? account.username.slice(0, 120) : "Instagram Business" };
 }
-  const url = new URL(`${GRAPH_URL}/me/accounts`);
-  url.searchParams.set("fields", "id,name,access_token");
-  url.searchParams.set("limit", "100");
-  url.searchParams.set("access_token", userAccessToken);
-  const response = await fetch(url.toString(), { method: "GET", redirect: "error" });
-  const payload = await response.json().catch(() => null) as JsonObject | null;
-  if (!response.ok || !Array.isArray(payload?.data)) return null;
-  const page = payload.data.find((item) => item && typeof item === "object" && (item as JsonObject).id === FACEBOOK_PAGE_ID) as JsonObject | undefined;
-  if (!page || typeof page.access_token !== "string") return null;
-  return {
-    id: String(page.id),
-    name: typeof page.name === "string" ? page.name.slice(0, 120) : "Facebook Page",
-    accessToken: page.access_token,
-  };
-}
 
 async function storePageCredential(
   supabase: SupabaseClient,
