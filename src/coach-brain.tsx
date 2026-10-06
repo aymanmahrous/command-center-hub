@@ -53,8 +53,8 @@ const copy = {
     empty: "اكتب أي سؤال عن السباحة أو التدريب أو التقنية أو الاستارت أو الدوران أو الأدوات.",
     actionsTitle: "ماذا تريد أن تفعل؟",
     actionsHint: "اختر مهمة جاهزة بدل كتابة سؤال من الصفر.",
-    actions: ["جهز لي خطة محتوى 10 أيام", "أعطني أفكارًا متنوعة لمحتوى السباحة", "راجع هذا النص وحسّنه", "لخّص هذه المحادثة واقترح الخطوة التالية"],
-    summaryPrompt: "لخّص إجابة البحث الأخيرة واقترح خطوة عملية تالية.",
+    actions: ["جهز لي خطة محتوى 10 أيام", "أعطني أفكارًا متنوعة لمحتوى السباحة", "جهز لي تصميم صورة", "جهز لي تصميم فيديو", "راجع هذا النص وحسّنه", "لخّص هذه المحادثة واقترح الخطوة التالية"],
+    summaryPrompt: "لخّص إجابة البحث الأخيرة واقترح خطوة عملية تالية.", designImagePrompt: "أريد تصميم صورة تسويقية للسباحة. جهز لي Brief واضحًا للتصميم واقترح أفضل مزود متصل ومتحقق، ثم أعطني بدائل حقيقية يمكنني اختيارها بحرية.", designVideoPrompt: "أريد تصميم فيديو قصير للسباحة. جهز لي Brief واضحًا للفيديو واقترح أفضل مزود متصل ومتحقق، ثم أعطني بدائل حقيقية يمكنني اختيارها بحرية.",
     error: "تعذر تنفيذ البحث الآن. لم يتم حفظ السؤال أو إنشاء أي بيانات.",
     privacyNote: "البحث يتم عبر خادم آمن، ومفتاح Gemini لا يصل إلى الهاتف.",
     examples: [
@@ -89,8 +89,8 @@ const copy = {
     empty: "Ask any swimming, coaching, technique, start, turn, training or equipment question.",
     actionsTitle: "What do you want to do?",
     actionsHint: "Choose a ready task instead of starting from a blank question.",
-    actions: ["Prepare a 10-day content plan", "Give me varied swimming content ideas", "Review and improve this copy", "Summarize this conversation and suggest the next step"],
-    summaryPrompt: "Summarize the latest research answer and suggest one practical next step.",
+    actions: ["Prepare a 10-day content plan", "Give me varied swimming content ideas", "Prepare an image design", "Prepare a video design", "Review and improve this copy", "Summarize this conversation and suggest the next step"],
+    summaryPrompt: "Summarize the latest research answer and suggest one practical next step.", designImagePrompt: "I want a swimming marketing image. Prepare a clear design brief, recommend the best connected and verified provider, and show real alternatives I can freely choose.", designVideoPrompt: "I want a short swimming video. Prepare a clear video brief, recommend the best connected and verified provider, and show real alternatives I can freely choose.",
     error: "The research could not be completed. The question was not saved and no swimmer record was created.",
     privacyNote: "Research runs through a secure server; the Gemini key never reaches the phone.",
     examples: [
@@ -240,12 +240,22 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
       <section className="coach-brain__card coach-brain__actions-card" aria-labelledby="coach-actions-title">
         <div className="coach-brain__section-heading"><span className="coach-brain__step">1</span><div><strong id="coach-actions-title">{t.actionsTitle}</strong><p>{t.actionsHint}</p></div></div>
         <div className="coach-brain__action-grid">{t.actions.map((action, index) => {
-          const isSummaryAction = index === 3;
+          const isSummaryAction = index === t.actions.length - 1;
+          const isImageDesignAction = index === 2;
+          const isVideoDesignAction = index === 3;
           return <button key={action} type="button" disabled={busy || (isSummaryAction && (!result || result.isSummary))} onClick={() => {
             if (isSummaryAction) {
               if (!result || result.isSummary) return;
               setSummaryRequested(true);
               setQuestion(t.summaryPrompt);
+            } else if (isImageDesignAction) {
+              setSummaryRequested(false);
+              setQuestion(t.designImagePrompt);
+              setResult(null);
+            } else if (isVideoDesignAction) {
+              setSummaryRequested(false);
+              setQuestion(t.designVideoPrompt);
+              setResult(null);
             } else {
               setSummaryRequested(false);
               setQuestion(action);

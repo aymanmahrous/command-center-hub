@@ -162,6 +162,7 @@ export function ContentBatchReviewPanel({
   const [changeNote, setChangeNote] = useState("");
   const [designBusyId, setDesignBusyId] = useState<string | null>(null);
   const [designNotice, setDesignNotice] = useState("");
+  const [designProviderByItem, setDesignProviderByItem] = useState<Record<string, string>>({});
   const [publishBusyId, setPublishBusyId] = useState<string | null>(null);
   const [publishNotice, setPublishNotice] = useState("");
   const [itemFilter, setItemFilter] = useState<"all" | "needs_review" | "approved" | "scheduled" | "failed">("all");
@@ -206,20 +207,29 @@ export function ContentBatchReviewPanel({
     setChangeKind("caption");
   }
 
-  function recommendedDesignProvider(item: ContentBatchItem): "canva" | "runway" | "capcut" | "manual" {
+  type DesignProvider = "auto" | "canva" | "gemini" | "chatgpt" | "runway" | "capcut" | "manual";
+
+  function recommendedDesignProvider(item: ContentBatchItem): Exclude<DesignProvider, "auto"> {
     const isVideo = /reel|video/i.test(String(item.contentType));
-    if (isVideo) return videoCapabilityState === "AVAILABLE" ? "runway" : designCapabilityState === "AVAILABLE" ? "canva" : "capcut";
+    if (isVideo) return videoCapabilityState === "AVAILABLE" ? "runway" : "capcut";
     return designCapabilityState === "AVAILABLE" ? "canva" : "manual";
   }
 
   function availableDesignProviders(item: ContentBatchItem) {
     const isVideo = /reel|video/i.test(String(item.contentType));
     return [
-      { key: "canva" as const, label: "Canva", available: designCapabilityState === "AVAILABLE", detail: language === "ar" ? "تصميمات ثابتة / Carousel" : "Static / carousel design" },
-      { key: "runway" as const, label: "Runway", available: videoCapabilityState === "AVAILABLE", detail: language === "ar" ? "توليد فيديو" : "Video generation" },
-      { key: "capcut" as const, label: "CapCut", available: true, detail: language === "ar" ? "تحرير فيديو يدوي" : "Manual video editing" },
-      { key: "manual" as const, label: language === "ar" ? "يدوي" : "Manual", available: true, detail: language === "ar" ? "استخدم الـBrief بدون ربط مزود" : "Use the prepared brief without a provider" },
-    ].filter((provider) => provider.key !== "runway" || isVideo);
+      { key: "auto" as const, label: language === "ar" ? "تلقائي — أوصي بالأفضل" : "Auto — recommend best", available: true, detail: language === "ar" ? "يختار المسار الأفضل حسب ما هو متصل ومتحقق" : "Chooses the best verified connected path" },
+      { key: "canva" as const, label: "Canva", available: !isVideo && designCapabilityState === "AVAILABLE", detail: language === "ar" ? "تصميم صورة / Carousel" : "Image / carousel design" },
+      { key: "gemini" as const, label: "Gemini", available: false, detail: language === "ar" ? "توليد بصري — غير موصول داخل المصنع حاليًا" : "Visual generation — not wired into Factory yet" },
+      { key: "chatgpt" as const, label: "ChatGPT", available: false, detail: language === "ar" ? "توليد بصري — غير موصول داخل المصنع حاليًا" : "Visual generation — not wired into Factory yet" },
+      { key: "runway" as const, label: "Runway", available: isVideo && videoCapabilityState === "AVAILABLE", detail: language === "ar" ? "توليد فيديو" : "Video generation" },
+      { key: "capcut" as const, label: "CapCut", available: isVideo, detail: language === "ar" ? "تحرير فيديو يدوي" : "Manual video editing" },
+      { key: "manual" as const, label: language === "ar" ? "يدوي" : "Manual", available: true, detail: language === "ar" ? "استخدم الـBrief الجاهز" : "Use the prepared brief" },
+    ];
+  }
+
+  function selectedDesignProvider(item: ContentBatchItem): DesignProvider {
+    return (designProviderByItem[item.id] as DesignProvider | undefined) ?? "auto";
   }
 
   async function handleGenerateDesign(item: ContentBatchItem) {
@@ -227,11 +237,19 @@ export function ContentBatchReviewPanel({
     setDesignBusyId(item.id);
     setDesignNotice("");
     try {
-      const provider = recommendedDesignProvider(item);
+      const requestedProvider = selectedDesignProvider(item);
+      const provider = requestedProvider === "auto" ? recommendedDesignProvider(item) : requestedProvider;
+      const providerInfo = availableDesignProviders(item).find((entry) => entry.key === provider);
+      if (!providerInfo?.available) {
+        setDesignNotice(language === "ar"
+          ? "هذا المزود ظاهر للاختيار، لكنه غير متصل/غير مدعوم فعليًا في المصنع حاليًا. لم يتم تشغيل أي عملية وهمية."
+          : "This provider is shown as an option, but it is not currently connected/supported by the Factory. No fake operation was started.");
+        return;
+      }
       if (provider !== "canva") {
         setDesignNotice(language === "ar"
-          ? provider === "runway" ? "Runway هو الاختيار المناسب للفيديو، لكن التوليد الفعلي غير متاح حتى تكون قدرته متصلة ومتحققًا منها." : provider === "capcut" ? "CapCut متاح كمسار تحرير يدوي؛ الـBrief جاهز ولا ندّعي توليدًا آليًا غير موجود." : "تم اختيار المسار اليدوي؛ استخدم الـBrief الجاهز من الوسائط."
-          : provider === "runway" ? "Runway is the right video choice, but actual generation stays unavailable until its capability is connected and verified." : provider === "capcut" ? "CapCut is available as a manual editing path; the brief is ready and no unsupported automation is claimed." : "Manual path selected; use the prepared media brief.");
+          ? provider === "runway" ? "Runway هو اختيار الفيديو، لكن التنفيذ الآلي يتطلب اتصالًا متحققًا به. لا ندّعي توليدًا غير موجود." : provider === "capcut" ? "CapCut متاح هنا كمسار تحرير يدوي؛ الـBrief جاهز." : "تم اختيار المسار اليدوي؛ استخدم الـBrief الجاهز."
+          : provider === "runway" ? "Runway is the video choice, but automated execution requires a verified connection. No unsupported generation is claimed." : provider === "capcut" ? "CapCut is available here as a manual editing path; the brief is ready." : "Manual path selected; use the prepared brief.");
         return;
       }
       await generateCanvaDesignForContentItem(session, item);
@@ -392,13 +410,28 @@ export function ContentBatchReviewPanel({
               </details>
               <footer>
                 {session && (!item.mediaAssetId || canRegenerateDesign) && (
-                  <div className="content-design-provider-picker" role="group" aria-label={language === "ar" ? "إنشاء التصميم تلقائيًا" : "Automatic design creation"}>
+                  <div className="content-design-provider-picker" role="group" aria-label={language === "ar" ? "اختيار مزود التصميم" : "Design provider selection"}>
                     <strong>{language === "ar" ? "التصميم" : "Design"}</strong>
                     <small>
                       {language === "ar"
-                        ? `المسار المناسب تلقائيًا: ${availableDesignProviders(item).find((provider) => provider.key === recommendedDesignProvider(item))?.label ?? "يدوي"}`
-                        : `Best available path: ${availableDesignProviders(item).find((provider) => provider.key === recommendedDesignProvider(item))?.label ?? "Manual"}`}
+                        ? `اقتراح النظام: ${availableDesignProviders(item).find((provider) => provider.key === recommendedDesignProvider(item))?.label ?? "يدوي"}`
+                        : `System recommendation: ${availableDesignProviders(item).find((provider) => provider.key === recommendedDesignProvider(item))?.label ?? "Manual"}`}
                     </small>
+                    <label>
+                      <span className="sr-only">{language === "ar" ? "مزود التصميم" : "Design provider"}</span>
+                      <select
+                        aria-label={language === "ar" ? "اختر مزود التصميم" : "Choose design provider"}
+                        value={selectedDesignProvider(item)}
+                        onChange={(event) => setDesignProviderByItem((current) => ({ ...current, [item.id]: event.target.value }))}
+                        disabled={itemLocked || designBusyId === item.id}
+                      >
+                        {availableDesignProviders(item).map((provider) => (
+                          <option key={provider.key} value={provider.key}>
+                            {provider.label}{provider.available ? "" : language === "ar" ? " — غير متاح حاليًا" : " — unavailable"}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                     <button
                       type="button"
                       className="secondary"

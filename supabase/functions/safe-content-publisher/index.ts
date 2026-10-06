@@ -26,6 +26,33 @@ const INSTAGRAM_ACCOUNT_ID = Deno.env.get("INSTAGRAM_ACCOUNT_ID");
 const INSTAGRAM_ACCESS_TOKEN = Deno.env.get("INSTAGRAM_ACCESS_TOKEN");
 const CONTENT_PUBLISHER_AUTOMATION_SECRET = Deno.env.get("CONTENT_PUBLISHER_AUTOMATION_SECRET");
 
+type MetaCredential = { token: string; facebookPageId?: string; instagramAccountId?: string };
+
+async function readConnectedMetaCredential(provider: "facebook" | "instagram"): Promise<MetaCredential | null> {
+  const integrationResponse = await fetch(
+    `${SUPABASE_URL}/rest/v1/staff_integrations?provider=eq.${provider}&select=id,metadata,status&limit=1`,
+    { headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` } },
+  );
+  if (!integrationResponse.ok) return null;
+  const integrations = await integrationResponse.json().catch(() => []);
+  const integration = integrations[0] as { id?: string; status?: string; metadata?: Record<string, unknown> } | undefined;
+  if (!integration?.id || !["connected", "needs_test", "pending"].includes(String(integration.status ?? ""))) return null;
+  const secretResponse = await fetch(
+    `${SUPABASE_URL}/rest/v1/staff_integration_secrets?integration_id=eq.${encodeURIComponent(integration.id)}&select=secret_value&limit=1`,
+    { headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` } },
+  );
+  if (!secretResponse.ok) return null;
+  const secrets = await secretResponse.json().catch(() => []);
+  const token = String((secrets[0] as { secret_value?: unknown } | undefined)?.secret_value ?? "").trim();
+  if (!token) return null;
+  const metadata = integration.metadata ?? {};
+  return {
+    token,
+    facebookPageId: typeof metadata.facebookPageId === "string" ? metadata.facebookPageId : undefined,
+    instagramAccountId: typeof metadata.instagramAccountId === "string" ? metadata.instagramAccountId : undefined,
+  };
+}
+
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-content-publisher-automation-secret",
@@ -122,6 +149,10 @@ async function publishAutomation(req: Request): Promise<Response> {
 
   const receiptStatus = String(receipt.status ?? "");
   const receiptExternalPostId = typeof receipt.externalPostId === "string" ? receipt.externalPostId.trim() : "";
+  const connectedCredential = await readConnectedMetaCredential(platform as "facebook" | "instagram");
+  const pageId = connectedCredential?.facebookPageId ?? FACEBOOK_PAGE_ID;
+  const instagramAccountId = connectedCredential?.instagramAccountId ?? INSTAGRAM_ACCOUNT_ID;
+  const accessToken = connectedCredential?.token ?? (platform === "facebook" ? FACEBOOK_PAGE_ACCESS_TOKEN : INSTAGRAM_ACCESS_TOKEN);
   if (receiptStatus === "published" && receiptExternalPostId) {
     return new Response(JSON.stringify({ success: true, alreadyPublished: true, providerExternalId: receiptExternalPostId, platform, jobId }), { status: 200, headers: JSON_HEADERS });
   }
@@ -131,14 +162,16 @@ async function publishAutomation(req: Request): Promise<Response> {
   if (receiptStatus === "failed") {
     return new Response(JSON.stringify({ success: false, confirmed: true, code: "PUBLICATION_RECEIPT_FAILED", jobId, platform }), { status: 502, headers: JSON_HEADERS });
   }
-  if (platform === "facebook" && (!FACEBOOK_PAGE_ID || !FACEBOOK_PAGE_ACCESS_TOKEN)) return fail("META_NOT_CONFIGURED", 500);
-  if (platform === "instagram" && (!INSTAGRAM_ACCOUNT_ID || !INSTAGRAM_ACCESS_TOKEN)) return fail("META_NOT_CONFIGURED", 500);
+  if (platform === "facebook" && (!pageId || !accessToken)) return fail("META_NOT_CONFIGURED", 500);
+  if (platform === "instagram" && (!instagramAccountId || !accessToken)) return fail("META_NOT_CONFIGURED", 500);
   const imageUrl = await resolveSignedImageUrlWithToken(contentItemId, SUPABASE_SERVICE_ROLE_KEY);
   if (platform === "instagram" && !imageUrl) return fail("MEDIA_MISSING", 422);
   const caption = [item.hook, item.caption, item.cta, (item.hashtags ?? []).map((tag) => `#${tag}`).join(" " )].filter(Boolean).join("\n\n").slice(0, 5000);
   let publishResult: PublishOutcome;
   try {
-    publishResult = platform === "facebook" ? await publishToFacebook(caption, imageUrl) : await publishToInstagram(caption, imageUrl);
+    publishResult = platform === "facebook"
+      ? await publishToFacebook(caption, imageUrl, pageId, accessToken)
+      : await publishToInstagram(caption, imageUrl, instagramAccountId, accessToken);
   } catch (cause) {
     console.error("safe-content-publisher: ambiguous automation result", { contentItemId, jobId, platform, error: cause instanceof Error ? cause.name : "NETWORK_ERROR" });
     try {
@@ -195,13 +228,21 @@ Deno.serve(async (req) => {
   if (item.status !== "approved") return fail("INVALID_TRANSITION", 409);
   const platform = String(item.platform ?? "").toLowerCase();
   if (platform !== "facebook" && platform !== "instagram") return fail("UNSUPPORTED_PLATFORM", 400);
-  if (platform === "facebook" && (!FACEBOOK_PAGE_ID || !FACEBOOK_PAGE_ACCESS_TOKEN)) return fail("META_NOT_CONFIGURED", 500);
-  if (platform === "instagram" && (!INSTAGRAM_ACCOUNT_ID || !INSTAGRAM_ACCESS_TOKEN)) return fail("META_NOT_CONFIGURED", 500);
+  const connectedCredential = await readConnectedMetaCredential(platform as "facebook" | "instagram");
+  const pageId = connectedCredential?.facebookPageId ?? FACEBOOK_PAGE_ID;
+  const instagramAccountId = connectedCredential?.instagramAccountId ?? INSTAGRAM_ACCOUNT_ID;
+  const accessToken = connectedCredential?.token ?? (platform === "facebook" ? FACEBOOK_PAGE_ACCESS_TOKEN : INSTAGRAM_ACCESS_TOKEN);
+  if (platform === "facebook" && (!pageId || !accessToken)) return fail("META_NOT_CONFIGURED", 500);
+  if (platform === "instagram" && (!instagramAccountId || !accessToken)) return fail("META_NOT_CONFIGURED", 500);
   const imageUrl = await resolveSignedImageUrl(contentItemId, staffJwt);
   if (platform === "instagram" && !imageUrl) return fail("MEDIA_MISSING", 422);
   const caption = [item.hook, item.caption, item.cta, (item.hashtags ?? []).map((tag) => `#${tag}`).join(" " )].filter(Boolean).join("\n\n").slice(0, 5000);
   let publishResult: PublishOutcome;
-  try { publishResult = platform === "facebook" ? await publishToFacebook(caption, imageUrl) : await publishToInstagram(caption, imageUrl); } catch { publishResult = { success: false, errorCode: "META_API_ERROR" }; }
+  try {
+    publishResult = platform === "facebook"
+      ? await publishToFacebook(caption, imageUrl, pageId, accessToken)
+      : await publishToInstagram(caption, imageUrl, instagramAccountId, accessToken);
+  } catch { publishResult = { success: false, errorCode: "META_API_ERROR" }; }
   const recordResponse = await fetch(`${SUPABASE_URL}/rest/v1/rpc/record_staff_content_publish_result`, { method: "POST", headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${staffJwt}`, "Content-Type": "application/json" }, body: JSON.stringify({ p_content_item_id: contentItemId, p_success: publishResult.success, p_provider_external_id: publishResult.providerExternalId ?? null, p_platform: platform, p_error_code: publishResult.errorCode ?? null }) });
   const recorded = recordResponse.ok ? ((await recordResponse.json()) as { success: boolean }) : { success: false };
   if (!publishResult.success) { console.error("safe-content-publisher: Meta publish failed", { contentItemId, platform, errorCode: publishResult.errorCode }); return fail(publishResult.errorCode ?? "META_API_ERROR", 502); }
@@ -234,17 +275,17 @@ async function hmacProof(accessToken: string): Promise<string> {
   return Array.from(new Uint8Array(signature), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-async function publishToFacebook(caption: string, imageUrl: string | null): Promise<PublishOutcome> {
-  const endpoint = imageUrl ? `https://graph.facebook.com/${META_GRAPH_VERSION}/${FACEBOOK_PAGE_ID}/photos` : `https://graph.facebook.com/${META_GRAPH_VERSION}/${FACEBOOK_PAGE_ID}/feed`;
-  const accessToken = FACEBOOK_PAGE_ACCESS_TOKEN!; const params = new URLSearchParams({ access_token: accessToken, appsecret_proof: await hmacProof(accessToken), published: "true" });
+async function publishToFacebook(caption: string, imageUrl: string | null, pageId = FACEBOOK_PAGE_ID, accessToken = FACEBOOK_PAGE_ACCESS_TOKEN): Promise<PublishOutcome> {
+  if (!pageId || !accessToken) return { success: false, errorCode: "META_NOT_CONFIGURED" };
+  const endpoint = imageUrl ? `https://graph.facebook.com/${META_GRAPH_VERSION}/${pageId}/photos` : `https://graph.facebook.com/${META_GRAPH_VERSION}/${pageId}/feed`; const params = new URLSearchParams({ access_token: accessToken, appsecret_proof: await hmacProof(accessToken), published: "true" });
   if (imageUrl) { params.set("url", imageUrl); params.set("caption", caption); } else { params.set("message", caption); }
   const response = await fetch(endpoint, { method: "POST", body: params }); const data = await response.json(); if (!response.ok || data.error) return { success: false, errorCode: "META_API_ERROR" }; return { success: true, providerExternalId: String(data.post_id ?? data.id) };
 }
 
-async function publishToInstagram(caption: string, imageUrl: string | null): Promise<PublishOutcome> {
+async function publishToInstagram(caption: string, imageUrl: string | null, accountId = INSTAGRAM_ACCOUNT_ID, accessToken = INSTAGRAM_ACCESS_TOKEN): Promise<PublishOutcome> {
   if (!imageUrl) return { success: false, errorCode: "MEDIA_MISSING" };
-  const accessToken = INSTAGRAM_ACCESS_TOKEN!; const createParams = new URLSearchParams({ access_token: accessToken, appsecret_proof: await hmacProof(accessToken), image_url: imageUrl, caption });
-  const createResponse = await fetch(`https://graph.facebook.com/${META_GRAPH_VERSION}/${INSTAGRAM_ACCOUNT_ID}/media`, { method: "POST", body: createParams }); const created = await createResponse.json(); if (!createResponse.ok || created.error || !created.id) return { success: false, errorCode: "META_API_ERROR" };
+  if (!accountId || !accessToken) return { success: false, errorCode: "META_NOT_CONFIGURED" }; const createParams = new URLSearchParams({ access_token: accessToken, appsecret_proof: await hmacProof(accessToken), image_url: imageUrl, caption });
+  const createResponse = await fetch(`https://graph.facebook.com/${META_GRAPH_VERSION}/${accountId}/media`, { method: "POST", body: createParams }); const created = await createResponse.json(); if (!createResponse.ok || created.error || !created.id) return { success: false, errorCode: "META_API_ERROR" };
   const publishParams = new URLSearchParams({ access_token: accessToken, appsecret_proof: await hmacProof(accessToken), creation_id: created.id });
-  const publishResponse = await fetch(`https://graph.facebook.com/${META_GRAPH_VERSION}/${INSTAGRAM_ACCOUNT_ID}/media_publish`, { method: "POST", body: publishParams }); const published = await publishResponse.json(); if (!publishResponse.ok || published.error || !published.id) return { success: false, errorCode: "META_API_ERROR" }; return { success: true, providerExternalId: String(published.id) };
+  const publishResponse = await fetch(`https://graph.facebook.com/${META_GRAPH_VERSION}/${accountId}/media_publish`, { method: "POST", body: publishParams }); const published = await publishResponse.json(); if (!publishResponse.ok || published.error || !published.id) return { success: false, errorCode: "META_API_ERROR" }; return { success: true, providerExternalId: String(published.id) };
 }
