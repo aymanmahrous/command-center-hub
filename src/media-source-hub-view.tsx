@@ -55,12 +55,28 @@ export default function MediaSourceHubView({ onOpenProvider, onNavigate, session
   }
   async function copyBrief() { if (!brief) return; await navigator.clipboard?.writeText(JSON.stringify(brief, null, 2)); setCopied(true); window.setTimeout(() => setCopied(false), 1800); }
 
-  function useInFactory() {
-    if (!selected) return;
+  async function useInFactory() {
+    if (!selected || !session || !canWrite || busy) return;
+    setBusy("factory");
+    setNotice("");
     try {
+      const raw = await callRpc(session, "register_staff_external_media_asset", {
+        p_asset_type: selected.mimeType.startsWith("video/") ? "video" : "image",
+        p_provider: selected.provider,
+        p_external_id: selected.id,
+        p_name: selected.name,
+        p_mime_type: selected.mimeType,
+        p_web_url: selected.webUrl,
+        p_preview_url: selected.previewUrl ?? null,
+        p_size_bytes: selected.sizeBytes ?? null,
+        p_created_at: selected.createdAt ?? null,
+        p_folder: selected.folder ?? null,
+      }) as Record<string, unknown>;
+      const mediaAssetId = typeof raw.mediaAssetId === "string" ? raw.mediaAssetId : "";
+      if (!mediaAssetId) throw new Error(String(raw.code ?? "MEDIA_LIBRARY_LINK_FAILED"));
       sessionStorage.setItem("media-factory-handoff", JSON.stringify({
         asset: {
-          id: selected.id,
+          id: mediaAssetId,
           provider: selected.provider,
           name: selected.name,
           mimeType: selected.mimeType,
@@ -70,10 +86,15 @@ export default function MediaSourceHubView({ onOpenProvider, onNavigate, session
         },
         createdAt: new Date().toISOString(),
       }));
-      setNotice(ar ? "تم تجهيز الأصل لمصنع المحتوى. سيتم فتحه هناك للمراجعة." : "Asset prepared for Content Factory. It will open there for review.");
+      onChanged?.();
+      setNotice(ar ? "تم حفظ الأصل في مكتبة الوسائط وتجهيزه للمصنع. سيطلب منك اختيار المحتوى قبل الربط." : "The asset is now in Media Library and ready for Factory. You will choose the content item before linking.");
       onNavigate?.("content");
-    } catch {
-      setNotice(ar ? "تعذر تجهيز الأصل للمصنع." : "Could not prepare the asset for Factory.");
+    } catch (cause) {
+      const code = cause instanceof Error ? cause.message : "MEDIA_LIBRARY_LINK_FAILED";
+      if (code === "SESSION_EXPIRED") onSessionExpired?.();
+      else setNotice(code);
+    } finally {
+      setBusy(null);
     }
   }
 
