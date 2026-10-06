@@ -207,6 +207,26 @@ export function MediaAssetControls({
     }
   }
 
+  function useInFactory() {
+    try {
+      sessionStorage.setItem("media-factory-handoff", JSON.stringify({
+        asset: {
+          id: asset.id,
+          provider: asset.provider,
+          name: asset.name,
+          mimeType: asset.mimeType,
+          webUrl: asset.webUrl,
+          previewUrl: asset.previewUrl ?? null,
+          folder: asset.folder,
+        },
+        createdAt: new Date().toISOString(),
+      }));
+      window.dispatchEvent(new CustomEvent("command-center:navigate", { detail: { section: "content" } }));
+    } catch {
+      // Keep the control truthful if session storage is unavailable.
+    }
+  }
+
   const workflowStatus = displayMediaWorkflowStatus(asset);
   const analysis = readStoredMediaAnalysis(asset.metadata);
 
@@ -241,6 +261,7 @@ export function MediaAssetControls({
       </label>
       <div className="media-control-actions">
         <button type="button" disabled={!canWrite || busy} onClick={() => void update({ media_status: "approved" })}>{labels.approveMedia}</button>
+        <button type="button" className="secondary" disabled={!canWrite || busy} onClick={useInFactory}>{labels.useInFactory ?? "Use in Content Factory"}</button>
         <button type="button" className="secondary" disabled={!canWrite || busy} onClick={() => void update({ media_status: "rejected" })}>{labels.rejectMedia}</button>
         <button type="button" className="secondary" disabled={!canWrite || busy} onClick={() => void update({ media_status: "unsuitable" })}>{labels.unsuitableMedia}</button>
         <button type="button" disabled={!canWrite || busy || asset.category !== "swimming_business"} onClick={() => void runAnalysis()}>{labels.analyzeMedia}</button>
