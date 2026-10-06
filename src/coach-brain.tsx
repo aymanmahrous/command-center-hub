@@ -1,7 +1,6 @@
 import { FormEvent, useState } from "react";
 import { AlertTriangle, BookOpen, Brain, Search, ShieldCheck, Sparkles } from "lucide-react";
 import "./coach-brain.css";
-import { executeCoachBrainContentGeneration } from "./coach-brain-actions";
 
 type Source = { title: string; url: string };
 type ResearchUsage = {
@@ -33,9 +32,6 @@ const copy = {
     privacy: "اكتب سؤالك فقط. لا يتم إنشاء ملف للسباح أو حفظ بيانات الأطفال.",
     placeholder: "مثال: سباح عمره 12 سنة، 100م حرة في 45 ثانية. كيف أطور السرعة؟ هل أركز على الاستارت أم الدوران؟ وما التدريبات والأدوات المناسبة؟",
     search: "ابحث وحلل",
-    execute: "نفّذ المهمة",
-    executing: "جاري التنفيذ الحقيقي...",
-    generationReady: "تم إنشاء دفعة المحتوى فعليًا وحفظها للمراجعة.",
     searching: "جاري البحث في المصادر وتحليلها...",
     direct: "الإجابة البحثية",
     sources: "المصادر التي اعتمد عليها البحث",
@@ -71,9 +67,6 @@ const copy = {
     privacy: "Write the question only. No swimmer or child profile is created or stored.",
     placeholder: "Example: 12-year-old swimmer, 100m freestyle in 45s. How should I improve speed? Start, turn, drills and equipment?",
     search: "Research & analyze",
-    execute: "Execute task",
-    executing: "Executing for real...",
-    generationReady: "The content batch was created and saved for review.",
     searching: "Searching sources and analyzing the evidence...",
     direct: "Research answer",
     sources: "Sources used by the research",
@@ -104,6 +97,8 @@ const copy = {
     ],
   },
 };
+
+export const COACH_BRAIN_FACTORY_HANDOFF_KEY = "coach-brain-factory-handoff";
 
 function getSessionToken() {
   try {
@@ -137,42 +132,19 @@ export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
     : null;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [actionBusy, setActionBusy] = useState(false);
-  const [actionNotice, setActionNotice] = useState("");
 
-  async function executeTask() {
-    if (!question.trim() || busy || actionBusy) return;
-    const normalized = question.trim().toLocaleLowerCase();
-    const isExecutable = /خطة محتوى|دفعة محتوى|محتوى|content plan|content batch|generate content|content generation|صورة|صور|image|photo|design|تصميم|canva|كانفا|فيديو|فديو|video|reel|runway/i.test(normalized);
-    if (!isExecutable) {
-      setError(language === "ar"
-        ? "شغّل «ابحث وحلل» أولًا لهذه المهمة؛ Coach Brain سيحوّل النتيجة إلى إجراء عندما تتوفر قدرة تنفيذ مناسبة."
-        : "Run Research & analyze first for this task; Coach Brain will route the result to an execution capability when appropriate.");
-      return;
-    }
-    setActionBusy(true); setError(""); setActionNotice("");
-    try {
-      const token = getSessionToken();
-      if (!token) throw new Error("AUTH_REQUIRED");
-      const result = await executeCoachBrainContentGeneration({ accessToken: token }, question);
-      const notice = result.kind === "video"
-        ? (language === "ar" ? "تم تشغيل توليد الفيديو عبر Runway." : "Video generation started through Runway.")
-        : result.kind === "image"
-          ? (language === "ar" ? "تم توليد الصورة عبر مسار الذكاء الاصطناعي." : "Image generation completed through the AI generation route.")
-          : result.kind === "design"
-            ? (language === "ar" ? "تم إنشاء التصميم عبر Canva وحفظه داخل النظام." : "The Canva design was created and saved in the system.")
-            : `${t.generationReady} ${result.itemCount} items${result.batchId ? ` · Batch ${result.batchId}` : ""}`;
-      setActionNotice(notice);
-    } catch (cause) {
-      const code = cause instanceof Error ? cause.message : "ACTION_FAILED";
-      if (code === "SESSION_EXPIRED" || code === "AUTH_REQUIRED") {
-        setError(language === "ar" ? "جلسة الدخول غير صالحة. لم يتم تغيير أي بيانات." : "The staff session is invalid. No data was changed.");
-      } else if (code === "CONTENT_SLOT_ALREADY_PLANNED") {
-        setError(language === "ar" ? "لا توجد خانة تخطيط متاحة ضمن المدى الآمن الحالي. لم يتم إنشاء دفعة مكررة." : "No planning slot is available in the current safe window. No duplicate batch was created.");
-      } else {
-        setError(language === "ar" ? "تعذر تنفيذ المهمة بأمان. لم يتم اعتماد نتيجة غير مؤكدة." : "The task could not be executed safely. No unverified result was accepted.");
-      }
-    } finally { setActionBusy(false); }
+  function sendResultToFactory() {
+    if (!result) return;
+    sessionStorage.setItem(COACH_BRAIN_FACTORY_HANDOFF_KEY, JSON.stringify({
+      question: question.trim().slice(0, 1000),
+      answer: result.answer.slice(0, 4000),
+      sources: result.sources.slice(0, 5).map((source) => ({ title: source.title, url: source.url })),
+      createdAt: new Date().toISOString(),
+    }));
+    const url = new URL(window.location.href);
+    url.searchParams.set("section", "content");
+    url.searchParams.set("factoryContext", "coach-brain");
+    window.location.assign(url.toString());
   }
 
   async function research(event: FormEvent) {
@@ -237,17 +209,12 @@ export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
           <label className="coach-brain__question-label" htmlFor="coach-brain-question">{language === "ar" ? "ماذا تريد أن تعرف؟" : "What do you want to know?"}</label>
           <textarea id="coach-brain-question" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder={t.placeholder} rows={6} maxLength={5000} disabled={busy} />
           <div className="coach-brain__actions">
-            <button className="coach-brain__primary" type="submit" disabled={busy || actionBusy || !question.trim()}>
+            <button className="coach-brain__primary" type="submit" disabled={busy || !question.trim()}>
               {busy ? <Sparkles size={17} className="coach-brain__spin" /> : <Search size={17} />}
               {busy ? t.searching : t.search}
             </button>
-            <button className="coach-brain__execute" type="button" onClick={() => void executeTask()} disabled={busy || actionBusy || !question.trim()}>
-              {actionBusy ? <Sparkles size={17} className="coach-brain__spin" /> : <Brain size={17} />}
-              {actionBusy ? t.executing : t.execute}
-            </button>
             <span className="coach-brain__privacy-note">{t.privacyNote}</span>
           </div>
-          {actionNotice && <div className="coach-brain__action-notice" role="status">{actionNotice}</div>}
         </form>
         <div id="coach-examples" className="coach-brain__examples">
           <div className="coach-brain__examples-heading"><span className="coach-brain__step">3</span><strong>{language === "ar" ? "أو اختر مثالًا تدريبيًا" : "Or choose a coaching example"}</strong></div>
@@ -263,7 +230,7 @@ export default function CoachBrain({ language = "ar" }: CoachBrainProps) {
 
       {result && (
         <section id="coach-results" className="coach-brain__results" aria-live="polite">
-          <div className="coach-brain__results-heading"><span className="coach-brain__step">4</span><div><strong>{language === "ar" ? "النتيجة العملية" : "Practical result"}</strong><p>{language === "ar" ? "راجع النتيجة. Coach Brain يوجّه العمل داخليًا؛ لا تحتاج لفتح مساحة أخرى." : "Review the result. Coach Brain routes the work internally; you do not need to open another workspace."}</p></div><div className="coach-brain__results-actions"><button type="button" className="coach-brain__reset" onClick={() => { setResult(null); setQuestion(""); setError(""); }}>{language === "ar" ? "مهمة جديدة" : "New task"}</button></div></div>
+          <div className="coach-brain__results-heading"><span className="coach-brain__step">4</span><div><strong>{language === "ar" ? "النتيجة العملية" : "Practical result"}</strong><p>{language === "ar" ? "اقرأ الإجابة، راجع المصادر، ثم أرسلها لمصنع المحتوى عند الحاجة." : "Read the answer, review the sources, then send it to Content Factory when useful."}</p></div><div className="coach-brain__results-actions"><button type="button" className="coach-brain__reset" onClick={() => { setResult(null); setQuestion(""); setError(""); }}>{language === "ar" ? "مهمة جديدة" : "New task"}</button><button type="button" className="coach-brain__reset" onClick={sendResultToFactory}>{language === "ar" ? "إرسال إلى مصنع المحتوى" : "Send to Content Factory"}</button></div></div>
           <article className="coach-brain__card coach-brain__answer">
             <div className="coach-brain__result-title"><Sparkles size={18} /> <h2>{t.direct}</h2></div>
             <div className="coach-brain__answer-text">{result.answer}</div>
