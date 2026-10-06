@@ -14,7 +14,7 @@ const GRAPH_URL = `https://graph.facebook.com/${GRAPH_VERSION}`;
 const STATE_TABLE = "staff_canva_oauth_states";
 const STATE_PREFIX = "facebook:";
 const STATE_TTL_MS = 15 * 60 * 1000;
-const REQUESTED_SCOPES = "pages_show_list,pages_read_engagement,pages_manage_posts";
+const REQUESTED_SCOPES = "pages_show_list,pages_read_engagement,pages_manage_posts,instagram_basic,instagram_content_publish";
 const ALLOWED_ROLES = new Set(["super_admin", "admin", "content_manager"]);
 const HUB_ORIGIN = "https://hub.relaxfixuae.com";
 const CORS_HEADERS = {
@@ -164,7 +164,39 @@ async function findConfiguredPage(userAccessToken: string) {
   };
 }
 
-async function storePageCredential(supabase: SupabaseClient, staffId: string, page: { id: string; name: string; accessToken: string }) {
+async function findInstagramBusinessAccount(pageId: string, pageAccessToken: string) {
+  const url = new URL(`${GRAPH_URL}/${encodeURIComponent(pageId)}`);
+  url.searchParams.set("fields", "instagram_business_account{id,username}");
+  url.searchParams.set("access_token", pageAccessToken);
+  const response = await fetch(url.toString(), { method: "GET", redirect: "error" });
+  const payload = await response.json().catch(() => null) as JsonObject | null;
+  if (!response.ok || !payload?.instagram_business_account || typeof payload.instagram_business_account !== "object") return null;
+  const account = payload.instagram_business_account as JsonObject;
+  if (typeof account.id !== "string") return null;
+  return { id: account.id, username: typeof account.username === "string" ? account.username.slice(0, 120) : "Instagram Business" };
+}
+  const url = new URL(`${GRAPH_URL}/me/accounts`);
+  url.searchParams.set("fields", "id,name,access_token");
+  url.searchParams.set("limit", "100");
+  url.searchParams.set("access_token", userAccessToken);
+  const response = await fetch(url.toString(), { method: "GET", redirect: "error" });
+  const payload = await response.json().catch(() => null) as JsonObject | null;
+  if (!response.ok || !Array.isArray(payload?.data)) return null;
+  const page = payload.data.find((item) => item && typeof item === "object" && (item as JsonObject).id === FACEBOOK_PAGE_ID) as JsonObject | undefined;
+  if (!page || typeof page.access_token !== "string") return null;
+  return {
+    id: String(page.id),
+    name: typeof page.name === "string" ? page.name.slice(0, 120) : "Facebook Page",
+    accessToken: page.access_token,
+  };
+}
+
+async function storePageCredential(
+  supabase: SupabaseClient,
+  staffId: string,
+  page: { id: string; name: string; accessToken: string },
+  instagram: { id: string; username: string } | null,
+) {
   const { data: existing, error: readError } = await supabase
     .from("staff_integrations")
     .select("id, metadata")
@@ -181,6 +213,7 @@ async function storePageCredential(supabase: SupabaseClient, staffId: string, pa
     facebookPageId: page.id,
     grantedScopes: REQUESTED_SCOPES,
     credentialType: "page_access_token",
+    ...(instagram ? { instagramAccountId: instagram.id, instagramUsername: instagram.username } : {}),
   };
   const now = new Date().toISOString();
   const row = {
@@ -226,6 +259,52 @@ async function storePageCredential(supabase: SupabaseClient, staffId: string, pa
   }).eq("id", integration.id);
   if (statusError) return false;
 
+  if (instagram) {
+    const { data: instagramIntegration, error: instagramReadError } = await supabase
+      .from("staff_integrations")
+      .select("id, metadata")
+      .eq("provider", "instagram")
+      .maybeSingle();
+    if (instagramReadError) return false;
+    const previousInstagramMetadata = instagramIntegration?.metadata && typeof instagramIntegration.metadata === "object" && !Array.isArray(instagramIntegration.metadata)
+      ? instagramIntegration.metadata as Record<string, unknown>
+      : {};
+    const instagramNow = new Date().toISOString();
+    const instagramRow = {
+      provider: "instagram",
+      connection_method: "oauth",
+      status: "needs_test",
+      display_name: "Instagram",
+      account_label: instagram.username,
+      secret_hint: "Meta OAuth credential stored",
+      metadata: {
+        ...previousInstagramMetadata,
+        oauthProvider: "meta_facebook",
+        facebookPageId: page.id,
+        instagramAccountId: instagram.id,
+        credentialType: "page_access_token",
+      },
+      connected_by: staffId,
+      connected_at: instagramNow,
+      last_tested_at: null,
+      last_error_code: null,
+      updated_at: instagramNow,
+    };
+    const { data: instagramUpsert, error: instagramUpsertError } = await supabase
+      .from("staff_integrations")
+      .upsert(instagramRow, { onConflict: "provider" })
+      .select("id")
+      .single();
+    if (instagramUpsertError || !instagramUpsert?.id) return false;
+    const { error: instagramSecretError } = await supabase.from("staff_integration_secrets").upsert({
+      integration_id: instagramUpsert.id,
+      secret_value: page.accessToken,
+      updated_at: instagramNow,
+      updated_by: staffId,
+    }, { onConflict: "integration_id" });
+    if (instagramSecretError) return false;
+  }
+
   // Keep an audit receipt without writing any OAuth code or token to the audit log.
   await supabase.from("audit_logs").insert({
     actor_id: staffId,
@@ -264,7 +343,8 @@ async function handleCallback(request: Request, supabase: SupabaseClient) {
     if (!longLived) return returnRedirect("error", "TOKEN_EXCHANGE_FAILED");
     const page = await findConfiguredPage(longLived.accessToken);
     if (!page) return returnRedirect("error", "TARGET_PAGE_NOT_AVAILABLE");
-    const stored = await storePageCredential(supabase, staffId, page);
+    const instagram = await findInstagramBusinessAccount(page.id, page.accessToken);
+    const stored = await storePageCredential(supabase, staffId, page, instagram);
     if (!stored) return returnRedirect("error", "CREDENTIAL_STORE_FAILED");
     return returnRedirect("connected");
   } catch {
