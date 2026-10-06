@@ -102,7 +102,9 @@ async function mergeValidatedGeminiCreativeFields(
       || typeof generated.visualPrompt !== "string" || !generated.visualPrompt.trim() || generated.visualPrompt.length > 6000
       || typeof generated.caption !== "string") return null;
 
-    const trackedCtaSuffix = `\n\n${canonical.cta}`;
+    const trackedCtaSuffix = `
+
+${canonical.cta}`;
     if (!generated.caption.endsWith(trackedCtaSuffix)) return null;
     const generatedCaptionBody = generated.caption.slice(0, -trackedCtaSuffix.length).trim();
     if (generatedCaptionBody.length > 6000) return null;
@@ -110,7 +112,8 @@ async function mergeValidatedGeminiCreativeFields(
     const canonicalCaptionBody = canonical.caption.endsWith(trackedCtaSuffix)
       ? canonical.caption.slice(0, -trackedCtaSuffix.length).trim()
       : "";
-    const canonicalPrimaryCta = canonicalCaptionBody.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).at(-1);
+    const canonicalPrimaryCta = canonicalCaptionBody.split(/\r?
+/).map((line) => line.trim()).filter(Boolean).at(-1);
     if (!canonicalPrimaryCta || !generatedCaptionBody.endsWith(canonicalPrimaryCta)) return null;
 
     const topic = generated.topic.trim();
@@ -564,7 +567,28 @@ export default function ContentGrowthHub({
         </ul>
       </section>}
 
-      {showReviewWorkspace && batches.length > 1 && (\n        <div className="batch-switcher" aria-label={copy.batchSwitcherAria}>\n          <label htmlFor="factory-batch-select">\n            {language === "ar" ? "الدفعة التي تعمل عليها الآن" : "Current batch"}\n          </label>\n          <select\n            id="factory-batch-select"\n            value={selectedBatch?.batchId ?? ""}\n            onChange={(event) => setSelectedBatchId(event.target.value)}\n          >\n            {batches.map((batch, index) => {\n              const needsReview = batch.items.filter((item) => ["draft", "generated", "needs_review"].includes(item.status)).length;\n              const approved = batch.items.filter((item) => item.status === "approved").length;\n              return (\n                <option key={batch.batchId} value={batch.batchId}>\n                  {(batch.isExplicitBatch ? batch.batchId : `${copy.reviewWindow} ${index + 1}`)} · {batch.items.length} {language === "ar" ? "عنصر" : "items"} · {needsReview} {language === "ar" ? "مراجعة" : "to review"} · {approved} {language === "ar" ? "معتمد" : "approved"}\n                </option>\n              );\n            })}\n          </select>\n        </div>\n      )}
+      {showReviewWorkspace && batches.length > 1 && (
+        <div className="batch-switcher" aria-label={copy.batchSwitcherAria}>
+          <label htmlFor="factory-batch-select">
+            {language === "ar" ? "الدفعة التي تعمل عليها الآن" : "Current batch"}
+          </label>
+          <select
+            id="factory-batch-select"
+            value={selectedBatch?.batchId ?? ""}
+            onChange={(event) => setSelectedBatchId(event.target.value)}
+          >
+            {batches.map((batch, index) => {
+              const needsReview = batch.items.filter((item) => ["draft", "generated", "needs_review"].includes(item.status)).length;
+              const approved = batch.items.filter((item) => item.status === "approved").length;
+              return (
+                <option key={batch.batchId} value={batch.batchId}>
+                  {(batch.isExplicitBatch ? batch.batchId : `${copy.reviewWindow} ${index + 1}`)} · {batch.items.length} {language === "ar" ? "عنصر" : "items"} · {needsReview} {language === "ar" ? "مراجعة" : "to review"} · {approved} {language === "ar" ? "معتمد" : "approved"}
+                </option>
+              );
+            })}
+          </select>
+        </div>
+      )}
 
       {showReviewWorkspace && selectedBatch && (
           <ContentBatchReviewPanel
