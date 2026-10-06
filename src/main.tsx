@@ -1307,11 +1307,17 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     const onMessage = (event: MessageEvent) => {
       if (event.data?.type === "rf-push-navigate" && sections.some(([id]) => id === event.data.section)) go(event.data.section);
     };
+    const onCommandCenterNavigate = (event: Event) => {
+      const section = (event as CustomEvent<{ section?: string }>).detail?.section;
+      if (section && sections.some(([id]) => id === section)) go(section as SectionId);
+    };
     window.addEventListener("popstate", onPopState);
     navigator.serviceWorker?.addEventListener("message", onMessage);
+    window.addEventListener("command-center:navigate", onCommandCenterNavigate);
     return () => {
       window.removeEventListener("popstate", onPopState);
       navigator.serviceWorker?.removeEventListener("message", onMessage);
+      window.removeEventListener("command-center:navigate", onCommandCenterNavigate);
     };
   });
 
