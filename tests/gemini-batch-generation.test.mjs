@@ -7,6 +7,7 @@ const edge = await readFile(new URL("../supabase/functions/generate-content-batc
 const slotSpec = await readFile(new URL("../supabase/functions/generate-content-batch/coach-ayman-slot-spec.ts", import.meta.url), "utf8");
 const generator = await readFile(new URL("../src/content-batch-generator.ts", import.meta.url), "utf8");
 const hub = await readFile(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
+const coachBrain = await readFile(new URL("../src/coach-brain.tsx", import.meta.url), "utf8");
 
 test("gemini batch adapter calls server edge function only", () => {
   assert.match(adapter, /functions\/v1\/generate-content-batch/);
@@ -46,4 +47,29 @@ test("gemini slot spec aligns with local batch strategy mix", () => {
 test("content growth hub generates 30-day local calendar with media linkage", () => {
   assert.match(hub, /buildCoachAyman30DayBatchWithMedia/);
   assert.match(hub, /create_staff_generated_content_batch/);
+});
+
+test("existing Coach Brain, Academy, business and performance context reaches the Gemini prompt", () => {
+  assert.match(coachBrain, /answer: result\.answer\.slice\(0, 4000\)/);
+  assert.match(hub, /academyKnowledge: knowledgeContext\.entries/);
+  assert.match(hub, /coachBrainResearch: knowledgeContext\.researchContext \?\? null/);
+  assert.match(hub, /businessStrategy: \{ brand: BRAND, platformGuidance: PLATFORM_GUIDANCE, strategySummary \}/);
+  assert.match(hub, /performanceGuidance: insights/);
+  assert.match(adapter, /promptContext: promptContext \?\? null/);
+  assert.match(edge, /sanitizePromptContext\(body\.promptContext\)/);
+  assert.match(edge, /CANONICAL ACADEMY KNOWLEDGE/);
+  assert.match(edge, /COACH BRAIN RESEARCH/);
+  assert.match(edge, /CANONICAL BUSINESS FACTS AND PLATFORM STRATEGY/);
+  assert.match(edge, /EXISTING FACTORY STRATEGY SUMMARY/);
+  assert.match(edge, /PERFORMANCE GUIDANCE/);
+});
+
+test("Gemini creative output cannot override main slots, CTAs, security checks or media fallback", () => {
+  assert.match(hub, /generated\.contentType === canonical\.contentType/);
+  assert.match(hub, /generated\.contentPillar === canonical\.contentPillar/);
+  assert.match(hub, /generated\.contentSlot === canonical\.contentSlot/);
+  assert.match(hub, /generated\.cta === canonical\.cta/);
+  assert.match(hub, /validateCoachAymanBatch\(merged\)\.valid/);
+  assert.match(hub, /mergeValidatedGeminiCreativeFields\(geminiItems, canonicalItems, batchNonce\) \?\? canonicalItems/);
+  assert.match(edge, /context may influence only topic, hook, captionBody, and visualPrompt/i);
 });
