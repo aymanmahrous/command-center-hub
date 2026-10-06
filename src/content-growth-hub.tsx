@@ -526,20 +526,7 @@ export default function ContentGrowthHub({
         </ul>
       </section>}
 
-      {showReviewWorkspace && batches.length > 1 && (
-        <div className="batch-switcher" aria-label={copy.batchSwitcherAria}>
-          {batches.map((batch) => (
-            <button
-              type="button"
-              key={batch.batchId}
-              className={selectedBatch?.batchId === batch.batchId ? "active" : ""}
-              onClick={() => setSelectedBatchId(batch.batchId)}
-            >
-              {batch.isExplicitBatch ? batch.batchId : copy.reviewWindow} ({batch.items.length})
-            </button>
-          ))}
-        </div>
-      )}
+      {showReviewWorkspace && batches.length > 1 && (\n        <div className="batch-switcher" aria-label={copy.batchSwitcherAria}>\n          <label htmlFor="factory-batch-select">\n            {language === "ar" ? "الدفعة التي تعمل عليها الآن" : "Current batch"}\n          </label>\n          <select\n            id="factory-batch-select"\n            value={selectedBatch?.batchId ?? ""}\n            onChange={(event) => setSelectedBatchId(event.target.value)}\n          >\n            {batches.map((batch, index) => {\n              const needsReview = batch.items.filter((item) => ["draft", "generated", "needs_review"].includes(item.status)).length;\n              const approved = batch.items.filter((item) => item.status === "approved").length;\n              return (\n                <option key={batch.batchId} value={batch.batchId}>\n                  {(batch.isExplicitBatch ? batch.batchId : `${copy.reviewWindow} ${index + 1}`)} · {batch.items.length} {language === "ar" ? "عنصر" : "items"} · {needsReview} {language === "ar" ? "مراجعة" : "to review"} · {approved} {language === "ar" ? "معتمد" : "approved"}\n                </option>\n              );\n            })}\n          </select>\n        </div>\n      )}
 
       {showReviewWorkspace && selectedBatch && (
           <ContentBatchReviewPanel
