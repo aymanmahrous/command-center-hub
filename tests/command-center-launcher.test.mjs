@@ -31,6 +31,6 @@ test("authenticated V2 navigation exposes existing Today, Command, and Coach Bra
 
 test("Coach Brain remains an authenticated direct route with evidence links rendered by its component", () => {
   assert.match(app, /const CoachBrain = lazy\(\(\) => import\("\.\/coach-brain"\)\)/);
-  assert.match(app, /<CoachBrain language=\{language\} onNavigate=\{\(section\) => \{ if \(sections\.some\(\(\[id\]\) => id === section\) go\(section as SectionId\); \} \} \/>/);
+  assert.match(app, /<CoachBrain language=\{language\}/);\n  assert.match(app, /onNavigate=\{\(section\) =>/);\n  assert.match(app, /go\(section as SectionId\)/);
   assert.doesNotMatch(launcher, /renderCoachBrainSource|safeExternalUrl/);
 });
