@@ -263,7 +263,7 @@ export default function ContentGrowthHub({
   }, [activeFactoryTab, primaryBatch]);
 
   const batchItems = selectedBatch?.items ?? [];
-  const mediaLinkCandidates = useMemo(() => batchItems.filter((item) => ["draft", "generated", "needs_review"].includes(item.status) && !item.mediaAssetId), [batchItems]);
+  const mediaLinkCandidates = useMemo(() => batchItems.filter((item) => ["draft", "generated", "needs_review", "approved"].includes(item.status) && !item.mediaAssetId), [batchItems]);
   const strategySummary = useMemo(() => buildStrategySummary(batchItems), [batchItems]);
   const panelBusy = busy || generating;
   useEffect(() => {
