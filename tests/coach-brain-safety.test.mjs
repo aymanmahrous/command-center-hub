@@ -27,7 +27,7 @@ test("Coach Brain protects the no-record workflow", () => {
 
 test("Factory consumes Coach Brain handoff only on explicit factory entry", () => {
   assert.match(hub, /factoryContext.*coach-brain/);
-  assert.match(hub, /sessionStorage\\.removeItem\(COACH_BRAIN_FACTORY_HANDOFF_KEY\)/);
+  assert.match(hub, /sessionStorage\.removeItem\(COACH_BRAIN_FACTORY_HANDOFF_KEY\)/);
   assert.match(hub, /get\("factoryContext"\).*coach-brain/);
 });
 
