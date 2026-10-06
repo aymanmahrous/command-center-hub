@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { groupContentBatches, isDatabaseBatchId, selectPrimaryBatch, buildNextBatchReadyNotice, type ContentBatchItem } from "./content-batch";
-import { COACH_AYMAN_PROVIDER_ID, parseCoachKnowledgeContext, type CoachBrainFactoryContext } from "./content-batch-generator";
+import { COACH_AYMAN_PROVIDER_ID, contentFingerprint, parseCoachKnowledgeContext, validateCoachAymanBatch, type CoachBrainFactoryContext, type GeneratedBatchItem } from "./content-batch-generator";
 import { attachMediaToCoachAymanBatch, buildCoachAyman30DayBatchWithMedia } from "./media-batch-link";
+import { generateCoachAymanBatchWithGemini, type GeminiBatchPromptContext } from "./gemini-batch-adapter";
 import { parseMediaAssetRecords } from "./media-library-controls";
 import {
   displayCapabilityState,
@@ -13,6 +14,7 @@ import { AUTHORIZED_INSTAGRAM_PUBLISH_ITEM_ID, buildFacebookPublishAudit, summar
 import { readPublishingCopy } from "./content-publishing-copy";
 import { buildDayNineReminder } from "./content-batch";
 import {
+  BRAND,
   DEFAULT_BATCH_MIX,
   PLATFORM_GUIDANCE,
   buildStrategySummary,
@@ -38,6 +40,60 @@ function readCoachBrainFactoryContext(): CoachBrainFactoryContext | null {
     const sources = Array.isArray(value.sources) ? value.sources.filter((source): source is { title: string; url: string } => !!source && typeof source === "object" && typeof source.title === "string" && typeof source.url === "string").slice(0, 5) : [];
     return { question: value.question.slice(0, 1000), answer: value.answer.slice(0, 4000), sources };
   } catch { return null; }
+}
+
+type FactoryGeneratedBatchItem = Awaited<ReturnType<typeof buildCoachAyman30DayBatchWithMedia>>[number];
+
+async function mergeValidatedGeminiCreativeFields(
+  generatedItems: GeneratedBatchItem[] | null,
+  canonicalItems: FactoryGeneratedBatchItem[],
+  batchNonce: string,
+): Promise<FactoryGeneratedBatchItem[] | null> {
+  if (!generatedItems || generatedItems.length !== canonicalItems.length) return null;
+  const merged: FactoryGeneratedBatchItem[] = [];
+
+  for (let index = 0; index < canonicalItems.length; index += 1) {
+    const generated = generatedItems[index];
+    const canonical = canonicalItems[index];
+    if (!generated || !canonical) return null;
+
+    const fixedMetadataMatches = generated.platform === canonical.platform
+      && generated.contentType === canonical.contentType
+      && generated.language === canonical.language
+      && generated.contentPillar === canonical.contentPillar
+      && generated.contentSlot === canonical.contentSlot
+      && generated.cta === canonical.cta
+      && JSON.stringify(generated.hashtags) === JSON.stringify(canonical.hashtags);
+    if (!fixedMetadataMatches) return null;
+
+    if (typeof generated.topic !== "string" || !generated.topic.trim() || generated.topic.length > 500
+      || typeof generated.hook !== "string" || !generated.hook.trim() || generated.hook.length > 500
+      || typeof generated.visualPrompt !== "string" || !generated.visualPrompt.trim() || generated.visualPrompt.length > 6000
+      || typeof generated.caption !== "string") return null;
+
+    const trackedCtaSuffix = `\n\n${canonical.cta}`;
+    if (!generated.caption.endsWith(trackedCtaSuffix)) return null;
+    const generatedCaptionBody = generated.caption.slice(0, -trackedCtaSuffix.length).trim();
+    if (generatedCaptionBody.length > 6000) return null;
+
+    const canonicalCaptionBody = canonical.caption.endsWith(trackedCtaSuffix)
+      ? canonical.caption.slice(0, -trackedCtaSuffix.length).trim()
+      : "";
+    const canonicalPrimaryCta = canonicalCaptionBody.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).at(-1);
+    if (!canonicalPrimaryCta || !generatedCaptionBody.endsWith(canonicalPrimaryCta)) return null;
+
+    const topic = generated.topic.trim();
+    merged.push({
+      ...canonical,
+      topic,
+      hook: generated.hook.trim(),
+      caption: `${generatedCaptionBody}${trackedCtaSuffix}`,
+      visualPrompt: generated.visualPrompt.trim(),
+      contentFingerprint: await contentFingerprint(`${COACH_AYMAN_PROVIDER_ID}:${batchNonce}:${index}:${canonical.platform}:${topic}`),
+    });
+  }
+
+  return validateCoachAymanBatch(merged).valid ? merged : null;
 }
 
 type ContentGrowthHubProps = {
@@ -193,6 +249,7 @@ export default function ContentGrowthHub({
     setGenerateNotice("");
     try {
       const nonce = crypto.randomUUID();
+      const generationStart = new Date();
       const mediaRaw = await callRpc(session, "get_staff_media_assets", {});
       const assets = parseMediaAssetRecords(mediaRaw);
       let knowledgeContext = parseCoachKnowledgeContext(null);
@@ -203,13 +260,27 @@ export default function ContentGrowthHub({
         knowledgeContext = parseCoachKnowledgeContext(null);
       }
       if (coachBrainContext) knowledgeContext = { ...knowledgeContext, researchContext: coachBrainContext };
+      const promptContext: GeminiBatchPromptContext = {
+        academyKnowledge: knowledgeContext.entries,
+        coachBrainResearch: knowledgeContext.researchContext ?? null,
+        businessStrategy: { brand: BRAND, platformGuidance: PLATFORM_GUIDANCE, strategySummary },
+        performanceGuidance: insights,
+      };
+      let geminiItems: GeneratedBatchItem[] | null = null;
+      try {
+        geminiItems = await generateCoachAymanBatchWithGemini(session, nonce, generationStart, promptContext);
+      } catch (cause) {
+        if (cause instanceof Error && cause.message === "SESSION_EXPIRED") throw cause;
+        geminiItems = null;
+      }
       let saved: { success?: boolean; batchId?: string; code?: string } | null = null;
 
       for (let shiftDays = 0; shiftDays <= 45 && !saved; shiftDays += 1) {
-        const start = new Date();
+        const start = new Date(generationStart);
         start.setUTCDate(start.getUTCDate() + shiftDays);
         const batchNonce = shiftDays === 0 ? nonce : `${nonce}-${shiftDays}`;
-        const items = await buildCoachAyman30DayBatchWithMedia(assets, start, batchNonce, knowledgeContext);
+        const canonicalItems = await buildCoachAyman30DayBatchWithMedia(assets, start, batchNonce, knowledgeContext);
+        const items = await mergeValidatedGeminiCreativeFields(geminiItems, canonicalItems, batchNonce) ?? canonicalItems;
 
         try {
           saved = await callRpc(session, "create_staff_generated_content_batch", {

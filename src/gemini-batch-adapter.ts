@@ -1,9 +1,21 @@
-import type { GeneratedBatchItem } from "./content-batch-generator";
+import type { CoachBrainFactoryContext, CoachKnowledgeContext, GeneratedBatchItem } from "./content-batch-generator";
+import type { BRAND, PLATFORM_GUIDANCE, PerformanceInsight, StrategySummary } from "./content-strategy";
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
 const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
 
 type GeminiBatchSession = { accessToken: string };
+
+export type GeminiBatchPromptContext = {
+  academyKnowledge: CoachKnowledgeContext["entries"];
+  coachBrainResearch: CoachBrainFactoryContext | null;
+  businessStrategy: {
+    brand: typeof BRAND;
+    platformGuidance: typeof PLATFORM_GUIDANCE;
+    strategySummary: StrategySummary;
+  };
+  performanceGuidance: PerformanceInsight[];
+};
 
 type GeminiBatchEdgeResponse = {
   success?: boolean;
@@ -48,11 +60,13 @@ export async function generateCoachAymanBatchWithGemini(
   session: GeminiBatchSession,
   batchNonce: string,
   start = new Date(),
+  promptContext?: GeminiBatchPromptContext,
 ): Promise<GeneratedBatchItem[] | null> {
   const result = await callGenerateContentBatchEdge(session, {
     mode: "generate",
     batchNonce,
     startIso: start.toISOString(),
+    promptContext: promptContext ?? null,
   });
   if (result.code === "NEEDS_CREDENTIAL" || result.code === "GEMINI_UNAVAILABLE") return null;
   if (!result.success || !Array.isArray(result.items) || result.items.length === 0) {
