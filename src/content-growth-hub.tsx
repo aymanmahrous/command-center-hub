@@ -358,7 +358,8 @@ export default function ContentGrowthHub({
       };
       let geminiItems: GeneratedBatchItem[] | null = null;
       try {
-        geminiItems = await generateCoachAymanBatchWithProvider(session, batchAiProvider, nonce, generationStart, promptContext);
+        const selectedProvider: BatchAiProvider = planExecution === "value" ? "gemini" : batchAiProvider;
+        geminiItems = await generateCoachAymanBatchWithProvider(session, selectedProvider, nonce, generationStart, promptContext);
       } catch (cause) {
         if (cause instanceof Error && cause.message === "SESSION_EXPIRED") throw cause;
         geminiItems = null;
