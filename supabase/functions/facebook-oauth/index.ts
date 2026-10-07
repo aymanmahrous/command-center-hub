@@ -156,26 +156,22 @@ async function exchangeLongLivedToken(shortLivedToken: string) {
 }
 
 async function findConfiguredPage(userAccessToken: string) {
-  const url = new URL(`${GRAPH_URL}/me/accounts`);
+  // Meta's /me/accounts can return an empty list for Pages selected in the
+  // Business Login dialog. Verify the configured Page directly instead.
+  const url = new URL(`${GRAPH_URL}/${encodeURIComponent(FACEBOOK_PAGE_ID)}`);
   url.searchParams.set("fields", "id,name,access_token");
-  url.searchParams.set("limit", "100");
   url.searchParams.set("access_token", userAccessToken);
   const response = await fetch(url.toString(), { method: "GET", redirect: "error" });
   const payload = await response.json().catch(() => null) as JsonObject | null;
-  if (!response.ok || !Array.isArray(payload?.data)) {
+  if (!response.ok || typeof payload?.id !== "string" || typeof payload.access_token !== "string") {
     const error = payload?.error && typeof payload.error === "object" ? payload.error as JsonObject : {};
-    console.error("FACEBOOK_OAUTH_STAGE", JSON.stringify({ stage: "page_lookup", httpStatus: response.status, metaCode: error.code ?? null, metaType: error.type ?? null, metaSubcode: error.error_subcode ?? null }));
-    return null;
-  }
-  const page = payload.data.find((item) => item && typeof item === "object" && (item as JsonObject).id === FACEBOOK_PAGE_ID) as JsonObject | undefined;
-  if (!page || typeof page.access_token !== "string") {
-    console.error("FACEBOOK_OAUTH_STAGE", JSON.stringify({ stage: "target_page_missing", pagesReturned: payload.data.length, targetPageId: FACEBOOK_PAGE_ID, pageIds: payload.data.slice(0, 20).map((item) => item && typeof item === "object" ? String((item as JsonObject).id ?? "") : "").filter(Boolean) }));
+    console.error("FACEBOOK_OAUTH_STAGE", JSON.stringify({ stage: "page_lookup_direct", httpStatus: response.status, metaCode: error.code ?? null, metaType: error.type ?? null, metaSubcode: error.error_subcode ?? null, targetPageId: FACEBOOK_PAGE_ID }));
     return null;
   }
   return {
-    id: String(page.id),
-    name: typeof page.name === "string" ? page.name.slice(0, 120) : "Facebook Page",
-    accessToken: page.access_token,
+    id: payload.id,
+    name: typeof payload.name === "string" ? payload.name.slice(0, 120) : "Facebook Page",
+    accessToken: payload.access_token,
   };
 }
 
