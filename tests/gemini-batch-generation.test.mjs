@@ -57,7 +57,7 @@ test("content growth hub generates 30-day local calendar with media linkage", ()
 });
 
 test("existing Coach Brain, Academy, business and performance context reaches the Gemini prompt", () => {
-  assert.match(coachBrain, /answer: result\.answer\.slice\(0, 4000\)/);
+  assert.match(coachBrain, /answer: result\?\.answer\?\.slice\(0, 4000\)/);
   assert.match(hub, /academyKnowledge: knowledgeContext\.entries/);
   assert.match(hub, /coachBrainResearch: knowledgeContext\.researchContext \?\? null/);
   assert.match(hub, /businessStrategy: \{ brand: BRAND, platformGuidance: PLATFORM_GUIDANCE, strategySummary: \{ \.\.\.strategySummary, currentBatchStrategy: planFocus \} \}/);
