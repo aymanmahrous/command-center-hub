@@ -211,7 +211,7 @@ export default function ContentGrowthHub({
   const integrations = useMemo(() => readIntegrationStatuses(automationStatus), [automationStatus]);
   const canvaCapabilityState = integrations.find((integration) => integration.key === "canva")?.capabilityState ?? "NOT_CONFIGURED";
   const videoCapabilityState = integrations.find((integration) => integration.key === "runway")?.capabilityState ?? "NOT_CONFIGURED";
-  const PLAN_WINDOW_OPTIONS = [7, 14, 30] as const;
+  const PLAN_WINDOW_OPTIONS = [2, 3, 4, 7, 14, 30] as const;
   const [planWindowDays, setPlanWindowDays] = useState<number>(30);
 
   const [activeFactoryTab, setActiveFactoryTab] = useState<"overview" | "strategy" | "factory" | "content" | "designs" | "reels" | "campaigns" | "review" | "connections">(mediaFactoryHandoff ? "content" : "overview");
