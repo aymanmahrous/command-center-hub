@@ -12,11 +12,16 @@ const coachBrain = await readFile(new URL("../src/coach-brain.tsx", import.meta.
 test("gemini batch adapter calls server edge function only", () => {
   assert.match(adapter, /functions\/v1\/generate-content-batch/);
   assert.match(adapter, /generateCoachAymanBatchWithGemini/);
+  assert.match(adapter, /generateCoachAymanBatchWithProvider/);
+  assert.match(adapter, /BatchAiProvider/);
   assert.doesNotMatch(adapter, /GEMINI_API_KEY|VITE_GEMINI/i);
 });
 
 test("generate-content-batch edge function keeps Gemini key server-side", () => {
   assert.match(edge, /Deno\.env\.get\("GEMINI_API_KEY"\)/);
+  assert.match(edge, /Deno\.env\.get\("OPENAI_API_KEY"\)/);
+  assert.match(edge, /api\.openai\.com\/v1\/responses/);
+  assert.match(edge, /requestedProvider/);
   assert.match(edge, /mode !== "generate"/);
   assert.match(edge, /Relax Fix UAE Swimming Academy/);
   assert.match(edge, /coach-ayman-slot-spec\.ts/);
@@ -47,6 +52,8 @@ test("gemini slot spec aligns with local batch strategy mix", () => {
 test("content growth hub generates 30-day local calendar with media linkage", () => {
   assert.match(hub, /buildCoachAyman30DayBatchWithMedia/);
   assert.match(hub, /create_staff_generated_content_batch/);
+  assert.match(hub, /batchAiProvider/);
+  assert.match(hub, /Auto — best available/);
 });
 
 test("existing Coach Brain, Academy, business and performance context reaches the Gemini prompt", () => {
