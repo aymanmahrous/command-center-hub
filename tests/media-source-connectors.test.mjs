@@ -16,6 +16,8 @@ test("all four media sources use read-only scopes and normalize real provider re
   assert.match(connectors, /files\.content\.read/);
   assert.match(connectors, /Files\.Read/);
   assert.match(connectors, /fetchProviderMedia/);
+  assert.match(connectors, /trashed = false/);
+  assert.doesNotMatch(connectors, /GOOGLE_DRIVE_FOLDER_NOT_CONFIGURED|MASSIVE_ARCHIVE_DRIVE_FOLDER_URL/);
   assert.match(connectors, /consent: "needs_review"/);
   assert.doesNotMatch(connectors, /client_secret|service_role|localStorage|sessionStorage/);
   assert.match(connectors, /const isVideo = \["mp4", "mov", "webm"\]\.includes\(extension\)/);
