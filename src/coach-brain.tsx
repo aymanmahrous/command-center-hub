@@ -137,7 +137,6 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
     : null;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [planOpen, setPlanOpen] = useState(false);
   const [planDays, setPlanDays] = useState("7");
   const [customDays, setCustomDays] = useState("10");
   const [planMix, setPlanMix] = useState("varied");
@@ -172,6 +171,7 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
     const url = new URL(window.location.href);
     url.searchParams.set("section", "content");
     url.searchParams.set("factoryContext", "coach-brain");
+    url.searchParams.set("planDays", String(selectedPlanDays()));
     window.location.assign(url.toString());
   }
 
@@ -325,7 +325,6 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
               const generated = await generateCoachAymanSampleWithProvider({ accessToken }, provider, 0, crypto.randomUUID(), new Date(), promptContext);
               if (!generated) throw new Error("SAMPLE_FAILED");
               setSample(generated);
-              setPlanOpen(true);
             } catch (cause) {
               setSampleError(cause instanceof Error && cause.message === "AUTH_REQUIRED"
                 ? (language === "ar" ? "انتهت جلسة الدخول. سجّل الدخول مرة أخرى." : "Your session expired. Sign in again.")
