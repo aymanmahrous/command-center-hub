@@ -977,6 +977,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired }: { va
         onApproveAll={approveAllBatch}
         onBatchCreated={onChanged}
         onSessionExpired={onSessionExpired}
+        onOpenMedia={() => go("media")}
         onTabChange={setFactoryTab}
       />
     </Suspense>
