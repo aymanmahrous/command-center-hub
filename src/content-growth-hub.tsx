@@ -311,16 +311,17 @@ export default function ContentGrowthHub({
     sessionStorage.removeItem(COACH_BRAIN_FACTORY_HANDOFF_KEY);
   }, []);
 
-  function fitBatchToPlanWindow<T extends { plannedFor: string }>(batch: T[], days: number): T[] {
+  function fitBatchToPlanWindow<T extends { plannedFor: string }>(batch: T[], days: number, baseStart: Date): T[] {
     if (days >= 30) return batch;
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
+    const start = new Date(baseStart);
+    start.setUTCHours(0, 0, 0, 0);
+    start.setUTCDate(start.getUTCDate() + 1);
     return batch.map((item, index) => {
       const source = new Date(item.plannedFor);
       const target = new Date(start);
       const dayOffset = Math.min(days - 1, Math.floor((index * days) / Math.max(batch.length, 1)));
-      target.setDate(start.getDate() + dayOffset);
-      target.setHours(source.getHours(), source.getMinutes(), 0, 0);
+      target.setUTCDate(start.getUTCDate() + dayOffset);
+      target.setUTCHours(source.getUTCHours(), source.getUTCMinutes(), 0, 0);
       return { ...item, plannedFor: target.toISOString() };
     });
   }
@@ -363,7 +364,7 @@ export default function ContentGrowthHub({
         start.setUTCDate(start.getUTCDate() + shiftDays);
         const batchNonce = shiftDays === 0 ? nonce : `${nonce}-${shiftDays}`;
         const canonicalItems = await buildCoachAyman30DayBatchWithMedia(assets, start, batchNonce, knowledgeContext);
-        const windowedCanonicalItems = fitBatchToPlanWindow(canonicalItems, planWindowDays);
+        const windowedCanonicalItems = fitBatchToPlanWindow(canonicalItems, planWindowDays, start);
         const items = await mergeValidatedGeminiCreativeFields(geminiItems, windowedCanonicalItems, batchNonce) ?? windowedCanonicalItems;
 
         try {
