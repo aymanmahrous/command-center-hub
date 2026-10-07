@@ -29,8 +29,10 @@ async function callCanvaOAuthEdge(session: CanvaSession, body: Record<string, un
     body: JSON.stringify(body),
     cache: "no-store",
   });
+  const payload = (await response.json().catch(() => ({}))) as CanvaEdgeResponse;
   if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
-  return (await response.json().catch(() => ({}))) as CanvaEdgeResponse;
+  if (!response.ok) throw new Error(String(payload.code ?? `CANVA_EDGE_HTTP_${response.status}`));
+  return payload;
 }
 
 export async function fetchCanvaIntegrationStatus(session: CanvaSession): Promise<{
@@ -53,7 +55,7 @@ export async function fetchCanvaIntegrationStatus(session: CanvaSession): Promis
     return {
       connected: false,
       integrationStatus: "NOT CONNECTED",
-      detail: "Canva status unavailable — Command Center continues without Canva.",
+      detail: cause instanceof Error && cause.message !== "Failed to fetch" ? `Canva status request failed (${cause.message}).` : "Canva status request could not reach the server.",
       openUrl: CANVA_OPEN_URL,
     };
   }
