@@ -173,6 +173,18 @@ async function handleCallback(request: Request, supabase: ReturnType<typeof crea
   await supabase.from("staff_canva_oauth_states").delete().eq("state", state);
   if (upsertError) return returnRedirect({ canva: "error", canva_code: "TOKEN_STORE_FAILED" });
 
+  const { error: integrationError } = await supabase
+    .from("staff_integrations")
+    .update({
+      status: "connected",
+      connected_by: pending.staff_id,
+      connected_at: new Date().toISOString(),
+      last_error_code: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("provider", "canva");
+  if (integrationError) return returnRedirect({ canva: "error", canva_code: "INTEGRATION_STATE_UPDATE_FAILED" });
+
   return returnRedirect({ canva: "connected" });
 }
 
