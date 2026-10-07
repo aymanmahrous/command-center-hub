@@ -80,3 +80,12 @@ test("Gemini creative output cannot override main slots, CTAs, security checks o
   assert.match(hub, /mergeValidatedGeminiCreativeFields\(geminiItems, canonicalItems, batchNonce\) \?\? canonicalItems/);
   assert.match(edge, /context may influence only topic, hook, captionBody, and visualPrompt/i);
 });
+
+test("Factory lets the owner choose a scheduling window without creating a second system", () => {
+  assert.match(hub, /PLAN_WINDOW_OPTIONS/);
+  assert.match(hub, /planWindowDays/);
+  assert.match(hub, /fitBatchToPlanWindow/);
+  assert.match(hub, /COACH BRAIN PLAN/);
+  assert.match(hub, /DEFAULT_BATCH_MIX\.length/);
+  assert.match(hub, /7, 14, 30/);
+});
