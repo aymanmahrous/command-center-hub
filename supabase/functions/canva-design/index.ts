@@ -257,6 +257,7 @@ async function storeDesignForContentItem(
   contentItemId: string,
   downloadUrl: string,
   topic: string,
+  autonomous: boolean,
 ) {
   const imageResponse = await fetch(downloadUrl);
   if (!imageResponse.ok) return { error: "DESIGN_DOWNLOAD_FAILED" as const };
@@ -280,6 +281,7 @@ async function storeDesignForContentItem(
       prompt: topic,
       metadata: {
         source: "canva_autofill",
+        autonomous,
         topic,
         contentItemId,
         analysis: {
@@ -408,6 +410,7 @@ Deno.serve(async (request) => {
     contentItemId,
     exported.downloadUrl,
     topic,
+    automationMode,
   );
   if ("error" in stored) return json({ success: false, code: stored.error }, 500);
 
