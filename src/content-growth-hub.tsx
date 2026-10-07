@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { groupContentBatches, isDatabaseBatchId, selectPrimaryBatch, buildNextBatchReadyNotice, type ContentBatchItem } from "./content-batch";
 import { COACH_AYMAN_PROVIDER_ID, contentFingerprint, parseCoachKnowledgeContext, validateCoachAymanBatch, type CoachBrainFactoryContext, type GeneratedBatchItem } from "./content-batch-generator";
 import { attachMediaToCoachAymanBatch, buildCoachAyman30DayBatchWithMedia } from "./media-batch-link";
-import { generateCoachAymanBatchWithGemini, type GeminiBatchPromptContext } from "./gemini-batch-adapter";
+import { generateCoachAymanBatchWithProvider, type BatchAiProvider, type GeminiBatchPromptContext } from "./gemini-batch-adapter";
 import { parseMediaAssetRecords } from "./media-library-controls";
 import {
   displayCapabilityState,
@@ -197,6 +197,7 @@ export default function ContentGrowthHub({
   const [automationStatus, setAutomationStatus] = useState<unknown>(null);
   const [generateNotice, setGenerateNotice] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [batchAiProvider, setBatchAiProvider] = useState<BatchAiProvider>("auto");
   const [coachBrainContext, setCoachBrainContext] = useState<CoachBrainFactoryContext | null>(() => {
     if (new URLSearchParams(window.location.search).get("factoryContext") !== "coach-brain") return null;
     return readCoachBrainFactoryContext();
@@ -333,7 +334,7 @@ export default function ContentGrowthHub({
       };
       let geminiItems: GeneratedBatchItem[] | null = null;
       try {
-        geminiItems = await generateCoachAymanBatchWithGemini(session, nonce, generationStart, promptContext);
+        geminiItems = await generateCoachAymanBatchWithProvider(session, batchAiProvider, nonce, generationStart, promptContext);
       } catch (cause) {
         if (cause instanceof Error && cause.message === "SESSION_EXPIRED") throw cause;
         geminiItems = null;
@@ -516,6 +517,14 @@ export default function ContentGrowthHub({
         <p className="batch-meta">
           {copy.activeBatchLabel}: {selectedBatch && isDatabaseBatchId(selectedBatch.batchId) ? selectedBatch.batchId : copy.notConnected}
         </p>
+        <label className="batch-ai-provider">
+          <span>{language === "ar" ? "مزود الذكاء" : "AI provider"}</span>
+          <select value={batchAiProvider} onChange={(event) => setBatchAiProvider(event.target.value as BatchAiProvider)} disabled={generating || panelBusy}>
+            <option value="auto">{language === "ar" ? "تلقائي — الأفضل المتاح" : "Auto — best available"}</option>
+            <option value="gemini">Gemini</option>
+            <option value="openai">OpenAI</option>
+          </select>
+        </label>
         <button type="button" className="primary-button" disabled={!canWrite || panelBusy} onClick={() => void generateCoachAymanBatch()}>
           {generating ? copy.generateBusy : copy.generateButton}
         </button>
