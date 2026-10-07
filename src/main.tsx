@@ -844,10 +844,18 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
     if (!canWrite || busyId || batchBusy || item.status === "approved") return;
     if (!canApproveContentItem(item)) return;
     const confirmMessage = language === "ar"
-      ? `تأكيد اعتماد «${item.topic || "محتوى بدون عنوان"}»؟ لن يتم الجدولة أو النشر من هذه الشاشة.`
-      : `Approve "${item.topic || copy.untitled}"? Nothing will be scheduled or published from this screen.`;
+      ? `تأكيد اعتماد «${item.topic || "محتوى بدون عنوان"}»؟ سيتم اعتماد المحتوى وجدولته للموعد المحدد.`
+      : `Approve "${item.topic || copy.untitled}"? The item will be approved and scheduled for its planned time.`;
     if (!window.confirm(confirmMessage)) return;
-    await runMutation(item.id, () => transitionContentItem(session, item.id, "approve"), language === "ar" ? "تم اعتماد العنصر وتسجيل العملية." : "Item approved and recorded.", { action: "return_to_review", label: language === "ar" ? "تراجع عن الاعتماد" : "Undo approval" });
+    await runMutation(
+      item.id,
+      () => callRpc(session, "approve_and_schedule_staff_content_item", {
+        p_content_item_id: item.id,
+        p_scheduled_for: item.scheduledFor,
+      }),
+      language === "ar" ? "تم اعتماد المحتوى وجدولته." : "Item approved and scheduled.",
+      { action: "unschedule", label: language === "ar" ? "إلغاء الجدولة" : "Undo scheduling" },
+    );
   }
 
   async function requestBatchChanges(item: ContentBatchItem, kind: ChangeRequestKind, note: string) {
