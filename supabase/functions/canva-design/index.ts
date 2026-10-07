@@ -291,11 +291,11 @@ async function storeDesignForContentItem(
         },
         analysisProvider: "canva_generated",
       },
-      category: "other_business",
+      category: "swimming_business",
       media_status: "unclassified",
       ai_analysis_status: "completed",
       publishability_status: "ready_for_review",
-      consent_status: "unknown",
+      consent_status: "consent_confirmed",
       content_item_id: contentItemId,
       updated_at: new Date().toISOString(),
     })
