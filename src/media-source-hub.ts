@@ -52,15 +52,24 @@ export const CREATIVE_FORMAT_LABELS: Record<CreativeFormat, string> = {
 };
 
 export function readProviderConnections(env: Record<string, unknown> = {}): ProviderConnection[] {
-  const configured = (key: MediaProviderKey) => typeof env[`VITE_${key.toUpperCase()}_CLIENT_ID`] === "string" && Boolean(String(env[`VITE_${key.toUpperCase()}_CLIENT_ID`]).trim());
-  return (Object.keys(MEDIA_PROVIDER_LABELS) as MediaProviderKey[]).map((key) => ({
-    key,
-    label: MEDIA_PROVIDER_LABELS[key],
-    connected: false,
-    configured: configured(key),
-    detail: configured(key) ? "OAuth ready; user connection required" : "OAuth credentials required",
-    authScope: key === "google_photos" ? "photoslibrary.readonly" : key === "dropbox" ? "files.content.read" : key === "onedrive" ? "Files.Read" : "https://www.googleapis.com/auth/drive.readonly",
-  }));
+  const value = (name: string) => typeof env[name] === "string" && Boolean(String(env[name]).trim());
+  const configuredByProvider: Record<MediaProviderKey, boolean> = {
+    google_drive: value("VITE_GOOGLE_DRIVE_CLIENT_ID"),
+    google_photos: value("VITE_GOOGLE_PHOTOS_CLIENT_ID") || value("VITE_GOOGLE_DRIVE_CLIENT_ID"),
+    dropbox: value("VITE_DROPBOX_CLIENT_ID"),
+    onedrive: value("VITE_ONEDRIVE_CLIENT_ID"),
+  };
+  return (Object.keys(MEDIA_PROVIDER_LABELS) as MediaProviderKey[]).map((key) => {
+    const configured = configuredByProvider[key];
+    return {
+      key,
+      label: MEDIA_PROVIDER_LABELS[key],
+      connected: false,
+      configured,
+      detail: configured ? "OAuth ready; click Connect to authorize" : "OAuth app setup required once",
+      authScope: key === "google_photos" ? "photoslibrary.readonly" : key === "dropbox" ? "files.content.read" : key === "onedrive" ? "Files.Read" : "https://www.googleapis.com/auth/drive.readonly",
+    };
+  });
 }
 
 export function filterRemoteMedia(items: RemoteMediaItem[], query: string, provider: MediaProviderKey | "all" = "all"): RemoteMediaItem[] {
