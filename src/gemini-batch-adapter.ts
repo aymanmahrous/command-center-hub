@@ -17,6 +17,8 @@ export type GeminiBatchPromptContext = {
   performanceGuidance: PerformanceInsight[];
 };
 
+export type BatchAiProvider = "auto" | "gemini" | "openai";
+
 type GeminiBatchEdgeResponse = {
   success?: boolean;
   connected?: boolean;
@@ -56,14 +58,16 @@ export async function fetchGeminiBatchGenerationStatus(session: GeminiBatchSessi
   }
 }
 
-export async function generateCoachAymanBatchWithGemini(
+export async function generateCoachAymanBatchWithProvider(
   session: GeminiBatchSession,
+  provider: BatchAiProvider,
   batchNonce: string,
   start = new Date(),
   promptContext?: GeminiBatchPromptContext,
 ): Promise<GeneratedBatchItem[] | null> {
   const result = await callGenerateContentBatchEdge(session, {
     mode: "generate",
+    provider,
     batchNonce,
     startIso: start.toISOString(),
     promptContext: promptContext ?? null,
@@ -73,4 +77,13 @@ export async function generateCoachAymanBatchWithGemini(
     throw new Error(result.code ?? "GEMINI_BATCH_FAILED");
   }
   return result.items;
+}
+
+export async function generateCoachAymanBatchWithGemini(
+  session: GeminiBatchSession,
+  batchNonce: string,
+  start = new Date(),
+  promptContext?: GeminiBatchPromptContext,
+): Promise<GeneratedBatchItem[] | null> {
+  return generateCoachAymanBatchWithProvider(session, "gemini", batchNonce, start, promptContext);
 }

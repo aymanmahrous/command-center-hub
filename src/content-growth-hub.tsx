@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { groupContentBatches, isDatabaseBatchId, selectPrimaryBatch, buildNextBatchReadyNotice, type ContentBatchItem } from "./content-batch";
 import { COACH_AYMAN_PROVIDER_ID, contentFingerprint, parseCoachKnowledgeContext, validateCoachAymanBatch, type CoachBrainFactoryContext, type GeneratedBatchItem } from "./content-batch-generator";
 import { attachMediaToCoachAymanBatch, buildCoachAyman30DayBatchWithMedia } from "./media-batch-link";
-import { generateCoachAymanBatchWithGemini, type GeminiBatchPromptContext } from "./gemini-batch-adapter";
+import { generateCoachAymanBatchWithProvider, type BatchAiProvider, type GeminiBatchPromptContext } from "./gemini-batch-adapter";
 import { parseMediaAssetRecords } from "./media-library-controls";
 import {
   displayCapabilityState,
@@ -197,6 +197,7 @@ export default function ContentGrowthHub({
   const [automationStatus, setAutomationStatus] = useState<unknown>(null);
   const [generateNotice, setGenerateNotice] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [batchAiProvider, setBatchAiProvider] = useState<BatchAiProvider>("auto");
   const [coachBrainContext, setCoachBrainContext] = useState<CoachBrainFactoryContext | null>(() => {
     if (new URLSearchParams(window.location.search).get("factoryContext") !== "coach-brain") return null;
     return readCoachBrainFactoryContext();
@@ -210,6 +211,9 @@ export default function ContentGrowthHub({
   const integrations = useMemo(() => readIntegrationStatuses(automationStatus), [automationStatus]);
   const canvaCapabilityState = integrations.find((integration) => integration.key === "canva")?.capabilityState ?? "NOT_CONFIGURED";
   const videoCapabilityState = integrations.find((integration) => integration.key === "runway")?.capabilityState ?? "NOT_CONFIGURED";
+  const PLAN_WINDOW_OPTIONS = [2, 3, 4, 7, 14, 30] as const;
+  const [planWindowDays, setPlanWindowDays] = useState<number>(30);
+
   const [activeFactoryTab, setActiveFactoryTab] = useState<"overview" | "strategy" | "factory" | "content" | "designs" | "reels" | "campaigns" | "review" | "connections">(mediaFactoryHandoff ? "content" : "overview");
   useEffect(() => {
     const targetId = activeFactoryTab === "content" ? "content-control-room" : ["designs", "reels", "campaigns", "review"].includes(activeFactoryTab) ? "content-review" : `content-${activeFactoryTab}`;
@@ -228,7 +232,7 @@ export default function ContentGrowthHub({
   const planDays = useMemo(() => {
     const start = new Date();
     start.setHours(0, 0, 0, 0);
-    return Array.from({ length: 30 }, (_, index) => {
+    return Array.from({ length: planWindowDays }, (_, index) => {
       const day = new Date(start);
       day.setDate(start.getDate() + index);
       const dayItems = items.filter((item) => {
@@ -238,7 +242,7 @@ export default function ContentGrowthHub({
       });
       return { day, dayItems };
     });
-  }, [items]);
+  }, [items, planWindowDays]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -307,6 +311,21 @@ export default function ContentGrowthHub({
     sessionStorage.removeItem(COACH_BRAIN_FACTORY_HANDOFF_KEY);
   }, []);
 
+  function fitBatchToPlanWindow<T extends { plannedFor: string }>(batch: T[], days: number, baseStart: Date): T[] {
+    if (days >= 30) return batch;
+    const start = new Date(baseStart);
+    start.setUTCHours(0, 0, 0, 0);
+    start.setUTCDate(start.getUTCDate() + 1);
+    return batch.map((item, index) => {
+      const source = new Date(item.plannedFor);
+      const target = new Date(start);
+      const dayOffset = Math.min(days - 1, Math.floor((index * days) / Math.max(batch.length, 1)));
+      target.setUTCDate(start.getUTCDate() + dayOffset);
+      target.setUTCHours(source.getUTCHours(), source.getUTCMinutes(), 0, 0);
+      return { ...item, plannedFor: target.toISOString() };
+    });
+  }
+
   async function generateCoachAymanBatch(options: { automatic?: boolean } = {}) {
     if (!canWrite || panelBusy) return;
     if (!options.automatic && !window.confirm(copy.generateConfirm)) return;
@@ -333,7 +352,7 @@ export default function ContentGrowthHub({
       };
       let geminiItems: GeneratedBatchItem[] | null = null;
       try {
-        geminiItems = await generateCoachAymanBatchWithGemini(session, nonce, generationStart, promptContext);
+        geminiItems = await generateCoachAymanBatchWithProvider(session, batchAiProvider, nonce, generationStart, promptContext);
       } catch (cause) {
         if (cause instanceof Error && cause.message === "SESSION_EXPIRED") throw cause;
         geminiItems = null;
@@ -345,7 +364,8 @@ export default function ContentGrowthHub({
         start.setUTCDate(start.getUTCDate() + shiftDays);
         const batchNonce = shiftDays === 0 ? nonce : `${nonce}-${shiftDays}`;
         const canonicalItems = await buildCoachAyman30DayBatchWithMedia(assets, start, batchNonce, knowledgeContext);
-        const items = await mergeValidatedGeminiCreativeFields(geminiItems, canonicalItems, batchNonce) ?? canonicalItems;
+        const windowedCanonicalItems = fitBatchToPlanWindow(canonicalItems, planWindowDays, start);
+        const items = await mergeValidatedGeminiCreativeFields(geminiItems, windowedCanonicalItems, batchNonce) ?? windowedCanonicalItems;
 
         try {
           saved = await callRpc(session, "create_staff_generated_content_batch", {
@@ -401,7 +421,11 @@ export default function ContentGrowthHub({
         </div>
       </section>
       <section className="factory-30-day-plan" aria-labelledby="factory-30-day-title">
-        <header><div><span>{language === "ar" ? "خطة 30 يومًا" : "30-DAY PLAN"}</span><h3 id="factory-30-day-title">{language === "ar" ? "افتح يومك بدل قراءة قائمة طويلة" : "Open a day instead of reading a long list"}</h3></div><small>{language === "ar" ? "العناصر المجدولة فقط — التعديل يتم داخل مساحة العمل الحالية." : "Scheduled items only — edits stay inside the existing workspace."}</small></header>
+        <header><div><span>{language === "ar" ? "خطة Coach Brain" : "COACH BRAIN PLAN"}</span><h3 id="factory-30-day-title">{language === "ar" ? "حدد المدة ودع Coach Brain يبني التوزيع" : "Choose the window and let Coach Brain shape the mix"}</h3></div><small>{language === "ar" ? "نفس المصنع والبنية الحالية؛ المدة تحدد نافذة الجدولة فقط." : "Same Factory and existing infrastructure; the window controls scheduling only."}</small></header>
+        <div className="factory-plan-controls">
+          <label className="batch-ai-provider"><span>{language === "ar" ? "عدد الأيام" : "Plan length"}</span><select value={planWindowDays} onChange={(event) => setPlanWindowDays(Number(event.target.value))} disabled={panelBusy}>{PLAN_WINDOW_OPTIONS.map((days) => <option key={days} value={days}>{language === "ar" ? days + " يوم" : days + " days"}</option>)}</select></label>
+          <div className="factory-plan-summary"><strong>{language === "ar" ? "سنوزع " + DEFAULT_BATCH_MIX.length + " أفكار متنوعة على " + planWindowDays + " يومًا." : "Coach Brain will distribute " + DEFAULT_BATCH_MIX.length + " varied ideas across " + planWindowDays + " days."}</strong><span>{language === "ar" ? "تعليم · أمان · ثقة بالماء · أسئلة الأهل · سلطة الكوتش · محلي أبوظبي · ريلز · تحويل." : "Education · safety · water confidence · parent FAQs · coach authority · Abu Dhabi local · Reels · conversion."}</span></div>
+        </div>
         <div className="factory-30-day-grid">
           {planDays.map(({ day, dayItems }, index) => <button type="button" key={day.toISOString()} className={dayItems.length > 0 ? "has-items" : ""} onClick={() => { setActiveFactoryTab(dayItems.length > 0 ? "campaigns" : "strategy"); onTabChange?.(dayItems.length > 0 ? "campaigns" : "strategy"); }}><span>{language === "ar" ? `اليوم ${index + 1}` : `Day ${index + 1}`}</span><strong>{dayItems.length}</strong><small>{day.toLocaleDateString(language === "ar" ? "ar-AE" : "en-AE", { month: "short", day: "numeric" })}</small>{dayItems.slice(0, 2).map((item) => <em key={item.id}>{item.topic}</em>)}</button>)}
         </div>
@@ -516,6 +540,14 @@ export default function ContentGrowthHub({
         <p className="batch-meta">
           {copy.activeBatchLabel}: {selectedBatch && isDatabaseBatchId(selectedBatch.batchId) ? selectedBatch.batchId : copy.notConnected}
         </p>
+        <label className="batch-ai-provider">
+          <span>{language === "ar" ? "مزود الذكاء" : "AI provider"}</span>
+          <select value={batchAiProvider} onChange={(event) => setBatchAiProvider(event.target.value as BatchAiProvider)} disabled={generating || panelBusy}>
+            <option value="auto">{language === "ar" ? "تلقائي — الأفضل المتاح" : "Auto — best available"}</option>
+            <option value="gemini">Gemini</option>
+            <option value="openai">OpenAI</option>
+          </select>
+        </label>
         <button type="button" className="primary-button" disabled={!canWrite || panelBusy} onClick={() => void generateCoachAymanBatch()}>
           {generating ? copy.generateBusy : copy.generateButton}
         </button>
