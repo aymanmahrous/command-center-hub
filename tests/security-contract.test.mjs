@@ -8,6 +8,7 @@ const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
 const app = await readFile(new URL("../src/main.tsx", import.meta.url), "utf8");
 const operations = await readFile(new URL("../src/operations-queue-view.tsx", import.meta.url), "utf8");
 const growthHub = await readFile(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
+const batchReviewPanel = await readFile(new URL("../src/content-batch-review-panel.tsx", import.meta.url), "utf8");
 const growthCopyEn = await readFile(new URL("../src/i18n/en.ts", import.meta.url), "utf8");
 const mediaView = await readFile(new URL("../src/media-library-view.tsx", import.meta.url), "utf8");
 
@@ -138,7 +139,7 @@ test("Content batch review approves through approved RPCs only", () => {
   assert.match(app, /approveAllBatch/);
   assert.match(app, /approve_staff_content_batch/);
   assert.match(app, /transition_staff_content_item/);
-  assert.match(app, /Nothing will be scheduled or published from this screen/);
+  assert.match(batchReviewPanel, /Nothing will be scheduled or published from this screen/);
   assert.match(app, /canApproveContentItem/);
   assert.match(app, /sharedDatabaseBatchId/);
   assert.doesNotMatch(app, /graph\.facebook|facebook\.com\/v\d+/i);
