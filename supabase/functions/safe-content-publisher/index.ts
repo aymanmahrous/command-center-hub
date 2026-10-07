@@ -263,7 +263,7 @@ async function resolveSignedImageUrl(contentItemId: string, staffJwt: string): P
 async function resolveSignedImageUrlWithToken(contentItemId: string, token: string): Promise<string | null> {
   const assetResponse = await fetch(`${SUPABASE_URL}/rest/v1/media_assets?content_item_id=eq.${encodeURIComponent(contentItemId)}&select=storage_path&limit=1`, { headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${token}` } });
   const assets = assetResponse.ok ? await assetResponse.json() : []; const storagePath = (assets[0] as { storage_path?: string } | undefined)?.storage_path; if (!storagePath) return null;
-  const [bucket, ...rest] = storagePath.split("/"); const objectPath = rest.join("/"); if (!bucket || !objectPath) return null;
+  const bucket = "relax-fix-media"; const objectPath = storagePath; if (!objectPath) return null;
   const signResponse = await fetch(`${SUPABASE_URL}/storage/v1/object/sign/${bucket}/${objectPath}`, { method: "POST", headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ expiresIn: 300 }) });
   if (!signResponse.ok) return null; const signed = (await signResponse.json()) as { signedURL?: string }; return signed.signedURL ? `${SUPABASE_URL}/storage/v1${signed.signedURL}` : null;
 }
