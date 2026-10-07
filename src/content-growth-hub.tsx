@@ -212,10 +212,13 @@ export default function ContentGrowthHub({
   const canvaCapabilityState = integrations.find((integration) => integration.key === "canva")?.capabilityState ?? "NOT_CONFIGURED";
   const videoCapabilityState = integrations.find((integration) => integration.key === "runway")?.capabilityState ?? "NOT_CONFIGURED";
   const PLAN_WINDOW_OPTIONS = [2, 3, 4, 7, 14, 30] as const;
+  const handoffParams = new URLSearchParams(window.location.search);
   const [planWindowDays, setPlanWindowDays] = useState<number>(() => {
-    const value = Number(new URLSearchParams(window.location.search).get("planDays"));
+    const value = Number(handoffParams.get("planDays"));
     return [2, 3, 4, 7, 14, 30].includes(value) ? value : 30;
   });
+  const [planFocus] = useState(() => handoffParams.get("planMix") || "varied");
+  const [planExecution] = useState(() => handoffParams.get("planExecution") || "best");
 
   const [activeFactoryTab, setActiveFactoryTab] = useState<"overview" | "strategy" | "factory" | "content" | "designs" | "reels" | "campaigns" | "review" | "connections">(mediaFactoryHandoff ? "content" : "overview");
   useEffect(() => {
@@ -350,7 +353,7 @@ export default function ContentGrowthHub({
       const promptContext: GeminiBatchPromptContext = {
         academyKnowledge: knowledgeContext.entries,
         coachBrainResearch: knowledgeContext.researchContext ?? null,
-        businessStrategy: { brand: BRAND, platformGuidance: PLATFORM_GUIDANCE, strategySummary },
+        businessStrategy: { brand: BRAND, platformGuidance: PLATFORM_GUIDANCE, strategySummary: { ...strategySummary, currentBatchStrategy: planFocus } },
         performanceGuidance: insights,
       };
       let geminiItems: GeneratedBatchItem[] | null = null;
