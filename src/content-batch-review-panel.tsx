@@ -245,10 +245,15 @@ export function ContentBatchReviewPanel({
         setDesignBusyId(null);
         return;
       }
+      const isVideo = /reel|video/i.test(String(item.contentType));
+      if (requestedProvider === "auto" && isVideo && videoCapabilityState !== "AVAILABLE") {
+        onOpenConnections?.();
+        return;
+      }
       const provider = requestedProvider === "auto" ? recommendedDesignProvider(item) : requestedProvider;
       const providerInfo = availableDesignProviders(item).find((entry) => entry.key === provider);
       if (!providerInfo?.available) {
-        if (provider === "runway" || (requestedProvider === "auto" && provider === "capcut")) {
+        if (provider === "runway") {
           onOpenConnections?.();
           return;
         }
