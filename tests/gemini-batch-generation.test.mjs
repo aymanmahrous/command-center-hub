@@ -89,3 +89,5 @@ test("Factory lets the owner choose a scheduling window without creating a secon
   assert.match(hub, /DEFAULT_BATCH_MIX\.length/);
   assert.match(hub, /7, 14, 30/);
 });
+
+assert.match(edgeSource, /body\.mode === "sample"/);
