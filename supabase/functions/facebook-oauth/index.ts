@@ -131,7 +131,11 @@ async function exchangeCode(code: string) {
   url.searchParams.set("code", code);
   const response = await fetch(url.toString(), { method: "GET", redirect: "error" });
   const payload = await response.json().catch(() => null) as JsonObject | null;
-  if (!response.ok || typeof payload?.access_token !== "string") return null;
+  if (!response.ok || typeof payload?.access_token !== "string") {
+    const error = payload?.error && typeof payload.error === "object" ? payload.error as JsonObject : {};
+    console.error("FACEBOOK_OAUTH_STAGE", JSON.stringify({ stage: "token_exchange", httpStatus: response.status, metaCode: error.code ?? null, metaType: error.type ?? null, metaSubcode: error.error_subcode ?? null }));
+    return null;
+  }
   return { accessToken: payload.access_token, expiresIn: Number(payload.expires_in ?? 0) };
 }
 
@@ -143,7 +147,11 @@ async function exchangeLongLivedToken(shortLivedToken: string) {
   url.searchParams.set("fb_exchange_token", shortLivedToken);
   const response = await fetch(url.toString(), { method: "GET", redirect: "error" });
   const payload = await response.json().catch(() => null) as JsonObject | null;
-  if (!response.ok || typeof payload?.access_token !== "string") return null;
+  if (!response.ok || typeof payload?.access_token !== "string") {
+    const error = payload?.error && typeof payload.error === "object" ? payload.error as JsonObject : {};
+    console.error("FACEBOOK_OAUTH_STAGE", JSON.stringify({ stage: "long_lived_exchange", httpStatus: response.status, metaCode: error.code ?? null, metaType: error.type ?? null, metaSubcode: error.error_subcode ?? null }));
+    return null;
+  }
   return { accessToken: payload.access_token, expiresIn: Number(payload.expires_in ?? 0) };
 }
 
@@ -154,9 +162,16 @@ async function findConfiguredPage(userAccessToken: string) {
   url.searchParams.set("access_token", userAccessToken);
   const response = await fetch(url.toString(), { method: "GET", redirect: "error" });
   const payload = await response.json().catch(() => null) as JsonObject | null;
-  if (!response.ok || !Array.isArray(payload?.data)) return null;
+  if (!response.ok || !Array.isArray(payload?.data)) {
+    const error = payload?.error && typeof payload.error === "object" ? payload.error as JsonObject : {};
+    console.error("FACEBOOK_OAUTH_STAGE", JSON.stringify({ stage: "page_lookup", httpStatus: response.status, metaCode: error.code ?? null, metaType: error.type ?? null, metaSubcode: error.error_subcode ?? null }));
+    return null;
+  }
   const page = payload.data.find((item) => item && typeof item === "object" && (item as JsonObject).id === FACEBOOK_PAGE_ID) as JsonObject | undefined;
-  if (!page || typeof page.access_token !== "string") return null;
+  if (!page || typeof page.access_token !== "string") {
+    console.error("FACEBOOK_OAUTH_STAGE", JSON.stringify({ stage: "target_page_missing", pagesReturned: payload.data.length, targetPageId: FACEBOOK_PAGE_ID, pageIds: payload.data.slice(0, 20).map((item) => item && typeof item === "object" ? String((item as JsonObject).id ?? "") : "").filter(Boolean) }));
+    return null;
+  }
   return {
     id: String(page.id),
     name: typeof page.name === "string" ? page.name.slice(0, 120) : "Facebook Page",
@@ -322,15 +337,20 @@ async function handleCallback(request: Request, supabase: SupabaseClient) {
   }
 
   try {
+    console.log("FACEBOOK_OAUTH_STAGE", JSON.stringify({ stage: "callback_authorized", staffId }));
     const shortLived = await exchangeCode(code);
     if (!shortLived) return returnRedirect("error", "TOKEN_EXCHANGE_FAILED");
+    console.log("FACEBOOK_OAUTH_STAGE", JSON.stringify({ stage: "code_exchanged", expiresIn: shortLived.expiresIn }));
     const longLived = await exchangeLongLivedToken(shortLived.accessToken);
-    if (!longLived) return returnRedirect("error", "TOKEN_EXCHANGE_FAILED");
+    if (!longLived) return returnRedirect("error", "LONG_LIVED_TOKEN_EXCHANGE_FAILED");
+    console.log("FACEBOOK_OAUTH_STAGE", JSON.stringify({ stage: "long_lived_exchanged", expiresIn: longLived.expiresIn }));
     const page = await findConfiguredPage(longLived.accessToken);
     if (!page) return returnRedirect("error", "TARGET_PAGE_NOT_AVAILABLE");
+    console.log("FACEBOOK_OAUTH_STAGE", JSON.stringify({ stage: "target_page_found", pageId: page.id, pageName: page.name }));
     const instagram = await findInstagramBusinessAccount(page.id, page.accessToken);
     const stored = await storePageCredential(supabase, staffId, page, instagram);
     if (!stored) return returnRedirect("error", "CREDENTIAL_STORE_FAILED");
+    console.log("FACEBOOK_OAUTH_STAGE", JSON.stringify({ stage: "credential_stored", instagram: Boolean(instagram) }));
     return returnRedirect("connected");
   } catch {
     return returnRedirect("error", "OAUTH_FLOW_FAILED");
