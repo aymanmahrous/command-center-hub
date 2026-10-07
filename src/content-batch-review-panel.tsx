@@ -248,6 +248,10 @@ export function ContentBatchReviewPanel({
       const provider = requestedProvider === "auto" ? recommendedDesignProvider(item) : requestedProvider;
       const providerInfo = availableDesignProviders(item).find((entry) => entry.key === provider);
       if (!providerInfo?.available) {
+        if (provider === "runway" || (requestedProvider === "auto" && provider === "capcut")) {
+          onOpenConnections?.();
+          return;
+        }
         setDesignNotice(language === "ar"
           ? "هذا المزود ظاهر للاختيار، لكنه غير متصل/غير مدعوم فعليًا في المصنع حاليًا. لم يتم تشغيل أي عملية وهمية."
           : "This provider is shown as an option, but it is not currently connected/supported by the Factory. No fake operation was started.");
