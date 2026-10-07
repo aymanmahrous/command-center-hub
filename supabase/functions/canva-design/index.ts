@@ -411,6 +411,18 @@ Deno.serve(async (request) => {
   );
   if ("error" in stored) return json({ success: false, code: stored.error }, 500);
 
+  const { error: verificationError } = await serviceSupabase
+    .from("staff_integrations")
+    .update({
+      status: "connected",
+      last_tested_at: new Date().toISOString(),
+      last_error_code: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("provider", "canva")
+    .eq("connected_by", staffId);
+  if (verificationError) return json({ success: false, code: "INTEGRATION_VERIFICATION_UPDATE_FAILED" }, 500);
+
   return json({
     success: true,
     contentItemId,

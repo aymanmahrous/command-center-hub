@@ -215,7 +215,7 @@ export default function ContentGrowthHub({
   const canvaIntegration = staffIntegrations.find((integration) => integration.provider === "canva");
   const canvaCapabilityState = canvaIntegration?.status === "connected" && Boolean(canvaIntegration.lastTestedAt)
     ? "AVAILABLE"
-    : canvaIntegration?.status === "needs_test"
+    : canvaIntegration?.status === "connected" || canvaIntegration?.status === "needs_test"
       ? "LIMITED"
       : "NOT_CONFIGURED";
   const videoCapabilityState = integrations.find((integration) => integration.key === "runway")?.capabilityState ?? "NOT_CONFIGURED";
