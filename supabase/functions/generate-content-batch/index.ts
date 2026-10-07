@@ -18,7 +18,9 @@ import {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const GEMINI_API_KEY = (Deno.env.get("GEMINI_API_KEY") ?? "").trim();
+const OPENAI_API_KEY = (Deno.env.get("OPENAI_API_KEY") ?? "").trim();
 const GEMINI_MODEL = "gemini-2.0-flash";
+const OPENAI_MODEL = (Deno.env.get("OPENAI_MODEL") ?? "gpt-6-luna").trim();
 const ALLOWED_ROLES = new Set(["super_admin", "admin", "content_manager"]);
 const CORS_HEADERS = {
   "access-control-allow-origin": "*",
@@ -148,18 +150,23 @@ function bearerToken(request: Request) {
 }
 
 function credentialStatus() {
-  if (!GEMINI_API_KEY) {
+  const providers = { gemini: Boolean(GEMINI_API_KEY), openai: Boolean(OPENAI_API_KEY) };
+  if (!GEMINI_API_KEY && !OPENAI_API_KEY) {
     return {
       connected: false,
       integrationStatus: "NEEDS CREDENTIAL",
-      detail: "Set GEMINI_API_KEY in Supabase Edge Function secrets (server-side only).",
+      provider: null,
+      providers,
+      detail: "Set GEMINI_API_KEY or OPENAI_API_KEY in Supabase Edge Function secrets (server-side only).",
       code: "NEEDS_CREDENTIAL",
     };
   }
   return {
     connected: true,
     integrationStatus: "CONNECTED",
-    detail: "Gemini batch text generation ready.",
+    provider: GEMINI_API_KEY ? "gemini" : "openai",
+    providers,
+    detail: GEMINI_API_KEY ? "Gemini batch text generation ready." : "OpenAI batch text generation ready.",
     code: "READY",
   };
 }
@@ -234,27 +241,31 @@ function buildPrompt(batchNonce: string, startIso: string, context: PromptContex
 }
 
 async function callGemini(prompt: string) {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.9, responseMimeType: "application/json" },
-      }),
-    },
-  );
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { temperature: 0.9, responseMimeType: "application/json" } }),
+  });
   if (!response.ok) return { error: json({ success: false, code: "GEMINI_REQUEST_FAILED", status: response.status }, 502) };
   const payload = await response.json().catch(() => null) as JsonObject | null;
   const parts = ((payload?.candidates as JsonObject[] | undefined)?.[0]?.content as JsonObject | undefined)?.parts as JsonObject[] | undefined;
   const text = parts?.[0]?.text;
   if (typeof text !== "string" || !text.trim()) return { error: json({ success: false, code: "GEMINI_EMPTY_RESPONSE" }, 502) };
-  try {
-    return { data: JSON.parse(text) as JsonObject };
-  } catch {
-    return { error: json({ success: false, code: "GEMINI_INVALID_JSON" }, 502) };
-  }
+  try { return { data: JSON.parse(text) as JsonObject }; } catch { return { error: json({ success: false, code: "GEMINI_INVALID_JSON" }, 502) }; }
+}
+
+async function callOpenAI(prompt: string) {
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
+    body: JSON.stringify({ model: OPENAI_MODEL, input: prompt, text: { format: { type: "json_object" } } }),
+  });
+  if (!response.ok) return { error: json({ success: false, code: "OPENAI_REQUEST_FAILED", status: response.status }, 502) };
+  const payload = await response.json().catch(() => null) as JsonObject | null;
+  const output = Array.isArray(payload?.output) ? payload.output as JsonObject[] : [];
+  const text = output.flatMap((item) => Array.isArray(item.content) ? item.content as JsonObject[] : []).map((item) => typeof item.text === "string" ? item.text : "").find((value) => value.trim());
+  if (!text) return { error: json({ success: false, code: "OPENAI_EMPTY_RESPONSE" }, 502) };
+  try { return { data: JSON.parse(text) as JsonObject }; } catch { return { error: json({ success: false, code: "OPENAI_INVALID_JSON" }, 502) }; }
 }
 
 function stripTrackedFooter(caption: string): string {
@@ -327,34 +338,37 @@ Deno.serve(async (request) => {
       integrationStatus: status.integrationStatus,
       detail: status.detail,
       code: status.code,
-      credentialEnvVar: "GEMINI_API_KEY",
+      credentialEnvVars: ["GEMINI_API_KEY", "OPENAI_API_KEY"],
+      provider: status.provider,
+      providers: status.providers,
     });
   }
 
   if (body.mode !== "generate") return json({ success: false, code: "INVALID_INPUT" }, 400);
-  if (!status.connected) {
-    return json({
-      success: false,
-      connected: false,
-      code: "NEEDS_CREDENTIAL",
-      detail: status.detail,
-    }, 424);
+  const requestedProvider = body.provider === "openai" || body.provider === "gemini" ? body.provider : "auto";
+  const selectedProvider = requestedProvider === "openai"
+    ? (OPENAI_API_KEY ? "openai" : null)
+    : requestedProvider === "gemini"
+      ? (GEMINI_API_KEY ? "gemini" : null)
+      : (GEMINI_API_KEY ? "gemini" : OPENAI_API_KEY ? "openai" : null);
+  if (!selectedProvider) {
+    return json({ success: false, connected: false, code: "NEEDS_CREDENTIAL", detail: status.detail, providers: status.providers }, 424);
   }
 
   const batchNonce = typeof body.batchNonce === "string" && body.batchNonce.trim() ? body.batchNonce.trim() : crypto.randomUUID();
   const start = typeof body.startIso === "string" ? new Date(body.startIso) : new Date();
   const context = sanitizePromptContext(body.promptContext);
-  const gemini = await callGemini(buildPrompt(batchNonce, start.toISOString(), context));
-  if ("error" in gemini && gemini.error) return gemini.error;
+  const generated = selectedProvider === "gemini" ? await callGemini(buildPrompt(batchNonce, start.toISOString(), context)) : await callOpenAI(buildPrompt(batchNonce, start.toISOString(), context));
+  if ("error" in generated && generated.error) return generated.error;
 
-  const rawItems = Array.isArray(gemini.data?.items) ? gemini.data.items : [];
+  const rawItems = Array.isArray(generated.data?.items) ? generated.data.items : [];
   if (rawItems.length !== COACH_AYMAN_BATCH_SIZE) {
     return json({ success: false, code: "GEMINI_ITEM_COUNT_MISMATCH", expected: COACH_AYMAN_BATCH_SIZE, received: rawItems.length }, 502);
   }
 
   try {
     const items = await normalizeItems(rawItems, batchNonce, start);
-    return json({ success: true, provider: "gemini", items, batchNonce });
+    return json({ success: true, provider: selectedProvider, items, batchNonce });
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : "GEMINI_NORMALIZE_FAILED";
     return json({ success: false, code: message }, 502);
