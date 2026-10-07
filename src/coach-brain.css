@@ -61,3 +61,5 @@
 .coach-brain__capability-arrow{opacity:.55;font-size:16px}
 @media(max-width:1050px){.coach-brain__capability-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:800px){.coach-brain__command-dock{padding:16px}.coach-brain__dock-heading{display:grid}.coach-brain__dock-status{width:max-content;white-space:normal}.coach-brain__capability-grid{grid-template-columns:1fr}.coach-brain__capability{min-height:58px}}
+
+/* owner-plan-flow ready */
