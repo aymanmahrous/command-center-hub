@@ -176,6 +176,52 @@ async function handleCallback(request: Request, supabase: ReturnType<typeof crea
   return returnRedirect({ canva: "connected" });
 }
 
+async function refreshCanvaAccessToken(supabase: ReturnType<typeof createClient>, staffId: string) {
+  const { data, error } = await supabase
+    .from("staff_canva_tokens")
+    .select("access_token, refresh_token, expires_at, scopes")
+    .eq("staff_id", staffId)
+    .maybeSingle();
+  if (error) return { error: "STATUS_UNAVAILABLE" as const };
+  if (!data?.refresh_token) return { error: "CANVA_NOT_CONNECTED" as const };
+
+  const expiresAt = new Date(String(data.expires_at ?? "")).getTime();
+  if (data.access_token && Number.isFinite(expiresAt) && expiresAt - Date.now() > 60_000) {
+    return { accessToken: String(data.access_token), refreshed: false };
+  }
+
+  const body = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: String(data.refresh_token),
+  });
+  const response = await fetch(CANVA_TOKEN_URL, {
+    method: "POST",
+    headers: {
+      Authorization: basicAuthHeader(),
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body,
+  });
+  if (!response.ok) return { error: "CANVA_TOKEN_REFRESH_FAILED" as const };
+  const payload = await response.json().catch(() => null) as JsonObject | null;
+  if (!payload || typeof payload.access_token !== "string" || typeof payload.refresh_token !== "string") {
+    return { error: "CANVA_TOKEN_RESPONSE_INVALID" as const };
+  }
+
+  const expiresIn = Number(payload.expires_in ?? 3600);
+  const expiresAtIso = new Date(Date.now() + Math.max(expiresIn, 60) * 1000).toISOString();
+  const { error: saveError } = await supabase.from("staff_canva_tokens").upsert({
+    staff_id: staffId,
+    access_token: payload.access_token,
+    refresh_token: payload.refresh_token,
+    expires_at: expiresAtIso,
+    scopes: String(payload.scope ?? data.scopes ?? CANVA_SCOPES),
+    updated_at: new Date().toISOString(),
+  });
+  if (saveError) return { error: "TOKEN_STORE_FAILED" as const };
+  return { accessToken: payload.access_token, refreshed: true };
+}
+
 async function handleStatus(supabase: ReturnType<typeof createClient>, staffId: string) {
   if (!credentialsConfigured()) {
     return json({
@@ -188,22 +234,33 @@ async function handleStatus(supabase: ReturnType<typeof createClient>, staffId: 
     });
   }
 
-  const { data, error } = await supabase
-    .from("staff_canva_tokens")
-    .select("staff_id, expires_at, refresh_token")
-    .eq("staff_id", staffId)
-    .maybeSingle();
-  if (error) return json({ success: false, code: "STATUS_UNAVAILABLE" }, 500);
+  const tokenResult = await refreshCanvaAccessToken(supabase, staffId);
+  if ("error" in tokenResult) {
+    const code = tokenResult.error;
+    const detail = code === "CANVA_NOT_CONNECTED"
+      ? "Canva optional — connect OAuth to enable future design workflows."
+      : code === "CANVA_TOKEN_REFRESH_FAILED"
+      ? "Canva OAuth refresh failed. Reconnect Canva to authorize a new token."
+      : "Canva connection could not be verified safely.";
+    return json({
+      success: true,
+      connected: false,
+      integrationStatus: "NOT CONNECTED",
+      credentialsConfigured: true,
+      detail,
+      code,
+      openUrl: "https://www.canva.com/",
+    });
+  }
 
-  const connected = Boolean(data?.refresh_token);
   return json({
     success: true,
-    connected,
-    integrationStatus: connected ? "CONNECTED" : "NOT CONNECTED",
+    connected: true,
+    integrationStatus: "CONNECTED",
     credentialsConfigured: true,
-    detail: connected
-      ? "Canva OAuth connected for this staff account."
-      : "Canva optional — connect OAuth to enable future design workflows.",
+    detail: tokenResult.refreshed
+      ? "Canva OAuth connected and access token refreshed."
+      : "Canva OAuth connected and access token is valid.",
     openUrl: "https://www.canva.com/",
   });
 }
