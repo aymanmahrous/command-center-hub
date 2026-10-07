@@ -116,6 +116,7 @@ type ContentBatchReviewPanelProps = {
   onApproveAll: (items: ContentBatchItem[]) => Promise<void>;
   onPublishRequested?: () => void;
   onSessionExpired?: () => void;
+  onOpenConnections?: () => void;
   workspaceMode?: "designs" | "reels" | "campaigns" | "review";
   designCapabilityState?: CapabilityState;
   videoCapabilityState?: CapabilityState;
@@ -145,6 +146,7 @@ export function ContentBatchReviewPanel({
   onApproveAll,
   onPublishRequested,
   onSessionExpired,
+  onOpenConnections,
   workspaceMode = "review",
   designCapabilityState = "NOT_CONFIGURED",
   videoCapabilityState = "NOT_CONFIGURED",
@@ -432,6 +434,17 @@ export function ContentBatchReviewPanel({
                         ))}
                       </select>
                     </label>
+                    {designCapabilityState !== "AVAILABLE" && onOpenConnections && (
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={itemLocked || designBusyId === item.id}
+                        onClick={onOpenConnections}
+                        title={language === "ar" ? "افتح الاتصالات لربط Canva" : "Open Connections to connect Canva"}
+                      >
+                        {language === "ar" ? "ربط Canva" : "Connect Canva"}
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="secondary"

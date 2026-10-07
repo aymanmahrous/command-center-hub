@@ -5,6 +5,7 @@ const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\
 const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
 
 type GeminiBatchSession = { accessToken: string };
+export type GeneratedContentSample = GeneratedBatchItem;
 
 export type GeminiBatchPromptContext = {
   academyKnowledge: CoachKnowledgeContext["entries"];
@@ -77,6 +78,29 @@ export async function generateCoachAymanBatchWithProvider(
     throw new Error(result.code ?? "GEMINI_BATCH_FAILED");
   }
   return result.items;
+}
+
+export async function generateCoachAymanSampleWithProvider(
+  session: GeminiBatchSession,
+  provider: BatchAiProvider,
+  sampleSlot = 0,
+  batchNonce = crypto.randomUUID(),
+  start = new Date(),
+  promptContext?: GeminiBatchPromptContext,
+): Promise<GeneratedContentSample | null> {
+  const result = await callGenerateContentBatchEdge(session, {
+    mode: "sample",
+    provider,
+    sampleSlot,
+    batchNonce,
+    startIso: start.toISOString(),
+    promptContext: promptContext ?? null,
+  });
+  if (result.code === "NEEDS_CREDENTIAL" || result.code === "GEMINI_UNAVAILABLE") return null;
+  if (!result.success || !Array.isArray(result.items) || result.items.length !== 1) {
+    throw new Error(result.code ?? "CONTENT_SAMPLE_FAILED");
+  }
+  return result.items[0] ?? null;
 }
 
 export async function generateCoachAymanBatchWithGemini(
