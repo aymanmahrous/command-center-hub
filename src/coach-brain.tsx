@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 import { AlertTriangle, BookOpen, Brain, Search, ShieldCheck, Sparkles } from "lucide-react";
 import { buildCoachBrainSummaryRequest } from "./coach-brain-conversation";
+import { generateCoachAymanSampleWithProvider, type BatchAiProvider, type GeminiBatchPromptContext, type GeneratedContentSample } from "./gemini-batch-adapter";
 import "./coach-brain.css";
 
 type Source = { title: string; url: string };
@@ -136,13 +137,36 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
     : null;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [planOpen, setPlanOpen] = useState(false);
+  const [planDays, setPlanDays] = useState("7");
+  const [customDays, setCustomDays] = useState("10");
+  const [planMix, setPlanMix] = useState("varied");
+  const [planExecution, setPlanExecution] = useState<"best" | "value" | "library" | "design" | "manual">("best");
+  const [sampleBusy, setSampleBusy] = useState(false);
+  const [sample, setSample] = useState<GeneratedContentSample | null>(null);
+  const [sampleError, setSampleError] = useState("");
+
+  function selectedPlanDays() {
+    return planDays === "custom" ? Math.max(2, Math.min(30, Number(customDays) || 10)) : Number(planDays);
+  }
 
   function sendResultToFactory() {
-    if (!result) return;
+    if (!result && !sample) return;
     sessionStorage.setItem(COACH_BRAIN_FACTORY_HANDOFF_KEY, JSON.stringify({
-      question: question.trim().slice(0, 1000),
-      answer: result.answer.slice(0, 4000),
-      sources: result.sources.slice(0, 5).map((source) => ({ title: source.title, url: source.url })),
+      question: question.trim().slice(0, 1000) || "Coach Brain content plan",
+      answer: result?.answer?.slice(0, 4000) || sample?.caption?.slice(0, 4000) || "",
+      sources: result?.sources?.slice(0, 5).map((source) => ({ title: source.title, url: source.url })) ?? [],
+      planWindowDays: selectedPlanDays(),
+      planMix,
+      planExecution,
+      sample: sample ? {
+        topic: sample.topic,
+        hook: sample.hook,
+        caption: sample.caption,
+        visualPrompt: sample.visualPrompt,
+        platform: sample.platform,
+        contentType: sample.contentType,
+      } : null,
       createdAt: new Date().toISOString(),
     }));
     const url = new URL(window.location.href);
@@ -267,8 +291,64 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
         })}</div>
       </section>
 
+
+
+      <section className="coach-brain__card coach-brain__plan-card" aria-labelledby="coach-plan-title">
+        <div className="coach-brain__section-heading">
+          <span className="coach-brain__step">2</span>
+          <div>
+            <strong id="coach-plan-title">{language === "ar" ? "خطة محتوى قبل التنفيذ" : "Content plan before execution"}</strong>
+            <p>{language === "ar" ? "اختر المدة وطريقة التنفيذ، ثم شاهد عينة حقيقية قبل إنشاء الدفعة." : "Choose the window and execution preference, then see a real sample before creating the batch."}</p>
+          </div>
+        </div>
+        <div className="coach-brain__plan-grid">
+          <label><span>{language === "ar" ? "المدة" : "Window"}</span><select value={planDays} onChange={(event) => setPlanDays(event.target.value)} disabled={sampleBusy}><option value="2">2 {language === "ar" ? "يوم" : "days"}</option><option value="3">3 {language === "ar" ? "أيام" : "days"}</option><option value="4">4 {language === "ar" ? "أيام" : "days"}</option><option value="7">7 {language === "ar" ? "أيام" : "days"}</option><option value="14">14 {language === "ar" ? "يومًا" : "days"}</option><option value="30">30 {language === "ar" ? "يومًا" : "days"}</option><option value="custom">{language === "ar" ? "مخصص" : "Custom"}</option></select></label>
+          {planDays === "custom" && <label><span>{language === "ar" ? "عدد الأيام" : "Days"}</span><input type="number" min={2} max={30} value={customDays} onChange={(event) => setCustomDays(event.target.value)} disabled={sampleBusy} /></label>}
+          <label><span>{language === "ar" ? "نوع المحتوى" : "Content mix"}</span><select value={planMix} onChange={(event) => setPlanMix(event.target.value)} disabled={sampleBusy}><option value="varied">{language === "ar" ? "⭐ متنوع وأفضل توازن" : "⭐ Varied / best balance"}</option><option value="education">{language === "ar" ? "تعليمي" : "Education"}</option><option value="parents">{language === "ar" ? "للأهل" : "Parent tips"}</option><option value="conversion">{language === "ar" ? "تحويل وحجوزات" : "Conversion"}</option></select></label>
+          <label><span>{language === "ar" ? "التنفيذ" : "Execution"}</span><select value={planExecution} onChange={(event) => setPlanExecution(event.target.value as typeof planExecution)} disabled={sampleBusy}><option value="best">⭐ {language === "ar" ? "الأفضل" : "Best"}</option><option value="value">💰 {language === "ar" ? "الأوفر" : "Best value"}</option><option value="library">📁 {language === "ar" ? "من مكتبتي" : "From my library"}</option><option value="design">🎨 {language === "ar" ? "أفضل تصميم" : "Best design"}</option><option value="manual">⚙️ {language === "ar" ? "يدوي" : "Manual"}</option></select></label>
+        </div>
+        <div className="coach-brain__plan-actions">
+          <button type="button" className="coach-brain__primary" disabled={sampleBusy} onClick={async () => {
+            setSampleBusy(true); setSampleError(""); setSample(null);
+            try {
+              const raw = sessionStorage.getItem("relaxfix-command-session");
+              const parsed = raw ? JSON.parse(raw) as { accessToken?: unknown } : {};
+              const accessToken = typeof parsed.accessToken === "string" ? parsed.accessToken : "";
+              if (!accessToken) throw new Error("AUTH_REQUIRED");
+              const provider: BatchAiProvider = planExecution === "value" ? "gemini" : "auto";
+              const promptContext: GeminiBatchPromptContext = {
+                academyKnowledge: [],
+                coachBrainResearch: result ? { question: result.question, answer: result.answer, sources: result.sources } : null,
+                businessStrategy: { brand: {} as GeminiBatchPromptContext["businessStrategy"]["brand"], platformGuidance: {}, strategySummary: { audience: "Abu Dhabi parents", goals: [], publishingIntent: "education and conversion", currentBatchStrategy: planMix, platforms: [], trustConversionBalance: { trust: 70, conversion: 30 } } },
+                performanceGuidance: [],
+              };
+              const generated = await generateCoachAymanSampleWithProvider({ accessToken }, provider, 0, crypto.randomUUID(), new Date(), promptContext);
+              if (!generated) throw new Error("SAMPLE_FAILED");
+              setSample(generated);
+              setPlanOpen(true);
+            } catch (cause) {
+              setSampleError(cause instanceof Error && cause.message === "AUTH_REQUIRED"
+                ? (language === "ar" ? "انتهت جلسة الدخول. سجّل الدخول مرة أخرى." : "Your session expired. Sign in again.")
+                : (language === "ar" ? "تعذر إنشاء العينة الآن. لم يتم حفظ أي دفعة أو نشر أي شيء." : "The sample could not be generated. No batch was saved and nothing was published."));
+            } finally { setSampleBusy(false); }
+          }}>
+            {sampleBusy ? (language === "ar" ? "جاري إنشاء عينة حقيقية…" : "Creating a real sample…") : (language === "ar" ? "شاهد عينة حقيقية" : "Show a real sample")}
+          </button>
+          <button type="button" className="coach-brain__reset" disabled={!sample && !result} onClick={sendResultToFactory}>{language === "ar" ? "أعجبني — إلى المصنع" : "I like it — send to Factory"}</button>
+        </div>
+        {sampleError && <p className="coach-brain__error" role="alert">{sampleError}</p>}
+        {sample && <article className="coach-brain__sample" aria-live="polite">
+          <div className="coach-brain__result-title"><Sparkles size={18} /><h3>{language === "ar" ? "العينة الحقيقية" : "Real sample"}</h3></div>
+          <strong>{sample.topic}</strong>
+          <p>{sample.hook}</p>
+          <div className="coach-brain__sample-caption">{sample.caption}</div>
+          <small>{sample.platform} · {sample.contentType}</small>
+          <details><summary>{language === "ar" ? "تفاصيل التصميم" : "Design brief"}</summary><p>{sample.visualPrompt}</p></details>
+        </article>}
+      </section>
+
       <section id="coach-question" className="coach-brain__card coach-brain__research-card">
-        <div className="coach-brain__section-heading"><span className="coach-brain__step">2</span><div><strong>{language === "ar" ? "راجع المهمة أو اكتب سؤالك" : "Review the task or write your question"}</strong><p>{language === "ar" ? "يمكنك تعديل النص قبل تشغيل البحث." : "You can edit the prompt before running research."}</p></div></div>
+        <div className="coach-brain__section-heading"><span className="coach-brain__step">3</span><div><strong>{language === "ar" ? "راجع المهمة أو اكتب سؤالك" : "Review the task or write your question"}</strong><p>{language === "ar" ? "يمكنك تعديل النص قبل تشغيل البحث." : "You can edit the prompt before running research."}</p></div></div>
         <form onSubmit={research}>
           <label className="coach-brain__question-label" htmlFor="coach-brain-question">{language === "ar" ? "ماذا تريد أن تعرف؟" : "What do you want to know?"}</label>
           <textarea id="coach-brain-question" value={question} onChange={(event) => { setQuestion(event.target.value); setSummaryRequested(false); }} placeholder={t.placeholder} rows={6} maxLength={5000} disabled={busy} />
@@ -281,7 +361,7 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
           </div>
         </form>
         <div id="coach-examples" className="coach-brain__examples">
-          <div className="coach-brain__examples-heading"><span className="coach-brain__step">3</span><strong>{language === "ar" ? "أو اختر مثالًا تدريبيًا" : "Or choose a coaching example"}</strong></div>
+          <div className="coach-brain__examples-heading"><span className="coach-brain__step">4</span><strong>{language === "ar" ? "أو اختر مثالًا تدريبيًا" : "Or choose a coaching example"}</strong></div>
           {t.examples.map((example) => <button key={example} type="button" disabled={busy} onClick={() => setQuestion(example)}>{example}</button>)}
         </div>
       </section>
@@ -294,7 +374,7 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
 
       {result && (
         <section id="coach-results" className="coach-brain__results" aria-live="polite">
-          <div className="coach-brain__results-heading"><span className="coach-brain__step">4</span><div><strong>{language === "ar" ? "النتيجة العملية" : "Practical result"}</strong><p>{language === "ar" ? "اقرأ الإجابة، راجع المصادر، ثم أرسلها لمصنع المحتوى عند الحاجة." : "Read the answer, review the sources, then send it to Content Factory when useful."}</p></div><div className="coach-brain__results-actions"><button type="button" className="coach-brain__reset" onClick={() => { setResult(null); setQuestion(""); setSummaryRequested(false); setError(""); }}>{language === "ar" ? "مهمة جديدة" : "New task"}</button><button type="button" className="coach-brain__reset" onClick={sendResultToFactory}>{language === "ar" ? "إرسال إلى مصنع المحتوى" : "Send to Content Factory"}</button></div></div>
+          <div className="coach-brain__results-heading"><span className="coach-brain__step">5</span><div><strong>{language === "ar" ? "النتيجة العملية" : "Practical result"}</strong><p>{language === "ar" ? "اقرأ الإجابة، راجع المصادر، ثم أرسلها لمصنع المحتوى عند الحاجة." : "Read the answer, review the sources, then send it to Content Factory when useful."}</p></div><div className="coach-brain__results-actions"><button type="button" className="coach-brain__reset" onClick={() => { setResult(null); setQuestion(""); setSummaryRequested(false); setError(""); }}>{language === "ar" ? "مهمة جديدة" : "New task"}</button><button type="button" className="coach-brain__reset" onClick={sendResultToFactory}>{language === "ar" ? "إرسال إلى مصنع المحتوى" : "Send to Content Factory"}</button></div></div>
           <article className="coach-brain__card coach-brain__answer">
             <div className="coach-brain__result-title"><Sparkles size={18} /> <h2>{t.direct}</h2></div>
             <div className="coach-brain__answer-text">{result.answer}</div>
