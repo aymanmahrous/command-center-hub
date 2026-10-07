@@ -116,7 +116,7 @@ type ContentBatchReviewPanelProps = {
   onApproveAll: (items: ContentBatchItem[]) => Promise<void>;
   onPublishRequested?: () => void;
   onSessionExpired?: () => void;
-  onOpenConnections?: () => void;: () => void;
+  onOpenConnections?: () => void;
   workspaceMode?: "designs" | "reels" | "campaigns" | "review";
   designCapabilityState?: CapabilityState;
   videoCapabilityState?: CapabilityState;
