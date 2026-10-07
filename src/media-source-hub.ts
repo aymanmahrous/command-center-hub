@@ -55,7 +55,7 @@ export function readProviderConnections(env: Record<string, unknown> = {}): Prov
   const value = (name: string) => typeof env[name] === "string" && Boolean(String(env[name]).trim());
   const configuredByProvider: Record<MediaProviderKey, boolean> = {
     google_drive: value("VITE_GOOGLE_DRIVE_CLIENT_ID"),
-    google_photos: value("VITE_GOOGLE_PHOTOS_CLIENT_ID") || value("VITE_GOOGLE_DRIVE_CLIENT_ID"),
+    google_photos: value("VITE_GOOGLE_PHOTOS_CLIENT_ID"),
     dropbox: value("VITE_DROPBOX_CLIENT_ID"),
     onedrive: value("VITE_ONEDRIVE_CLIENT_ID"),
   };
