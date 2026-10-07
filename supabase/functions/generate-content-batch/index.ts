@@ -1,7 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import {
-  COACH_AYMAN_BATCH_SIZE,
   COACH_AYMAN_PROVIDER_ID,
   COACH_AYMAN_SLOT_SPEC,
   FORBIDDEN_CLAIMS,
