@@ -172,6 +172,8 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
     url.searchParams.set("section", "content");
     url.searchParams.set("factoryContext", "coach-brain");
     url.searchParams.set("planDays", String(selectedPlanDays()));
+    url.searchParams.set("planMix", planMix);
+    url.searchParams.set("planExecution", planExecution);
     window.location.assign(url.toString());
   }
 
