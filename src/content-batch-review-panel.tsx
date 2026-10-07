@@ -287,6 +287,10 @@ export function ContentBatchReviewPanel({
     try {
       const result = await requestPublishJob(session, item.id);
       if (!result.success) {
+        if (result.code === "META_NOT_CONFIGURED") {
+          onOpenConnections?.();
+          return;
+        }
         setPublishNotice(publishEnqueueErrorMessage(result.code, language));
         return;
       }
