@@ -321,7 +321,7 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
               const promptContext: GeminiBatchPromptContext = {
                 academyKnowledge: [],
                 coachBrainResearch: result ? { question: result.question, answer: result.answer, sources: result.sources } : null,
-                businessStrategy: { brand: {} as GeminiBatchPromptContext["businessStrategy"]["brand"], platformGuidance: {}, strategySummary: { audience: "Abu Dhabi parents", goals: [], publishingIntent: "education and conversion", currentBatchStrategy: planMix, platforms: [], trustConversionBalance: { trust: 70, conversion: 30 } } },
+                businessStrategy: { brand: {} as GeminiBatchPromptContext["businessStrategy"]["brand"], platformGuidance: { instagram: { focus: planMix, format: "social post" }, facebook: { focus: planMix, format: "social post" }, tiktok: { focus: planMix, format: "short video" }, all: { focus: planMix, format: "mixed" } }, strategySummary: { audience: "Abu Dhabi parents", goals: [], publishingIntent: "education and conversion", currentBatchStrategy: planMix, platforms: [], trustConversionBalance: { trust: 70, conversion: 30 } } },
                 performanceGuidance: [],
               };
               const generated = await generateCoachAymanSampleWithProvider({ accessToken }, provider, 0, crypto.randomUUID(), new Date(), promptContext);
