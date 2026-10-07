@@ -4,7 +4,6 @@ const GOOGLE_CLIENT_ID = (import.meta.env.VITE_GOOGLE_DRIVE_CLIENT_ID ?? "").tri
 const PHOTOS_CLIENT_ID = (import.meta.env.VITE_GOOGLE_PHOTOS_CLIENT_ID ?? GOOGLE_CLIENT_ID).trim();
 const DROPBOX_CLIENT_ID = (import.meta.env.VITE_DROPBOX_CLIENT_ID ?? "").trim();
 const ONEDRIVE_CLIENT_ID = (import.meta.env.VITE_ONEDRIVE_CLIENT_ID ?? "").trim();
-const DRIVE_FOLDER = (import.meta.env.VITE_MASSIVE_ARCHIVE_DRIVE_FOLDER_URL ?? "").trim();
 const GOOGLE_DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.readonly";
 const GOOGLE_PHOTOS_SCOPE = "https://www.googleapis.com/auth/photoslibrary.readonly";
 
@@ -19,13 +18,6 @@ type DriveFile = { id: string; name: string; mimeType: string; size?: string; cr
 type PhotosMediaItem = { id: string; filename?: string; mimeType?: string; mediaMetadata?: { creationTime?: string }; productUrl?: string; baseUrl?: string };
 
 type PopupTokenConfig = { provider: "dropbox" | "onedrive"; clientId: string; authorizeUrl: string; scope: string };
-
-function resolveFolderId(raw: string): string {
-  const value = raw.trim();
-  if (!value) return "";
-  const folderMatch = value.match(/\/folders\/([a-zA-Z0-9_-]+)/);
-  return folderMatch?.[1] ?? (/^[a-zA-Z0-9_-]{10,}$/.test(value) ? value : "");
-}
 
 async function loadGoogleScript(): Promise<void> {
   if (typeof document === "undefined") return;
@@ -60,7 +52,7 @@ async function jsonFetch<T>(url: string, token: string, init: RequestInit = {}):
   return body as T;
 }
 
-export function isGoogleDriveMediaConfigured(): boolean { return Boolean(GOOGLE_CLIENT_ID && resolveFolderId(DRIVE_FOLDER)); }
+export function isGoogleDriveMediaConfigured(): boolean { return Boolean(GOOGLE_CLIENT_ID); }
 export function isGooglePhotosMediaConfigured(): boolean { return Boolean(PHOTOS_CLIENT_ID); }
 export function isDropboxMediaConfigured(): boolean { return Boolean(DROPBOX_CLIENT_ID); }
 export function isOneDriveMediaConfigured(): boolean { return Boolean(ONEDRIVE_CLIENT_ID); }
@@ -69,11 +61,10 @@ export function connectGoogleDriveForMedia(): Promise<string> { return connectGo
 export function connectGooglePhotosForMedia(): Promise<string> { return connectGoogle(PHOTOS_CLIENT_ID, GOOGLE_PHOTOS_SCOPE); }
 
 export async function fetchGoogleDriveMedia(token: string): Promise<RemoteMediaItem[]> {
-  const folderId = resolveFolderId(DRIVE_FOLDER); if (!folderId) throw new Error("GOOGLE_DRIVE_FOLDER_NOT_CONFIGURED");
-  const params = new URLSearchParams({ q: `'${folderId}' in parents and trashed = false and (mimeType contains 'image/' or mimeType contains 'video/')`, pageSize: "100", orderBy: "name", fields: "nextPageToken,files(id,name,mimeType,size,createdTime,webViewLink)" });
+  const params = new URLSearchParams({ q: "trashed = false and (mimeType contains 'image/' or mimeType contains 'video/')", pageSize: "100", orderBy: "modifiedTime desc", fields: "nextPageToken,files(id,name,mimeType,size,createdTime,modifiedTime,webViewLink)" });
   const files: DriveFile[] = []; let pageToken = "";
   do { if (pageToken) params.set("pageToken", pageToken); const result = await jsonFetch<{ files?: DriveFile[]; nextPageToken?: string }>(`https://www.googleapis.com/drive/v3/files?${params}`, token); files.push(...(result.files ?? [])); pageToken = result.nextPageToken ?? ""; } while (pageToken);
-  return files.map((file) => ({ id: `google_drive:${file.id}`, provider: "google_drive", name: file.name, mimeType: file.mimeType, webUrl: file.webViewLink ?? `https://drive.google.com/open?id=${encodeURIComponent(file.id)}`, sizeBytes: file.size ? Number(file.size) : undefined, createdAt: file.createdTime, folder: "Massive Archive", consent: "needs_review" }));
+  return files.map((file) => ({ id: `google_drive:${file.id}`, provider: "google_drive", name: file.name, mimeType: file.mimeType, webUrl: file.webViewLink ?? `https://drive.google.com/open?id=${encodeURIComponent(file.id)}`, sizeBytes: file.size ? Number(file.size) : undefined, createdAt: file.createdTime, folder: "Google Drive", consent: "needs_review" }));
 }
 
 export async function fetchGooglePhotosMedia(token: string): Promise<RemoteMediaItem[]> {
