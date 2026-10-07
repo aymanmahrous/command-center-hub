@@ -696,6 +696,7 @@ export default function ContentGrowthHub({
           onApproveAll={onApproveAll}
           onPublishRequested={onBatchCreated}
           onSessionExpired={onSessionExpired}
+          onOpenConnections={() => setActiveFactoryTab("connections")}
         />
       )}
     </div>
