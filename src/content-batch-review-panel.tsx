@@ -245,9 +245,18 @@ export function ContentBatchReviewPanel({
         setDesignBusyId(null);
         return;
       }
+      const isVideo = /reel|video/i.test(String(item.contentType));
+      if (requestedProvider === "auto" && isVideo && videoCapabilityState !== "AVAILABLE") {
+        onOpenConnections?.();
+        return;
+      }
       const provider = requestedProvider === "auto" ? recommendedDesignProvider(item) : requestedProvider;
       const providerInfo = availableDesignProviders(item).find((entry) => entry.key === provider);
       if (!providerInfo?.available) {
+        if (provider === "runway") {
+          onOpenConnections?.();
+          return;
+        }
         setDesignNotice(language === "ar"
           ? "هذا المزود ظاهر للاختيار، لكنه غير متصل/غير مدعوم فعليًا في المصنع حاليًا. لم يتم تشغيل أي عملية وهمية."
           : "This provider is shown as an option, but it is not currently connected/supported by the Factory. No fake operation was started.");
