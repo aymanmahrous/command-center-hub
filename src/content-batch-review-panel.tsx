@@ -240,6 +240,11 @@ export function ContentBatchReviewPanel({
     setDesignNotice("");
     try {
       const requestedProvider = selectedDesignProvider(item);
+      if (requestedProvider === "auto" && designCapabilityState !== "AVAILABLE") {
+        onOpenConnections?.();
+        setDesignBusyId(null);
+        return;
+      }
       const provider = requestedProvider === "auto" ? recommendedDesignProvider(item) : requestedProvider;
       const providerInfo = availableDesignProviders(item).find((entry) => entry.key === provider);
       if (!providerInfo?.available) {
