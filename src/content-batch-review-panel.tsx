@@ -214,14 +214,16 @@ export function ContentBatchReviewPanel({
   function recommendedDesignProvider(item: ContentBatchItem): Exclude<DesignProvider, "auto"> {
     const isVideo = /reel|video/i.test(String(item.contentType));
     if (isVideo) return videoCapabilityState === "AVAILABLE" ? "runway" : "capcut";
-    return designCapabilityState === "AVAILABLE" ? "canva" : "manual";
+    return designCapabilityState !== "NOT_CONFIGURED" ? "canva" : "manual";
   }
 
   function availableDesignProviders(item: ContentBatchItem) {
     const isVideo = /reel|video/i.test(String(item.contentType));
     return [
       { key: "auto" as const, label: language === "ar" ? "تلقائي — أوصي بالأفضل" : "Auto — recommend best", available: true, detail: language === "ar" ? "يختار المسار الأفضل حسب ما هو متصل ومتحقق" : "Chooses the best verified connected path" },
-      { key: "canva" as const, label: "Canva", available: !isVideo && designCapabilityState === "AVAILABLE", detail: language === "ar" ? "تصميم صورة / Carousel" : "Image / carousel design" },
+      { key: "canva" as const, label: "Canva", available: !isVideo && designCapabilityState !== "NOT_CONFIGURED", detail: language === "ar"
+          ? designCapabilityState === "LIMITED" ? "متصل عبر OAuth — سيُتحقق منه بأول تصميم حقيقي" : "تصميم صورة / Carousel"
+          : designCapabilityState === "LIMITED" ? "OAuth connected — first real design will verify it" : "Image / carousel design" },
       { key: "gemini" as const, label: "Gemini", available: false, detail: language === "ar" ? "توليد بصري — غير موصول داخل المصنع حاليًا" : "Visual generation — not wired into Factory yet" },
       { key: "chatgpt" as const, label: "ChatGPT", available: false, detail: language === "ar" ? "توليد بصري — غير موصول داخل المصنع حاليًا" : "Visual generation — not wired into Factory yet" },
       { key: "runway" as const, label: "Runway", available: isVideo && videoCapabilityState === "AVAILABLE", detail: language === "ar" ? "توليد فيديو" : "Video generation" },
@@ -240,7 +242,7 @@ export function ContentBatchReviewPanel({
     setDesignNotice("");
     try {
       const requestedProvider = selectedDesignProvider(item);
-      if (requestedProvider === "auto" && designCapabilityState !== "AVAILABLE") {
+      if (requestedProvider === "auto" && designCapabilityState === "NOT_CONFIGURED") {
         onOpenConnections?.();
         setDesignBusyId(null);
         return;
@@ -468,7 +470,7 @@ export function ContentBatchReviewPanel({
                       className="secondary"
                       data-testid="generateDesignButton"
                       aria-label={item.mediaAssetId ? copy.regenerateDesignButton : copy.generateDesignButton}
-                      disabled={itemLocked || designBusyId === item.id || (recommendedDesignProvider(item) === "canva" && designCapabilityState !== "AVAILABLE")}
+                      disabled={itemLocked || designBusyId === item.id || (recommendedDesignProvider(item) === "canva" && designCapabilityState === "NOT_CONFIGURED")}
                       title={itemDisabledReason}
                       onClick={() => void handleGenerateDesign(item)}
                     >
