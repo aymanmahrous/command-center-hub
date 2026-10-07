@@ -1,7 +1,11 @@
+import { corsHeaders as supabaseCorsHeaders } from "jsr:@supabase/supabase-js@2/cors";
+
 export const CANVA_CORS_HEADERS = {
-  "access-control-allow-origin": "*",
-  "access-control-allow-headers": "authorization, apikey, content-type",
-  "access-control-allow-methods": "GET, POST, OPTIONS",
+  ...supabaseCorsHeaders,
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-retry-count, traceparent, tracestate, baggage",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 export type CanvaAction = "status" | "authorize";
@@ -15,7 +19,6 @@ function jsonError(code: string, status: number): Response {
   });
 }
 
-/** Keep this guard before staff lookup/body parsing in the Edge Function. */
 export function requireCanvaBearer(request: Request): GateResult<string> {
   const authorization = request.headers.get("authorization") ?? "";
   const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
@@ -24,7 +27,6 @@ export function requireCanvaBearer(request: Request): GateResult<string> {
     : { ok: false, response: jsonError("AUTH_REQUIRED", 400) };
 }
 
-/** Call only after requireCanvaBearer and the staff-role check succeed. */
 export async function parseCanvaAction(request: Request): Promise<GateResult<CanvaAction>> {
   const body: unknown = await request.json().catch(() => ({}));
   if (body && typeof body === "object" && "mode" in body) {
