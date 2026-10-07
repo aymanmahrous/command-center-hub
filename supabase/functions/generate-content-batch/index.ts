@@ -186,8 +186,8 @@ async function requireStaff(supabase: ReturnType<typeof createClient>, token: st
   return { staffId: authData.user.id };
 }
 
-function buildPrompt(batchNonce: string, startIso: string, context: PromptContext) {
-  const slotInstructions = COACH_AYMAN_SLOT_SPEC.map((slot, index) => ({
+function buildPrompt(batchNonce: string, startIso: string, context: PromptContext, slots = COACH_AYMAN_SLOT_SPEC) {
+  const slotInstructions = slots.map((slot, index) => ({
     index,
     platform: slot.platform,
     contentType: slot.contentType,
@@ -203,8 +203,8 @@ function buildPrompt(batchNonce: string, startIso: string, context: PromptContex
   }));
 
   return [
-    "You generate a 10-item English social content batch for Relax Fix UAE Swimming Academy — Coach Ayman.",
-    "Return strict JSON only: { \"items\": [ ... ] } with exactly 10 objects.",
+    `You generate an English social content batch for Relax Fix UAE Swimming Academy — Coach Ayman. Return exactly ${slots.length} item${slots.length === 1 ? "" : "s"}.`,
+    `Return strict JSON only: { "items": [ ... ] } with exactly ${slots.length} object${slots.length === 1 ? "" : "s"}.`,
     "Each item keys: topic, hook, captionBody, visualPrompt.",
     "Do NOT output platform/contentType/contentPillar/contentSlot/hashtags/cta — those are assigned server-side.",
     "Use these slot assignments in order (do not skip or reorder):",
@@ -274,10 +274,10 @@ function stripTrackedFooter(caption: string): string {
     .trim();
 }
 
-async function normalizeItems(rawItems: unknown[], batchNonce: string, start: Date) {
+async function normalizeItems(rawItems: unknown[], batchNonce: string, start: Date, slots = COACH_AYMAN_SLOT_SPEC) {
   const items = [];
-  for (let index = 0; index < COACH_AYMAN_SLOT_SPEC.length; index += 1) {
-    const slot = COACH_AYMAN_SLOT_SPEC[index];
+  for (let index = 0; index < slots.length; index += 1) {
+    const slot = slots[index];
     const raw = (rawItems[index] ?? {}) as JsonObject;
     const primaryCta = primaryCtaForSlot(slot);
     const trackedCta = buildBatchTrackedCta(slot.platform, slot.contentPillar);
@@ -344,7 +344,7 @@ Deno.serve(async (request) => {
     });
   }
 
-  if (body.mode !== "generate") return json({ success: false, code: "INVALID_INPUT" }, 400);
+  if (body.mode !== "generate" && body.mode !== "sample") return json({ success: false, code: "INVALID_INPUT" }, 400);
   const requestedProvider = body.provider === "openai" || body.provider === "gemini" ? body.provider : "auto";
   const selectedProvider = requestedProvider === "openai"
     ? (OPENAI_API_KEY ? "openai" : null)
@@ -358,16 +358,20 @@ Deno.serve(async (request) => {
   const batchNonce = typeof body.batchNonce === "string" && body.batchNonce.trim() ? body.batchNonce.trim() : crypto.randomUUID();
   const start = typeof body.startIso === "string" ? new Date(body.startIso) : new Date();
   const context = sanitizePromptContext(body.promptContext);
-  const generated = selectedProvider === "gemini" ? await callGemini(buildPrompt(batchNonce, start.toISOString(), context)) : await callOpenAI(buildPrompt(batchNonce, start.toISOString(), context));
+  const sampleSlot = body.mode === "sample" && Number.isInteger(body.sampleSlot) ? Math.max(0, Math.min(COACH_AYMAN_SLOT_SPEC.length - 1, Number(body.sampleSlot))) : null;
+  const slots = sampleSlot === null ? COACH_AYMAN_SLOT_SPEC : [COACH_AYMAN_SLOT_SPEC[sampleSlot]];
+  const prompt = buildPrompt(batchNonce, start.toISOString(), context, slots);
+  const generated = selectedProvider === "gemini" ? await callGemini(prompt) : await callOpenAI(prompt);
   if ("error" in generated && generated.error) return generated.error;
 
   const rawItems = Array.isArray(generated.data?.items) ? generated.data.items : [];
-  if (rawItems.length !== COACH_AYMAN_BATCH_SIZE) {
-    return json({ success: false, code: "GEMINI_ITEM_COUNT_MISMATCH", expected: COACH_AYMAN_BATCH_SIZE, received: rawItems.length }, 502);
+  const expectedCount = slots.length;
+  if (rawItems.length !== expectedCount) {
+    return json({ success: false, code: "GEMINI_ITEM_COUNT_MISMATCH", expected: expectedCount, received: rawItems.length }, 502);
   }
 
   try {
-    const items = await normalizeItems(rawItems, batchNonce, start);
+    const items = await normalizeItems(rawItems, batchNonce, start, slots);
     return json({ success: true, provider: selectedProvider, items, batchNonce });
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : "GEMINI_NORMALIZE_FAILED";
