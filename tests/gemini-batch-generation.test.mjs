@@ -102,4 +102,6 @@ test("Coach Brain can generate one real non-persisted sample and carry the owner
   assert.match(coachBrain, /planExecution/);
   assert.match(hub, /planDays/);
   assert.match(hub, /planFocus/);
+  assert.match(hub, /get_staff_integrations/);
+  assert.match(hub, /canvaIntegration/);
 });

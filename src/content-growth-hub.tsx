@@ -140,6 +140,7 @@ type ContentGrowthHubProps = {
   onApproveAll: (items: ContentBatchItem[]) => Promise<void>;
   onBatchCreated?: () => void;
   onSessionExpired?: () => void;
+  onOpenMedia?: () => void;
   onTabChange?: (tab: "overview" | "strategy" | "factory" | "content" | "designs" | "reels" | "campaigns" | "review" | "connections") => void;
 };
 
@@ -175,6 +176,7 @@ export default function ContentGrowthHub({
   onApproveAll,
   onBatchCreated,
   onSessionExpired,
+  onOpenMedia,
   onTabChange,
 }: ContentGrowthHubProps) {
   const { language, t } = useLanguage();
@@ -195,6 +197,7 @@ export default function ContentGrowthHub({
   const instagramPublishing = useMemo(() => summarizeLivePublishingReadiness(items, "instagram"), [items]);
   const facebookAudit = useMemo(() => buildFacebookPublishAudit(items), [items]);
   const [automationStatus, setAutomationStatus] = useState<unknown>(null);
+  const [staffIntegrations, setStaffIntegrations] = useState<Array<{ provider: string; status: string; lastTestedAt?: string | null }>>([]);
   const [generateNotice, setGenerateNotice] = useState("");
   const [generating, setGenerating] = useState(false);
   const [batchAiProvider, setBatchAiProvider] = useState<BatchAiProvider>("auto");
@@ -209,7 +212,12 @@ export default function ContentGrowthHub({
   const reviewAutoOpened = useRef(false);
   const [mediaAssets, setMediaAssets] = useState<ReturnType<typeof parseMediaAssetRecords>>([]);
   const integrations = useMemo(() => readIntegrationStatuses(automationStatus), [automationStatus]);
-  const canvaCapabilityState = integrations.find((integration) => integration.key === "canva")?.capabilityState ?? "NOT_CONFIGURED";
+  const canvaIntegration = staffIntegrations.find((integration) => integration.provider === "canva");
+  const canvaCapabilityState = canvaIntegration?.status === "connected" && Boolean(canvaIntegration.lastTestedAt)
+    ? "AVAILABLE"
+    : canvaIntegration?.status === "needs_test"
+      ? "LIMITED"
+      : "NOT_CONFIGURED";
   const videoCapabilityState = integrations.find((integration) => integration.key === "runway")?.capabilityState ?? "NOT_CONFIGURED";
   const PLAN_WINDOW_OPTIONS = [2, 3, 4, 7, 14, 30] as const;
   const handoffParams = new URLSearchParams(window.location.search);
@@ -255,6 +263,19 @@ export default function ContentGrowthHub({
     callRpc(session, "get_staff_content_automation_status", {}, controller.signal)
       .then(setAutomationStatus)
       .catch(() => setAutomationStatus(null));
+    callRpc(session, "get_staff_integrations", {}, controller.signal)
+      .then((raw) => {
+        if (controller.signal.aborted) return;
+        const items = raw && typeof raw === "object" && Array.isArray((raw as { items?: unknown[] }).items) ? (raw as { items: unknown[] }).items : [];
+        setStaffIntegrations(items.flatMap((item) => {
+          if (!item || typeof item !== "object") return [];
+          const value = item as Record<string, unknown>;
+          return typeof value.provider === "string" && typeof value.status === "string"
+            ? [{ provider: value.provider, status: value.status, lastTestedAt: typeof value.lastTestedAt === "string" ? value.lastTestedAt : null }]
+            : [];
+        }));
+      })
+      .catch(() => setStaffIntegrations([]));
     callRpc(session, "get_staff_media_assets", {}, controller.signal)
       .then((raw) => { if (!controller.signal.aborted) setMediaAssets(parseMediaAssetRecords(raw)); })
       .catch(() => { if (!controller.signal.aborted) setMediaAssets([]); });
@@ -696,7 +717,7 @@ export default function ContentGrowthHub({
           onApproveAll={onApproveAll}
           onPublishRequested={onBatchCreated}
           onSessionExpired={onSessionExpired}
-          onOpenConnections={() => setActiveFactoryTab("connections")}
+          onOpenConnections={onOpenMedia}
         />
       )}
     </div>
