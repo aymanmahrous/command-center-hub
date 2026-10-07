@@ -41,7 +41,6 @@ export default function MediaSourceHubView({ onOpenProvider, onNavigate, session
         GOOGLE_OAUTH_UNAVAILABLE: ar ? "تعذر تشغيل اتصال Google الآن. لا يوجد Token مطلوب منك." : "Google OAuth could not start. No token is required from you.",
         DROPBOX_NOT_CONFIGURED: ar ? "Dropbox غير مهيأ داخل التطبيق بعد. لا تدخل Token؛ نحتاج إعداد OAuth للتطبيق فقط." : "Dropbox is not configured in the app yet. Do not enter a token; the app only needs its OAuth setup.",
         ONEDRIVE_NOT_CONFIGURED: ar ? "OneDrive غير مهيأ داخل التطبيق بعد. لا تدخل Token؛ نحتاج إعداد OAuth للتطبيق فقط." : "OneDrive is not configured in the app yet. Do not enter a token; the app only needs its OAuth setup.",
-        GOOGLE_DRIVE_FOLDER_NOT_CONFIGURED: ar ? "Google Drive متصل، لكن مجلد الأرشيف لم يُحدد داخل التطبيق." : "Google Drive is connected, but the archive folder is not configured in the app.",
       };
       setNotice(messages[code] ?? code);
     }
