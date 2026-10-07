@@ -22,7 +22,7 @@ test("generate-content-batch edge function keeps Gemini key server-side", () => 
   assert.match(edge, /Deno\.env\.get\("OPENAI_API_KEY"\)/);
   assert.match(edge, /api\.openai\.com\/v1\/responses/);
   assert.match(edge, /requestedProvider/);
-  assert.match(edge, /mode !== "generate"/);
+  assert.match(edge, /body\.mode !== "generate" && body\.mode !== "sample"/);
   assert.match(edge, /Relax Fix UAE Swimming Academy/);
   assert.match(edge, /coach-ayman-slot-spec\.ts/);
   assert.match(edge, /captionBody/);
@@ -60,7 +60,7 @@ test("existing Coach Brain, Academy, business and performance context reaches th
   assert.match(coachBrain, /answer: result\.answer\.slice\(0, 4000\)/);
   assert.match(hub, /academyKnowledge: knowledgeContext\.entries/);
   assert.match(hub, /coachBrainResearch: knowledgeContext\.researchContext \?\? null/);
-  assert.match(hub, /businessStrategy: \{ brand: BRAND, platformGuidance: PLATFORM_GUIDANCE, strategySummary \}/);
+  assert.match(hub, /businessStrategy: \{ brand: BRAND, platformGuidance: PLATFORM_GUIDANCE, strategySummary: \{ \.\.\.strategySummary, currentBatchStrategy: planFocus \} \}/);
   assert.match(hub, /performanceGuidance: insights/);
   assert.match(adapter, /promptContext: promptContext \?\? null/);
   assert.match(edge, /sanitizePromptContext\(body\.promptContext\)/);
@@ -90,4 +90,16 @@ test("Factory lets the owner choose a scheduling window without creating a secon
   assert.match(hub, /7, 14, 30/);
 });
 
-assert.match(edgeSource, /body\.mode === "sample"/);
+
+test("Coach Brain can generate one real non-persisted sample and carry the owner plan", () => {
+  assert.match(adapter, /generateCoachAymanSampleWithProvider/);
+  assert.match(adapter, /mode: "sample"/);
+  assert.match(edge, /body\.mode === "sample"/);
+  assert.match(edge, /sampleSlot/);
+  assert.match(edge, /expectedCount/);
+  assert.match(coachBrain, /Show a real sample|شاهد عينة حقيقية/);
+  assert.match(coachBrain, /planWindowDays/);
+  assert.match(coachBrain, /planExecution/);
+  assert.match(hub, /planDays/);
+  assert.match(hub, /planFocus/);
+});
