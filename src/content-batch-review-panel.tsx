@@ -313,7 +313,7 @@ export function ContentBatchReviewPanel({
     try {
       const result = await requestVeo(session, { mode: "estimate", duration: videoDuration, resolution: videoResolution, aspectRatio: "9:16" });
       setVideoEstimate({
-        costUsd: typeof result.costUsd === "number" ? result.costUsd : 0,
+        costUsd: typeof result.estimatedCostUsd === "number" ? result.estimatedCostUsd : 0,
         model: typeof result.model === "string" ? result.model : "veo-3.1-lite-generate-preview",
       });
     } catch (cause) {
@@ -328,7 +328,7 @@ export function ContentBatchReviewPanel({
     setVideoNotice("");
     try {
       const estimate = await requestVeo(session, { mode: "estimate", duration: videoDuration, resolution: videoResolution, aspectRatio: "9:16" });
-      const costUsd = typeof estimate.costUsd === "number" ? estimate.costUsd : null;
+      const costUsd = typeof estimate.estimatedCostUsd === "number" ? estimate.estimatedCostUsd : null;
       const confirmed = window.confirm(
         language === "ar"
           ? "فيديو رأسي " + videoDuration + " ثوانٍ بدقة " + videoResolution + ". التكلفة التقديرية: $" + (costUsd == null ? "غير معروفة" : costUsd.toFixed(2)) + ". إنشاء الفيديو الآن؟"
