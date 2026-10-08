@@ -167,6 +167,12 @@ export function ContentBatchReviewPanel({
   const [designProviderByItem, setDesignProviderByItem] = useState<Record<string, string>>({});
   const [publishBusyId, setPublishBusyId] = useState<string | null>(null);
   const [publishNotice, setPublishNotice] = useState("");
+  const [videoTargetId, setVideoTargetId] = useState<string | null>(null);
+  const [videoDuration, setVideoDuration] = useState<4 | 6 | 8>(8);
+  const [videoResolution, setVideoResolution] = useState<"720p" | "1080p">("720p");
+  const [videoEstimate, setVideoEstimate] = useState<{ costUsd: number; model: string } | null>(null);
+  const [videoBusyId, setVideoBusyId] = useState<string | null>(null);
+  const [videoNotice, setVideoNotice] = useState("");
   const [itemFilter, setItemFilter] = useState<"all" | "needs_review" | "approved" | "scheduled" | "failed">("all");
   const requestPublishCopy = REQUEST_PUBLISH_COPY[language];
 
@@ -281,6 +287,89 @@ export function ContentBatchReviewPanel({
     }
   }
 
+  async function requestVeo(session: { accessToken: string }, body: Record<string, unknown>) {
+    const response = await fetch(SUPABASE_URL + "/functions/v1/generate-veo-video", {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_PUBLIC_KEY,
+        Authorization: "Bearer " + session.accessToken,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
+    if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
+    const result = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!response.ok) throw new Error(typeof result.error === "string" ? result.error : "VEO_FAILED_" + response.status);
+    return result;
+  }
+
+  async function openVideoCreator(item: ContentBatchItem) {
+    if (!session || !canWrite || busy || videoBusyId) return;
+    setVideoTargetId(item.id);
+    setVideoEstimate(null);
+    setVideoNotice("");
+    try {
+      const result = await requestVeo(session, { mode: "estimate", duration: videoDuration, resolution: videoResolution, aspectRatio: "9:16" });
+      setVideoEstimate({
+        costUsd: typeof result.costUsd === "number" ? result.costUsd : 0,
+        model: typeof result.model === "string" ? result.model : "veo-3.1-lite-generate-preview",
+      });
+    } catch (cause) {
+      if (cause instanceof Error && cause.message === "SESSION_EXPIRED") { onSessionExpired?.(); return; }
+      setVideoNotice(language === "ar" ? "تعذر حساب التكلفة قبل التوليد." : "Could not calculate the cost before generation.");
+    }
+  }
+
+  async function handleGenerateVideo(item: ContentBatchItem) {
+    if (!session || !canWrite || busy || videoBusyId || videoTargetId !== item.id) return;
+    setVideoBusyId(item.id);
+    setVideoNotice("");
+    try {
+      const estimate = await requestVeo(session, { mode: "estimate", duration: videoDuration, resolution: videoResolution, aspectRatio: "9:16" });
+      const costUsd = typeof estimate.costUsd === "number" ? estimate.costUsd : null;
+      const confirmed = window.confirm(
+        language === "ar"
+          ? "فيديو رأسي " + videoDuration + " ثوانٍ بدقة " + videoResolution + ". التكلفة التقديرية: $" + (costUsd == null ? "غير معروفة" : costUsd.toFixed(2)) + ". إنشاء الفيديو الآن؟"
+          : "Vertical " + videoDuration + "s video at " + videoResolution + ". Estimated cost: $" + (costUsd == null ? "unknown" : costUsd.toFixed(2)) + ". Generate now?",
+      );
+      if (!confirmed) return;
+      setVideoEstimate(costUsd == null ? null : { costUsd, model: typeof estimate.model === "string" ? estimate.model : "veo-3.1-lite-generate-preview" });
+      const result = await requestVeo(session, {
+        mode: "generate",
+        duration: videoDuration,
+        resolution: videoResolution,
+        aspectRatio: "9:16",
+        prompt: String(item.visualPrompt || item.hook || item.topic || "Short swimming training Reel for parents in Abu Dhabi."),
+      });
+      const mediaAssetId = typeof result.mediaAssetId === "string" ? result.mediaAssetId : "";
+      if (!mediaAssetId) throw new Error("VEO_MEDIA_ASSET_MISSING");
+      const linkResult = await fetch(SUPABASE_URL + "/rest/v1/rpc/link_staff_media_to_content_item", {
+        method: "POST",
+        headers: {
+          apikey: SUPABASE_PUBLIC_KEY,
+          Authorization: "Bearer " + session.accessToken,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ p_content_item_id: item.id, p_media_asset_id: mediaAssetId }),
+        cache: "no-store",
+      });
+      if (linkResult.status === 401 || linkResult.status === 403) throw new Error("SESSION_EXPIRED");
+      const linked = (await linkResult.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!linkResult.ok || linked.success !== true) throw new Error(typeof linked.code === "string" ? linked.code : "MEDIA_LINK_FAILED");
+      setVideoNotice(language === "ar" ? "تم إنشاء الفيديو وحفظه وربطه بالمحتوى. عاد للمراجعة قبل أي نشر." : "Video generated, stored, and linked to the content. It is back in review before any publish.");
+      setVideoTargetId(null);
+      onMediaLinked?.();
+    } catch (cause) {
+      if (cause instanceof Error && cause.message === "SESSION_EXPIRED") onSessionExpired?.();
+      else setVideoNotice(cause instanceof Error ? cause.message : "VEO_FAILED");
+    } finally {
+      setVideoBusyId(null);
+    }
+  }
+
   async function handleRequestPublish(item: ContentBatchItem) {
     if (!session || !canWrite || busy || publishBusyId || !canRequestPublish(item)) return;
     if (!window.confirm(requestPublishCopy.confirm)) return;
@@ -360,6 +449,7 @@ export function ContentBatchReviewPanel({
       </div>
       {designNotice && <p className="content-batch-design-notice" role="status">{designNotice}</p>}
       {publishNotice && <p className="content-batch-design-notice" role="status">{publishNotice}</p>}
+      {videoNotice && <p className="content-batch-design-notice" role="status">{videoNotice}</p>}
 
       <div className="content-review-toolbar"><div><strong>{language === "ar" ? "مراجعة الدفعة" : "Batch review"}</strong><span>{language === "ar" ? "اعرض الحالة التي تريد التعامل معها فقط." : "Show only the status you want to work on."}</span></div><div className="content-review-filters" role="group" aria-label={language === "ar" ? "تصفية حالات المحتوى" : "Content status filters"}>{(["all", "needs_review", "approved", "scheduled", "failed"] as const).map((filter) => { const count = filter === "all" ? workspaceItems.length : workspaceItems.filter((item) => item.status === filter).length; const label = filter === "all" ? (language === "ar" ? "الكل" : "All") : filter === "needs_review" ? (language === "ar" ? "للمراجعة" : "Needs review") : filter === "approved" ? (language === "ar" ? "معتمد" : "Approved") : filter === "scheduled" ? (language === "ar" ? "مجدول" : "Scheduled") : (language === "ar" ? "فشل" : "Failed"); return <button type="button" key={filter} className={itemFilter === filter ? "active" : ""} onClick={() => setItemFilter(filter)}>{label} <b>{count}</b></button>; })}</div></div>
       {visibleItems.length === 0 ? <p className="content-review-empty">{language === "ar" ? "لا توجد عناصر في هذه الحالة." : "No items match this status."}</p> : <div className="content-batch-grid">
@@ -478,6 +568,38 @@ export function ContentBatchReviewPanel({
                         ? copy.generateDesignBusy
                         : language === "ar" ? "إنشاء التصميم" : "Create design"}
                     </button>
+                  </div>
+                )}
+                {session && /reel|video/i.test(String(item.contentType)) && !item.mediaAssetId && (
+                  <div className="content-design-provider-picker" role="group" aria-label={language === "ar" ? "إنشاء فيديو" : "Create video"}>
+                    <strong>{language === "ar" ? "فيديو Reel" : "Reel video"}</strong>
+                    <small>{language === "ar" ? "Veo · عمودي 9:16 · الصوت مدمج" : "Veo · 9:16 portrait · audio included"}</small>
+                    {videoTargetId === item.id && (
+                      <>
+                        <label>
+                          <span>{language === "ar" ? "المدة" : "Duration"}</span>
+                          <select value={videoDuration} onChange={(event) => setVideoDuration(Number(event.target.value) as 4 | 6 | 8)} disabled={videoBusyId === item.id}>
+                            <option value={4}>4s</option><option value={6}>6s</option><option value={8}>8s</option>
+                          </select>
+                        </label>
+                        <label>
+                          <span>{language === "ar" ? "الدقة" : "Resolution"}</span>
+                          <select value={videoResolution} onChange={(event) => setVideoResolution(event.target.value as "720p" | "1080p")} disabled={videoBusyId === item.id}>
+                            <option value="720p">720p</option>
+                            <option value="1080p" disabled={videoDuration !== 8}>1080p</option>
+                          </select>
+                        </label>
+                        {videoEstimate && <small role="status">{language === "ar" ? "التكلفة التقديرية: $" + videoEstimate.costUsd.toFixed(2) + " · " + videoDuration + " ث · " + videoResolution : "Estimated cost: $" + videoEstimate.costUsd.toFixed(2) + " · " + videoDuration + "s · " + videoResolution}</small>}
+                        <button type="button" className="primary-button" disabled={itemLocked || videoBusyId === item.id || !videoEstimate} onClick={() => void handleGenerateVideo(item)}>
+                          {videoBusyId === item.id ? (language === "ar" ? "جاري الإنشاء…" : "Generating…") : (language === "ar" ? "إنشاء الفيديو" : "Generate video")}
+                        </button>
+                      </>
+                    )}
+                    {videoTargetId !== item.id && (
+                      <button type="button" className="secondary" disabled={itemLocked || videoBusyId === item.id} onClick={() => void openVideoCreator(item)}>
+                        {language === "ar" ? "إنشاء فيديو" : "Create video"}
+                      </button>
+                    )}
                   </div>
                 )}
                 {canApprove && (

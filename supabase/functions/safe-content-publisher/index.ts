@@ -75,9 +75,9 @@ function constantTimeEqual(a: string, b: string): boolean {
 
 async function readContentItem(contentItemId: string, authToken: string, useServiceRole: boolean) {
   const key = useServiceRole ? SUPABASE_SERVICE_ROLE_KEY : SUPABASE_ANON_KEY;
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/content_items?id=eq.${encodeURIComponent(contentItemId)}&select=id,status,platform,caption,hook,cta,hashtags,provider_external_id&limit=1`, { headers: { apikey: key, Authorization: `Bearer ${authToken}` } });
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/content_items?id=eq.${encodeURIComponent(contentItemId)}&select=id,status,platform,caption,hook,cta,hashtags,provider_external_id,media_asset_id&limit=1`, { headers: { apikey: key, Authorization: `Bearer ${authToken}` } });
   const items = response.ok ? await response.json() : [];
-  return items[0] as { id: string; status: string; platform: string; caption: string; hook: string; cta: string; hashtags: string[]; provider_external_id?: string | null } | undefined;
+  return items[0] as { id: string; status: string; platform: string; caption: string; hook: string; cta: string; hashtags: string[]; provider_external_id?: string | null; media_asset_id?: string | null } | undefined;
 }
 
 async function readAutomationContentItem(contentItemId: string) {
@@ -164,7 +164,7 @@ async function publishAutomation(req: Request): Promise<Response> {
   }
   if (platform === "facebook" && (!pageId || !accessToken)) return fail("META_NOT_CONFIGURED", 500);
   if (platform === "instagram" && (!instagramAccountId || !accessToken)) return fail("META_NOT_CONFIGURED", 500);
-  const imageUrl = await resolveSignedImageUrlWithToken(contentItemId, SUPABASE_SERVICE_ROLE_KEY);
+  const imageUrl = await resolveSignedMediaUrl(item.media_asset_id, SUPABASE_SERVICE_ROLE_KEY, true);
   if (platform === "instagram" && !imageUrl) return fail("MEDIA_MISSING", 422);
   const caption = [item.hook, item.caption, item.cta, (item.hashtags ?? []).map((tag) => `#${tag}`).join(" " )].filter(Boolean).join("\n\n").slice(0, 5000);
   let publishResult: PublishOutcome;
@@ -234,7 +234,7 @@ Deno.serve(async (req) => {
   const accessToken = connectedCredential?.token ?? (platform === "facebook" ? FACEBOOK_PAGE_ACCESS_TOKEN : INSTAGRAM_ACCESS_TOKEN);
   if (platform === "facebook" && (!pageId || !accessToken)) return fail("META_NOT_CONFIGURED", 500);
   if (platform === "instagram" && (!instagramAccountId || !accessToken)) return fail("META_NOT_CONFIGURED", 500);
-  const imageUrl = await resolveSignedImageUrl(contentItemId, staffJwt);
+  const imageUrl = await resolveSignedMediaUrl(item.media_asset_id, staffJwt, false);
   if (platform === "instagram" && !imageUrl) return fail("MEDIA_MISSING", 422);
   const caption = [item.hook, item.caption, item.cta, (item.hashtags ?? []).map((tag) => `#${tag}`).join(" " )].filter(Boolean).join("\n\n").slice(0, 5000);
   let publishResult: PublishOutcome;
@@ -249,24 +249,6 @@ Deno.serve(async (req) => {
   if (!recorded.success) return fail("RECORD_FAILED", 500);
   return new Response(JSON.stringify({ success: true, providerExternalId: publishResult.providerExternalId, platform }), { status: 200, headers: JSON_HEADERS });
 });
-
-async function resolveSignedImageUrl(contentItemId: string, staffJwt: string): Promise<string | null> {
-  const assetResponse = await fetch(`${SUPABASE_URL}/rest/v1/media_assets?content_item_id=eq.${encodeURIComponent(contentItemId)}&select=storage_path&limit=1`, { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${staffJwt}` } });
-  const assets = assetResponse.ok ? await assetResponse.json() : [];
-  const storagePath = (assets[0] as { storage_path?: string } | undefined)?.storage_path;
-  if (!storagePath) return null;
-  const bucket = "relax-fix-media"; const objectPath = storagePath; if (!objectPath) return null;
-  const signResponse = await fetch(`${SUPABASE_URL}/storage/v1/object/sign/${bucket}/${objectPath}`, { method: "POST", headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ expiresIn: 300 }) });
-  if (!signResponse.ok) return null; const signed = (await signResponse.json()) as { signedURL?: string }; return signed.signedURL ? `${SUPABASE_URL}/storage/v1${signed.signedURL}` : null;
-}
-
-async function resolveSignedImageUrlWithToken(contentItemId: string, token: string): Promise<string | null> {
-  const assetResponse = await fetch(`${SUPABASE_URL}/rest/v1/media_assets?content_item_id=eq.${encodeURIComponent(contentItemId)}&select=storage_path&limit=1`, { headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${token}` } });
-  const assets = assetResponse.ok ? await assetResponse.json() : []; const storagePath = (assets[0] as { storage_path?: string } | undefined)?.storage_path; if (!storagePath) return null;
-  const bucket = "relax-fix-media"; const objectPath = storagePath; if (!objectPath) return null;
-  const signResponse = await fetch(`${SUPABASE_URL}/storage/v1/object/sign/${bucket}/${objectPath}`, { method: "POST", headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ expiresIn: 300 }) });
-  if (!signResponse.ok) return null; const signed = (await signResponse.json()) as { signedURL?: string }; return signed.signedURL ? `${SUPABASE_URL}/storage/v1${signed.signedURL}` : null;
-}
 
 async function hmacProof(accessToken: string): Promise<string> {
   const secret = Deno.env.get("META_APP_SECRET"); if (!secret) throw new Error("META_APP_SECRET_MISSING");
