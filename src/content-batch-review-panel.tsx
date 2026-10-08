@@ -177,8 +177,7 @@ export function ContentBatchReviewPanel({
   const requestPublishCopy = REQUEST_PUBLISH_COPY[language];
 
   const summary = useMemo(() => summarizeBatch(batch.items), [batch.items]);
-  const batchStatus = overallBatchStatus(batch.items);
-  const approveCandidates = approveAllCandidates(batch.items);
+  const batchStatus = overallBatchStatus(batch.items);  const approveCandidates = approveAllCandidates(batch.items);
   const approveAllEnabled = canWrite && !busy && approveAllWouldChange(batch.items);
   const assetById = useMemo(() => new Map(mediaAssets.map((asset) => [asset.id, asset])), [mediaAssets]);
   const workspaceItems = useMemo(() => {
@@ -313,7 +312,7 @@ export function ContentBatchReviewPanel({
     try {
       const result = await requestVeo(session, { mode: "estimate", duration: videoDuration, resolution: videoResolution, aspectRatio: "9:16" });
       setVideoEstimate({
-        costUsd: typeof result.costUsd === "number" ? result.costUsd : 0,
+        costUsd: typeof result.estimatedCostUsd === "number" ? result.estimatedCostUsd : 0,
         model: typeof result.model === "string" ? result.model : "veo-3.1-lite-generate-preview",
       });
     } catch (cause) {
@@ -328,7 +327,7 @@ export function ContentBatchReviewPanel({
     setVideoNotice("");
     try {
       const estimate = await requestVeo(session, { mode: "estimate", duration: videoDuration, resolution: videoResolution, aspectRatio: "9:16" });
-      const costUsd = typeof estimate.costUsd === "number" ? estimate.costUsd : null;
+      const costUsd = typeof estimate.estimatedCostUsd === "number" ? estimate.estimatedCostUsd : null;
       const confirmed = window.confirm(
         language === "ar"
           ? "فيديو رأسي " + videoDuration + " ثوانٍ بدقة " + videoResolution + ". التكلفة التقديرية: $" + (costUsd == null ? "غير معروفة" : costUsd.toFixed(2)) + ". إنشاء الفيديو الآن؟"
@@ -357,8 +356,7 @@ export function ContentBatchReviewPanel({
         cache: "no-store",
       });
       if (linkResult.status === 401 || linkResult.status === 403) throw new Error("SESSION_EXPIRED");
-      const linked = (await linkResult.json().catch(() => ({}))) as Record<string, unknown>;
-      if (!linkResult.ok || linked.success !== true) throw new Error(typeof linked.code === "string" ? linked.code : "MEDIA_LINK_FAILED");
+      const linked = (await linkResult.json().catch(() => ({}))) as Record<string, unknown>;      if (!linkResult.ok || linked.success !== true) throw new Error(typeof linked.code === "string" ? linked.code : "MEDIA_LINK_FAILED");
       setVideoNotice(language === "ar" ? "تم إنشاء الفيديو وحفظه وربطه بالمحتوى. عاد للمراجعة قبل أي نشر." : "Video generated, stored, and linked to the content. It is back in review before any publish.");
       setVideoTargetId(null);
       onMediaLinked?.();
