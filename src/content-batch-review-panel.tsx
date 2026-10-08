@@ -177,7 +177,8 @@ export function ContentBatchReviewPanel({
   const requestPublishCopy = REQUEST_PUBLISH_COPY[language];
 
   const summary = useMemo(() => summarizeBatch(batch.items), [batch.items]);
-  const batchStatus = overallBatchStatus(batch.items);  const approveCandidates = approveAllCandidates(batch.items);
+  const batchStatus = overallBatchStatus(batch.items);
+  const approveCandidates = approveAllCandidates(batch.items);
   const approveAllEnabled = canWrite && !busy && approveAllWouldChange(batch.items);
   const assetById = useMemo(() => new Map(mediaAssets.map((asset) => [asset.id, asset])), [mediaAssets]);
   const workspaceItems = useMemo(() => {
@@ -356,7 +357,8 @@ export function ContentBatchReviewPanel({
         cache: "no-store",
       });
       if (linkResult.status === 401 || linkResult.status === 403) throw new Error("SESSION_EXPIRED");
-      const linked = (await linkResult.json().catch(() => ({}))) as Record<string, unknown>;      if (!linkResult.ok || linked.success !== true) throw new Error(typeof linked.code === "string" ? linked.code : "MEDIA_LINK_FAILED");
+      const linked = (await linkResult.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!linkResult.ok || linked.success !== true) throw new Error(typeof linked.code === "string" ? linked.code : "MEDIA_LINK_FAILED");
       setVideoNotice(language === "ar" ? "تم إنشاء الفيديو وحفظه وربطه بالمحتوى. عاد للمراجعة قبل أي نشر." : "Video generated, stored, and linked to the content. It is back in review before any publish.");
       setVideoTargetId(null);
       onMediaLinked?.();
