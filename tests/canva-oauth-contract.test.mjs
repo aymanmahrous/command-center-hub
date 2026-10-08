@@ -8,7 +8,7 @@ const edge = await readFile(new URL("../supabase/functions/canva-oauth/index.ts"
 test("Canva OAuth contract enforces the expected bearer header gate", () => {
   assert.match(contract, /authorization\.startsWith\("Bearer "\)/);
   assert.match(contract, /AUTH_REQUIRED/);
-  assert.match(contract, /status, 400/);
+  assert.match(contract, /jsonError\("AUTH_REQUIRED", 400\)/);
   assert.match(contract, /value: token/);
 });
 
