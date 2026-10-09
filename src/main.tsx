@@ -739,7 +739,7 @@ function contentErrorMessage(language: Language, code: string) {
   return messages[code] ?? (language === "ar" ? "تعذر تنفيذ التغيير بأمان؛ لم يتم اعتماد أي تغيير غير مؤكد." : "Update failed safely; no change was made.");
 }
 
-function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpenMedia }: { value: JsonValue; session: Session; onChanged: () => void; onSessionExpired: () => void; onOpenMedia?: () => void }) {
+function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpenMedia, onOpenBrain }: { value: JsonValue; session: Session; onChanged: () => void; onSessionExpired: () => void; onOpenMedia?: () => void; onOpenBrain?: () => void }) {
   const { language, t } = useLanguage();
   const copy = t("content");
   const statusLabels = contentStatusLabels[language];
@@ -986,6 +986,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
         onBatchCreated={onChanged}
         onSessionExpired={onSessionExpired}
         onOpenMedia={() => onOpenMedia?.()}
+        onOpenBrain={() => onOpenBrain?.()}
         onTabChange={setFactoryTab}
       />
     </Suspense>
@@ -1446,7 +1447,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
           active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
-          active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} onOpenMedia={() => go("media")} /> :
+          active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} onOpenMedia={() => go("media")} onOpenBrain={() => go("brain")} /> :
           active === "media" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MediaLibraryView value={data} session={session} canWrite={["super_admin", "admin", "content_manager"].includes(session.role)} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} onNavigate={(section) => { if (sections.some(([id]) => id === section)) go(section as SectionId); }} /></Suspense> :
           active === "archive" ? <Suspense><M /></Suspense> :
           active === "analytics" ? <AnalyticsView value={data} onNavigate={go} /> :
