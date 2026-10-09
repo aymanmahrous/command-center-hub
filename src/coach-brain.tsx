@@ -59,9 +59,10 @@ const copy = {
     error: "تعذر تنفيذ البحث الآن. لم يتم حفظ السؤال أو إنشاء أي بيانات.",
     privacyNote: "البحث يتم عبر خادم آمن، ومفتاح Gemini لا يصل إلى الهاتف.",
     examples: [
-      "طفل عنده تشتت انتباه، ما أول خطوة لتعليمه السباحة؟",
-      "كيف أحسن دوران سباح 12 سنة في 100م حرة؟",
-      "ما أفضل تدريبات التنفس في freestyle؟",
+      "طفل يخاف من الماء وعنده صعوبات انتباه، كيف أبدأ تدريبه تدريجيًا؟",
+      "سباح 12 سنة، كيف أطور تكنيك وانسيابية 100م حرة وفق الأدلة؟",
+      "تكييف بيئة درس السباحة لمتعلم من طيف التوحد دون تشخيص طبي؟",
+      "متدرب بالغ يعاني من ألم في الكتف، ما الحدود الآمنة للتدريب المائي؟",
     ],
   },
   en: {
@@ -95,9 +96,10 @@ const copy = {
     error: "The research could not be completed. The question was not saved and no swimmer record was created.",
     privacyNote: "Research runs through a secure server; the Gemini key never reaches the phone.",
     examples: [
-      "A child has attention difficulties. What is the first step for teaching swimming?",
-      "How should I improve a 12-year-old's 100m freestyle turn?",
-      "What are the best freestyle breathing drills?",
+      "A child has water fear and attention difficulties. How to begin step by step?",
+      "How to improve a 12-year-old swimmer's 100m freestyle technique based on evidence?",
+      "Adapting the aquatic lesson environment for an autistic learner without medical diagnosis?",
+      "Adult swimmer with shoulder discomfort: what are the safe aquatic fitness boundaries?",
     ],
   },
 };

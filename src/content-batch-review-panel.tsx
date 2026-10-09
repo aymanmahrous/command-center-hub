@@ -359,7 +359,7 @@ export function ContentBatchReviewPanel({
     }
   }
 
-  async function handleUploadAndLink(item: ContentBatchItem, file: File) {
+  async function handleUploadMedia(item: ContentBatchItem, file: File) {
     if (!session || !canWrite || busy || mediaActionBusyId || !file) return;
     setMediaActionBusyId(item.id);
     setDesignNotice("");
@@ -384,47 +384,9 @@ export function ContentBatchReviewPanel({
       const newAssetId = typeof reg.mediaAssetId === "string" ? reg.mediaAssetId : "";
       if (!registerRes.ok || !newAssetId) throw new Error("UPLOAD_REGISTRATION_FAILED");
 
-      const updateRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/update_staff_media_asset`, {
-        method: "POST",
-        headers: {
-          apikey: SUPABASE_PUBLIC_KEY,
-          Authorization: `Bearer ${session.accessToken}`,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
-          p_media_asset_id: newAssetId,
-          p_category: "swimming_business",
-          p_consent_status: "consent_confirmed",
-          p_media_status: "approved",
-        }),
-      });
-      if (updateRes.status === 401 || updateRes.status === 403) throw new Error("SESSION_EXPIRED");
-
-      const analysisRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/save_staff_media_ai_analysis`, {
-        method: "POST",
-        headers: {
-          apikey: SUPABASE_PUBLIC_KEY,
-          Authorization: `Bearer ${session.accessToken}`,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
-          p_media_asset_id: newAssetId,
-          p_analysis: {
-            containsChildrenGuess: "no",
-            containsPeopleGuess: "unknown",
-            consentRequired: false,
-            reviewRequired: false,
-            source: "direct_upload",
-          },
-          p_provider: "local_heuristic",
-        }),
-      });
-      if (analysisRes.status === 401 || analysisRes.status === 403) throw new Error("SESSION_EXPIRED");
-
-      await linkMediaToItem(item.id, newAssetId);
-      setDesignNotice(language === "ar" ? "تم رفع الملف من الجهاز وربطه بالمحتوى بنجاح وهو الآن قيد المراجعة." : "File uploaded from device and linked to content successfully. Now in review.");
+      setDesignNotice(language === "ar"
+        ? "تم رفع الملف وحفظه بأمان في مكتبة الوسائط. الرفع وحده لا يثبت الموافقة؛ يبقى الأصل في حالة مراجعة آمنة حتى استيفاء الإجراء وتأكيد الموافقة."
+        : "File uploaded safely to Media Library. Upload alone does not prove consent; the asset remains in safe review pending proper consent confirmation.");
       onMediaLinked?.();
     } catch (cause) {
       if (cause instanceof Error && cause.message === "SESSION_EXPIRED") onSessionExpired?.();
@@ -696,7 +658,7 @@ export function ContentBatchReviewPanel({
                       </div>
                     )}
                     <label className="secondary-button-label">
-                      <span>{mediaActionBusyId === item.id ? (language === "ar" ? "جاري الرفع والربط…" : "Uploading…") : (language === "ar" ? "📤 رفع صورة/فيديو من جهازي" : "📤 Upload from device")}</span>
+                      <span>{mediaActionBusyId === item.id ? (language === "ar" ? "جاري الرفع للمكتبة…" : "Uploading…") : (language === "ar" ? "📤 رفع صورة/فيديو للمكتبة" : "📤 Upload to Media Library")}</span>
                       <input
                         type="file"
                         accept="image/*,video/*"
@@ -704,7 +666,7 @@ export function ContentBatchReviewPanel({
                         disabled={itemLocked || mediaActionBusyId === item.id}
                         onChange={(e) => {
                           const file = e.target.files?.[0];
-                          if (file) void handleUploadAndLink(item, file);
+                          if (file) void handleUploadMedia(item, file);
                           e.target.value = "";
                         }}
                       />
