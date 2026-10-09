@@ -53,3 +53,11 @@ test("coach brain edge function prompt enforces evidence-based pedagogy and 5-pa
   assert.match(coachBrain, /autism spectrum \(ASD\)/);
   assert.match(coachBrain, /Aquatic fitness/);
 });
+
+test("batch review panel retains all batch items including scheduled and published, and supports media replacement", () => {
+  assert.match(panel, /content-media-replace-toggle/);
+  assert.match(panel, /استبدال الصورة \/ تغيير التصميم/);
+  assert.match(panel, /"published"/);
+  assert.match(panel, /"منشور"/);
+  assert.match(hub, /activeFactoryTab === "factory" \|\| activeFactoryTab === "strategy"/);
+});

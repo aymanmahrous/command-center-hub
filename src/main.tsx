@@ -899,13 +899,16 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
           hashtags: Array.isArray(item.hashtags) ? item.hashtags : [],
           visualPrompt,
         });
-        return;
       }
-      if (scheduledFor) await transitionContentItem(session, item.id, "schedule", scheduledFor);
-      else if (item.status === "scheduled") await transitionContentItem(session, item.id, "unschedule", null);
-    }, contentChanged
-      ? (language === "ar" ? "تم حفظ طلب التصميم." : "Design request saved.")
-      : (language === "ar" ? "تم تحديث الموعد." : "Time updated."));
+      if (scheduleChanged) {
+        if (scheduledFor) await transitionContentItem(session, item.id, "schedule", scheduledFor);
+        else if (item.status === "scheduled") await transitionContentItem(session, item.id, "unschedule", null);
+      }
+    }, contentChanged && scheduleChanged
+      ? (language === "ar" ? "تم حفظ التصميم والموعد." : "Design request and schedule updated.")
+      : contentChanged
+        ? (language === "ar" ? "تم حفظ طلب التصميم." : "Design request saved.")
+        : (language === "ar" ? "تم تحديث الموعد." : "Time updated."));
   }
 
   async function approveAllBatch(candidates: ContentBatchItem[]) {

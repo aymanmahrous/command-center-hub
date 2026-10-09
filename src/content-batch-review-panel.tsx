@@ -174,7 +174,8 @@ export function ContentBatchReviewPanel({
   const [videoEstimate, setVideoEstimate] = useState<{ costUsd: number; model: string } | null>(null);
   const [videoBusyId, setVideoBusyId] = useState<string | null>(null);
   const [videoNotice, setVideoNotice] = useState("");
-  const [itemFilter, setItemFilter] = useState<"all" | "needs_review" | "approved" | "scheduled" | "failed">("all");
+  const [itemFilter, setItemFilter] = useState<"all" | "needs_review" | "approved" | "scheduled" | "published" | "failed">("all");
+  const [replacingMediaItemId, setReplacingMediaItemId] = useState<string | null>(null);
   const [selectedAssetByItem, setSelectedAssetByItem] = useState<Record<string, string>>({});
   const [mediaActionBusyId, setMediaActionBusyId] = useState<string | null>(null);
   const requestPublishCopy = REQUEST_PUBLISH_COPY[language];
@@ -188,7 +189,7 @@ export function ContentBatchReviewPanel({
     if (workspaceMode === "designs") return items.filter((item) => !item.mediaAssetId);
     if (workspaceMode === "reels") return items.filter((item) => String(item.contentType).toLowerCase() === "reel");
     if (workspaceMode === "campaigns") return items.filter((item) => ["approved", "scheduled", "published", "failed"].includes(item.status));
-    return items.filter((item) => ["draft", "generated", "needs_review", "approved"].includes(item.status));
+    return items;
   }, [items, workspaceMode]);
   const visibleItems = itemFilter === "all" ? workspaceItems : workspaceItems.filter((item) => item.status === itemFilter);
   const previewLabels = {
@@ -281,6 +282,7 @@ export function ContentBatchReviewPanel({
       }
       await generateCanvaDesignForContentItem(session, item);
       setDesignNotice(copy.designGeneratedNotice);
+      setReplacingMediaItemId(null);
       onMediaLinked?.();
     } catch (cause) {
       if (cause instanceof Error && cause.message === "SESSION_EXPIRED") throw cause;
@@ -350,6 +352,7 @@ export function ContentBatchReviewPanel({
     try {
       await linkMediaToItem(item.id, assetId);
       setDesignNotice(language === "ar" ? "تم ربط الأصل من المكتبة بنجاح وهو الآن قيد المراجعة." : "Media asset linked successfully and is now in review.");
+      setReplacingMediaItemId(null);
       onMediaLinked?.();
     } catch (cause) {
       if (cause instanceof Error && cause.message === "SESSION_EXPIRED") onSessionExpired?.();
@@ -387,6 +390,7 @@ export function ContentBatchReviewPanel({
       setDesignNotice(language === "ar"
         ? "تم رفع الملف وحفظه بأمان في مكتبة الوسائط. الرفع وحده لا يثبت الموافقة؛ يبقى الأصل في حالة مراجعة آمنة حتى استيفاء الإجراء وتأكيد الموافقة."
         : "File uploaded safely to Media Library. Upload alone does not prove consent; the asset remains in safe review pending proper consent confirmation.");
+      setReplacingMediaItemId(null);
       onMediaLinked?.();
     } catch (cause) {
       if (cause instanceof Error && cause.message === "SESSION_EXPIRED") onSessionExpired?.();
@@ -462,6 +466,7 @@ export function ContentBatchReviewPanel({
       await linkMediaToItem(item.id, mediaAssetId);
       setVideoNotice(language === "ar" ? "تم إنشاء الفيديو وحفظه وربطه بالمحتوى. عاد للمراجعة قبل أي نشر." : "Video generated, stored, and linked to the content. It is back in review before any publish.");
       setVideoTargetId(null);
+      setReplacingMediaItemId(null);
       onMediaLinked?.();
     } catch (cause) {
       if (cause instanceof Error && cause.message === "SESSION_EXPIRED") onSessionExpired?.();
@@ -552,7 +557,38 @@ export function ContentBatchReviewPanel({
       {publishNotice && <p className="content-batch-design-notice" role="status">{publishNotice}</p>}
       {videoNotice && <p className="content-batch-design-notice" role="status">{videoNotice}</p>}
 
-      <div className="content-review-toolbar"><div><strong>{language === "ar" ? "مراجعة الدفعة" : "Batch review"}</strong><span>{language === "ar" ? "اعرض الحالة التي تريد التعامل معها فقط." : "Show only the status you want to work on."}</span></div><div className="content-review-filters" role="group" aria-label={language === "ar" ? "تصفية حالات المحتوى" : "Content status filters"}>{(["all", "needs_review", "approved", "scheduled", "failed"] as const).map((filter) => { const count = filter === "all" ? workspaceItems.length : workspaceItems.filter((item) => item.status === filter).length; const label = filter === "all" ? (language === "ar" ? "الكل" : "All") : filter === "needs_review" ? (language === "ar" ? "للمراجعة" : "Needs review") : filter === "approved" ? (language === "ar" ? "معتمد" : "Approved") : filter === "scheduled" ? (language === "ar" ? "مجدول" : "Scheduled") : (language === "ar" ? "فشل" : "Failed"); return <button type="button" key={filter} className={itemFilter === filter ? "active" : ""} onClick={() => setItemFilter(filter)}>{label} <b>{count}</b></button>; })}</div></div>
+      <div className="content-review-toolbar">
+        <div>
+          <strong>{language === "ar" ? "مراجعة الدفعة" : "Batch review"}</strong>
+          <span>{language === "ar" ? "اعرض الحالة التي تريد التعامل معها فقط." : "Show only the status you want to work on."}</span>
+        </div>
+        <div className="content-review-filters" role="group" aria-label={language === "ar" ? "تصفية حالات المحتوى" : "Content status filters"}>
+          {(["all", "needs_review", "approved", "scheduled", "published", "failed"] as const).map((filter) => {
+            const count = filter === "all" ? workspaceItems.length : workspaceItems.filter((item) => item.status === filter).length;
+            const label = filter === "all"
+              ? (language === "ar" ? "الكل" : "All")
+              : filter === "needs_review"
+                ? (language === "ar" ? "للمراجعة" : "Needs review")
+                : filter === "approved"
+                  ? (language === "ar" ? "معتمد" : "Approved")
+                  : filter === "scheduled"
+                    ? (language === "ar" ? "مجدول" : "Scheduled")
+                    : filter === "published"
+                      ? (language === "ar" ? "منشور" : "Published")
+                      : (language === "ar" ? "فشل" : "Failed");
+            return (
+              <button
+                type="button"
+                key={filter}
+                className={itemFilter === filter ? "active" : ""}
+                onClick={() => setItemFilter(filter)}
+              >
+                {label} <b>{count}</b>
+              </button>
+            );
+          })}
+        </div>
+      </div>
       {visibleItems.length === 0 ? <p className="content-review-empty">{language === "ar" ? "لا توجد عناصر في هذه الحالة." : "No items match this status."}</p> : <div className="content-batch-grid">
         {visibleItems.map((item) => {
           const canApprove = ["draft", "generated", "needs_review"].includes(item.status);
@@ -622,7 +658,21 @@ export function ContentBatchReviewPanel({
                 </div>
               </details>
               <footer>
-                {session && !item.mediaAssetId && (
+                {session && Boolean(item.mediaAssetId) && item.status !== "published" && (
+                  <div className="content-media-replace-toggle">
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={itemLocked}
+                      onClick={() => setReplacingMediaItemId((current) => current === item.id ? null : item.id)}
+                    >
+                      {replacingMediaItemId === item.id
+                        ? (language === "ar" ? "✕ إخفاء خيارات الوسائط" : "✕ Hide media options")
+                        : (language === "ar" ? "🔄 استبدال الصورة / تغيير التصميم" : "🔄 Replace photo / change design")}
+                    </button>
+                  </div>
+                )}
+                {session && (!item.mediaAssetId || replacingMediaItemId === item.id) && item.status !== "published" && (
                   <div className="content-media-source-selector" role="group" aria-label={language === "ar" ? "ربط أصل أو رفعه" : "Link or upload asset"}>
                     <div className="content-media-source-header">
                       <strong>{language === "ar" ? "📁 اختر من أصول المكتبة أو ارفع صورة" : "📁 Choose Library Asset or Upload"}</strong>
@@ -673,7 +723,7 @@ export function ContentBatchReviewPanel({
                     </label>
                   </div>
                 )}
-                {session && (!item.mediaAssetId || canRegenerateDesign) && (
+                {session && (!item.mediaAssetId || replacingMediaItemId === item.id || canRegenerateDesign) && item.status !== "published" && (
                   <div className="content-design-provider-picker" role="group" aria-label={language === "ar" ? "اختيار مزود التصميم" : "Design provider selection"}>
                     <strong>{language === "ar" ? "التصميم" : "Design"}</strong>
                     <small>
@@ -722,7 +772,7 @@ export function ContentBatchReviewPanel({
                     </button>
                   </div>
                 )}
-                {session && /reel|video/i.test(String(item.contentType)) && !item.mediaAssetId && (
+                {session && /reel|video/i.test(String(item.contentType)) && (!item.mediaAssetId || replacingMediaItemId === item.id) && item.status !== "published" && (
                   <div className="content-design-provider-picker" role="group" aria-label={language === "ar" ? "إنشاء فيديو" : "Create video"}>
                     <strong>{language === "ar" ? "فيديو Reel" : "Reel video"}</strong>
                     <small>{language === "ar" ? "Veo · عمودي 9:16 · الصوت مدمج" : "Veo · 9:16 portrait · audio included"}</small>
