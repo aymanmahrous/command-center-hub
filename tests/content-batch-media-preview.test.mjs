@@ -30,3 +30,26 @@ test("content factory consumes the existing Coach Brain handoff as supporting co
   assert.match(hub, /researchContext: coachBrainContext/);
   assert.match(hub, /canonical Academy Knowledge remains the existing source/);
 });
+
+test("batch review panel integrates direct library picker and safe upload registration", () => {
+  assert.match(panel, /content-media-source-selector/);
+  assert.match(panel, /link_staff_media_to_content_item/);
+  assert.match(panel, /uploadStaffMediaFile/);
+  assert.match(panel, /register_staff_media_upload/);
+  assert.match(panel, /linkMediaToItem/);
+  assert.match(panel, /canUseInMarketingBatch\(asset\)/);
+  assert.match(panel, /الرفع وحده لا يثبت الموافقة/);
+});
+
+test("coach brain edge function prompt enforces evidence-based pedagogy and 5-part concise response", async () => {
+  const coachBrain = await readFile(new URL("../supabase/functions/coach-brain-research/index.ts", import.meta.url), "utf8");
+  assert.match(coachBrain, /## 1\. الخلاصة والتوصية/);
+  assert.match(coachBrain, /## 2\. خطوات التدريب أو التعليم/);
+  assert.match(coachBrain, /## 3\. التمرين التالي المناسب/);
+  assert.match(coachBrain, /## 4\. طريقة قياس التقدم/);
+  assert.match(coachBrain, /## 5\. المصادر الموثوقة/);
+  assert.match(coachBrain, /water fear\/anxiety/);
+  assert.match(coachBrain, /attention difficulties \(ADHD\)/);
+  assert.match(coachBrain, /autism spectrum \(ASD\)/);
+  assert.match(coachBrain, /Aquatic fitness/);
+});

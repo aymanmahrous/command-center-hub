@@ -142,6 +142,7 @@ type ContentGrowthHubProps = {
   onSessionExpired?: () => void;
   onOpenMedia?: () => void;
   onTabChange?: (tab: "overview" | "strategy" | "factory" | "content" | "designs" | "reels" | "campaigns" | "review" | "connections") => void;
+  onOpenBrain?: () => void;
 };
 
 async function callRpc(session: GrowthSession, rpcName: string, body: Record<string, unknown> = {}, signal?: AbortSignal) {
@@ -178,6 +179,7 @@ export default function ContentGrowthHub({
   onSessionExpired,
   onOpenMedia,
   onTabChange,
+  onOpenBrain,
 }: ContentGrowthHubProps) {
   const { language, t } = useLanguage();
   const copy = t("contentGrowth");
@@ -235,13 +237,16 @@ export default function ContentGrowthHub({
   }, [activeFactoryTab]);
   const showReviewWorkspace = ["designs", "reels", "campaigns", "review"].includes(activeFactoryTab);
   const factoryStages = [
+    ["factory", language === "ar" ? "١. التوليد والخطة" : "1. Generate & Plan"],
+    ["designs", language === "ar" ? "٢. التصميم والفيديو" : "2. Design & Media"],
+    ["review", language === "ar" ? "٣. المراجعة والاعتماد" : "3. Review & Approve"],
+    ["campaigns", language === "ar" ? "٤. الجدولة" : "4. Schedule"],
+    ["overview", language === "ar" ? "٥. النشر والإيصال" : "5. Publish & Receipt"],
+  ] as const;
+  const advancedStages = [
     ["strategy", language === "ar" ? "الاستراتيجية" : "Strategy"],
-    ["factory", language === "ar" ? "التوليد" : "Ideas / Generate"],
-    ["content", language === "ar" ? "المحتوى" : "Content"],
-    ["designs", language === "ar" ? "التصميم" : "Design"],
-    ["review", language === "ar" ? "المراجعة" : "Review"],
-    ["campaigns", language === "ar" ? "الجدولة" : "Schedule"],
-    ["overview", language === "ar" ? "النشر والنتائج" : "Publish / Results"],
+    ["content", language === "ar" ? "قائمة المحتوى" : "Content list"],
+    ["connections", language === "ar" ? "الاتصالات" : "Connections"],
   ] as const;
   const planDays = useMemo(() => {
     const start = new Date();
@@ -426,19 +431,6 @@ export default function ContentGrowthHub({
 
   return (
     <div className="content-growth-hub" dir={language === "ar" ? "rtl" : "ltr"}>
-      <nav className="content-section-nav" aria-label={language === "ar" ? "أقسام مصنع المحتوى" : "Content Factory sections"}>
-        {([
-          ["overview", language === "ar" ? "نظرة عامة" : "Overview"],
-          ["strategy", language === "ar" ? "الاستراتيجية" : "Strategy"],
-          ["factory", language === "ar" ? "التوليد" : "Generate"],
-          ["content", language === "ar" ? "المحتوى" : "Content"],
-          ["designs", language === "ar" ? "التصاميم" : "Designs"],
-          ["reels", language === "ar" ? "الريلز" : "Reels"],
-          ["campaigns", language === "ar" ? "الحملات" : "Campaigns"],
-          ["review", language === "ar" ? "المراجعة" : "Review"],
-          ["connections", language === "ar" ? "الاتصالات" : "Connections"],
-        ] as const).map(([id, label]) => <button type="button" key={id} className={activeFactoryTab === id ? "active" : ""} onClick={() => { setActiveFactoryTab(id); onTabChange?.(id); }}>{label}</button>)}
-      </nav>
       <section className="factory-control-room" aria-labelledby="factory-control-room-title">
         <div className="factory-control-room-heading">
           <div><span>{language === "ar" ? "مصنع واحد" : "ONE FACTORY"}</span><h2 id="factory-control-room-title">{language === "ar" ? "مسار الدعاية والنشر" : "Campaign and publishing flow"}</h2><p>{language === "ar" ? "افتح مرحلة واحدة، عدّل العنصر، ثم احفظ أو انقله للمرحلة التالية." : "Open one stage, edit the item, then save or move it to the next stage."}</p></div>
@@ -446,6 +438,14 @@ export default function ContentGrowthHub({
         </div>
         <div className="factory-stage-rail" role="list" aria-label={language === "ar" ? "مراحل المصنع" : "Factory stages"}>
           {factoryStages.map(([id, label], index) => <button type="button" role="listitem" key={id} className={activeFactoryTab === id ? "active" : ""} onClick={() => { setActiveFactoryTab(id); onTabChange?.(id); }}><b>{index + 1}</b><span>{label}</span></button>)}
+        </div>
+        <div className="factory-advanced-rail" aria-label={language === "ar" ? "أدوات إضافية" : "Additional tools"}>
+          <span>{language === "ar" ? "أدوات إضافية:" : "Additional tools:"}</span>
+          {advancedStages.map(([id, label]) => (
+            <button type="button" key={id} className={activeFactoryTab === id ? "active" : ""} onClick={() => { setActiveFactoryTab(id); onTabChange?.(id); }}>
+              {label}
+            </button>
+          ))}
         </div>
       </section>
       <section className="factory-30-day-plan" aria-labelledby="factory-30-day-title">
@@ -456,17 +456,6 @@ export default function ContentGrowthHub({
         </div>
         <div className="factory-30-day-grid">
           {planDays.map(({ day, dayItems }, index) => <button type="button" key={day.toISOString()} className={dayItems.length > 0 ? "has-items" : ""} onClick={() => { setActiveFactoryTab(dayItems.length > 0 ? "campaigns" : "strategy"); onTabChange?.(dayItems.length > 0 ? "campaigns" : "strategy"); }}><span>{language === "ar" ? `اليوم ${index + 1}` : `Day ${index + 1}`}</span><strong>{dayItems.length}</strong><small>{day.toLocaleDateString(language === "ar" ? "ar-AE" : "en-AE", { month: "short", day: "numeric" })}</small>{dayItems.slice(0, 2).map((item) => <em key={item.id}>{item.topic}</em>)}</button>)}
-        </div>
-      </section>
-      <section className="factory-action-desk" aria-label={language === "ar" ? "إجراءات مصنع المحتوى" : "Content Factory actions"}>
-        <div className="factory-action-desk-heading"><div><span>{language === "ar" ? "ماذا تريد أن تفعل؟" : "WHAT DO YOU WANT TO DO?"}</span><h3>{language === "ar" ? "اختر خطوة واحدة بدل قراءة صفحة طويلة" : "Choose one task instead of reading a long page"}</h3></div><small>{language === "ar" ? "كل زر يفتح مساحة عمل مستقلة." : "Each button opens one focused workspace."}</small></div>
-        <div className="factory-action-grid">
-          {([
-            ["strategy", language === "ar" ? "خطة التسويق" : "Marketing plan", language === "ar" ? "الأهداف والمنصات والأيام" : "Goals, platforms, and days"],
-            ["factory", language === "ar" ? "إنشاء دفعة" : "Create batch", language === "ar" ? "أنشئ مقترحًا للمراجعة" : "Create a reviewable proposal"],
-            ["content", language === "ar" ? "تحرير المحتوى" : "Edit content", language === "ar" ? "ابحث وعدّل واعتمد" : "Search, edit, and approve"],
-            ["review", language === "ar" ? "مراجعة واعتماد" : "Review and approve", language === "ar" ? "اعتماد أو طلب تعديل" : "Approve or request changes"],
-          ] as const).map(([id, label, detail]) => <button type="button" key={id} className={activeFactoryTab === id ? "active" : ""} onClick={() => { setActiveFactoryTab(id); onTabChange?.(id); }}><strong>{label}</strong><small>{detail}</small><span aria-hidden="true">→</span></button>)}
         </div>
       </section>
       {batchReady?.show && (
@@ -555,6 +544,17 @@ export default function ContentGrowthHub({
             <strong>{publishCopyInstagram.authorizedPostTitle}</strong>
             <span>{instagramPublishing.authorizedStage === "published_live" ? publishCopyInstagram.authorizedPostLive : publishCopyInstagram.authorizedPostPending}</span>
             <span>{instagramPublishing.authorizedItem.topic}</span>
+          </div>
+        )}
+        {onOpenBrain && (
+          <div className="overview-brain-action">
+            <button
+              type="button"
+              className="today-quick-action"
+              onClick={onOpenBrain}
+            >
+              {language === "ar" ? "🧠 استشر Coach Brain حول هذه النتائج والخطوة القادمة" : "🧠 Consult Coach Brain on results & next steps"}
+            </button>
           </div>
         )}
       </section>}

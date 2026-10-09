@@ -18,6 +18,7 @@ import { readContentPillar, readTimeSlot } from "./content-strategy";
 import { readPublishingCopy } from "./content-publishing-copy";
 import { ContentBatchMediaPreview } from "./content-batch-media-preview";
 import { canvaDesignErrorMessage, generateCanvaDesignForContentItem } from "./canva-design-adapter";
+import { uploadStaffMediaFile } from "./staff-media-storage";
 import { canUseInMarketingBatch, type MediaAssetRecord } from "./media-types";
 import type { CapabilityState } from "./content-growth";
 import { useLanguage } from "./i18n";
@@ -174,6 +175,8 @@ export function ContentBatchReviewPanel({
   const [videoBusyId, setVideoBusyId] = useState<string | null>(null);
   const [videoNotice, setVideoNotice] = useState("");
   const [itemFilter, setItemFilter] = useState<"all" | "needs_review" | "approved" | "scheduled" | "failed">("all");
+  const [selectedAssetByItem, setSelectedAssetByItem] = useState<Record<string, string>>({});
+  const [mediaActionBusyId, setMediaActionBusyId] = useState<string | null>(null);
   const requestPublishCopy = REQUEST_PUBLISH_COPY[language];
 
   const summary = useMemo(() => summarizeBatch(batch.items), [batch.items]);
@@ -287,6 +290,112 @@ export function ContentBatchReviewPanel({
     }
   }
 
+  async function linkMediaToItem(itemId: string, assetId: string) {
+    if (!session) throw new Error("AUTH_REQUIRED");
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/link_staff_media_to_content_item`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_PUBLIC_KEY,
+        Authorization: `Bearer ${session.accessToken}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ p_content_item_id: itemId, p_media_asset_id: assetId }),
+      cache: "no-store",
+    });
+    if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
+    const res = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!response.ok || res.success !== true) throw new Error(typeof res.code === "string" ? res.code : "MEDIA_LINK_FAILED");
+    return res;
+  }
+
+  function mediaLinkErrorMessage(code: string | undefined): string {
+    const messages: Record<string, { ar: string; en: string }> = {
+      MEDIA_ASSET_NOT_PUBLISHABLE: {
+        ar: "الأصل غير جاهز للنشر بعد (يحتاج تأكيد الموافقة أو تصنيفه في مكتبة الوسائط).",
+        en: "Media asset is not publish-ready yet (requires consent confirmation or classification in Media Library).",
+      },
+      MEDIA_ASSET_ALREADY_LINKED: {
+        ar: "هذا الأصل مرتبط بالفعل بعنصر محتوى آخر.",
+        en: "This asset is already linked to another content item.",
+      },
+      CONTENT_ITEM_NOT_FOUND: {
+        ar: "عنصر المحتوى غير موجود.",
+        en: "Content item not found.",
+      },
+      PUBLISHED_CONTENT_IMMUTABLE: {
+        ar: "المحتوى المنشور لا يمكن تعديل وسائطه.",
+        en: "Published content cannot be modified.",
+      },
+      UPLOAD_REGISTRATION_FAILED: {
+        ar: "تعذر تسجيل الملف المرفوع في مكتبة الوسائط.",
+        en: "Failed to register uploaded file in Media Library.",
+      },
+      UPLOAD_FAILED: {
+        ar: "تعذر رفع الملف من الجهاز.",
+        en: "Failed to upload file from device.",
+      },
+      MEDIA_LINK_FAILED: {
+        ar: "تعذر ربط الوسائط بالمحتوى.",
+        en: "Failed to link media to content.",
+      },
+    };
+    return (code && messages[code]?.[language]) ?? (code || (language === "ar" ? "تعذر ربط الوسائط." : "Media link failed."));
+  }
+
+  async function handleLinkMedia(item: ContentBatchItem, assetId: string) {
+    if (!session || !canWrite || busy || mediaActionBusyId || !assetId) return;
+    setMediaActionBusyId(item.id);
+    setDesignNotice("");
+    try {
+      await linkMediaToItem(item.id, assetId);
+      setDesignNotice(language === "ar" ? "تم ربط الأصل من المكتبة بنجاح وهو الآن قيد المراجعة." : "Media asset linked successfully and is now in review.");
+      onMediaLinked?.();
+    } catch (cause) {
+      if (cause instanceof Error && cause.message === "SESSION_EXPIRED") onSessionExpired?.();
+      else setDesignNotice(mediaLinkErrorMessage(cause instanceof Error ? cause.message : undefined));
+    } finally {
+      setMediaActionBusyId(null);
+    }
+  }
+
+  async function handleUploadMedia(item: ContentBatchItem, file: File) {
+    if (!session || !canWrite || busy || mediaActionBusyId || !file) return;
+    setMediaActionBusyId(item.id);
+    setDesignNotice("");
+    try {
+      const uploaded = await uploadStaffMediaFile(session, file);
+      const registerRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/register_staff_media_upload`, {
+        method: "POST",
+        headers: {
+          apikey: SUPABASE_PUBLIC_KEY,
+          Authorization: `Bearer ${session.accessToken}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          p_asset_type: uploaded.assetType,
+          p_storage_path: uploaded.storagePath,
+          p_metadata: { file_name: uploaded.fileName, mime_type: file.type || null },
+        }),
+      });
+      if (registerRes.status === 401 || registerRes.status === 403) throw new Error("SESSION_EXPIRED");
+      const reg = (await registerRes.json().catch(() => ({}))) as Record<string, unknown>;
+      const newAssetId = typeof reg.mediaAssetId === "string" ? reg.mediaAssetId : "";
+      if (!registerRes.ok || !newAssetId) throw new Error("UPLOAD_REGISTRATION_FAILED");
+
+      setDesignNotice(language === "ar"
+        ? "تم رفع الملف وحفظه بأمان في مكتبة الوسائط. الرفع وحده لا يثبت الموافقة؛ يبقى الأصل في حالة مراجعة آمنة حتى استيفاء الإجراء وتأكيد الموافقة."
+        : "File uploaded safely to Media Library. Upload alone does not prove consent; the asset remains in safe review pending proper consent confirmation.");
+      onMediaLinked?.();
+    } catch (cause) {
+      if (cause instanceof Error && cause.message === "SESSION_EXPIRED") onSessionExpired?.();
+      else setDesignNotice(mediaLinkErrorMessage(cause instanceof Error ? cause.message : "UPLOAD_FAILED"));
+    } finally {
+      setMediaActionBusyId(null);
+    }
+  }
+
   async function requestVeo(session: { accessToken: string }, body: Record<string, unknown>) {
     const response = await fetch(SUPABASE_URL + "/functions/v1/generate-veo-video", {
       method: "POST",
@@ -350,20 +459,7 @@ export function ContentBatchReviewPanel({
       });
       const mediaAssetId = typeof result.mediaAssetId === "string" ? result.mediaAssetId : "";
       if (!mediaAssetId) throw new Error("VEO_MEDIA_ASSET_MISSING");
-      const linkResult = await fetch(SUPABASE_URL + "/rest/v1/rpc/link_staff_media_to_content_item", {
-        method: "POST",
-        headers: {
-          apikey: SUPABASE_PUBLIC_KEY,
-          Authorization: "Bearer " + session.accessToken,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({ p_content_item_id: item.id, p_media_asset_id: mediaAssetId }),
-        cache: "no-store",
-      });
-      if (linkResult.status === 401 || linkResult.status === 403) throw new Error("SESSION_EXPIRED");
-      const linked = (await linkResult.json().catch(() => ({}))) as Record<string, unknown>;
-      if (!linkResult.ok || linked.success !== true) throw new Error(typeof linked.code === "string" ? linked.code : "MEDIA_LINK_FAILED");
+      await linkMediaToItem(item.id, mediaAssetId);
       setVideoNotice(language === "ar" ? "تم إنشاء الفيديو وحفظه وربطه بالمحتوى. عاد للمراجعة قبل أي نشر." : "Video generated, stored, and linked to the content. It is back in review before any publish.");
       setVideoTargetId(null);
       onMediaLinked?.();
@@ -526,6 +622,57 @@ export function ContentBatchReviewPanel({
                 </div>
               </details>
               <footer>
+                {session && !item.mediaAssetId && (
+                  <div className="content-media-source-selector" role="group" aria-label={language === "ar" ? "ربط أصل أو رفعه" : "Link or upload asset"}>
+                    <div className="content-media-source-header">
+                      <strong>{language === "ar" ? "📁 اختر من أصول المكتبة أو ارفع صورة" : "📁 Choose Library Asset or Upload"}</strong>
+                      <small>{language === "ar" ? "الأسهل والأوفر: استخدم أصلًا موجودًا أو صورة من جهازك لتجنب التكرار والتكلفة." : "Easiest & most cost-effective: use an existing asset or your own photo."}</small>
+                    </div>
+                    {mediaAssets.length > 0 && (
+                      <div className="content-media-library-picker">
+                        <select
+                          aria-label={language === "ar" ? "اختر من مكتبة الوسائط" : "Choose from library"}
+                          value={selectedAssetByItem[item.id] ?? ""}
+                          onChange={(e) => setSelectedAssetByItem((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                          disabled={itemLocked || mediaActionBusyId === item.id}
+                        >
+                          <option value="">{language === "ar" ? "— اختر صورة/فيديو من المكتبة —" : "— Select asset from library —"}</option>
+                          {mediaAssets.map((asset) => {
+                            const assetName = typeof asset.metadata?.file_name === "string" ? asset.metadata.file_name : typeof asset.metadata?.name === "string" ? asset.metadata.name : asset.id.slice(0, 8);
+                            const ready = canUseInMarketingBatch(asset);
+                            return (
+                              <option key={asset.id} value={asset.id}>
+                                {ready ? "✅ " : "⏳ "}{assetName} ({asset.category || asset.assetType})
+                              </option>
+                            );
+                          })}
+                        </select>
+                        <button
+                          type="button"
+                          className="secondary"
+                          disabled={itemLocked || mediaActionBusyId === item.id || !selectedAssetByItem[item.id]}
+                          onClick={() => void handleLinkMedia(item, selectedAssetByItem[item.id])}
+                        >
+                          {mediaActionBusyId === item.id ? (language === "ar" ? "جاري الربط…" : "Linking…") : (language === "ar" ? "ربط هذا الأصل" : "Link asset")}
+                        </button>
+                      </div>
+                    )}
+                    <label className="secondary-button-label">
+                      <span>{mediaActionBusyId === item.id ? (language === "ar" ? "جاري الرفع للمكتبة…" : "Uploading…") : (language === "ar" ? "📤 رفع صورة/فيديو للمكتبة" : "📤 Upload to Media Library")}</span>
+                      <input
+                        type="file"
+                        accept="image/*,video/*"
+                        className="sr-only"
+                        disabled={itemLocked || mediaActionBusyId === item.id}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) void handleUploadMedia(item, file);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                  </div>
+                )}
                 {session && (!item.mediaAssetId || canRegenerateDesign) && (
                   <div className="content-design-provider-picker" role="group" aria-label={language === "ar" ? "اختيار مزود التصميم" : "Design provider selection"}>
                     <strong>{language === "ar" ? "التصميم" : "Design"}</strong>

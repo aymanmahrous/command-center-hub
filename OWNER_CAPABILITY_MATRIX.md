@@ -12,7 +12,7 @@ This matrix is the compact control map for the current Factory and integration s
 | Content | Schedule or unschedule | Existing transition path | AVAILABLE only for approved or scheduled items | The selected time and lifecycle state must be valid |
 | Designs | Create a Canva design | Existing Canva adapter and design action | LIMITED or NOT_CONFIGURED unless Canva capability is verified | Real Canva connection and verified capability |
 | Reels | Review or propose an existing Reel | Existing content and review records | AVAILABLE when Reel content exists | A proposal is not a generated video |
-| Reels | Generate an actual video | No verified in-app video capability | LIMITED or NOT_CONFIGURED | Real video provider and verified contract |
+| Reels | Generate an actual video | Veo 3.1 Edge Function (generate-veo-video) with cost estimate and error diagnostics | AVAILABLE in-app | Upstream Google Veo API availability and model quota (HTTP 502 diagnostics exposed) |
 | Campaigns | View current campaign/scheduling state | Existing content batch review data | AVAILABLE for visibility | The workspace does not create a separate publishing workflow |
 | Campaigns | Schedule or reschedule | Existing Content lifecycle controls | LIMITED to Content workspace | Item must be approved or scheduled |
 | Review | Approve one item or the reviewable batch | Existing review panel and batch approval path | AVAILABLE by lifecycle state | Approval does not publish or schedule from the review screen |
@@ -21,6 +21,10 @@ This matrix is the compact control map for the current Factory and integration s
 | Connections | Test local configuration | Existing safe configuration test path | AVAILABLE where the provider contract supports it | Local test does not prove external publishing |
 | Connections | Run external publishing or workflow | Outside the read-only audit scope | BLOCKED for audit | Explicit owner approval and a separate controlled execution |
 | Media | Confirm consent and approve asset | Owner Media Controls from PR #146 | AVAILABLE when the owner has the required role | Do not reimplement this path |
+| Media | Link existing library asset to content item | Multi-tier picker in review panel using `link_staff_media_to_content_item` | AVAILABLE | Requires unlinked content item and existing media asset |
+| Media | Upload photo/video from device directly to content item | Direct upload in review panel via `uploadStaffMediaFile` | AVAILABLE | Requires staff session and file selection |
+| Publishing | Publish to TikTok | TikTok Content Posting API integration | LIMITED (NEEDS_DEVELOPER_APPROVAL) | TikTok Developer App registration, Direct Post audit approval, domain verification |
+| Messaging | Shared Concierge AI & Human Takeover | Centralized `process_ai_sales_concierge_turn` in `AIInboxView` | AVAILABLE for WhatsApp; LIMITED for Messenger/IG Direct | Webhook subscriptions and Page access tokens for Meta channels |
 
 ## Status rules
 
