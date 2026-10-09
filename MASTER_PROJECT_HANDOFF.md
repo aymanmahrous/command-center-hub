@@ -101,11 +101,11 @@
 
 ## 7. CURRENT_PHASE
 
-**BUTTON AUDIT — بعد إغلاق FACTORY CONNECTION**
+**EXECUTIVE PIPELINE VERIFICATION & VEO 3.1 POST-PR #239 AUDIT**
 
 ## 8. CURRENT_BLOCKER
 
-**لا يوجد عطل Production مثبت حاليًا.** آخر Production deployment مربوط بـ`main` والـcommit `6a5e2f8` وحالته READY، ولم تظهر Runtime Errors في آخر 6 ساعات عند آخر فحص. كانت هناك فجوة توثيقية: هذا الـHandoff كان متأخرًا عن الكود. تم تصحيح ترتيب المراحل ليعكس الحقيقة الحالية.
+**لا يوجد عطل Production مثبت حاليًا.** آخر Production deployment مربوط بـ`main` والـcommit `851186b` (PR #239) وحالته READY على Vercel (`35wQ6A2A5Pauym2qPsXtJSKhDY4v`). تم تمرير كامل حزمة الاختبارات (251/251) واختبار ميزانية الأداء وTypeScript بنجاح 100%.
 
 ## 9. آخر نتيجة مؤكدة
 
@@ -129,12 +129,11 @@
 
 ## 10. الخطوة الحالية (NEXT)
 
-1. إغلاق Button Audit باستخدام `OWNER_CAPABILITY_MATRIX.md` والاختبارات الموجودة، وعدم إعادة اختبار البنود المغلقة بلا سبب.
-2. الانتقال مباشرة إلى Connection Truth: التحقق من أن حالات Connected / Ready / Needs Attention / Action Required / Pending تعكس الأدلة الفعلية، دون إضافة مزود أو OAuth أو نظام جديد.
-3. إذا ظهرت فجوة حقيقية، تنفيذ Atomic Step واحد فقط ثم التوقف للتحقق.
-4. تأجيل الفحص البصري إلى Final Owner Test بعد اكتمال الإصلاحات.
+1. التحقق من اتساق مسار الأكاديمية الكامل: Coach Brain → Factory → Design → Media Library → Review → Publish → Receipt.
+2. الحفاظ على الميزانية بعدم إجراء اختبارات توليد أو نشر مدفوعة متكررة.
+3. اعتماد التوثيق المحدث وتأكيد مطابقة مصفوفة قدرات المالك للواقع الفعلي للكود.
 
-**آخر نقطة آمنة مؤكدة:** `main` = `6a5e2f8`، Production = READY.
+**آخر نقطة آمنة مؤكدة:** `main` = `851186b`، Production = READY (Vercel deployment: `35wQ6A2A5Pauym2qPsXtJSKhDY4v`).
 
 ## 11. تذكير إلزامي لكل Agent
 
@@ -191,3 +190,19 @@
 - This follow-up supersedes the earlier expectation that the Canva metadata/route check was still pending. The PR remains for owner review; no merge or production deployment is authorized by this record.
 
 **Safe future work, only as a separate atomic step:** Analyze the existing initial-JavaScript size gate and chunk/import graph against the clean main baseline, then propose the smallest reversible optimization. Do not change code, alter the budget, or deploy until that step is authorized and has a measurable acceptance criterion.
+
+
+## 16. Executive Verification & Current Baseline (2026-10-09)
+
+- **Latest commit on main:** `851186bd038dd16799959b4e453428965faaef93` (PR #239 merged).
+- **Vercel Production Deployment:** Deployment ID `35wQ6A2A5Pauym2qPsXtJSKhDY4v`, state `SUCCESS` (completed `2026-10-09T03:27:14Z`).
+- **Automated Verification:**
+  - TypeScript typecheck (`npm run typecheck`): PASS (0 errors).
+  - Test suite (`npm test`): 251 passed, 0 failed.
+  - Production build & budget gate (`npm run build`): PASS (JS initial: 369,969 raw / 108,445 gzip vs limits 371,000 / 108,700).
+- **PR #238 & #239 Summary:**
+  - PR #238 implemented real Veo cost estimation display.
+  - PR #239 exposed actionable Veo failure details (`providerStatus` HTTP code and bounded diagnostic detail) in Factory review panel, preventing blind retries upon upstream Google API 502 errors.
+- **Pipeline Continuity:**
+  - `Coach Brain → Factory → Generate → Design → Media Library → Review → Approve → Schedule/Publish → Meta → Receipt/Results → Coach Brain` is verified through source analysis and automated contracts.
+

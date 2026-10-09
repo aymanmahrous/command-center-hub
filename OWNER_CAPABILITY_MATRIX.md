@@ -12,7 +12,7 @@ This matrix is the compact control map for the current Factory and integration s
 | Content | Schedule or unschedule | Existing transition path | AVAILABLE only for approved or scheduled items | The selected time and lifecycle state must be valid |
 | Designs | Create a Canva design | Existing Canva adapter and design action | LIMITED or NOT_CONFIGURED unless Canva capability is verified | Real Canva connection and verified capability |
 | Reels | Review or propose an existing Reel | Existing content and review records | AVAILABLE when Reel content exists | A proposal is not a generated video |
-| Reels | Generate an actual video | No verified in-app video capability | LIMITED or NOT_CONFIGURED | Real video provider and verified contract |
+| Reels | Generate an actual video | Veo 3.1 Edge Function (generate-veo-video) with cost estimate and error diagnostics | AVAILABLE in-app | Upstream Google Veo API availability and model quota (HTTP 502 diagnostics exposed) |
 | Campaigns | View current campaign/scheduling state | Existing content batch review data | AVAILABLE for visibility | The workspace does not create a separate publishing workflow |
 | Campaigns | Schedule or reschedule | Existing Content lifecycle controls | LIMITED to Content workspace | Item must be approved or scheduled |
 | Review | Approve one item or the reviewable batch | Existing review panel and batch approval path | AVAILABLE by lifecycle state | Approval does not publish or schedule from the review screen |
