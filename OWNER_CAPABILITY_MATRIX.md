@@ -21,6 +21,10 @@ This matrix is the compact control map for the current Factory and integration s
 | Connections | Test local configuration | Existing safe configuration test path | AVAILABLE where the provider contract supports it | Local test does not prove external publishing |
 | Connections | Run external publishing or workflow | Outside the read-only audit scope | BLOCKED for audit | Explicit owner approval and a separate controlled execution |
 | Media | Confirm consent and approve asset | Owner Media Controls from PR #146 | AVAILABLE when the owner has the required role | Do not reimplement this path |
+| Media | Link existing library asset to content item | Multi-tier picker in review panel using `link_staff_media_to_content_item` | AVAILABLE | Requires unlinked content item and existing media asset |
+| Media | Upload photo/video from device directly to content item | Direct upload in review panel via `uploadStaffMediaFile` | AVAILABLE | Requires staff session and file selection |
+| Publishing | Publish to TikTok | TikTok Content Posting API integration | LIMITED (NEEDS_DEVELOPER_APPROVAL) | TikTok Developer App registration, Direct Post audit approval, domain verification |
+| Messaging | Shared Concierge AI & Human Takeover | Centralized `process_ai_sales_concierge_turn` in `AIInboxView` | AVAILABLE for WhatsApp; LIMITED for Messenger/IG Direct | Webhook subscriptions and Page access tokens for Meta channels |
 
 ## Status rules
 

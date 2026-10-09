@@ -206,3 +206,32 @@
 - **Pipeline Continuity:**
   - `Coach Brain → Factory → Generate → Design → Media Library → Review → Approve → Schedule/Publish → Meta → Receipt/Results → Coach Brain` is verified through source analysis and automated contracts.
 
+
+## 17. Executive Consolidation & Media Hierarchy Implementation (2026-10-09)
+
+- **Factory UX Simplification:**
+  - Redundant 9-tab header (`content-section-nav`) and 4-card action desk (`factory-action-desk`) removed.
+  - Replaced with a unified 5-stage sequential rail: `١. التوليد والخطة` → `٢. التصميم والفيديو` → `٣. المراجعة والاعتماد` → `٤. الجدولة` → `٥. النشر والإيصال`.
+  - Added direct return-to-brain feedback loop in the Overview/Receipts stage: `[🧠 استشر Coach Brain حول هذه النتائج والخطوة القادمة]`.
+- **Coach Brain Executive Partner Mandate:**
+  - System prompt in `supabase/functions/coach-brain-research/index.ts` restructured to eliminate academic 12-heading essay format.
+  - Every answer now strictly starts with:
+    1. `## 1. الخلاصة والرأي الموصى به (Summary & Recommended Opinion)`
+    2. `## 2. أفضل خطوة تالية وسبب اختيارها (Best Next Step & Rationale)`
+    3. `## 3. التكلفة المتوقعة والمخاطر أو القيود (Expected Cost, Risks & Constraints)`
+- **Media Repetition Root Cause & Multi-Source Picker:**
+  - Root cause diagnosed: hardcoded Canva template ID (`DAHVAMAUP-s`) generated duplicate graphics; review panel lacked library selection and device upload.
+  - Implemented multi-tier media picker on review cards:
+    1. Select and link existing verified assets from `Media Library` with 1 click (`link_staff_media_to_content_item`).
+    2. Direct device upload (`uploadStaffMediaFile` → `register_staff_media_upload` → auto-link).
+    3. External AI/design generation (Canva / Veo) retained as opt-in choices with pre-generation cost estimates.
+- **Publishing & Messaging Truth:**
+  - **Meta (Facebook & Instagram):** Live publishing and receipt verification operational via `safe-content-publisher`.
+  - **TikTok:** Content Posting API requires developer registration, Direct Post audit approval, and domain verification. Current honest state is `NEEDS_CREDENTIAL / DEVELOPER_APP_APPROVAL`. Draft/review/export flow prepared.
+  - **Messaging (WhatsApp / Messenger / Instagram Direct):** Intelligent concierge response engine (`process_ai_sales_concierge_turn`) and human takeover (`AIInboxView`) are shared across channels without creating redundant AIs.
+- **Verification Gates:**
+  - `npm run typecheck`: 0 errors.
+  - `npm test`: 251 / 251 passed.
+  - `npm run build`: 370,077 bytes raw / 108,535 bytes gzip (well within strict 371,000 / 108,700 budget).
+
+
