@@ -301,7 +301,12 @@ export function ContentBatchReviewPanel({
     });
     if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
     const result = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-    if (!response.ok) throw new Error(typeof result.error === "string" ? result.error : "VEO_FAILED_" + response.status);
+    if (!response.ok) {
+      const code = typeof result.error === "string" ? result.error : "VEO_FAILED_" + response.status;
+      const providerStatus = typeof result.providerStatus === "number" ? " (Google HTTP " + result.providerStatus + ")" : "";
+      const detail = typeof result.detail === "string" ? result.detail.trim().slice(0, 180) : "";
+      throw new Error([code + providerStatus, detail].filter(Boolean).join(": "));
+    }
     return result;
   }
 
