@@ -233,5 +233,22 @@
   - `npm run typecheck`: 0 errors.
   - `npm test`: 251 / 251 passed.
   - `npm run build`: 370,077 bytes raw / 108,535 bytes gzip (well within strict 371,000 / 108,700 budget).
+## 18. Executive Partner Mandate: Canva Diagnostics, AI Strategy & Unified Connections (2026-10-09)
 
-
+- **Canva Root Cause Diagnosis & Resolution:**
+  - **Diagnostic:** Browser error `Load failed` / `424 Needs Credential` was caused by missing Canva Developer App secrets (`CANVA_CLIENT_ID` / `CANVA_CLIENT_SECRET`) in Supabase Edge Secrets. An end-user Canva Pro subscription does not grant developer API access.
+  - **Resolution:**
+    - Localized bilingual error handling in `src/canva-adapter.ts` with explicit Arabic and English messages guiding the owner to the free, working alternative.
+    - Added direct 1-click `[Open Canva / فتح Canva يدوياً]` actions in `src/integrations-center.tsx` and `src/media-library-controls.tsx`.
+    - Preserved zero-cost `canvaBrief` workflow: automatically provides dimensions, headlines, and palette for manual creation in existing Canva Pro accounts without paid API tiers.
+- **Unified AI Strategy (Google Gemini Core):**
+  - Clarified architectural truth: All server operations (Coach Brain, content batch generation, media analysis, Veo video) are powered server-side by Google Gemini (`gemini-2.0-flash` & `gemini-3.7-flash`) via `GEMINI_API_KEY`.
+  - Clarified that personal subscriptions (ChatGPT Plus $20/mo, Gemini Advanced $20/mo) cannot be connected as developer APIs by third-party software.
+  - No OpenAI API subscriptions required; owner budget protected from redundant AI expenses.
+  - Updated `src/integrations-center.tsx` descriptions and setup modal to explicitly state that Gemini AI is centrally active server-side.
+- **Messaging & Notifications Truth:**
+  - Telegram integration clarified as optional internal staff notifications channel; central customer AI concierge operates via verified Meta WhatsApp Cloud API.
+- **Verification Gates:**
+  - `npm run typecheck`: 0 errors.
+  - `npm test`: 253 / 253 passed.
+  - `npm run build`: 370,077 bytes raw / 108,531 bytes gzip (strictly within 371,000 / 108,700 budget).

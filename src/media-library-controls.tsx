@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLanguage } from "./i18n";
 import { z } from "zod";
 import type { AiSuitabilityVerdict, MediaAssetRecord, MediaCategory, ConsentStatus } from "./media-types";
 import { displayMediaWorkflowStatus } from "./media-types";
@@ -66,6 +67,7 @@ export function parseMediaAssetRecords(value: unknown): MediaAssetRecord[] {
 }
 
 export function MediaProviderStrip({ session, canWrite = false }: { session?: ControlSession; canWrite?: boolean } = {}) {
+  const { language } = useLanguage();
   const [geminiStatus, setGeminiStatus] = useState<GeminiIntegrationStatus | null>(null);
   const [canvaStatus, setCanvaStatus] = useState<CanvaIntegrationStatus | null>(null);
   const [canvaDetail, setCanvaDetail] = useState("");
@@ -96,8 +98,8 @@ export function MediaProviderStrip({ session, canWrite = false }: { session?: Co
     const callback = readCanvaCallbackNotice(window.location.search);
     if (!callback || !session) return;
     const canvaCode = new URL(window.location.href).searchParams.get("canva_code") ?? undefined;
-    if (callback === "connected") setCanvaNotice("Canva connected successfully.");
-    else setCanvaNotice(canvaConnectErrorMessage(canvaCode));
+    if (callback === "connected") setCanvaNotice(language === "ar" ? "تم الاتصال بـ Canva بنجاح." : "Canva connected successfully.");
+    else setCanvaNotice(canvaConnectErrorMessage(canvaCode, language));
     const url = new URL(window.location.href);
     url.searchParams.delete("canva");
     url.searchParams.delete("canva_code");
@@ -108,7 +110,7 @@ export function MediaProviderStrip({ session, canWrite = false }: { session?: Co
         setCanvaDetail(status.detail);
       })
       .catch(() => setCanvaStatus("NOT CONNECTED"));
-  }, [session]);
+  }, [session, language]);
 
   async function connectCanva() {
     if (!session || !canWrite || canvaBusy) return;
@@ -120,7 +122,7 @@ export function MediaProviderStrip({ session, canWrite = false }: { session?: Co
     } catch (cause) {
       if (cause instanceof Error && cause.message === "SESSION_EXPIRED") throw cause;
       const code = cause instanceof Error ? cause.message : undefined;
-      setCanvaNotice(canvaConnectErrorMessage(code));
+      setCanvaNotice(canvaConnectErrorMessage(code, language));
     } finally {
       setCanvaBusy(false);
     }
@@ -149,9 +151,14 @@ export function MediaProviderStrip({ session, canWrite = false }: { session?: Co
         {canvaConnected ? (
           <a className="canva-action" href={CANVA_OPEN_URL} target="_blank" rel="noopener noreferrer">Open Canva</a>
         ) : (
-          <button type="button" className="canva-action" disabled={!session || !canWrite || canvaBusy} onClick={() => void connectCanva()}>
-            Connect Canva
-          </button>
+          <>
+            <button type="button" className="canva-action" disabled={!session || !canWrite || canvaBusy} onClick={() => void connectCanva()}>
+              Connect Canva
+            </button>
+            <a className="canva-action" href={CANVA_OPEN_URL} target="_blank" rel="noopener noreferrer">
+              {language === "ar" ? "فتح Canva يدوياً" : "Open Canva"}
+            </a>
+          </>
         )}
       </div>
       {canvaNotice && <p className="canva-connect-notice" role="status">{canvaNotice}</p>}
