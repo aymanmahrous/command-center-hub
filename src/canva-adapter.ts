@@ -61,31 +61,52 @@ export async function fetchCanvaIntegrationStatus(session: CanvaSession): Promis
   }
 }
 
-export function canvaConnectErrorMessage(code: string | undefined): string {
-  switch (code) {
-    case "NEEDS_CREDENTIAL":
-      return "Canva OAuth is not configured on the server yet. Use Open Canva manually — connection is optional.";
-    case "METHOD_NOT_ALLOWED":
-      return "Canva link opened incorrectly. Use the Connect Canva button inside Media Library, not the server URL.";
-    case "AUTH_REQUIRED":
-    case "STAFF_ACCESS_DENIED":
-      return "Your session cannot authorize Canva. Sign in again with a content manager account.";
-    case "STATE_STORE_FAILED":
-    case "STATE_NOT_FOUND":
-    case "STATE_EXPIRED":
-      return "Canva authorization expired. Click Connect Canva again.";
-    case "TOKEN_EXCHANGE_FAILED":
-    case "TOKEN_RESPONSE_INVALID":
-      return "Canva approved access but token exchange failed. In Canva Developer Portal, set Redirect URI exactly to: https://nmzxrjdxvmmzzmajrskm.supabase.co/functions/v1/canva-oauth — then click Connect Canva again.";
-    case "TOKEN_STORE_FAILED":
-      return "Canva approved the link but storing the token failed. Try Connect Canva once more.";
-    case "USE_CONNECT_BUTTON":
-      return "Use Connect Canva inside Media Library only — do not open the Supabase server link directly. Click the button, approve in Canva, and wait for automatic return.";
-    default:
-      return code
-        ? `Canva connection failed (${code}). Command Center continues without Canva.`
-        : "Could not start Canva OAuth safely. Command Center continues without Canva.";
+export function canvaConnectErrorMessage(code: string | undefined, language: "ar" | "en" = "en"): string {
+  const isAr = language === "ar";
+  const normalized = (code ?? "").trim();
+  if (normalized === "NEEDS_CREDENTIAL" || normalized === "CANVA_NEEDS_CREDENTIAL" || normalized.startsWith("CANVA_EDGE_HTTP_424")) {
+    return isAr
+      ? "ربط Canva البرمجي غير مهيأ على الخادم حالياً (يحتاج تطبيق مطور). يمكنك استخدام خيار فتح Canva يدوياً وتطبيق موجز التصميم بدون أي تكلفة إضافية."
+      : "Canva OAuth is not configured on the server yet. Use Open Canva manually — connection is optional.";
   }
+  if (normalized === "Load failed" || normalized === "Failed to fetch" || normalized.includes("NETWORK")) {
+    return isAr
+      ? "تعذر الاتصال بخادم ربط Canva التلقائي (يتطلب إعداد تطبيق مطور). يمكنك فتح Canva يدوياً مجاناً واستخدام موجز التصميم الجاهز."
+      : "Canva connection could not reach the server (developer app required). Use Open Canva manually — connection is optional.";
+  }
+  if (normalized === "METHOD_NOT_ALLOWED") {
+    return isAr
+      ? "تم فتح رابط Canva بشكل غير صحيح. استخدم زر الربط داخل مكتبة الوسائط، وليس رابط الخادم المباشر."
+      : "Canva link opened incorrectly. Use the Connect Canva button inside Media Library, not the server URL.";
+  }
+  if (normalized === "AUTH_REQUIRED" || normalized === "STAFF_ACCESS_DENIED") {
+    return isAr
+      ? "جلستك الحالية لا تملك صلاحية تفويض Canva. يرجى تسجيل الدخول بحساب مدير محتوى."
+      : "Your session cannot authorize Canva. Sign in again with a content manager account.";
+  }
+  if (normalized === "STATE_STORE_FAILED" || normalized === "STATE_NOT_FOUND" || normalized === "STATE_EXPIRED") {
+    return isAr
+      ? "انتهت صلاحية جلسة تفويض Canva. يرجى المحاولة مرة أخرى."
+      : "Canva authorization expired. Click Connect Canva again.";
+  }
+  if (normalized === "TOKEN_EXCHANGE_FAILED" || normalized === "TOKEN_RESPONSE_INVALID") {
+    return isAr
+      ? "وافقت Canva على الوصول ولكن فشل تبادل الرمز. تأكد في بوابة المطورين من ضبط رابط إعادة التوجيه بالضبط على: https://nmzxrjdxvmmzzmajrskm.supabase.co/functions/v1/canva-oauth"
+      : "Canva approved access but token exchange failed. In Canva Developer Portal, set Redirect URI exactly to: https://nmzxrjdxvmmzzmajrskm.supabase.co/functions/v1/canva-oauth — then click Connect Canva again.";
+  }
+  if (normalized === "TOKEN_STORE_FAILED") {
+    return isAr
+      ? "تمت الموافقة من Canva لكن فشل حفظ رمز الدخول. حاول الاتصال مرة أخرى."
+      : "Canva approved the link but storing the token failed. Try Connect Canva once more.";
+  }
+  if (normalized === "USE_CONNECT_BUTTON") {
+    return isAr
+      ? "استخدم زر الربط داخل التطبيق فقط — لا تفتح رابط Supabase مباشرة."
+      : "Use Connect Canva inside Media Library only — do not open the Supabase server link directly. Click the button, approve in Canva, and wait for automatic return.";
+  }
+  return isAr
+    ? (code ? `تعذر بدء ربط Canva تلقائياً (${code}). يمكنك فتح Canva وتصميم المحتوى يدوياً.` : "تعذر بدء ربط Canva التلقائي. يستمر المركز بالعمل بدون الحاجة لـ Canva.")
+    : (code ? `Canva connection failed (${code}). Command Center continues without Canva.` : "Could not start Canva OAuth safely. Command Center continues without Canva.");
 }
 
 export async function startCanvaConnect(session: CanvaSession): Promise<{ authorizationUrl: string }> {
