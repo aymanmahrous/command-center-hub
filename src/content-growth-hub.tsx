@@ -134,6 +134,7 @@ type ContentGrowthHubProps = {
   session: GrowthSession;
   canWrite: boolean;
   busy: boolean;
+  activeTab?: "overview" | "strategy" | "factory" | "content" | "designs" | "reels" | "campaigns" | "review" | "connections";
   onApproveItem: (item: ContentBatchItem) => Promise<void>;
   onEditItem?: (item: ContentBatchItem, visualPrompt: string, scheduledFor: string | null) => Promise<void>;
   onRequestChanges: (item: ContentBatchItem, kind: ChangeRequestKind, note: string) => Promise<void>;
@@ -171,6 +172,7 @@ export default function ContentGrowthHub({
   session,
   canWrite,
   busy,
+  activeTab,
   onApproveItem,
   onEditItem,
   onRequestChanges,
@@ -230,7 +232,12 @@ export default function ContentGrowthHub({
   const [planFocus] = useState(() => handoffParams.get("planMix") || "varied");
   const [planExecution] = useState(() => handoffParams.get("planExecution") || "best");
 
-  const [activeFactoryTab, setActiveFactoryTab] = useState<"overview" | "strategy" | "factory" | "content" | "designs" | "reels" | "campaigns" | "review" | "connections">(mediaFactoryHandoff ? "content" : "overview");
+  const [activeFactoryTab, setActiveFactoryTab] = useState<"overview" | "strategy" | "factory" | "content" | "designs" | "reels" | "campaigns" | "review" | "connections">(activeTab || (mediaFactoryHandoff ? "content" : "overview"));
+  useEffect(() => {
+    if (activeTab && activeTab !== activeFactoryTab) {
+      setActiveFactoryTab(activeTab);
+    }
+  }, [activeTab]);
   useEffect(() => {
     const targetId = activeFactoryTab === "content" ? "content-control-room" : ["designs", "reels", "campaigns", "review"].includes(activeFactoryTab) ? "content-review" : `content-${activeFactoryTab}`;
     requestAnimationFrame(() => document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" }));

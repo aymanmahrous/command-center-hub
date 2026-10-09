@@ -982,6 +982,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
         session={session}
         canWrite={canWrite}
         busy={panelBusy}
+        activeTab={factoryTab}
         onApproveItem={approveBatchItem}
         onEditItem={editBatchItem}
         onRequestChanges={requestBatchChanges}
@@ -998,8 +999,8 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
       <div><span>{language === "ar" ? "مساحة عمل تنفيذية" : "ACTION WORKSPACE"}</span><h2 id="content-control-room-title">{language === "ar" ? "ماذا تريد أن تفعل بالمحتوى؟" : "What do you want to do with content?"}</h2><p>{language === "ar" ? "اختر إجراءً واضحًا أولًا؛ لا تحتاج إلى قراءة القائمة كاملة." : "Choose a clear action first; you do not need to read the full list."}</p></div>
       <div className="content-control-actions">
         <button type="button" className="primary-button" onClick={() => { setFactoryTab("factory"); }}>{language === "ar" ? "إنشاء دفعة جديدة" : "Create new batch"}</button>
-        <button type="button" onClick={() => setStatusFilter("needs_review")}>{language === "ar" ? `مراجعة المحتوى (${contentCounts.needs_review ?? 0})` : `Review content (${contentCounts.needs_review ?? 0})`}</button>
-        <button type="button" onClick={() => setStatusFilter("scheduled")}>{language === "ar" ? `فتح المجدول (${contentCounts.scheduled ?? 0})` : `Open scheduled (${contentCounts.scheduled ?? 0})`}</button>
+        <button type="button" onClick={() => { setFactoryTab("review"); }}>{language === "ar" ? `مراجعة المحتوى (${contentCounts.needs_review ?? 0})` : `Review content (${contentCounts.needs_review ?? 0})`}</button>
+        <button type="button" onClick={() => { setFactoryTab("campaigns"); }}>{language === "ar" ? `فتح المجدول (${contentCounts.scheduled ?? 0})` : `Open scheduled (${contentCounts.scheduled ?? 0})`}</button>
       </div>
     </section>
     <div className="content-toolbar">
