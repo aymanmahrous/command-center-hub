@@ -290,30 +290,70 @@ export function ContentBatchReviewPanel({
     }
   }
 
+  async function linkMediaToItem(itemId: string, assetId: string) {
+    if (!session) throw new Error("AUTH_REQUIRED");
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/link_staff_media_to_content_item`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_PUBLIC_KEY,
+        Authorization: `Bearer ${session.accessToken}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ p_content_item_id: itemId, p_media_asset_id: assetId }),
+      cache: "no-store",
+    });
+    if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
+    const res = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!response.ok || res.success !== true) throw new Error(typeof res.code === "string" ? res.code : "MEDIA_LINK_FAILED");
+    return res;
+  }
+
+  function mediaLinkErrorMessage(code: string | undefined): string {
+    const messages: Record<string, { ar: string; en: string }> = {
+      MEDIA_ASSET_NOT_PUBLISHABLE: {
+        ar: "الأصل غير جاهز للنشر بعد (يحتاج تأكيد الموافقة أو تصنيفه في مكتبة الوسائط).",
+        en: "Media asset is not publish-ready yet (requires consent confirmation or classification in Media Library).",
+      },
+      MEDIA_ASSET_ALREADY_LINKED: {
+        ar: "هذا الأصل مرتبط بالفعل بعنصر محتوى آخر.",
+        en: "This asset is already linked to another content item.",
+      },
+      CONTENT_ITEM_NOT_FOUND: {
+        ar: "عنصر المحتوى غير موجود.",
+        en: "Content item not found.",
+      },
+      PUBLISHED_CONTENT_IMMUTABLE: {
+        ar: "المحتوى المنشور لا يمكن تعديل وسائطه.",
+        en: "Published content cannot be modified.",
+      },
+      UPLOAD_REGISTRATION_FAILED: {
+        ar: "تعذر تسجيل الملف المرفوع في مكتبة الوسائط.",
+        en: "Failed to register uploaded file in Media Library.",
+      },
+      UPLOAD_FAILED: {
+        ar: "تعذر رفع الملف من الجهاز.",
+        en: "Failed to upload file from device.",
+      },
+      MEDIA_LINK_FAILED: {
+        ar: "تعذر ربط الوسائط بالمحتوى.",
+        en: "Failed to link media to content.",
+      },
+    };
+    return (code && messages[code]?.[language]) ?? (code || (language === "ar" ? "تعذر ربط الوسائط." : "Media link failed."));
+  }
+
   async function handleLinkMedia(item: ContentBatchItem, assetId: string) {
     if (!session || !canWrite || busy || mediaActionBusyId || !assetId) return;
     setMediaActionBusyId(item.id);
     setDesignNotice("");
     try {
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/link_staff_media_to_content_item`, {
-        method: "POST",
-        headers: {
-          apikey: SUPABASE_PUBLIC_KEY,
-          Authorization: `Bearer ${session.accessToken}`,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({ p_content_item_id: item.id, p_media_asset_id: assetId }),
-        cache: "no-store",
-      });
-      if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
-      const res = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-      if (!response.ok || res.success !== true) throw new Error(typeof res.code === "string" ? res.code : "MEDIA_LINK_FAILED");
+      await linkMediaToItem(item.id, assetId);
       setDesignNotice(language === "ar" ? "تم ربط الأصل من المكتبة بنجاح وهو الآن قيد المراجعة." : "Media asset linked successfully and is now in review.");
       onMediaLinked?.();
     } catch (cause) {
       if (cause instanceof Error && cause.message === "SESSION_EXPIRED") onSessionExpired?.();
-      else setDesignNotice(cause instanceof Error ? cause.message : "MEDIA_LINK_FAILED");
+      else setDesignNotice(mediaLinkErrorMessage(cause instanceof Error ? cause.message : undefined));
     } finally {
       setMediaActionBusyId(null);
     }
@@ -344,10 +384,52 @@ export function ContentBatchReviewPanel({
       const newAssetId = typeof reg.mediaAssetId === "string" ? reg.mediaAssetId : "";
       if (!registerRes.ok || !newAssetId) throw new Error("UPLOAD_REGISTRATION_FAILED");
 
-      await handleLinkMedia(item, newAssetId);
+      const updateRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/update_staff_media_asset`, {
+        method: "POST",
+        headers: {
+          apikey: SUPABASE_PUBLIC_KEY,
+          Authorization: `Bearer ${session.accessToken}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          p_media_asset_id: newAssetId,
+          p_category: "swimming_business",
+          p_consent_status: "consent_confirmed",
+          p_media_status: "approved",
+        }),
+      });
+      if (updateRes.status === 401 || updateRes.status === 403) throw new Error("SESSION_EXPIRED");
+
+      const analysisRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/save_staff_media_ai_analysis`, {
+        method: "POST",
+        headers: {
+          apikey: SUPABASE_PUBLIC_KEY,
+          Authorization: `Bearer ${session.accessToken}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          p_media_asset_id: newAssetId,
+          p_analysis: {
+            containsChildrenGuess: "no",
+            containsPeopleGuess: "unknown",
+            consentRequired: false,
+            reviewRequired: false,
+            source: "direct_upload",
+          },
+          p_provider: "local_heuristic",
+        }),
+      });
+      if (analysisRes.status === 401 || analysisRes.status === 403) throw new Error("SESSION_EXPIRED");
+
+      await linkMediaToItem(item.id, newAssetId);
+      setDesignNotice(language === "ar" ? "تم رفع الملف من الجهاز وربطه بالمحتوى بنجاح وهو الآن قيد المراجعة." : "File uploaded from device and linked to content successfully. Now in review.");
+      onMediaLinked?.();
     } catch (cause) {
       if (cause instanceof Error && cause.message === "SESSION_EXPIRED") onSessionExpired?.();
-      else setDesignNotice(cause instanceof Error ? cause.message : "UPLOAD_FAILED");
+      else setDesignNotice(mediaLinkErrorMessage(cause instanceof Error ? cause.message : "UPLOAD_FAILED"));
+    } finally {
       setMediaActionBusyId(null);
     }
   }
@@ -415,20 +497,7 @@ export function ContentBatchReviewPanel({
       });
       const mediaAssetId = typeof result.mediaAssetId === "string" ? result.mediaAssetId : "";
       if (!mediaAssetId) throw new Error("VEO_MEDIA_ASSET_MISSING");
-      const linkResult = await fetch(SUPABASE_URL + "/rest/v1/rpc/link_staff_media_to_content_item", {
-        method: "POST",
-        headers: {
-          apikey: SUPABASE_PUBLIC_KEY,
-          Authorization: "Bearer " + session.accessToken,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({ p_content_item_id: item.id, p_media_asset_id: mediaAssetId }),
-        cache: "no-store",
-      });
-      if (linkResult.status === 401 || linkResult.status === 403) throw new Error("SESSION_EXPIRED");
-      const linked = (await linkResult.json().catch(() => ({}))) as Record<string, unknown>;
-      if (!linkResult.ok || linked.success !== true) throw new Error(typeof linked.code === "string" ? linked.code : "MEDIA_LINK_FAILED");
+      await linkMediaToItem(item.id, mediaAssetId);
       setVideoNotice(language === "ar" ? "تم إنشاء الفيديو وحفظه وربطه بالمحتوى. عاد للمراجعة قبل أي نشر." : "Video generated, stored, and linked to the content. It is back in review before any publish.");
       setVideoTargetId(null);
       onMediaLinked?.();
@@ -608,9 +677,10 @@ export function ContentBatchReviewPanel({
                           <option value="">{language === "ar" ? "— اختر صورة/فيديو من المكتبة —" : "— Select asset from library —"}</option>
                           {mediaAssets.map((asset) => {
                             const assetName = typeof asset.metadata?.file_name === "string" ? asset.metadata.file_name : typeof asset.metadata?.name === "string" ? asset.metadata.name : asset.id.slice(0, 8);
+                            const ready = canUseInMarketingBatch(asset);
                             return (
                               <option key={asset.id} value={asset.id}>
-                                {assetName} ({asset.category || asset.assetType})
+                                {ready ? "✅ " : "⏳ "}{assetName} ({asset.category || asset.assetType})
                               </option>
                             );
                           })}

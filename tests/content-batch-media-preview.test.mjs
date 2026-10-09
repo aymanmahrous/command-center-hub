@@ -30,3 +30,19 @@ test("content factory consumes the existing Coach Brain handoff as supporting co
   assert.match(hub, /researchContext: coachBrainContext/);
   assert.match(hub, /canonical Academy Knowledge remains the existing source/);
 });
+
+test("batch review panel integrates direct library picker and decoupled upload-and-link helper", () => {
+  assert.match(panel, /content-media-source-selector/);
+  assert.match(panel, /link_staff_media_to_content_item/);
+  assert.match(panel, /uploadStaffMediaFile/);
+  assert.match(panel, /register_staff_media_upload/);
+  assert.match(panel, /linkMediaToItem/);
+  assert.match(panel, /canUseInMarketingBatch\(asset\)/);
+});
+
+test("coach brain edge function prompt enforces 3-part executive mandate", async () => {
+  const coachBrain = await readFile(new URL("../supabase/functions/coach-brain-research/index.ts", import.meta.url), "utf8");
+  assert.match(coachBrain, /## 1\. الخلاصة والرأي الموصى به/);
+  assert.match(coachBrain, /## 2\. أفضل خطوة تالية وسبب اختيارها/);
+  assert.match(coachBrain, /## 3\. التكلفة المتوقعة والمخاطر أو القيود/);
+});
