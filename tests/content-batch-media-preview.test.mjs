@@ -38,7 +38,7 @@ test("batch review panel integrates direct library picker and safe upload regist
   assert.match(panel, /register_staff_media_upload/);
   assert.match(panel, /linkMediaToItem/);
   assert.match(panel, /canUseInMarketingBatch\(asset\)/);
-  assert.match(panel, /الرفع وحده لا يثبت الموافقة/);
+  assert.match(panel, /الرفع لا يثبت الموافقة/);
 });
 
 test("coach brain edge function prompt enforces evidence-based pedagogy and 5-part concise response", async () => {
