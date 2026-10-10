@@ -48,14 +48,6 @@ const sections = [
   ["workspace", Library, "x"],
 ] as const;
 
-const navigationGroups = [
-  { id: "home", label: "home", items: ["dashboard"] },
-  { id: "factory", label: "factory", items: ["content"] },
-  { id: "inbox", label: "inbox", items: ["inbox"] },
-  { id: "media", label: "media", items: ["media"] },
-  { id: "operations", label: "operations", items: ["automations"] },
-] as const;
-
 type SectionId = (typeof sections)[number][0];
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 type Role = "super_admin" | "admin" | "reception" | "coach" | "content_manager";
