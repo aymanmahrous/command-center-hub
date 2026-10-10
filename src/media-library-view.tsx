@@ -1,4 +1,3 @@
-import "./media-library.css";
 import { useEffect, useMemo, useState } from "react";
 import { Library } from "lucide-react";
 import { z } from "zod";

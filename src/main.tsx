@@ -12,6 +12,7 @@ import "./styles.css";
 import "./bookings.css";
 import "./content-studio.css";
 import "./analytics.css";
+import "./media-library.css";
 import "./system-polish.css";
 
 const MediaLibraryView = lazy(() => import("./media-library-view"));
