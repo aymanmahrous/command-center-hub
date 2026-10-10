@@ -386,10 +386,11 @@ export function ContentBatchReviewPanel({
       const reg = (await registerRes.json().catch(() => ({}))) as Record<string, unknown>;
       const newAssetId = typeof reg.mediaAssetId === "string" ? reg.mediaAssetId : "";
       if (!registerRes.ok || !newAssetId) throw new Error("UPLOAD_REGISTRATION_FAILED");
+      await linkMediaToItem(item.id, newAssetId);
 
       setDesignNotice(language === "ar"
-        ? "تم رفع الملف وحفظه بأمان في مكتبة الوسائط. الرفع وحده لا يثبت الموافقة؛ يبقى الأصل في حالة مراجعة آمنة حتى استيفاء الإجراء وتأكيد الموافقة."
-        : "File uploaded safely to Media Library. Upload alone does not prove consent; the asset remains in safe review pending proper consent confirmation.");
+        ? "تم رفع الملف وربطه بالمحتوى وإعادته للمراجعة. الرفع وحده لا يثبت الموافقة؛ لن يحدث نشر تلقائي."
+        : "File uploaded and linked to this content for review. Upload alone does not prove consent; nothing is published automatically.");
       setReplacingMediaItemId(null);
       onMediaLinked?.();
     } catch (cause) {
