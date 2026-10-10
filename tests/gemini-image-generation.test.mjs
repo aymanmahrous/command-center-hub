@@ -30,6 +30,15 @@ test("estimate mode returns cost without sending a generation request", () => {
   assert.doesNotMatch(estimateBranch, /fetch\(|storage\.from|from\("media_assets"\)/);
 });
 
+test("target content is validated before the billable Google image request", () => {
+  const targetRead = edge.indexOf('.from("content_items")');
+  const providerRequest = edge.indexOf("fetch(GEMINI_INTERACTIONS_URL");
+  assert.ok(targetRead >= 0 && providerRequest > targetRead);
+  assert.match(edge, /CONTENT_ITEM_NOT_FOUND/);
+  assert.match(edge, /PUBLISHED_CONTENT_IMMUTABLE/);
+  assert.match(edge, /CONTENT_ITEM_READ_FAILED/);
+});
+
 test("generated image is stored as a reviewable asset, not published", () => {
   assert.match(edge, /source: "ai_generated"/);
   assert.match(edge, /provider: "google_gemini"/);
