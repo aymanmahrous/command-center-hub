@@ -29,9 +29,16 @@ test("Approval Center is a review-only owner surface over existing sections", as
   assert.match(tower, /No external action runs from this screen/);
 });
 
-test("Home keeps Coach Brain as the primary owner entry without duplicating operational modules in navigation", () => {
+test("Owner navigation keeps core destinations visible and advanced tools under More", () => {
   assert.match(main, /active === "dashboard" \? .*ControlTowerV2/s);
-  assert.match(main, /const primary = \[\s*\["brain", Bot, nav\.brain\]\,?\s*\] as const;/);
-  assert.match(main, /const desktopPrimary = \[\s*\["brain", Bot, nav\.brain\]\,?\s*\] as const;/);
-  assert.match(main, /const morePanel = null;/);
+  assert.match(main, /\["dashboard", LayoutDashboard, nav\.dashboard\]/);
+  assert.match(main, /\["brain", Bot, nav\.brain\]/);
+  assert.match(main, /\["content", Bot, nav\.factory\]/);
+  assert.match(main, /\["inbox", Inbox, nav\.inbox\]/);
+  assert.match(main, /\["media", Library, nav\.media\]/);
+  assert.match(main, /\["automations", Workflow, nav\.automations\]/);
+  assert.match(main, /const desktopPrimary = primary;/);
+  assert.match(main, /const moreIds: SectionId\[\] = \["today", "planner", "crm", "connections", "analytics", "radar", "archive", "workspace", "integrations"\]/);
+  assert.doesNotMatch(main, /const morePanel = null;/);
+  assert.match(main, /aria-expanded=\{moreOpen\}/);
 });
