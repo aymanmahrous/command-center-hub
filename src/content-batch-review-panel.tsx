@@ -536,8 +536,8 @@ export function ContentBatchReviewPanel({
       {workspaceMode === "reels" && (
         <div className="content-batch-design-notice" role="status">
           {language === "ar"
-            ? `تحليل واقتراح Reel موجود متاح داخل هذه المساحة. توليد فيديو فعلي: ${videoCapabilityState === "AVAILABLE" ? "متاح" : "LIMITED — يحتاج مزود فيديو حقيقيًا ومتحققًا."}`
-            : `Existing Reel analysis and proposals are available here. Actual video generation: ${videoCapabilityState === "AVAILABLE" ? "AVAILABLE" : "LIMITED — a verified video provider is required."}`}
+            ? "تحليل واقتراح Reel متاح داخل هذه المساحة. توليد الفيديو الفعلي يتم عبر Google Veo؛ تُفحص الاعتمادات وتُحسب التكلفة قبل بدء التوليد."
+            : "Reel analysis and proposals are available here. Actual video generation uses Google Veo; credentials and estimated cost are checked before generation starts."}
         </div>
       )}
       {workspaceMode === "campaigns" && (
