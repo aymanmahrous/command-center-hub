@@ -1384,7 +1384,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   };
 
   // One owner-facing system: core destinations stay visible; lower-frequency tools live under More.
-  const moreIds: SectionId[] = ["today", "planner", "crm", "connections", "analytics", "radar", "archive", "workspace", "integrations"];
+  const moreIds = ["today", "planner", "crm", "connections", "analytics", "radar", "archive", "workspace", "integrations"] as const;
   const morePanel = <div className="more-panel">
     {moreIds.map((id) => <button key={id} className={active === id ? "active" : ""} onClick={() => { go(id); setMoreOpen(false); }}>
       {nav[id]}
@@ -1399,7 +1399,6 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     ["media", Library, nav.media],
     ["automations", Workflow, nav.automations],
   ] as const;
-  const desktopPrimary = primary;
 
   return <div className="app-shell">
     <a className="skip-link" href="#main-workspace">{nav.skipToContent}</a>
@@ -1413,7 +1412,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
         <nav aria-label="وحدات Command Center">
         <div className="nav-group">
           <span className="nav-group-label">{language === "ar" ? "التنقل الرئيسي" : "MAIN NAVIGATION"}</span>
-          {desktopPrimary.map(([id, Icon, label]) => {
+          {primary.map(([id, Icon, label]) => {
             const sectionId = id as SectionId;
             return <button type="button" key={sectionId} className={active === sectionId ? "active" : ""} aria-current={active === sectionId ? "page" : undefined} onClick={() => { go(sectionId); setMoreOpen(false); }}>
               <Icon size={18} aria-hidden="true" /><span>{label}</span>
