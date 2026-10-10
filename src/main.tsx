@@ -1423,9 +1423,8 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
             <Settings2 size={18} /><span>{moreLabel}</span>
           </button>
         </div>
-        <span className="nav-owner-mode">{language === "ar" ? "Coach Brain هو مركز التشغيل" : "Coach Brain is the operating center"}</span>
       </nav>
-      <button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button>
+      <button type="button" className="logout" onClick={onLogout}><LogOut size={18} />{nav.logout}</button>
     </aside>
 
     <main className="workspace" id="main-workspace" tabIndex={-1}>
@@ -1436,7 +1435,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
         </div>
         <div className="owner-header-actions">
           <button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button>
-          <button type="button" className="logout mobile-logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" /></button>
+          <button type="button" className="logout mobile-logout" onClick={onLogout}><LogOut size={18} /></button>
         </div>
       </header>
 
