@@ -1402,7 +1402,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   ] as const;
   const renderPrimary = () => primary.map(([id, Icon, label]) => (
     <button key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => go(id)}>
-      <Icon size={18} aria-hidden="true" /><span>{label}</span>
+      <Icon size={18} /><span>{label}</span>
     </button>
   ));
 
@@ -1420,7 +1420,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
           <span className="nav-group-label">{language === "ar" ? "التنقل الرئيسي" : "MAIN NAVIGATION"}</span>
           {renderPrimary()}
           <button aria-expanded={moreOpen} onClick={toggleMore}>
-            <Settings2 size={18} aria-hidden="true" /><span>{moreLabel}</span>
+            <Settings2 size={18} /><span>{moreLabel}</span>
           </button>
         </div>
         <span className="nav-owner-mode">{language === "ar" ? "Coach Brain هو مركز التشغيل" : "Coach Brain is the operating center"}</span>
@@ -1473,9 +1473,8 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
       <nav className="owner-mobile-nav" aria-label={language === "ar" ? "التنقل الرئيسي" : "Primary navigation"}>
         {renderPrimary()}
         <button aria-expanded={moreOpen} onClick={toggleMore}>
-          <Settings2 size={18} aria-hidden="true" /><span>{moreLabel}</span>
+          <Settings2 size={18} /><span>{moreLabel}</span>
         </button>
-        <span className="nav-owner-mode">{language === "ar" ? "Coach Brain هو مركز التشغيل" : "Coach Brain is the operating center"}</span>
       </nav>
     </main>
   </div>;
