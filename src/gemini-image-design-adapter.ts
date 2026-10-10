@@ -68,56 +68,23 @@ export async function generateGeminiImageForContentItem(session: GeminiImageSess
 
 export function geminiImageDesignErrorMessage(code: string | undefined, language: "ar" | "en"): string {
   const messages: Record<string, { ar: string; en: string }> = {
-    GEMINI_CREDENTIAL_MISSING: {
-      ar: "توليد الصور عبر Gemini غير مهيأ على الخادم؛ لم يتم إنشاء صورة أو تحصيل تكلفة.",
-      en: "Gemini image generation is not configured on the server; no image was generated or charged.",
-    },
-    GEMINI_IMAGE_ESTIMATE_MISSING: {
-      ar: "تعذر تأكيد التكلفة قبل إنشاء الصورة.",
-      en: "Could not confirm the estimated cost before image generation.",
-    },
-    GEMINI_IMAGE_REQUEST_FAILED: {
-      ar: "رفض Google طلب إنشاء الصورة. راجع تفاصيل الخطأ قبل إعادة المحاولة.",
-      en: "Google rejected the image-generation request. Review the error details before retrying.",
-    },
-    GEMINI_IMAGE_MISSING: {
-      ar: "لم يُرجع Gemini ملف صورة صالحًا؛ لم يتم تسجيل أصل جديد.",
-      en: "Gemini did not return a valid image file; no new asset was registered.",
-    },
-    MEDIA_STORAGE_UPLOAD_FAILED: {
-      ar: "تم طلب الصورة لكن تعذر حفظها في مكتبة الوسائط.",
-      en: "The image request completed, but saving it to Media Library failed.",
-    },
-    MEDIA_REGISTER_FAILED: {
-      ar: "تعذر تسجيل الصورة في مكتبة الوسائط.",
-      en: "Failed to register the image in Media Library.",
-    },
-    MEDIA_LINK_FAILED: {
-      ar: "تم حفظ الصورة، لكن تعذر ربطها بالمحتوى؛ راجع مكتبة الوسائط.",
-      en: "The image was saved but could not be linked to the content; check Media Library.",
-    },
-    MEDIA_ASSET_NOT_PUBLISHABLE: {
-      ar: "تم حفظ الصورة، لكن ضوابط المكتبة منعت ربطها؛ راجع حالة الأصل في مكتبة الوسائط.",
-      en: "The image was saved, but Media Library safeguards blocked linking; review the asset status.",
-    },
-    MEDIA_ASSET_ALREADY_LINKED: {
-      ar: "الصورة مرتبطة بالفعل بعنصر محتوى آخر.",
-      en: "This image is already linked to another content item.",
-    },
-    CONTENT_ITEM_NOT_FOUND: {
-      ar: "عنصر المحتوى لم يعد موجودًا؛ لم يتم طلب توليد الصورة.",
-      en: "The content item no longer exists; no image generation was requested.",
-    },
-    CONTENT_ITEM_READ_FAILED: {
-      ar: "تعذر التحقق من عنصر المحتوى؛ لم يتم طلب توليد الصورة.",
-      en: "Could not validate the content item; no image generation was requested.",
-    },
-    PUBLISHED_CONTENT_IMMUTABLE: {
-      ar: "لا يمكن تغيير وسائط محتوى منشور؛ الصورة محفوظة في المكتبة.",
-      en: "Published content media cannot be changed; the image remains in Media Library.",
-    },
+    GEMINI_CREDENTIAL_MISSING: { ar: "Gemini غير مهيأ على الخادم؛ لم تُنشأ صورة.", en: "Gemini image generation isn't configured; no image was created." },
+    GEMINI_IMAGE_ESTIMATE_MISSING: { ar: "تعذر تأكيد التكلفة.", en: "Could not confirm the estimated cost." },
+    GEMINI_IMAGE_REQUEST_FAILED: { ar: "رفض Google طلب الصورة.", en: "Google rejected the image request." },
+    GEMINI_IMAGE_MISSING: { ar: "لم يُرجع Gemini صورة صالحة.", en: "Gemini returned no valid image." },
+    MEDIA_STORAGE_UPLOAD_FAILED: { ar: "تعذر حفظ الصورة في المكتبة.", en: "Could not save the image to Media Library." },
+    MEDIA_REGISTER_FAILED: { ar: "تعذر تسجيل الصورة في المكتبة.", en: "Could not register the image in Media Library." },
+    MEDIA_ASSET_NOT_PUBLISHABLE: { ar: "الصورة محفوظة، لكن ضوابط المكتبة منعت الربط.", en: "Image saved; Media Library safeguards blocked linking." },
+    MEDIA_ASSET_ALREADY_LINKED: { ar: "الصورة مرتبطة بمحتوى آخر.", en: "Image is already linked to other content." },
+    CONTENT_ITEM_NOT_FOUND: { ar: "عنصر المحتوى غير موجود؛ لم يُطلب التوليد.", en: "Content item not found; generation was not requested." },
+    CONTENT_ITEM_READ_FAILED: { ar: "تعذر التحقق من المحتوى؛ لم يُطلب التوليد.", en: "Could not validate content; generation was not requested." },
+    PUBLISHED_CONTENT_IMMUTABLE: { ar: "المحتوى منشور؛ لا يمكن تغيير وسائطه.", en: "Content is published; its media cannot be changed." },
   };
   if (code === "SESSION_EXPIRED") return language === "ar" ? "انتهت الجلسة؛ سجّل الدخول مجددًا." : "Session expired; sign in again.";
   const key = code?.split(/[ (:]/, 1)[0] ?? "";
-  return messages[key]?.[language] ?? code ?? (language === "ar" ? "تعذر إنشاء الصورة عبر Gemini." : "Gemini image generation failed.");
+  const message = messages[key]?.[language] ?? code ?? (language === "ar" ? "تعذر إنشاء الصورة." : "Image generation failed.");
+  const detail = key === "GEMINI_IMAGE_REQUEST_FAILED" && code?.includes(":")
+    ? code.slice(code.indexOf(":") + 1).trim().slice(0, 100)
+    : "";
+  return detail ? `${message} — ${detail}` : message;
 }
