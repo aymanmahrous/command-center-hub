@@ -18,7 +18,6 @@ import { readContentPillar, readTimeSlot } from "./content-strategy";
 import { readPublishingCopy } from "./content-publishing-copy";
 import { ContentBatchMediaPreview } from "./content-batch-media-preview";
 import { canvaDesignErrorMessage, generateCanvaDesignForContentItem } from "./canva-design-adapter";
-import { estimateGeminiImageGeneration, generateGeminiImageForContentItem, geminiImageDesignErrorMessage } from "./gemini-image-design-adapter";
 import { uploadStaffMediaFile } from "./staff-media-storage";
 import { canUseInMarketingBatch, type MediaAssetRecord } from "./media-types";
 import type { CapabilityState } from "./content-growth";
@@ -273,6 +272,7 @@ export function ContentBatchReviewPanel({
         return;
       }
       if (provider === "gemini") {
+        const { estimateGeminiImageGeneration, generateGeminiImageForContentItem } = await import("./gemini-image-design-adapter");
         const estimate = await estimateGeminiImageGeneration(session);
         const confirmed = window.confirm(language === "ar"
           ? "إنشاء صورة عبر Gemini. التكلفة التقديرية للصورة الواحدة بدقة 1K: $" + estimate.estimatedCostUsd.toFixed(3) + " تقريبًا. قد تختلف التكلفة الفعلية. هل تريد المتابعة؟"
@@ -300,9 +300,12 @@ export function ContentBatchReviewPanel({
     } catch (cause) {
       if (cause instanceof Error && cause.message === "SESSION_EXPIRED") throw cause;
       const code = cause instanceof Error ? cause.message : undefined;
-      setDesignNotice(activeProvider === "gemini"
-        ? geminiImageDesignErrorMessage(code, language)
-        : canvaDesignErrorMessage(code));
+      if (activeProvider === "gemini") {
+        const { geminiImageDesignErrorMessage } = await import("./gemini-image-design-adapter");
+        setDesignNotice(geminiImageDesignErrorMessage(code, language));
+      } else {
+        setDesignNotice(canvaDesignErrorMessage(code));
+      }
     } finally {
       setDesignBusyId(null);
     }
