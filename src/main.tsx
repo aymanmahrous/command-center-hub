@@ -1383,21 +1383,23 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     else if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.pushState({ section: id }, "", nextUrl);
   };
 
-  // Owner surface: Coach Brain is the only normal destination.
-  // Existing modules remain implemented and reachable by internal routing/legacy URLs,
-  // but are deliberately removed from the owner's navigation model.
-  const morePanel = null;
+  // One owner-facing system: core destinations stay visible; lower-frequency tools live under More.
+  const moreIds: SectionId[] = ["today", "planner", "crm", "connections", "analytics", "radar", "archive", "workspace", "integrations"];
+  const morePanel = <div className="more-panel" role="group" aria-label={language === "ar" ? "أدوات إضافية" : "More tools"}>
+    {moreIds.map((id) => <button type="button" key={id} className={active === id ? "active" : ""} onClick={() => { go(id); setMoreOpen(false); }}>
+      <span>{nav[id]}</span>
+    </button>)}
+  </div>;
 
-  // Owner-first navigation: keep the daily surface simple and operational.
-  // Advanced modules remain reachable through More; no feature is removed.
-  // Coach Brain is the primary owner entry point. Production capabilities remain available,
-  // but Factory/Media/Operations are not repeated in the main navigation.
   const primary = [
+    ["dashboard", LayoutDashboard, nav.dashboard],
     ["brain", Bot, nav.brain],
+    ["content", Bot, nav.factory],
+    ["inbox", Inbox, nav.inbox],
+    ["media", Library, nav.media],
+    ["automations", Workflow, nav.automations],
   ] as const;
-  const desktopPrimary = [
-    ["brain", Bot, nav.brain],
-  ] as const;
+  const desktopPrimary = primary;
 
   return <div className="app-shell">
     <a className="skip-link" href="#main-workspace">{nav.skipToContent}</a>
@@ -1413,10 +1415,13 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
           <span className="nav-group-label">{language === "ar" ? "التنقل الرئيسي" : "MAIN NAVIGATION"}</span>
           {desktopPrimary.map(([id, Icon, label]) => {
             const sectionId = id as SectionId;
-            return <button type="button" key={sectionId} className={active === sectionId ? "active" : ""} aria-current={active === sectionId ? "page" : undefined} onClick={() => go(sectionId)}>
+            return <button type="button" key={sectionId} className={active === sectionId ? "active" : ""} aria-current={active === sectionId ? "page" : undefined} onClick={() => { go(sectionId); setMoreOpen(false); }}>
               <Icon size={18} aria-hidden="true" /><span>{label}</span>
             </button>;
           })}
+          <button type="button" className={moreOpen ? "active" : ""} aria-expanded={moreOpen} onClick={() => setMoreOpen((open) => !open)}>
+            <Settings2 size={18} aria-hidden="true" /><span>{language === "ar" ? "المزيد" : "More"}</span>
+          </button>
         </div>
         <span className="nav-owner-mode">{language === "ar" ? "Coach Brain هو مركز التشغيل" : "Coach Brain is the operating center"}</span>
       </nav>
@@ -1467,10 +1472,13 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
 
       <nav className="owner-mobile-nav" aria-label={language === "ar" ? "التنقل الرئيسي" : "Primary navigation"}>
         {primary.map(([id, Icon, label]) => (
-          <button type="button" key={id} className={active === id ? "active" : ""} onClick={() => go(id)}>
+          <button type="button" key={id} className={active === id ? "active" : ""} onClick={() => { go(id); setMoreOpen(false); }}>
             <Icon size={18} aria-hidden="true" /><span>{label}</span>
           </button>
         ))}
+        <button type="button" className={moreOpen ? "active" : ""} aria-expanded={moreOpen} onClick={() => setMoreOpen((open) => !open)}>
+          <Settings2 size={18} aria-hidden="true" /><span>{language === "ar" ? "المزيد" : "More"}</span>
+        </button>
         <span className="nav-owner-mode">{language === "ar" ? "Coach Brain هو مركز التشغيل" : "Coach Brain is the operating center"}</span>
       </nav>
     </main>
