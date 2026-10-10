@@ -225,7 +225,7 @@ export function ContentBatchReviewPanel({
   function recommendedDesignProvider(item: ContentBatchItem): Exclude<DesignProvider, "auto"> {
     const isVideo = /reel|video/i.test(String(item.contentType));
     if (isVideo) return videoCapabilityState === "AVAILABLE" ? "runway" : "capcut";
-    return designCapabilityState !== "NOT_CONFIGURED" ? "canva" : "manual";
+    return designCapabilityState !== "NOT_CONFIGURED" ? "canva" : "gemini";
   }
 
   function availableDesignProviders(item: ContentBatchItem) {
@@ -253,11 +253,6 @@ export function ContentBatchReviewPanel({
     setDesignNotice("");
     try {
       const requestedProvider = selectedDesignProvider(item);
-      if (requestedProvider === "auto" && designCapabilityState === "NOT_CONFIGURED") {
-        onOpenConnections?.();
-        setDesignBusyId(null);
-        return;
-      }
       const isVideo = /reel|video/i.test(String(item.contentType));
       if (requestedProvider === "auto" && isVideo && videoCapabilityState !== "AVAILABLE") {
         onOpenConnections?.();
