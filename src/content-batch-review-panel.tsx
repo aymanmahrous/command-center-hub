@@ -234,7 +234,7 @@ export function ContentBatchReviewPanel({
       { key: "canva" as const, label: "Canva", available: !isVideo && designCapabilityState !== "NOT_CONFIGURED", detail: language === "ar"
           ? designCapabilityState === "LIMITED" ? "متصل عبر OAuth — سيُتحقق منه بأول تصميم حقيقي" : "تصميم صورة / Carousel"
           : designCapabilityState === "LIMITED" ? "OAuth connected — first real design will verify it" : "Image / carousel design" },
-      { key: "gemini" as const, label: "Gemini Image", available: !isVideo, detail: language === "ar" ? "توليد صورة فعلي عبر Gemini؛ تأكيد التكلفة قبل التنفيذ وحفظ للمراجعة" : "Real Gemini image generation; confirm estimated cost before running, then save for review" },
+      { key: "gemini" as const, label: "Gemini Image", available: !isVideo, detail: language === "ar" ? "توليد صورة عبر Gemini مع تأكيد التكلفة" : "Gemini image generation; confirm cost first" },
       { key: "chatgpt" as const, label: "ChatGPT", available: false, detail: language === "ar" ? "توليد بصري — غير موصول داخل المصنع حاليًا" : "Visual generation — not wired into Factory yet" },
       { key: "runway" as const, label: "Runway", available: isVideo && videoCapabilityState === "AVAILABLE", detail: language === "ar" ? "توليد فيديو" : "Video generation" },
       { key: "capcut" as const, label: "CapCut", available: isVideo, detail: language === "ar" ? "تحرير فيديو يدوي" : "Manual video editing" },
