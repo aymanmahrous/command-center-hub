@@ -111,6 +111,19 @@ Deno.serve(async (request) => {
 
   const contentItemId = typeof body.contentItemId === "string" ? body.contentItemId : "";
   if (!/^[0-9a-f-]{36}$/i.test(contentItemId)) return json({ success: false, code: "INVALID_CONTENT_ITEM_ID" }, 400);
+
+  // Validate the target before any billable Google request.
+  const { data: contentItem, error: contentItemError } = await supabase
+    .from("content_items")
+    .select("id, status")
+    .eq("id", contentItemId)
+    .maybeSingle();
+  if (contentItemError) return json({ success: false, code: "CONTENT_ITEM_READ_FAILED" }, 500);
+  if (!contentItem) return json({ success: false, code: "CONTENT_ITEM_NOT_FOUND" }, 404);
+  if (String(contentItem.status ?? "").toLowerCase() === "published") {
+    return json({ success: false, code: "PUBLISHED_CONTENT_IMMUTABLE" }, 409);
+  }
+
   const prompt = promptForImage(body.prompt);
   const response = await fetch(GEMINI_INTERACTIONS_URL, {
     method: "POST",
