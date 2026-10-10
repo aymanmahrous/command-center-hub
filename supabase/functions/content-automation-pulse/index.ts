@@ -245,6 +245,24 @@ async function processOneMediaJob(supabase: ReturnType<typeof createClient>) {
     return { attempts: 1, processed: 0, outcome: { code: "CONTENT_ITEM_READ_FAILED", jobId } };
   }
 
+  // Canva creates PNG images, not Reel/video assets. Do not label a Canva PNG as video
+  // or incur generation calls without an explicitly approved video-provider path.
+  if (String(item.content_type ?? "").toLowerCase() === "reel") {
+    const failed = await supabase.rpc("fail_content_media_job", {
+      p_job_id: jobId,
+      p_error: "VIDEO_PROVIDER_REQUIRES_EXPLICIT_APPROVAL",
+    });
+    return {
+      attempts: 1,
+      processed: 0,
+      outcome: {
+        code: failed.error ? "MEDIA_FAIL_RECORD_FAILED" : "MEDIA_PROVIDER_BLOCKED",
+        jobId,
+        failure: "VIDEO_PROVIDER_REQUIRES_EXPLICIT_APPROVAL",
+      },
+    };
+  }
+
   if (!CONTENT_PUBLISHER_AUTOMATION_SECRET) {
     return { attempts: 1, processed: 0, outcome: { code: "PUBLISHER_AUTOMATION_SECRET_MISSING", jobId, ambiguous: true } };
   }
