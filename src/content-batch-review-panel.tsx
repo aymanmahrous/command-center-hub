@@ -251,6 +251,7 @@ export function ContentBatchReviewPanel({
     if (!session || !canWrite || busy || designBusyId) return;
     setDesignBusyId(item.id);
     setDesignNotice("");
+    let activeProvider = selectedDesignProvider(item);
     try {
       const requestedProvider = selectedDesignProvider(item);
       const isVideo = /reel|video/i.test(String(item.contentType));
@@ -259,6 +260,7 @@ export function ContentBatchReviewPanel({
         return;
       }
       const provider = requestedProvider === "auto" ? recommendedDesignProvider(item) : requestedProvider;
+      activeProvider = provider;
       const providerInfo = availableDesignProviders(item).find((entry) => entry.key === provider);
       if (!providerInfo?.available) {
         if (provider === "runway") {
@@ -298,7 +300,7 @@ export function ContentBatchReviewPanel({
     } catch (cause) {
       if (cause instanceof Error && cause.message === "SESSION_EXPIRED") throw cause;
       const code = cause instanceof Error ? cause.message : undefined;
-      setDesignNotice(selectedDesignProvider(item) === "gemini"
+      setDesignNotice(activeProvider === "gemini"
         ? geminiImageDesignErrorMessage(code, language)
         : canvaDesignErrorMessage(code));
     } finally {
