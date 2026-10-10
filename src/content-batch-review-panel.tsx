@@ -389,8 +389,8 @@ export function ContentBatchReviewPanel({
       await linkMediaToItem(item.id, newAssetId);
 
       setDesignNotice(language === "ar"
-        ? "تم رفع الملف وربطه للمراجعة؛ لا نشر تلقائي."
-        : "Uploaded and linked for review; no automatic publishing.");
+        ? "تم الرفع والربط للمراجعة؛ الرفع لا يثبت الموافقة، ولا نشر تلقائي."
+        : "Uploaded and linked for review; upload isn't consent; no auto-publish.");
       setReplacingMediaItemId(null);
       onMediaLinked?.();
     } catch (cause) {
