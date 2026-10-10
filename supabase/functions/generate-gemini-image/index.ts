@@ -188,7 +188,6 @@ Deno.serve(async (request) => {
       ai_analysis_status: "completed",
       publishability_status: "ready_for_review",
       consent_status: "consent_confirmed",
-      content_item_id: contentItemId,
       updated_at: new Date().toISOString(),
     })
     .select("id")
