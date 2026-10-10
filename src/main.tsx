@@ -1414,7 +1414,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
           <span className="nav-group-label">{language === "ar" ? "التنقل الرئيسي" : "MAIN NAVIGATION"}</span>
           {primary.map(([id, Icon, label]) => {
             const sectionId = id as SectionId;
-            return <button type="button" key={sectionId} className={active === sectionId ? "active" : ""} aria-current={active === sectionId ? "page" : undefined} onClick={() => go(sectionId)}>
+            return <button key={sectionId} className={active === sectionId ? "active" : ""} aria-current={active === sectionId ? "page" : undefined} onClick={() => go(sectionId)}>
               <Icon size={18} aria-hidden="true" /><span>{label}</span>
             </button>;
           })}
