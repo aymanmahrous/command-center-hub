@@ -224,7 +224,7 @@ export function ContentBatchReviewPanel({
   function recommendedDesignProvider(item: ContentBatchItem): Exclude<DesignProvider, "auto"> {
     const isVideo = /reel|video/i.test(String(item.contentType));
     if (isVideo) return videoCapabilityState === "AVAILABLE" ? "runway" : "capcut";
-    return designCapabilityState !== "NOT_CONFIGURED" ? "canva" : "manual";
+    return designCapabilityState !== "NOT_CONFIGURED" ? "canva" : "gemini";
   }
 
   function availableDesignProviders(item: ContentBatchItem) {
@@ -234,7 +234,7 @@ export function ContentBatchReviewPanel({
       { key: "canva" as const, label: "Canva", available: !isVideo && designCapabilityState !== "NOT_CONFIGURED", detail: language === "ar"
           ? designCapabilityState === "LIMITED" ? "متصل عبر OAuth — سيُتحقق منه بأول تصميم حقيقي" : "تصميم صورة / Carousel"
           : designCapabilityState === "LIMITED" ? "OAuth connected — first real design will verify it" : "Image / carousel design" },
-      { key: "gemini" as const, label: "Gemini", available: false, detail: language === "ar" ? "توليد بصري — غير موصول داخل المصنع حاليًا" : "Visual generation — not wired into Factory yet" },
+      { key: "gemini" as const, label: "Gemini Image", available: !isVideo, detail: language === "ar" ? "توليد صورة عبر Gemini مع تأكيد التكلفة" : "Gemini image generation; confirm cost first" },
       { key: "chatgpt" as const, label: "ChatGPT", available: false, detail: language === "ar" ? "توليد بصري — غير موصول داخل المصنع حاليًا" : "Visual generation — not wired into Factory yet" },
       { key: "runway" as const, label: "Runway", available: isVideo && videoCapabilityState === "AVAILABLE", detail: language === "ar" ? "توليد فيديو" : "Video generation" },
       { key: "capcut" as const, label: "CapCut", available: isVideo, detail: language === "ar" ? "تحرير فيديو يدوي" : "Manual video editing" },
@@ -250,19 +250,16 @@ export function ContentBatchReviewPanel({
     if (!session || !canWrite || busy || designBusyId) return;
     setDesignBusyId(item.id);
     setDesignNotice("");
+    let activeProvider = selectedDesignProvider(item);
     try {
       const requestedProvider = selectedDesignProvider(item);
-      if (requestedProvider === "auto" && designCapabilityState === "NOT_CONFIGURED") {
-        onOpenConnections?.();
-        setDesignBusyId(null);
-        return;
-      }
       const isVideo = /reel|video/i.test(String(item.contentType));
       if (requestedProvider === "auto" && isVideo && videoCapabilityState !== "AVAILABLE") {
         onOpenConnections?.();
         return;
       }
       const provider = requestedProvider === "auto" ? recommendedDesignProvider(item) : requestedProvider;
+      activeProvider = provider;
       const providerInfo = availableDesignProviders(item).find((entry) => entry.key === provider);
       if (!providerInfo?.available) {
         if (provider === "runway") {
@@ -272,6 +269,22 @@ export function ContentBatchReviewPanel({
         setDesignNotice(language === "ar"
           ? "هذا المزود ظاهر للاختيار، لكنه غير متصل/غير مدعوم فعليًا في المصنع حاليًا. لم يتم تشغيل أي عملية وهمية."
           : "This provider is shown as an option, but it is not currently connected/supported by the Factory. No fake operation was started.");
+        return;
+      }
+      if (provider === "gemini") {
+        const { estimateGeminiImageGeneration, generateGeminiImageForContentItem } = await import("./gemini-image-design-adapter");
+        const estimate = await estimateGeminiImageGeneration(session);
+        const confirmed = window.confirm(language === "ar"
+          ? "إنشاء صورة عبر Gemini. التكلفة التقديرية للصورة الواحدة بدقة 1K: $" + estimate.estimatedCostUsd.toFixed(3) + " تقريبًا. قد تختلف التكلفة الفعلية. هل تريد المتابعة؟"
+          : "Generate one Gemini image. Estimated cost for a 1K image: approximately $" + estimate.estimatedCostUsd.toFixed(3) + ". Actual charges may vary. Continue?");
+        if (!confirmed) return;
+        const generated = await generateGeminiImageForContentItem(session, item);
+        await linkMediaToItem(item.id, generated.mediaAssetId);
+        setDesignNotice(language === "ar"
+          ? "تم توليد الصورة وحفظها وربطها بالمحتوى. الأصل الآن للمراجعة قبل أي نشر."
+          : "Image generated, stored, and linked to the content. The asset is in review before any publishing.");
+        setReplacingMediaItemId(null);
+        onMediaLinked?.();
         return;
       }
       if (provider !== "canva") {
@@ -286,7 +299,13 @@ export function ContentBatchReviewPanel({
       onMediaLinked?.();
     } catch (cause) {
       if (cause instanceof Error && cause.message === "SESSION_EXPIRED") throw cause;
-      setDesignNotice(canvaDesignErrorMessage(cause instanceof Error ? cause.message : undefined));
+      const code = cause instanceof Error ? cause.message : undefined;
+      if (activeProvider === "gemini") {
+        const { geminiImageDesignErrorMessage } = await import("./gemini-image-design-adapter");
+        setDesignNotice(geminiImageDesignErrorMessage(code, language));
+      } else {
+        setDesignNotice(canvaDesignErrorMessage(code));
+      }
     } finally {
       setDesignBusyId(null);
     }
@@ -536,8 +555,8 @@ export function ContentBatchReviewPanel({
       {workspaceMode === "reels" && (
         <div className="content-batch-design-notice" role="status">
           {language === "ar"
-            ? `تحليل واقتراح Reel موجود متاح داخل هذه المساحة. توليد فيديو فعلي: ${videoCapabilityState === "AVAILABLE" ? "متاح" : "LIMITED — يحتاج مزود فيديو حقيقيًا ومتحققًا."}`
-            : `Existing Reel analysis and proposals are available here. Actual video generation: ${videoCapabilityState === "AVAILABLE" ? "AVAILABLE" : "LIMITED — a verified video provider is required."}`}
+            ? "تحليل واقتراح Reel متاح داخل هذه المساحة. توليد الفيديو الفعلي يتم عبر Google Veo؛ تُفحص الاعتمادات وتُحسب التكلفة قبل بدء التوليد."
+            : "Reel analysis and proposals are available here. Actual video generation uses Google Veo; credentials and estimated cost are checked before generation starts."}
         </div>
       )}
       {workspaceMode === "campaigns" && (
