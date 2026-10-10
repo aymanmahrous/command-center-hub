@@ -12,7 +12,6 @@ import "./styles.css";
 import "./bookings.css";
 import "./content-studio.css";
 import "./analytics.css";
-import "./media-library.css";
 import "./integrations.css";
 import "./system-polish.css";
 
@@ -1394,7 +1393,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     ["automations", Workflow, nav.automations],
   ] as const;
   const renderPrimary = () => primary.map(([id, Icon, label]) => (
-    <button key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => go(id)}>
+    <button key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : null} onClick={() => go(id)}>
       <Icon size={18} /><span>{label}</span>
     </button>
   ));
