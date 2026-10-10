@@ -1385,9 +1385,9 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
 
   // One owner-facing system: core destinations stay visible; lower-frequency tools live under More.
   const moreIds: SectionId[] = ["today", "planner", "crm", "connections", "analytics", "radar", "archive", "workspace", "integrations"];
-  const morePanel = <div className="more-panel" role="group" aria-label={language === "ar" ? "أدوات إضافية" : "More tools"}>
-    {moreIds.map((id) => <button type="button" key={id} className={active === id ? "active" : ""} onClick={() => { go(id); setMoreOpen(false); }}>
-      <span>{nav[id]}</span>
+  const morePanel = <div className="more-panel">
+    {moreIds.map((id) => <button key={id} className={active === id ? "active" : ""} onClick={() => { go(id); setMoreOpen(false); }}>
+      {nav[id]}
     </button>)}
   </div>;
 
