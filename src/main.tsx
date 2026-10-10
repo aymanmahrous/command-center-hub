@@ -1401,6 +1401,11 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     ["media", Library, nav.media],
     ["automations", Workflow, nav.automations],
   ] as const;
+  const renderPrimary = () => primary.map(([id, Icon, label]) => (
+    <button key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => go(id)}>
+      <Icon size={18} aria-hidden="true" /><span>{label}</span>
+    </button>
+  ));
 
   return <div className="app-shell">
     <a className="skip-link" href="#main-workspace">{nav.skipToContent}</a>
@@ -1414,12 +1419,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
         <nav aria-label="وحدات Command Center">
         <div className="nav-group">
           <span className="nav-group-label">{language === "ar" ? "التنقل الرئيسي" : "MAIN NAVIGATION"}</span>
-          {primary.map(([id, Icon, label]) => {
-            const sectionId = id as SectionId;
-            return <button key={sectionId} className={active === sectionId ? "active" : ""} aria-current={active === sectionId ? "page" : undefined} onClick={() => go(sectionId)}>
-              <Icon size={18} aria-hidden="true" /><span>{label}</span>
-            </button>;
-          })}
+          {renderPrimary()}
           <button aria-expanded={moreOpen} onClick={toggleMore}>
             <Settings2 size={18} aria-hidden="true" /><span>{moreLabel}</span>
           </button>
@@ -1472,11 +1472,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
       </section>
 
       <nav className="owner-mobile-nav" aria-label={language === "ar" ? "التنقل الرئيسي" : "Primary navigation"}>
-        {primary.map(([id, Icon, label]) => (
-          <button type="button" key={id} className={active === id ? "active" : ""} onClick={() => go(id)}>
-            <Icon size={18} aria-hidden="true" /><span>{label}</span>
-          </button>
-        ))}
+        {renderPrimary()}
         <button aria-expanded={moreOpen} onClick={toggleMore}>
           <Settings2 size={18} aria-hidden="true" /><span>{moreLabel}</span>
         </button>
