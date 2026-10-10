@@ -1385,6 +1385,8 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
 
   // One owner-facing system: core destinations stay visible; lower-frequency tools live under More.
   const moreIds = ["today", "planner", "crm", "connections", "analytics", "radar", "archive", "workspace", "integrations"] as const;
+  const moreLabel = language === "ar" ? "المزيد" : "More";
+  const toggleMore = () => setMoreOpen(!moreOpen);
   const morePanel = <div className="more-panel">
     {moreIds.map((id) => <button key={id} onClick={() => go(id)}>
       {nav[id]}
@@ -1418,8 +1420,8 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
               <Icon size={18} aria-hidden="true" /><span>{label}</span>
             </button>;
           })}
-          <button aria-expanded={moreOpen} onClick={() => setMoreOpen((open) => !open)}>
-            <Settings2 size={18} aria-hidden="true" /><span>{language === "ar" ? "المزيد" : "More"}</span>
+          <button aria-expanded={moreOpen} onClick={toggleMore}>
+            <Settings2 size={18} aria-hidden="true" /><span>{moreLabel}</span>
           </button>
         </div>
         <span className="nav-owner-mode">{language === "ar" ? "Coach Brain هو مركز التشغيل" : "Coach Brain is the operating center"}</span>
@@ -1475,8 +1477,8 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
             <Icon size={18} aria-hidden="true" /><span>{label}</span>
           </button>
         ))}
-        <button aria-expanded={moreOpen} onClick={() => setMoreOpen((open) => !open)}>
-          <Settings2 size={18} aria-hidden="true" /><span>{language === "ar" ? "المزيد" : "More"}</span>
+        <button aria-expanded={moreOpen} onClick={toggleMore}>
+          <Settings2 size={18} aria-hidden="true" /><span>{moreLabel}</span>
         </button>
         <span className="nav-owner-mode">{language === "ar" ? "Coach Brain هو مركز التشغيل" : "Coach Brain is the operating center"}</span>
       </nav>
