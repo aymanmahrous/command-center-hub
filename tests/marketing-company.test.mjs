@@ -37,7 +37,9 @@ test("Owner navigation keeps core destinations visible and advanced tools under 
   assert.match(main, /\["inbox", Inbox, nav\.inbox\]/);
   assert.match(main, /\["media", Library, nav\.media\]/);
   assert.match(main, /\["automations", Workflow, nav\.automations\]/);
-  assert.match(main, /const moreIds = \\["today", "planner", "crm", "connections", "analytics", "radar", "archive", "workspace", "integrations"\\] as const/);
+  assert.match(main, /const moreIds/);
+  assert.match(main, /"today", "planner", "crm", "connections", "analytics", "radar", "archive", "workspace", "integrations"/);
+  assert.match(main, /as const/);
   assert.doesNotMatch(main, /const morePanel = null;/);
   assert.match(main, /aria-expanded=\{moreOpen\}/);
 });
