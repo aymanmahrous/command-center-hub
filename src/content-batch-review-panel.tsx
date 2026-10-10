@@ -18,6 +18,7 @@ import { readContentPillar, readTimeSlot } from "./content-strategy";
 import { readPublishingCopy } from "./content-publishing-copy";
 import { ContentBatchMediaPreview } from "./content-batch-media-preview";
 import { canvaDesignErrorMessage, generateCanvaDesignForContentItem } from "./canva-design-adapter";
+import { estimateGeminiImageGeneration, generateGeminiImageForContentItem, geminiImageDesignErrorMessage } from "./gemini-image-design-adapter";
 import { uploadStaffMediaFile } from "./staff-media-storage";
 import { canUseInMarketingBatch, type MediaAssetRecord } from "./media-types";
 import type { CapabilityState } from "./content-growth";
@@ -234,7 +235,7 @@ export function ContentBatchReviewPanel({
       { key: "canva" as const, label: "Canva", available: !isVideo && designCapabilityState !== "NOT_CONFIGURED", detail: language === "ar"
           ? designCapabilityState === "LIMITED" ? "متصل عبر OAuth — سيُتحقق منه بأول تصميم حقيقي" : "تصميم صورة / Carousel"
           : designCapabilityState === "LIMITED" ? "OAuth connected — first real design will verify it" : "Image / carousel design" },
-      { key: "gemini" as const, label: "Gemini", available: false, detail: language === "ar" ? "توليد بصري — غير موصول داخل المصنع حاليًا" : "Visual generation — not wired into Factory yet" },
+      { key: "gemini" as const, label: "Gemini Image", available: !isVideo, detail: language === "ar" ? "توليد صورة فعلي عبر Gemini؛ تأكيد التكلفة قبل التنفيذ وحفظ للمراجعة" : "Real Gemini image generation; confirm estimated cost before running, then save for review" },
       { key: "chatgpt" as const, label: "ChatGPT", available: false, detail: language === "ar" ? "توليد بصري — غير موصول داخل المصنع حاليًا" : "Visual generation — not wired into Factory yet" },
       { key: "runway" as const, label: "Runway", available: isVideo && videoCapabilityState === "AVAILABLE", detail: language === "ar" ? "توليد فيديو" : "Video generation" },
       { key: "capcut" as const, label: "CapCut", available: isVideo, detail: language === "ar" ? "تحرير فيديو يدوي" : "Manual video editing" },
@@ -274,6 +275,21 @@ export function ContentBatchReviewPanel({
           : "This provider is shown as an option, but it is not currently connected/supported by the Factory. No fake operation was started.");
         return;
       }
+      if (provider === "gemini") {
+        const estimate = await estimateGeminiImageGeneration(session);
+        const confirmed = window.confirm(language === "ar"
+          ? "إنشاء صورة عبر Gemini. التكلفة التقديرية للصورة الواحدة بدقة 1K: $" + estimate.estimatedCostUsd.toFixed(3) + " تقريبًا. قد تختلف التكلفة الفعلية. هل تريد المتابعة؟"
+          : "Generate one Gemini image. Estimated cost for a 1K image: approximately $" + estimate.estimatedCostUsd.toFixed(3) + ". Actual charges may vary. Continue?");
+        if (!confirmed) return;
+        const generated = await generateGeminiImageForContentItem(session, item);
+        await linkMediaToItem(item.id, generated.mediaAssetId);
+        setDesignNotice(language === "ar"
+          ? "تم توليد الصورة وحفظها وربطها بالمحتوى. الأصل الآن للمراجعة قبل أي نشر."
+          : "Image generated, stored, and linked to the content. The asset is in review before any publishing.");
+        setReplacingMediaItemId(null);
+        onMediaLinked?.();
+        return;
+      }
       if (provider !== "canva") {
         setDesignNotice(language === "ar"
           ? provider === "runway" ? "Runway هو اختيار الفيديو، لكن التنفيذ الآلي يتطلب اتصالًا متحققًا به. لا ندّعي توليدًا غير موجود." : provider === "capcut" ? "CapCut متاح هنا كمسار تحرير يدوي؛ الـBrief جاهز." : "تم اختيار المسار اليدوي؛ استخدم الـBrief الجاهز."
@@ -286,7 +302,10 @@ export function ContentBatchReviewPanel({
       onMediaLinked?.();
     } catch (cause) {
       if (cause instanceof Error && cause.message === "SESSION_EXPIRED") throw cause;
-      setDesignNotice(canvaDesignErrorMessage(cause instanceof Error ? cause.message : undefined));
+      const code = cause instanceof Error ? cause.message : undefined;
+      setDesignNotice(selectedDesignProvider(item) === "gemini"
+        ? geminiImageDesignErrorMessage(code, language)
+        : canvaDesignErrorMessage(code));
     } finally {
       setDesignBusyId(null);
     }
