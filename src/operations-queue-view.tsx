@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { z } from "zod";
 import { useLanguage } from "./i18n";
-import "./integrations.css";
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 type Role = "super_admin" | "admin" | "reception" | "coach" | "content_manager";

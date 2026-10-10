@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { automationAttentionLabel, automationStateLabel, countActiveAutomationStates, formatAutomationValue, summarizeAutomationStatus } from "./automation-status";
 import { useLanguage } from "./i18n";
-import "./integrations.css";
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 

@@ -11,7 +11,6 @@ import { registerServiceWorker } from "./push";
 import "./styles.css";
 import "./bookings.css";
 import "./content-studio.css";
-import "./media-library.css";
 import "./analytics.css";
 import "./integrations.css";
 import "./system-polish.css";
@@ -46,14 +45,6 @@ const sections = [
   ["radar", ShieldAlert, "get_staff_radar_opportunities"],
   ["brain", Bot, "x"],
   ["workspace", Library, "x"],
-] as const;
-
-const navigationGroups = [
-  { id: "home", label: "home", items: ["dashboard"] },
-  { id: "factory", label: "factory", items: ["content"] },
-  { id: "inbox", label: "inbox", items: ["inbox"] },
-  { id: "media", label: "media", items: ["media"] },
-  { id: "operations", label: "operations", items: ["automations"] },
 ] as const;
 
 type SectionId = (typeof sections)[number][0];
@@ -1383,21 +1374,29 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     else if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.pushState({ section: id }, "", nextUrl);
   };
 
-  // Owner surface: Coach Brain is the only normal destination.
-  // Existing modules remain implemented and reachable by internal routing/legacy URLs,
-  // but are deliberately removed from the owner's navigation model.
-  const morePanel = null;
+  // One owner-facing system: core destinations stay visible; lower-frequency tools live under More.
+  const moreIds = ["today", "planner", "crm", "connections", "analytics", "radar", "archive", "workspace", "integrations"] as const;
+  const moreLabel = language === "ar" ? "المزيد" : "More";
+  const toggleMore = () => setMoreOpen(!moreOpen);
+  const morePanel = <div className="more-panel">
+    {moreIds.map((id) => <button key={id} onClick={() => go(id)}>
+      {nav[id]}
+    </button>)}
+  </div>;
 
-  // Owner-first navigation: keep the daily surface simple and operational.
-  // Advanced modules remain reachable through More; no feature is removed.
-  // Coach Brain is the primary owner entry point. Production capabilities remain available,
-  // but Factory/Media/Operations are not repeated in the main navigation.
   const primary = [
+    ["dashboard", LayoutDashboard, nav.dashboard],
     ["brain", Bot, nav.brain],
+    ["content", Bot, nav.factory],
+    ["inbox", Inbox, nav.inbox],
+    ["media", Library, nav.media],
+    ["automations", Workflow, nav.automations],
   ] as const;
-  const desktopPrimary = [
-    ["brain", Bot, nav.brain],
-  ] as const;
+  const renderPrimary = () => primary.map(([id, Icon, label]) => (
+    <button key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => go(id)}>
+      <Icon size={18} /><span>{label}</span>
+    </button>
+  ));
 
   return <div className="app-shell">
     <a className="skip-link" href="#main-workspace">{nav.skipToContent}</a>
@@ -1411,16 +1410,13 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
         <nav aria-label="وحدات Command Center">
         <div className="nav-group">
           <span className="nav-group-label">{language === "ar" ? "التنقل الرئيسي" : "MAIN NAVIGATION"}</span>
-          {desktopPrimary.map(([id, Icon, label]) => {
-            const sectionId = id as SectionId;
-            return <button type="button" key={sectionId} className={active === sectionId ? "active" : ""} aria-current={active === sectionId ? "page" : undefined} onClick={() => go(sectionId)}>
-              <Icon size={18} aria-hidden="true" /><span>{label}</span>
-            </button>;
-          })}
+          {renderPrimary()}
+          <button aria-expanded={moreOpen} onClick={toggleMore}>
+            <Settings2 size={18} /><span>{moreLabel}</span>
+          </button>
         </div>
-        <span className="nav-owner-mode">{language === "ar" ? "Coach Brain هو مركز التشغيل" : "Coach Brain is the operating center"}</span>
       </nav>
-      <button type="button" className="logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" />{nav.logout}</button>
+      <button type="button" className="logout" onClick={onLogout}><LogOut size={18} />{nav.logout}</button>
     </aside>
 
     <main className="workspace" id="main-workspace" tabIndex={-1}>
@@ -1431,7 +1427,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
         </div>
         <div className="owner-header-actions">
           <button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button>
-          <button type="button" className="logout mobile-logout" onClick={onLogout}><LogOut size={18} aria-hidden="true" /></button>
+          <button type="button" className="logout mobile-logout" onClick={onLogout}><LogOut size={18} /></button>
         </div>
       </header>
 
@@ -1466,12 +1462,10 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
       </section>
 
       <nav className="owner-mobile-nav" aria-label={language === "ar" ? "التنقل الرئيسي" : "Primary navigation"}>
-        {primary.map(([id, Icon, label]) => (
-          <button type="button" key={id} className={active === id ? "active" : ""} onClick={() => go(id)}>
-            <Icon size={18} aria-hidden="true" /><span>{label}</span>
-          </button>
-        ))}
-        <span className="nav-owner-mode">{language === "ar" ? "Coach Brain هو مركز التشغيل" : "Coach Brain is the operating center"}</span>
+        {renderPrimary()}
+        <button aria-expanded={moreOpen} onClick={toggleMore}>
+          <Settings2 size={18} /><span>{moreLabel}</span>
+        </button>
       </nav>
     </main>
   </div>;
