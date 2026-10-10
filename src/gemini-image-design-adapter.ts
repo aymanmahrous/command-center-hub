@@ -96,6 +96,22 @@ export function geminiImageDesignErrorMessage(code: string | undefined, language
       ar: "تم حفظ الصورة، لكن تعذر ربطها بالمحتوى؛ راجع مكتبة الوسائط.",
       en: "The image was saved but could not be linked to the content; check Media Library.",
     },
+    MEDIA_ASSET_NOT_PUBLISHABLE: {
+      ar: "تم حفظ الصورة، لكن ضوابط المكتبة منعت ربطها؛ راجع حالة الأصل في مكتبة الوسائط.",
+      en: "The image was saved, but Media Library safeguards blocked linking; review the asset status.",
+    },
+    MEDIA_ASSET_ALREADY_LINKED: {
+      ar: "الصورة مرتبطة بالفعل بعنصر محتوى آخر.",
+      en: "This image is already linked to another content item.",
+    },
+    CONTENT_ITEM_NOT_FOUND: {
+      ar: "عنصر المحتوى لم يعد موجودًا؛ الصورة محفوظة في المكتبة.",
+      en: "The content item no longer exists; the image remains in Media Library.",
+    },
+    PUBLISHED_CONTENT_IMMUTABLE: {
+      ar: "لا يمكن تغيير وسائط محتوى منشور؛ الصورة محفوظة في المكتبة.",
+      en: "Published content media cannot be changed; the image remains in Media Library.",
+    },
   };
   if (code === "SESSION_EXPIRED") return language === "ar" ? "انتهت الجلسة؛ سجّل الدخول مجددًا." : "Session expired; sign in again.";
   const key = code?.split(/[ (:]/, 1)[0] ?? "";
