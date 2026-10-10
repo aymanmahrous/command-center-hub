@@ -105,8 +105,12 @@ export function geminiImageDesignErrorMessage(code: string | undefined, language
       en: "This image is already linked to another content item.",
     },
     CONTENT_ITEM_NOT_FOUND: {
-      ar: "عنصر المحتوى لم يعد موجودًا؛ الصورة محفوظة في المكتبة.",
-      en: "The content item no longer exists; the image remains in Media Library.",
+      ar: "عنصر المحتوى لم يعد موجودًا؛ لم يتم طلب توليد الصورة.",
+      en: "The content item no longer exists; no image generation was requested.",
+    },
+    CONTENT_ITEM_READ_FAILED: {
+      ar: "تعذر التحقق من عنصر المحتوى؛ لم يتم طلب توليد الصورة.",
+      en: "Could not validate the content item; no image generation was requested.",
     },
     PUBLISHED_CONTENT_IMMUTABLE: {
       ar: "لا يمكن تغيير وسائط محتوى منشور؛ الصورة محفوظة في المكتبة.",
