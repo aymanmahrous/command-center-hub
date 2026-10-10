@@ -1418,7 +1418,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
               <Icon size={18} aria-hidden="true" /><span>{label}</span>
             </button>;
           })}
-          <button type="button" aria-expanded={moreOpen} onClick={() => setMoreOpen((open) => !open)}>
+          <button aria-expanded={moreOpen} onClick={() => setMoreOpen((open) => !open)}>
             <Settings2 size={18} aria-hidden="true" /><span>{language === "ar" ? "المزيد" : "More"}</span>
           </button>
         </div>
@@ -1475,7 +1475,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
             <Icon size={18} aria-hidden="true" /><span>{label}</span>
           </button>
         ))}
-        <button type="button" aria-expanded={moreOpen} onClick={() => setMoreOpen((open) => !open)}>
+        <button aria-expanded={moreOpen} onClick={() => setMoreOpen((open) => !open)}>
           <Settings2 size={18} aria-hidden="true" /><span>{language === "ar" ? "المزيد" : "More"}</span>
         </button>
         <span className="nav-owner-mode">{language === "ar" ? "Coach Brain هو مركز التشغيل" : "Coach Brain is the operating center"}</span>
