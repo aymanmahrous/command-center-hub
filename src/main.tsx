@@ -1386,7 +1386,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   // One owner-facing system: core destinations stay visible; lower-frequency tools live under More.
   const moreIds = ["today", "planner", "crm", "connections", "analytics", "radar", "archive", "workspace", "integrations"] as const;
   const morePanel = <div className="more-panel">
-    {moreIds.map((id) => <button key={id} className={active === id ? "active" : ""} onClick={() => go(id)>
+    {moreIds.map((id) => <button key={id} className={active === id ? "active" : ""} onClick={() => go(id)}>
       {nav[id]}
     </button>)}
   </div>;
@@ -1414,7 +1414,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
           <span className="nav-group-label">{language === "ar" ? "التنقل الرئيسي" : "MAIN NAVIGATION"}</span>
           {primary.map(([id, Icon, label]) => {
             const sectionId = id as SectionId;
-            return <button type="button" key={sectionId} className={active === sectionId ? "active" : ""} aria-current={active === sectionId ? "page" : undefined} onClick={() => go(sectionId)>
+            return <button type="button" key={sectionId} className={active === sectionId ? "active" : ""} aria-current={active === sectionId ? "page" : undefined} onClick={() => go(sectionId)}>
               <Icon size={18} aria-hidden="true" /><span>{label}</span>
             </button>;
           })}
@@ -1471,7 +1471,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
 
       <nav className="owner-mobile-nav" aria-label={language === "ar" ? "التنقل الرئيسي" : "Primary navigation"}>
         {primary.map(([id, Icon, label]) => (
-          <button type="button" key={id} className={active === id ? "active" : ""} onClick={() => go(id)>
+          <button type="button" key={id} className={active === id ? "active" : ""} onClick={() => go(id)}>
             <Icon size={18} aria-hidden="true" /><span>{label}</span>
           </button>
         ))}
