@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import {
   approveAllCandidates,
   approveAllWouldChange,
@@ -23,8 +23,11 @@ import { canUseInMarketingBatch, type MediaAssetRecord } from "./media-types";
 import type { CapabilityState } from "./content-growth";
 import { useLanguage } from "./i18n";
 import { formatLocalDateTimeInput } from "./date-utils";
-import { BrandedPosterStudio } from "./branded-poster-studio";
 import "./content-batch-review.css";
+
+const BrandedPosterStudio = lazy(() =>
+  import("./branded-poster-studio").then((module) => ({ default: module.BrandedPosterStudio }))
+);
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
 const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
@@ -884,7 +887,15 @@ export function ContentBatchReviewPanel({
               </footer>
               {itemDisabledReason && <small className="item-action-disabled-reason">{itemDisabledReason}</small>}
               {posterItemId === item.id && (
-                <BrandedPosterStudio item={item} language={language} onClose={() => setPosterItemId(null)} />
+                <Suspense
+                  fallback={
+                    <p className="muted" role="status">
+                      {language === "ar" ? "جاري تحميل استوديو البوستر..." : "Loading Poster Studio..."}
+                    </p>
+                  }
+                >
+                  <BrandedPosterStudio item={item} language={language} onClose={() => setPosterItemId(null)} />
+                </Suspense>
               )}
               {showingForm && (
                 <form
