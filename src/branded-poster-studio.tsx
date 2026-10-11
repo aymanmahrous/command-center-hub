@@ -6,9 +6,10 @@ interface BrandedPosterStudioProps {
   item: ContentBatchItem;
   language: "ar" | "en";
   onClose?: () => void;
+  onSaveDesign?: (file: File) => Promise<void>;
 }
 
-export function BrandedPosterStudio({ item, language, onClose }: BrandedPosterStudioProps) {
+export function BrandedPosterStudio({ item, language, onClose, onSaveDesign }: BrandedPosterStudioProps) {
   const [downloading, setDownloading] = useState(false);
   const [copiedBrief, setCopiedBrief] = useState(false);
   const isAr = language === "ar";
@@ -33,7 +34,7 @@ export function BrandedPosterStudio({ item, language, onClose }: BrandedPosterSt
   const isReelOrStory = /reel|story|9:16/i.test(item.contentType || item.platform);
   const ratio = isReelOrStory ? "9:16" : "1:1";
 
-  const handleDownloadPng = async () => {
+  const handlePosterAction = async (mode: "download" | "save" = "download") => {
     setDownloading(true);
     try {
       const width = 1080;
@@ -238,17 +239,29 @@ export function BrandedPosterStudio({ item, language, onClose }: BrandedPosterSt
       ctx.fillText("📱 احجز تقييم طفلك المجاني: 058 821 9130", width / 2, ctaY + 55);
       ctx.restore();
 
-      canvas.toBlob((blob) => {
-        if (!blob) throw new Error("Could not create PNG blob");
-        const blobUrl = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = blobUrl;
-        a.download = `RelaxFix-CoachAyman-${item.platform}-${ratio.replace(":", "x")}-${Date.now().toString().slice(-4)}.png`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(blobUrl);
-        setDownloading(false);
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          setDownloading(false);
+          return;
+        }
+        const fileName = `RelaxFix-CoachAyman-${item.platform}-${ratio.replace(":", "x")}-${Date.now().toString().slice(-4)}.png`;
+        try {
+          if (mode === "save") {
+            if (!onSaveDesign) throw new Error("SAVE_TO_DRAFT_UNAVAILABLE");
+            await onSaveDesign(new File([blob], fileName, { type: "image/png" }));
+          } else {
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = blobUrl;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(blobUrl);
+          }
+        } finally {
+          setDownloading(false);
+        }
       }, "image/png");
     } catch {
       setDownloading(false);
@@ -286,11 +299,23 @@ Booking CTA: WhatsApp 058 821 9130`;
             {isAr ? "بوستر فوري عالي الدقة (1080px) مع شعار Relax Fix وفروع أبوظبي ورقم الواتساب" : "Instant 1080px HD poster with Relax Fix logo, branches & WhatsApp"}
           </p>
         </div>
-        <div style={{ display: "flex", gap: "0.5rem" }}>
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+          {onSaveDesign && (
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => void handlePosterAction("save")}
+              disabled={downloading}
+              style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", padding: "0.4rem 0.8rem", fontSize: "0.85rem" }}
+            >
+              {downloading ? <RefreshCw size={14} className="spin" /> : <Save size={14} />}
+              {isAr ? "حفظ وربط بالمسودة" : "Save to draft"}
+            </button>
+          )}
           <button
             type="button"
             className="primary-button"
-            onClick={() => void handleDownloadPng()}
+            onClick={() => void handlePosterAction("download")}
             disabled={downloading}
             style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", padding: "0.4rem 0.8rem", fontSize: "0.85rem" }}
           >
