@@ -131,3 +131,185 @@
   .app-shell .owner-header { gap: 10px; }
   .app-shell .owner-status-strip { flex-wrap: wrap; gap: 8px; }
 }
+
+
+/* Final shell override: this file is imported after legacy/global styles. */
+.app-shell {
+  display: grid;
+  grid-template-columns: minmax(0,1fr);
+  min-height: 100vh;
+  background: transparent;
+  color: #e5edf7;
+}
+.app-shell > aside {
+  position: sticky;
+  z-index: 30;
+  top: 0;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+  display: grid;
+  grid-template-columns: auto auto minmax(0,1fr);
+  align-items: center;
+  gap: 14px;
+  padding: 12px clamp(14px,3vw,38px);
+  background: rgba(7,15,27,.94);
+  border: 0;
+  border-bottom: 1px solid #26374e;
+  box-shadow: 0 12px 32px rgba(0,0,0,.14);
+  backdrop-filter: blur(18px);
+}
+.app-shell .side-brand {
+  min-width: 175px;
+  gap: 4px;
+  padding: 8px 12px;
+  border: 1px solid #26374e;
+  border-radius: 14px;
+  background: rgba(9,19,33,.72);
+}
+.app-shell .side-brand strong {
+  color: #f8fafc;
+  font-family: "Orbitron","IBM Plex Sans Arabic",sans-serif;
+  font-size: 12px;
+  letter-spacing: .02em;
+}
+.app-shell .side-brand span { color: #67e8f9; font-size: 11px; }
+.app-shell .side-brand small { color: #94a3b8; font-size: 10px; }
+.app-shell .language-switcher { white-space: nowrap; }
+.app-shell > aside > nav { display: block; min-width: 0; overflow: visible; }
+.app-shell > aside > nav .nav-group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  min-width: 0;
+}
+.app-shell > aside > nav .nav-group-label { display: none; }
+.app-shell > aside > nav button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  padding: 10px 12px;
+  min-height: 40px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: #a9b7c9;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.app-shell > aside > nav button:hover {
+  color: #f8fafc;
+  background: #10243a;
+  border-color: #26374e;
+}
+.app-shell > aside > nav button.active {
+  color: #67e8f9;
+  background: linear-gradient(135deg,rgba(34,211,238,.13),rgba(52,211,153,.07));
+  border-color: rgba(34,211,238,.32);
+  box-shadow: inset 0 1px rgba(255,255,255,.035);
+}
+.app-shell > aside > .logout { display: none; }
+.app-shell .workspace {
+  min-width: 0;
+  width: 100%;
+  max-width: 1680px;
+  margin-inline: auto;
+  padding: clamp(18px,3vw,42px);
+  color: #e5edf7;
+  background: transparent;
+}
+.app-shell .owner-header { gap: 16px; padding: 6px 2px 12px; }
+.app-shell .owner-header .eyebrow {
+  color: #67e8f9;
+  font-family: "Orbitron","IBM Plex Sans Arabic",sans-serif;
+  font-size: 10px;
+  letter-spacing: .14em;
+}
+.app-shell .owner-header h1 { font-size: clamp(1.55rem,3vw,2.45rem); letter-spacing: -.025em; }
+.app-shell .owner-status-strip {
+  margin-top: 8px;
+  padding: 11px 14px;
+  border: 1px solid #26374e;
+  border-radius: 14px;
+  background: rgba(11,20,34,.72);
+  color: #a9b7c9;
+}
+.app-shell .status-dot { background: #34d399; box-shadow: 0 0 12px rgba(52,211,153,.4); }
+.app-shell .panel.owner-panel {
+  margin-top: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.app-shell .owner-panel > * { min-width: 0; }
+.app-shell .panel:not(.owner-panel) {
+  border-color: #26374e;
+  background: rgba(12,24,40,.86);
+  box-shadow: 0 18px 55px rgba(2,8,23,.2);
+}
+.app-shell .data-card,
+.app-shell .status-grid article {
+  border-color: #26374e;
+  background: rgba(9,19,33,.8);
+  color: #e5edf7;
+}
+.app-shell .muted,
+.app-shell .panel p,
+.app-shell .record dt { color: #94a3b8; }
+.app-shell .refresh,
+.app-shell .owner-command,
+.app-shell .more-panel button {
+  border-color: #334155;
+  background: #0b1422;
+  color: #d7e2ef;
+}
+.app-shell .refresh:hover,
+.app-shell .owner-command:hover,
+.app-shell .more-panel button:hover {
+  border-color: #22d3ee;
+  background: #142a40;
+  color: #f8fafc;
+}
+.app-shell .owner-mobile-nav { display: none; }
+@media (max-width: 1100px) {
+  .app-shell > aside {
+    grid-template-columns: auto minmax(0,1fr);
+    gap: 8px 12px;
+  }
+  .app-shell .side-brand { min-width: 0; }
+  .app-shell .language-switcher { justify-self: end; }
+  .app-shell > aside > nav { grid-column: 1 / -1; overflow-x: auto; scrollbar-width: thin; }
+  .app-shell > aside > nav .nav-group { width: max-content; min-width: 100%; }
+  .app-shell > aside > nav button { padding: 9px 11px; }
+}
+@media (max-width: 780px) {
+  body { overflow-x: clip; }
+  .app-shell > aside {
+    position: sticky;
+    top: 0;
+    grid-template-columns: minmax(0,1fr) auto;
+    padding: 9px 12px;
+    gap: 8px;
+  }
+  .app-shell .side-brand { padding: 7px 10px; }
+  .app-shell .side-brand strong { font-size: 11px; }
+  .app-shell .side-brand span { font-size: 10px; }
+  .app-shell .side-brand small { display: none; }
+  .app-shell > aside > nav { grid-column: 1 / -1; }
+  .app-shell > aside > nav .nav-group { gap: 5px; }
+  .app-shell > aside > nav button { min-height: 38px; padding: 8px 10px; font-size: 12px; }
+  .app-shell .workspace { padding: 16px 12px 90px; }
+  .app-shell .owner-header { align-items: flex-start; }
+  .app-shell .owner-header h1 { font-size: clamp(1.4rem,6vw,1.9rem); }
+  .app-shell .owner-status-strip { gap: 8px; padding: 10px; }
+  .app-shell .owner-mobile-nav { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
