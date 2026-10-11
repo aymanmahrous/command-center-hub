@@ -82,7 +82,8 @@ function canRequestPublish(item: ContentBatchItem): boolean {
   if (item.publishedAt) return false;
   if (typeof item.providerExternalId === "string" && item.providerExternalId.trim()) return false;
   const receipt = latestReceiptForPlatform(item, item.platform);
-  if (receipt?.status === "published") return false;
+  // An ambiguous external result must be manually reconciled before any retry.
+  if (receipt?.status.toLowerCase() === "published" || receipt?.status.toLowerCase() === "ambiguous") return false;
   return true;
 }
 
@@ -93,15 +94,19 @@ function canRequestPublishWithMedia(item: ContentBatchItem, asset: MediaAssetRec
 const REQUEST_PUBLISH_COPY = {
   en: {
     button: "Publish Now",
+    retryButton: "Retry confirmed failure",
     confirm: "Publish this approved item to its connected platform now? The existing secure publisher will publish immediately and record the real result.",
-    success: "Published now. The real publication result was recorded.",
+    retryConfirm: "The last result is a confirmed failure. Retry publishing this approved item now? Ambiguous results are blocked from retry.",
+    success: "Publish request completed. Refresh to see the recorded result.",
     already: "This item is already published or already has a publish result.",
     busy: "Requesting publish…",
   },
   ar: {
     button: "نشر الآن",
-    confirm: "نشر هذا العنصر المعتمد الآن على المنصة المتصلة؟ مسار النشر الآمن الحالي سينفذ النشر فورًا ويسجل النتيجة الحقيقية.",
-    success: "تم النشر الآن وتسجيل النتيجة الحقيقية.",
+    retryButton: "إعادة محاولة فشل مؤكد",
+    confirm: "نشر هذا العنصر المعتمد الآن على المنصة المتصلة؟ مسار النشر الآمن الحالي سينفذ النشر ويسجل النتيجة.",
+    retryConfirm: "النتيجة السابقة فشل مؤكد. هل تريد إعادة محاولة نشر هذا العنصر المعتمد؟ النتائج الملتبسة ممنوعة من إعادة المحاولة.",
+    success: "اكتمل طلب النشر. حدّث الشاشة لرؤية النتيجة المسجلة.",
     already: "هذا العنصر منشور بالفعل أو توجد له نتيجة نشر مسجلة.",
     busy: "جاري طلب النشر…",
   },
@@ -503,7 +508,9 @@ export function ContentBatchReviewPanel({
 
   async function handleRequestPublish(item: ContentBatchItem) {
     if (!session || !canWrite || busy || publishBusyId || !canRequestPublish(item)) return;
-    if (!window.confirm(requestPublishCopy.confirm)) return;
+    const priorReceipt = latestReceiptForPlatform(item, item.platform);
+    const confirmedFailure = priorReceipt?.status.toLowerCase() === "failed";
+    if (!window.confirm(confirmedFailure ? requestPublishCopy.retryConfirm : requestPublishCopy.confirm)) return;
     setPublishBusyId(item.id);
     setPublishNotice("");
     try {
@@ -669,6 +676,7 @@ export function ContentBatchReviewPanel({
                 {receipts.map((receipt, index) => (
                   <div className="publish-receipt" key={`${receipt.platform}-${receipt.updatedAt ?? index}`}>
                     <strong>{receipt.platform.toUpperCase()} · {receipt.status}</strong>
+                    {receipt.updatedAt && <time className="item-meta" dateTime={receipt.updatedAt}>{language === "ar" ? "وقت النتيجة" : "Result time"}: {formatWhen(language, receipt.updatedAt)}</time>}
                     {receipt.plainLanguageReason && <span>{receipt.plainLanguageReason}</span>}
                     {buildExternalPostLink(receipt.platform, receipt.externalPostId) && (
                       <a href={buildExternalPostLink(receipt.platform, receipt.externalPostId) ?? "#"} target="_blank" rel="noopener noreferrer">
@@ -876,7 +884,7 @@ export function ContentBatchReviewPanel({
                     title={itemDisabledReason ?? (!canRequestPublishWithMedia(item, linkedMediaAsset) ? (language === "ar" ? "الوسائط المرتبطة ليست جاهزة للنشر." : "Linked media is not publish-ready.") : undefined)}
                     onClick={() => void handleRequestPublish(item)}
                   >
-                    {publishBusyId === item.id ? requestPublishCopy.busy : requestPublishCopy.button}
+                    {publishBusyId === item.id ? requestPublishCopy.busy : platformReceipt?.status.toLowerCase() === "failed" ? requestPublishCopy.retryButton : requestPublishCopy.button}
                   </button>
                 )}
                 {item.status === "approved" && !canRequestPublishWithMedia(item, linkedMediaAsset) && (
