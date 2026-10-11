@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Download, Sparkles, Check, Copy, ExternalLink, RefreshCw, Image as ImageIcon } from "lucide-react";
+import { Download, Sparkles, Check, Copy, ExternalLink, RefreshCw, Image as ImageIcon, Save } from "lucide-react";
 import type { ContentBatchItem } from "./content-batch";
 
 interface BrandedPosterStudioProps {
@@ -32,13 +32,16 @@ export function BrandedPosterStudio({ item, language, onClose, onSaveDesign }: B
       ];
 
   const isReelOrStory = /reel|story|9:16/i.test(item.contentType || item.platform);
-  const ratio = isReelOrStory ? "9:16" : "1:1";
+  const [ratio, setRatio] = useState<"1:1" | "4:5" | "9:16">(isReelOrStory ? "9:16" : "1:1");
+  const [headline, setHeadline] = useState(hook);
+  const [pointsText, setPointsText] = useState(keyPoints.join("\n"));
+  const editableKeyPoints = pointsText.split("\n").map((point) => point.trim()).filter(Boolean).slice(0, 3);
 
   const handlePosterAction = async (mode: "download" | "save" | "save-and-download" = "download") => {
     setDownloading(true);
     try {
       const width = 1080;
-      const height = ratio === "9:16" ? 1920 : 1080;
+      const height = ratio === "9:16" ? 1920 : ratio === "4:5" ? 1350 : 1080;
 
       const canvas = document.createElement("canvas");
       canvas.width = width;
@@ -145,7 +148,7 @@ export function BrandedPosterStudio({ item, language, onClose, onSaveDesign }: B
       ctx.font = "bold 20px 'Segoe UI', system-ui, sans-serif";
       ctx.fillStyle = "#e0f2fe";
       ctx.fillText(
-        isReelOrStory ? "🎯 تصحيح التكنيك وتطوير المهارات" : "🏊‍♂️ تدريب سباحة احترافي في أبوظبي",
+        ratio === "9:16" ? "🎯 تصحيح التكنيك وتطوير المهارات" : "🏊‍♂️ تدريب سباحة احترافي في أبوظبي",
         width / 2,
         badgeY + 30
       );
@@ -158,7 +161,7 @@ export function BrandedPosterStudio({ item, language, onClose, onSaveDesign }: B
       ctx.shadowColor = "rgba(0,0,0,0.85)";
       ctx.shadowBlur = 15;
 
-      const words = hook.split(" ");
+      const words = headline.split(" ");
       let line = "";
       let curY = hookStartY;
       const maxW = width - 160;
@@ -180,7 +183,7 @@ export function BrandedPosterStudio({ item, language, onClose, onSaveDesign }: B
       // 5. Card with Key Points
       const cardStartY = curY + 60;
       const cardW = width - 160;
-      const cardH = keyPoints.length * 85 + 40;
+      const cardH = editableKeyPoints.length * 85 + 40;
 
       ctx.save();
       ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
@@ -191,7 +194,7 @@ export function BrandedPosterStudio({ item, language, onClose, onSaveDesign }: B
       ctx.fill();
       ctx.stroke();
 
-      keyPoints.forEach((point, idx) => {
+      editableKeyPoints.forEach((point, idx) => {
         const rowY = cardStartY + 55 + idx * 85;
         ctx.beginPath();
         ctx.arc((width + cardW) / 2 - 50, rowY - 8, 10, 0, Math.PI * 2);
@@ -272,7 +275,7 @@ export function BrandedPosterStudio({ item, language, onClose, onSaveDesign }: B
   const copyCanvaBrief = async () => {
     const briefText = `[Canva Template Design Brief — Relax Fix UAE / Coach Ayman]
 Platform: ${item.platform} (${ratio})
-Headline: ${hook}
+Headline: ${headline}
 Colors: Deep Navy (#020617), Cyan (#06B6D4), Gold (#F59E0B), White (#FFFFFF)
 Branches: Al Mushrif, Al Falah, Khalifa City, Al Danah
 Booking CTA: WhatsApp 058 821 9130`;
@@ -329,6 +332,25 @@ Booking CTA: WhatsApp 058 821 9130`;
             </button>
           )}
         </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0.6rem", marginBottom: "0.8rem" }}>
+        <label style={{ display: "grid", gap: "0.3rem", color: "#cbd5e1", fontSize: "0.8rem" }}>
+          {isAr ? "عنوان التصميم" : "Design headline"}
+          <input value={headline} onChange={(event) => setHeadline(event.target.value)} maxLength={160} style={{ width: "100%", minWidth: 0, padding: "0.55rem", borderRadius: "8px", border: "1px solid #334155", background: "#081321", color: "#f8fafc" }} />
+        </label>
+        <label style={{ display: "grid", gap: "0.3rem", color: "#cbd5e1", fontSize: "0.8rem" }}>
+          {isAr ? "النقاط الرئيسية (كل نقطة في سطر)" : "Key points (one per line)"}
+          <textarea value={pointsText} onChange={(event) => setPointsText(event.target.value)} rows={3} maxLength={600} style={{ width: "100%", minWidth: 0, resize: "vertical", padding: "0.55rem", borderRadius: "8px", border: "1px solid #334155", background: "#081321", color: "#f8fafc" }} />
+        </label>
+        <label style={{ display: "grid", gap: "0.3rem", color: "#cbd5e1", fontSize: "0.8rem" }}>
+          {isAr ? "مقاس التصميم" : "Design format"}
+          <select value={ratio} onChange={(event) => setRatio(event.target.value as "1:1" | "4:5" | "9:16")} style={{ width: "100%", padding: "0.55rem", borderRadius: "8px", border: "1px solid #334155", background: "#081321", color: "#f8fafc" }}>
+            <option value="1:1">1:1 · Square</option>
+            <option value="4:5">4:5 · Portrait</option>
+            <option value="9:16">9:16 · Story / Reel</option>
+          </select>
+        </label>
       </div>
 
       <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", fontSize: "0.8rem" }}>
