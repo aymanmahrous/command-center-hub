@@ -23,6 +23,7 @@ import { canUseInMarketingBatch, type MediaAssetRecord } from "./media-types";
 import type { CapabilityState } from "./content-growth";
 import { useLanguage } from "./i18n";
 import { formatLocalDateTimeInput } from "./date-utils";
+import { BrandedPosterStudio } from "./branded-poster-studio";
 import "./content-batch-review.css";
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
@@ -162,6 +163,7 @@ export function ContentBatchReviewPanel({
   const [changeTargetId, setChangeTargetId] = useState<string | null>(null);
   const [editTargetId, setEditTargetId] = useState<string | null>(null);
   const [changeKind, setChangeKind] = useState<ChangeRequestKind>("caption");
+  const [posterItemId, setPosterItemId] = useState<string | null>(null);
   const [changeNote, setChangeNote] = useState("");
   const [designBusyId, setDesignBusyId] = useState<string | null>(null);
   const [designNotice, setDesignNotice] = useState("");
@@ -844,6 +846,14 @@ export function ContentBatchReviewPanel({
                     {copy.requestChangesButton}
                   </button>
                 )}
+                <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => setPosterItemId(posterItemId === item.id ? null : item.id)}
+                    title={language === "ar" ? "استوديو البوستر الرسمي وتحميل صورة PNG" : "Branded Poster Studio & download PNG"}
+                  >
+                    🎨 {language === "ar" ? "بوستر رسمي PNG" : "Branded Poster PNG"}
+                  </button>
                 {onEditItem && item.status !== "published" && (
                   <button
                     type="button"
@@ -873,6 +883,9 @@ export function ContentBatchReviewPanel({
                 )}
               </footer>
               {itemDisabledReason && <small className="item-action-disabled-reason">{itemDisabledReason}</small>}
+              {posterItemId === item.id && (
+                <BrandedPosterStudio item={item} language={language} onClose={() => setPosterItemId(null)} />
+              )}
               {showingForm && (
                 <form
                   className="change-request-form"
