@@ -63,6 +63,10 @@ const copy = {
       "سباح 12 سنة، كيف أطور تكنيك وانسيابية 100م حرة وفق الأدلة؟",
       "تكييف بيئة درس السباحة لمتعلم من طيف التوحد دون تشخيص طبي؟",
       "متدرب بالغ يعاني من ألم في الكتف، ما الحدود الآمنة للتدريب المائي؟",
+      "حلل أخطاء شائعة في سباحة الصدر مع تمارين تصحيح",
+      "خطة علاج رهبة الماء لطفل 7 سنوات على 4 حصص",
+      "اكتب رد واتساب لعميل يسأل عن أسعار مجموعات الأطفال وتفاصيل الفروع",
+      "اقترح حملة ممولة على إنستغرام لأبوظبي بميزانية 1500 درهم",
     ],
   },
   en: {
@@ -100,6 +104,10 @@ const copy = {
       "How to improve a 12-year-old swimmer's 100m freestyle technique based on evidence?",
       "Adapting the aquatic lesson environment for an autistic learner without medical diagnosis?",
       "Adult swimmer with shoulder discomfort: what are the safe aquatic fitness boundaries?",
+      "Analyze common breaststroke errors with progressive correction drills",
+      "4-session gentle aquaphobia treatment plan for a 7-year-old",
+      "Draft a WhatsApp reply to a parent asking about kids group pricing and branches",
+      "Suggest an Instagram ad campaign structure for Abu Dhabi swimming with 1500 AED budget",
     ],
   },
 };
