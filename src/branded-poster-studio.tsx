@@ -34,7 +34,7 @@ export function BrandedPosterStudio({ item, language, onClose, onSaveDesign }: B
   const isReelOrStory = /reel|story|9:16/i.test(item.contentType || item.platform);
   const ratio = isReelOrStory ? "9:16" : "1:1";
 
-  const handlePosterAction = async (mode: "download" | "save" = "download") => {
+  const handlePosterAction = async (mode: "download" | "save" | "save-and-download" = "download") => {
     setDownloading(true);
     try {
       const width = 1080;
@@ -246,10 +246,11 @@ export function BrandedPosterStudio({ item, language, onClose, onSaveDesign }: B
         }
         const fileName = `RelaxFix-CoachAyman-${item.platform}-${ratio.replace(":", "x")}-${Date.now().toString().slice(-4)}.png`;
         try {
-          if (mode === "save") {
+          if (mode !== "download") {
             if (!onSaveDesign) throw new Error("SAVE_TO_DRAFT_UNAVAILABLE");
             await onSaveDesign(new File([blob], fileName, { type: "image/png" }));
-          } else {
+          }
+          if (mode !== "save") {
             const blobUrl = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = blobUrl;
@@ -315,12 +316,12 @@ Booking CTA: WhatsApp 058 821 9130`;
           <button
             type="button"
             className="primary-button"
-            onClick={() => void handlePosterAction("download")}
+            onClick={() => void handlePosterAction(onSaveDesign ? "save-and-download" : "download")}
             disabled={downloading}
             style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", padding: "0.4rem 0.8rem", fontSize: "0.85rem" }}
           >
             {downloading ? <RefreshCw size={14} className="spin" /> : <Download size={14} />}
-            {isAr ? "تحميل بوستر PNG" : "Download Poster PNG"}
+            {onSaveDesign ? (isAr ? "حفظ وربط وتنزيل PNG" : "Save, link & download PNG") : (isAr ? "تحميل بوستر PNG" : "Download Poster PNG")}
           </button>
           {onClose && (
             <button type="button" className="secondary" onClick={onClose} style={{ padding: "0.4rem 0.6rem", fontSize: "0.8rem" }}>
