@@ -14,6 +14,7 @@ import "./content-studio.css";
 import "./analytics.css";
 import "./integrations.css";
 import "./system-polish.css";
+import "./coach-cockpit-theme.css";
 
 const MediaLibraryView = lazy(() => import("./media-library-view"));
 const TodayView = lazy(() => import("./today-view"));
