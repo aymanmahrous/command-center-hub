@@ -902,7 +902,7 @@ export function ContentBatchReviewPanel({
                     </p>
                   }
                 >
-                  <BrandedPosterStudio item={item} language={language} onClose={() => setPosterItemId(null)} />
+                  <BrandedPosterStudio item={item} language={language} onClose={() => setPosterItemId(null)} onSaveDesign={session && canWrite ? (file) => handleUploadMedia(item, file) : undefined} />
                 </Suspense>
               )}
               {showingForm && (
