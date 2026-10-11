@@ -13,6 +13,7 @@ test("content media completion reuses the exact generated asset before legacy fa
   assert.match(migration, /AND asset_type = v_asset_type/);
   assert.match(migration, /AND source = 'ai_generated'/);
   assert.match(migration, /IF v_asset\.id IS NULL THEN[\s\S]*metadata->>'autonomous' = 'true'/);
+  assert.match(migration, /AND provider = btrim\(p_provider\)[\s\S]*metadata->>'autonomous' = 'true'/);
 });
 
 test("fallback media registration sets explicit conservative review states", () => {
