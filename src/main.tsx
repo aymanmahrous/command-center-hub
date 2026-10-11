@@ -14,6 +14,7 @@ import "./content-studio.css";
 import "./analytics.css";
 import "./integrations.css";
 import "./system-polish.css";
+import "./coach-cockpit-theme.css";
 
 const MediaLibraryView = lazy(() => import("./media-library-view"));
 const TodayView = lazy(() => import("./today-view"));
@@ -1297,7 +1298,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   const initialSection: SectionId = canvaCallback
     ? "media"
     : !launchParams.get("section")
-      ? "brain"
+      ? "dashboard"
       : sectionFromLocation();
   const [active, setActive] = useState<SectionId>(initialSection);
   const [reloadKey, setReloadKey] = useState(0);
@@ -1375,7 +1376,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   };
 
   // One owner-facing system: core destinations stay visible; lower-frequency tools live under More.
-  const moreIds = ["today", "planner", "crm", "connections", "analytics", "radar", "archive", "workspace", "integrations"] as const;
+  const moreIds = ["automations", "today", "planner", "crm", "connections", "analytics", "radar", "archive", "workspace"] as const;
   const moreLabel = language === "ar" ? "المزيد" : "More";
   const toggleMore = () => setMoreOpen(!moreOpen);
   const morePanel = <div className="more-panel">
@@ -1390,7 +1391,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     ["content", Bot, nav.factory],
     ["inbox", Inbox, nav.inbox],
     ["media", Library, nav.media],
-    ["automations", Workflow, nav.automations],
+    ["integrations", Workflow, nav.operations],
   ] as const;
   const renderPrimary = () => primary.map(([id, Icon, label]) => (
     <button key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => go(id)}>
