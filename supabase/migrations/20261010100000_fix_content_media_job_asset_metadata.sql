@@ -79,6 +79,7 @@ BEGIN
     WHERE content_item_id = v_content.id
       AND asset_type = v_asset_type
       AND source = 'ai_generated'
+      AND provider = btrim(p_provider)
       AND metadata->>'autonomous' = 'true'
     ORDER BY created_at DESC, id DESC
     LIMIT 1;
