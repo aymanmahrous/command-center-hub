@@ -238,10 +238,14 @@ export default function ContentGrowthHub({
       setActiveFactoryTab(activeTab);
     }
   }, [activeTab]);
-  useEffect(() => {
-    const targetId = activeFactoryTab === "content" ? "content-control-room" : ["designs", "reels", "campaigns", "review"].includes(activeFactoryTab) ? "content-review" : `content-${activeFactoryTab}`;
-    requestAnimationFrame(() => document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" }));
-  }, [activeFactoryTab]);
+  function selectFactoryTab(tab: typeof activeFactoryTab) {
+    setActiveFactoryTab(tab);
+    onTabChange?.(tab);
+    const targetId = tab === "content" ? "content-control-room" : ["designs", "reels", "campaigns", "review"].includes(tab) ? "content-review" : `content-${tab}`;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }));
+  }
   const showReviewWorkspace = ["designs", "reels", "campaigns", "review"].includes(activeFactoryTab);
   const factoryStages = [
     ["factory", language === "ar" ? "١. التوليد والخطة" : "1. Generate & Plan"],
@@ -444,12 +448,12 @@ export default function ContentGrowthHub({
           <div className="factory-control-room-status"><strong>{selectedBatch ? selectedBatch.items.length : 0}</strong><span>{language === "ar" ? "عنصر في الدفعة" : "items in batch"}</span></div>
         </div>
         <div className="factory-stage-rail" role="list" aria-label={language === "ar" ? "مراحل المصنع" : "Factory stages"}>
-          {factoryStages.map(([id, label], index) => <button type="button" role="listitem" key={id} className={activeFactoryTab === id ? "active" : ""} onClick={() => { setActiveFactoryTab(id); onTabChange?.(id); }}><b>{index + 1}</b><span>{label}</span></button>)}
+          {factoryStages.map(([id, label], index) => <button type="button" role="listitem" key={id} className={activeFactoryTab === id ? "active" : ""} onClick={() => selectFactoryTab(id)}><b>{index + 1}</b><span>{label}</span></button>)}
         </div>
         <div className="factory-advanced-rail" aria-label={language === "ar" ? "أدوات إضافية" : "Additional tools"}>
           <span>{language === "ar" ? "أدوات إضافية:" : "Additional tools:"}</span>
           {advancedStages.map(([id, label]) => (
-            <button type="button" key={id} className={activeFactoryTab === id ? "active" : ""} onClick={() => { setActiveFactoryTab(id); onTabChange?.(id); }}>
+            <button type="button" key={id} className={activeFactoryTab === id ? "active" : ""} onClick={() => selectFactoryTab(id)}>
               {label}
             </button>
           ))}
@@ -463,7 +467,7 @@ export default function ContentGrowthHub({
             <div className="factory-plan-summary"><strong>{language === "ar" ? "سنوزع " + DEFAULT_BATCH_MIX.length + " أفكار متنوعة على " + planWindowDays + " يومًا." : "Coach Brain will distribute " + DEFAULT_BATCH_MIX.length + " varied ideas across " + planWindowDays + " days."}</strong><span>{language === "ar" ? "تعليم · أمان · ثقة بالماء · أسئلة الأهل · سلطة الكوتش · محلي أبوظبي · ريلز · تحويل." : "Education · safety · water confidence · parent FAQs · coach authority · Abu Dhabi local · Reels · conversion."}</span></div>
           </div>
           <div className="factory-30-day-grid">
-            {planDays.map(({ day, dayItems }, index) => <button type="button" key={day.toISOString()} className={dayItems.length > 0 ? "has-items" : ""} onClick={() => { setActiveFactoryTab(dayItems.length > 0 ? "campaigns" : "strategy"); onTabChange?.(dayItems.length > 0 ? "campaigns" : "strategy"); }}><span>{language === "ar" ? `اليوم ${index + 1}` : `Day ${index + 1}`}</span><strong>{dayItems.length}</strong><small>{day.toLocaleDateString(language === "ar" ? "ar-AE" : "en-AE", { month: "short", day: "numeric" })}</small>{dayItems.slice(0, 2).map((item) => <em key={item.id}>{item.topic}</em>)}</button>)}
+            {planDays.map(({ day, dayItems }, index) => <button type="button" key={day.toISOString()} className={dayItems.length > 0 ? "has-items" : ""} onClick={() => selectFactoryTab(dayItems.length > 0 ? "campaigns" : "strategy")}><span>{language === "ar" ? `اليوم ${index + 1}` : `Day ${index + 1}`}</span><strong>{dayItems.length}</strong><small>{day.toLocaleDateString(language === "ar" ? "ar-AE" : "en-AE", { month: "short", day: "numeric" })}</small>{dayItems.slice(0, 2).map((item) => <em key={item.id}>{item.topic}</em>)}</button>)}
           </div>
         </section>
       )}
@@ -594,7 +598,7 @@ export default function ContentGrowthHub({
             : "No batch is generated automatically. Use the generate button after reviewing the plan and confirming; every item starts in review and nothing publishes automatically."}
         </p>
         <p className="batch-meta" role="status">{generating ? copy.generateStateBusy : selectedBatch ? copy.generateStateReady : copy.generateStateIdle}</p>
-        {selectedBatch && <button type="button" className="secondary" onClick={() => { setActiveFactoryTab("review"); onTabChange?.("review"); }}>{copy.openBatchReview}</button>}
+        {selectedBatch && <button type="button" className="secondary" onClick={() => selectFactoryTab("review")}>{copy.openBatchReview}</button>}
         <p className="batch-meta">{copy.generateMixNote}</p>
       </section>}
 
@@ -644,8 +648,8 @@ export default function ContentGrowthHub({
           <strong>{language === "ar" ? "الخطة جاهزة للتنفيذ" : "This plan is ready to use"}</strong>
           <span>{language === "ar" ? "لا تكتفِ بقراءة التوزيع: أنشئ دفعة أو افتح المحتوى الحالي للتعديل." : "Do not just read the mix: create a batch or open current content for editing."}</span>
           <div>
-            <button type="button" className="primary-button" onClick={() => { setActiveFactoryTab("factory"); onTabChange?.("factory"); }}>{language === "ar" ? "إنشاء دفعة من الخطة" : "Create batch from plan"}</button>
-            <button type="button" className="secondary" onClick={() => { setActiveFactoryTab("content"); onTabChange?.("content"); }}>{language === "ar" ? "فتح المحتوى للتعديل" : "Open content editor"}</button>
+            <button type="button" className="primary-button" onClick={() => selectFactoryTab("factory")}>{language === "ar" ? "إنشاء دفعة من الخطة" : "Create batch from plan"}</button>
+            <button type="button" className="secondary" onClick={() => selectFactoryTab("content")}>{language === "ar" ? "فتح المحتوى للتعديل" : "Open content editor"}</button>
           </div>
         </div>
         <div className="strategy-context-grid" aria-label={copy.strategyContextTitle}>
