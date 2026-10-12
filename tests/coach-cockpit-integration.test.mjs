@@ -21,6 +21,12 @@ test("ControlTowerV2 exposes honest channel navigation shortcuts without fake ha
   assert.match(view, /Canva Smart Brief/);
   assert.match(view, /Coach Brain/);
   assert.match(view, /Owner Safety Gate/);
+  assert.match(view, /Open shared inbox/);
+  assert.match(view, /Check status/);
+  assert.match(view, /Prepare a design brief/);
+  assert.match(view, /Manual workflow/);
+  assert.match(view, /Research & planning assistant/);
+  assert.doesNotMatch(view, /Incoming inbox ready|Poster Studio ready|Secured & Privacy-safe/);
 });
 
 test("CSS includes responsive styles for Coach Cockpit banner and badges", () => {
