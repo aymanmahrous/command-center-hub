@@ -59,3 +59,48 @@
 /* Focused workspace sizing: prevents Arabic cards and action panels from collapsing into one-character columns. */
 .app-shell>aside,.app-shell>.workspace,.owner-panel,.content-growth-hub,.inbox-workspace-head,.inbox-layout{min-width:0}
 .app-shell>.workspace{width:100%;box-sizing:border-box}
+
+
+/* New Coach shell alignment: keep Hub services, replace the legacy sidebar-first feel. */
+:root {
+  color-scheme: dark;
+  font-family: "Space Grotesk", "IBM Plex Sans Arabic", system-ui, sans-serif;
+  color: #e5edf7;
+  background: #07111f;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+html { min-width: 320px; background: #07111f; }
+body {
+  min-width: 320px;
+  background:
+    radial-gradient(60rem 40rem at 85% -10%, rgba(34,211,238,.12), transparent 60%),
+    radial-gradient(50rem 30rem at -10% 110%, rgba(52,211,153,.08), transparent 60%),
+    linear-gradient(rgba(34,211,238,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34,211,238,.025) 1px, transparent 1px),
+    #07111f;
+  background-size: auto, auto, 32px 32px, 32px 32px, auto;
+  background-attachment: fixed;
+  color: #e5edf7;
+}
+button, input, select, textarea { font-family: inherit; }
+button { transition: border-color .16s ease, background-color .16s ease, color .16s ease, transform .16s ease; }
+button:disabled { cursor: not-allowed; }
+.login-page {
+  color: #e5edf7;
+  background:
+    radial-gradient(58rem 36rem at 90% -12%, rgba(34,211,238,.13), transparent 60%),
+    radial-gradient(46rem 28rem at -12% 110%, rgba(52,211,153,.08), transparent 60%),
+    #07111f;
+}
+.login-card {
+  color: #e5edf7;
+  background: rgba(12,24,40,.88);
+  border-color: #26374e;
+  box-shadow: 0 24px 80px rgba(0,0,0,.28), inset 0 1px rgba(255,255,255,.035);
+  backdrop-filter: blur(18px);
+}
+.login-card input { background: #081321; color: #e5edf7; border-color: #334155; }
+.login-card input:focus { border-color: #22d3ee; box-shadow: 0 0 0 4px rgba(34,211,238,.12); }
+.login-card button { background: linear-gradient(135deg,#22d3ee,#34d399); color: #06111d; }
+.login-card .eyebrow { color: #67e8f9; }
