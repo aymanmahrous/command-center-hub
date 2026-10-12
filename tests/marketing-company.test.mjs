@@ -33,10 +33,10 @@ test("Owner navigation keeps core destinations visible and advanced tools under 
   assert.match(main, /active === "dashboard" \? .*ControlTowerV2/s);
   assert.match(main, /\["dashboard", LayoutDashboard, nav\.dashboard\]/);
   assert.match(main, /\["brain", Bot, nav\.brain\]/);
-  assert.match(main, /\["content", Bot, nav\.factory\]/);
+  assert.match(main, /\["content", Workflow, nav\.factory\]/);
   assert.match(main, /\["inbox", Inbox, nav\.inbox\]/);
   assert.match(main, /\["media", Library, nav\.media\]/);
-  assert.match(main, /\["integrations", Workflow, nav\.operations\]/);
+  assert.match(main, /\["integrations", Settings2, nav\.operations\]/);
   assert.match(main, /: !launchParams\.get\("section"\)\s*\? "dashboard"/);
   assert.match(main, /const moreIds/);
   assert.match(main, /"automations", "today", "planner", "crm", "connections", "analytics", "radar", "archive", "workspace"/);

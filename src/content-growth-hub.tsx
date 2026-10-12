@@ -442,7 +442,7 @@ export default function ContentGrowthHub({
 
   return (
     <div className="content-growth-hub" dir={language === "ar" ? "rtl" : "ltr"}>
-      <section className="factory-control-room" aria-labelledby="factory-control-room-title">
+      <section id="content-control-room" className="factory-control-room" aria-labelledby="factory-control-room-title">
         <div className="factory-control-room-heading">
           <div><span>{language === "ar" ? "مصنع واحد" : "ONE FACTORY"}</span><h2 id="factory-control-room-title">{language === "ar" ? "مسار الدعاية والنشر" : "Campaign and publishing flow"}</h2><p>{language === "ar" ? "افتح مرحلة واحدة، عدّل العنصر، ثم احفظ أو انقله للمرحلة التالية." : "Open one stage, edit the item, then save or move it to the next stage."}</p></div>
           <div className="factory-control-room-status"><strong>{selectedBatch ? selectedBatch.items.length : 0}</strong><span>{language === "ar" ? "عنصر في الدفعة" : "items in batch"}</span></div>

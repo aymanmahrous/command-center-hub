@@ -36,7 +36,7 @@ const sections = [
   ["inbox", Inbox, "get_staff_inbox"],
   ["crm", ContactRound, "get_staff_crm_leads"],
   ["automations", Workflow, "get_staff_content_automation_status"],
-  ["content", Bot, "get_staff_content_items"],
+  ["content", Workflow, "get_staff_content_items"],
   ["planner", CalendarDays, "get_staff_bookings"],
   ["media", Library, "get_staff_media_assets"],
   ["archive", Library, "x"],
@@ -1388,10 +1388,10 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   const primary = [
     ["dashboard", LayoutDashboard, nav.dashboard],
     ["brain", Bot, nav.brain],
-    ["content", Bot, nav.factory],
+    ["content", Workflow, nav.factory],
     ["inbox", Inbox, nav.inbox],
     ["media", Library, nav.media],
-    ["integrations", Workflow, nav.operations],
+    ["integrations", Settings2, nav.operations],
   ] as const;
   const renderPrimary = () => primary.map(([id, Icon, label]) => (
     <button key={id} className={active === id ? "active" : ""} aria-current={active === id ? "page" : undefined} onClick={() => go(id)}>
