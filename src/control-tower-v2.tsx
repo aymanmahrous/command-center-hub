@@ -119,7 +119,7 @@ export default function ControlTowerV2({ session, onNavigate, onSessionExpired, 
             <strong>{language === "ar" ? "واتساب بزنس" : "WhatsApp Business"}</strong>
             <small>{language === "ar" ? "افتح صندوق المحادثات المشترك" : "Open shared inbox"}</small>
           </div>
-          <span className="v2-channel-badge limited">{language === "ar" ? "تحقق مطلوب" : "Check status"</span>
+          <span className="v2-channel-badge limited">{language === "ar" ? "تحقق مطلوب" : "Check status"}</span>
         </button>
         <button type="button" className="v2-channel-item" onClick={() => onNavigate("content")}>
           <span className="v2-channel-icon">IG/FB</span>
@@ -135,7 +135,7 @@ export default function ControlTowerV2({ session, onNavigate, onSessionExpired, 
             <strong>{language === "ar" ? "كانفا الذكي" : "Canva Smart Brief"}</strong>
             <small>{language === "ar" ? "إعداد موجز التصميم" : "Prepare a design brief"}</small>
           </div>
-          <span className="v2-channel-badge limited">{language === "ar" ? "مسار يدوي" : "Manual workflow"</span>
+          <span className="v2-channel-badge limited">{language === "ar" ? "مسار يدوي" : "Manual workflow"}</span>
         </button>
         <button type="button" className="v2-channel-item" onClick={() => onNavigate("brain")}>
           <span className="v2-channel-icon">AI</span>
@@ -143,7 +143,7 @@ export default function ControlTowerV2({ session, onNavigate, onSessionExpired, 
             <strong>{language === "ar" ? "Coach Brain" : "Coach Brain"}</strong>
             <small>{language === "ar" ? "مساعد البحث والتخطيط" : "Research & planning assistant"}</small>
           </div>
-          <span className="v2-channel-badge limited">{language === "ar" ? "فتح" : "Open"</span>
+          <span className="v2-channel-badge limited">{language === "ar" ? "فتح" : "Open"}</span>
         </button>
       </div>
       <div className="v2-safety-rule">
