@@ -92,6 +92,69 @@ export default function ControlTowerV2({ session, onNavigate, onSessionExpired, 
 
   return <div className="v2-command-home" dir={language === "ar" ? "rtl" : "ltr"}>
     <header className="v2-topbar"><div><span className="v2-kicker">COMMAND CENTER V2</span><h2>{language === "ar" ? `صباح الخير${session.displayName ? `، ${session.displayName}` : ""}` : `Good morning${session.displayName ? `, ${session.displayName}` : ""}`}</h2></div><div className="v2-top-actions"><button type="button" onClick={() => onNavigate("brain")}><Sparkles size={17} />{language === "ar" ? "اسأل Coach Brain" : "Ask Coach Brain"}</button><button className="v2-search" type="button" onClick={() => setCommandOpen(true)}><Search size={17} />{language === "ar" ? "بحث أو أمر…" : "Search or Command…"}<kbd>⌘K</kbd></button><span className={`v2-system ${healthy ? "ok" : "warn"}`}><span />{healthy ? "SYSTEM OPERATIONAL" : "REVIEW REQUIRED"}</span></div></header>
+    <section className="v2-coach-cockpit-banner">
+      <div className="v2-cockpit-header">
+        <div>
+          <span className="v2-kicker">COACH AYMAN COCKPIT · ABU DHABI</span>
+          <h3>{language === "ar" ? "مقصورة كابتن أيمن — مركز القيادة والتحكم" : "Coach Ayman Cockpit — Command & Control"}</h3>
+          <p className="v2-panel-note">
+            {language === "ar"
+              ? "أكاديمية ريلاكس فيكس للسباحة · أبوظبي · فروع المشرف، الفلاح، مدينة خليفة، الدانة"
+              : "Relax Fix Swimming Academy · Abu Dhabi · Al Mushrif, Al Falah, Khalifa City, Al Danah"}
+          </p>
+        </div>
+        <div className="v2-cockpit-contacts">
+          <span className="v2-contact-badge">
+            <strong>{language === "ar" ? "واتساب الحجز:" : "Booking WhatsApp:"}</strong> 058 821 9130
+          </span>
+          <span className="v2-contact-badge">
+            <strong>{language === "ar" ? "الإدارة:" : "Management:"}</strong> 055 137 8660
+          </span>
+        </div>
+      </div>
+      <div className="v2-cockpit-channels">
+        <button type="button" className="v2-channel-item" onClick={() => onNavigate("inbox")}>
+          <span className="v2-channel-icon">WA</span>
+          <div>
+            <strong>{language === "ar" ? "واتساب بزنس" : "WhatsApp Business"}</strong>
+            <small>{language === "ar" ? "افتح صندوق المحادثات المشترك" : "Open shared inbox"}</small>
+          </div>
+          <span className="v2-channel-badge limited">{language === "ar" ? "تحقق مطلوب" : "Check status"}</span>
+        </button>
+        <button type="button" className="v2-channel-item" onClick={() => onNavigate("content")}>
+          <span className="v2-channel-icon">IG/FB</span>
+          <div>
+            <strong>{language === "ar" ? "إنستغرام وفيسبوك" : "Instagram & Facebook"}</strong>
+            <small>{language === "ar" ? "مصنع المحتوى والموافقة" : "Factory & Approval"}</small>
+          </div>
+          <span className="v2-channel-badge limited">{language === "ar" ? "موافقة يدوية" : "Manual Approval"}</span>
+        </button>
+        <button type="button" className="v2-channel-item" onClick={() => onNavigate("content")}>
+          <span className="v2-channel-icon">CV</span>
+          <div>
+            <strong>{language === "ar" ? "كانفا الذكي" : "Canva Smart Brief"}</strong>
+            <small>{language === "ar" ? "إعداد موجز التصميم" : "Prepare a design brief"}</small>
+          </div>
+          <span className="v2-channel-badge limited">{language === "ar" ? "مسار يدوي" : "Manual workflow"}</span>
+        </button>
+        <button type="button" className="v2-channel-item" onClick={() => onNavigate("brain")}>
+          <span className="v2-channel-icon">AI</span>
+          <div>
+            <strong>{language === "ar" ? "Coach Brain" : "Coach Brain"}</strong>
+            <small>{language === "ar" ? "مساعد البحث والتخطيط" : "Research & planning assistant"}</small>
+          </div>
+          <span className="v2-channel-badge limited">{language === "ar" ? "فتح" : "Open"}</span>
+        </button>
+      </div>
+      <div className="v2-safety-rule">
+        <span>🛡️</span>
+        <small>
+          {language === "ar"
+            ? "النشر يحتاج موافقتك الصريحة. قد تستهلك طلبات الذكاء الاصطناعي رصيد المزود؛ راجع التكلفة قبل توليد الصور أو الفيديو."
+            : "Publishing requires your explicit approval. AI requests may use provider quota; review the estimate before image or video generation."}
+        </small>
+      </div>
+    </section>
     <section className="v2-action-center"><div className="v2-section-head"><div><span>NEEDS YOUR DECISION</span><h3>{language === "ar" ? "ما الذي يحتاج قرارك الآن؟" : "What needs your decision now?"}</h3><p className="v2-panel-note">{language === "ar" ? "كل بطاقة تفتح القرار، ثم توصلك للإجراء التالي في القسم الصحيح." : "Each card opens the decision, then takes you to the next action in the right section."}</p></div><button type="button" onClick={() => setCommandOpen(true)}>{language === "ar" ? "مراجعة الكل" : "Review All"}<ArrowRight size={16} /></button></div>{actions.length === 0 ? <div className="v2-empty"><CheckCircle2 size={21} />{language === "ar" ? "لا توجد إجراءات عاجلة في اللقطة الحالية." : "No urgent actions in the current snapshot."}</div> : <div className="v2-action-grid">{actions.map((item) => { const Icon = item.icon; return <button type="button" className="v2-action-card" key={item.section} onClick={() => setSelectedActionSection(item.section)}><span className="v2-action-icon"><Icon size={20} /></span><strong>{n(language, item.count)}</strong><span>{item.label}</span><small>{language === "ar" ? "فتح القرار ثم الإجراء التالي" : "Open decision, then next action"}</small><ArrowRight size={16} /></button>; })}</div>}</section>
     <section className="v2-panel v2-priorities"><div className="v2-section-head"><div><span>TODAY'S PRIORITIES</span><h3>{language === "ar" ? "أولويات اليوم" : "Today's priorities"}</h3></div><button type="button" onClick={() => setCommandOpen(true)}>{language === "ar" ? "افتح مركز الأوامر" : "Open command bar"}<Command size={15} /></button></div>{actions.length === 0 ? <div className="v2-empty">{language === "ar" ? "لا توجد أولوية من البيانات الحالية." : "No priorities from the current data."}</div> : <div className="v2-quick-list">{actions.slice(0, 4).map((item) => <button type="button" key={`priority-${item.section}`} onClick={() => onNavigate(item.section)}><span><strong>{n(language, item.count)}</strong> {item.label}</span><small>{item.section === "content" || item.section === "inbox" ? (language === "ar" ? "موافقة المالك مطلوبة" : "Owner approval required") : (language === "ar" ? "الإجراء التالي" : "Next action")}</small><ArrowRight /></button>)}</div>}</section>
     <section className="v2-panel v2-marketing-plan"><div className="v2-section-head"><div><span>MARKETING PLAN · 10 DAYS</span><h3>{language === "ar" ? "خطة التسويق الذكية" : "Smart 10-day marketing plan"}</h3><p className="v2-panel-note">{language === "ar" ? "الخطة مقترح قابل للمراجعة؛ لا يتم نشر شيء من هذه الشاشة." : "This is a reviewable proposal; nothing publishes from this screen."}</p></div><button type="button" onClick={() => onNavigate("content")}>{language === "ar" ? "فتح المصنع" : "Open Factory"}<ArrowRight size={15} /></button></div><div className="v2-plan-list">{planSlots.map((slot, index) => <button type="button" key={`${slot.labelKey}-${index}`} onClick={() => onNavigate("content")}><span className="v2-plan-day">{language === "ar" ? `اليوم ${index + 1}` : `Day ${index + 1}`}</span><strong>{mixLabels[slot.labelKey as keyof typeof mixLabels] ?? slot.labelKey}</strong><small>{slot.platform.toUpperCase()} · {slot.contentType} · {language === "ar" ? "لماذا هذا؟ البيانات غير كافية بعد" : "Why this? Not enough data yet."}</small><span className="v2-plan-focus">{PLATFORM_GUIDANCE[slot.platform].focus}</span></button>)}</div></section>
