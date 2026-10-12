@@ -52,7 +52,7 @@ export async function estimateGeminiImageGeneration(session: GeminiImageSession)
   if (typeof result.estimatedCostUsd !== "number") throw new Error("GEMINI_IMAGE_ESTIMATE_MISSING");
   return {
     estimatedCostUsd: result.estimatedCostUsd,
-    model: typeof result.model === "string" ? result.model : "gemini-nano-banana-2.1",
+    model: typeof result.model === "string" ? result.model : "gemini-3.1-flash-lite-image",
   };
 }
 
