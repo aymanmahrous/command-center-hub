@@ -150,8 +150,8 @@ export default function ControlTowerV2({ session, onNavigate, onSessionExpired, 
         <span>🛡️</span>
         <small>
           {language === "ar"
-            ? "حماية المالك: لا نشر تلقائي ولا سحب رصيد بدون موافقتك اليدوية. جميع الإجراءات تتطلب اعتماداً صريحاً."
-            : "Owner Safety Gate: No automated publishing or credit consumption without explicit manual approval."}
+            ? "النشر يحتاج موافقتك الصريحة. قد تستهلك طلبات الذكاء الاصطناعي رصيد المزود؛ راجع التكلفة قبل توليد الصور أو الفيديو."
+            : "Publishing requires your explicit approval. AI requests may use provider quota; review the estimate before image or video generation."}
         </small>
       </div>
     </section>
