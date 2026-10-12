@@ -11,7 +11,7 @@ interface BrandedPosterStudioProps {
 
 export function BrandedPosterStudio({ item, language, onClose, onSaveDesign }: BrandedPosterStudioProps) {
   const [downloading, setDownloading] = useState(false);
-  const [copiedBrief, setCopiedBrief] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<"canva" | "gemini" | "error" | null>(null);
   const isAr = language === "ar";
 
   const caption = item.caption || item.topic || "";
@@ -272,24 +272,53 @@ export function BrandedPosterStudio({ item, language, onClose, onSaveDesign }: B
     }
   };
 
-  const copyCanvaBrief = async () => {
-    const briefText = `[Canva Template Design Brief — Relax Fix UAE / Coach Ayman]
-Platform: ${item.platform} (${ratio})
-Headline: ${headline}
-Colors: Deep Navy (#020617), Cyan (#06B6D4), Gold (#F59E0B), White (#FFFFFF)
-Branches: Al Mushrif, Al Falah, Khalifa City, Al Danah
-Booking CTA: WhatsApp 058 821 9130`;
-    await navigator.clipboard.writeText(briefText);
-    setCopiedBrief(true);
-    setTimeout(() => setCopiedBrief(false), 2000);
+  const copyText = async (text: string, target: "canva" | "gemini") => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyStatus(target);
+      window.setTimeout(() => setCopyStatus(null), 2500);
+    } catch {
+      setCopyStatus("error");
+    }
   };
 
+  const buildCanvaBrief = () => `[Canva Template Design Brief — Relax Fix UAE / Coach Ayman]
+Platform: ${item.platform}
+Format: ${ratio}
+Headline: ${headline}
+Key points:\n${editableKeyPoints.map((point) => `- ${point}`).join("\n")}
+Colors: Deep Navy (#020617), Cyan (#06B6D4), Gold (#F59E0B), White (#FFFFFF)
+Branches: Al Mushrif, Al Falah, Khalifa City, Al Danah
+Booking CTA: WhatsApp 058 821 9130
+Policy: Do not add prices, unsupported claims, or extra contact details.`;
+
+  const buildGeminiPrompt = () => [
+    "Create one polished, premium social-media poster for Relax Fix UAE Swimming Academy in Abu Dhabi.",
+    `Format: ${ratio} for ${item.platform}. Compose the artwork safely inside the crop area.`,
+    `Exact headline to render exactly as provided; do not translate or rewrite: «${headline}»`,
+    "Supporting points: preserve the original language and wording; use right-to-left layout for Arabic:",
+    ...editableKeyPoints.map((point) => `- ${point}`),
+    "Footer: فروع أبوظبي: المشرف • الفلاح • مدينة خليفة • الدانة / النجدة | واتساب: 058 821 9130",
+    "Visual direction: elegant indoor swimming-pool atmosphere, clear blue water, natural premium lighting, confident and welcoming, safe for families; use deep navy, turquoise/cyan, white and restrained gold accents.",
+    typeof item.visualPrompt === "string" && item.visualPrompt.trim() ? `Campaign visual direction: ${item.visualPrompt.trim().slice(0, 800)}` : "",
+    typeof item.topic === "string" && item.topic.trim() ? `Campaign topic: ${item.topic.trim().slice(0, 300)}` : "",
+    "Use clear hierarchy and generous spacing. Do not invent prices, discounts, awards, branches, phone numbers, or extra text. Do not imitate an official logo; use a simple swimming-wave motif only.",
+  ].filter(Boolean).join("\n\n");
+
+  const copyCanvaBrief = () => copyText(buildCanvaBrief(), "canva");
+  const copyGeminiPrompt = () => copyText(buildGeminiPrompt(), "gemini");
+
   const openCanvaTool = () => {
-    void copyCanvaBrief();
     const canvaUrl = ratio === "9:16"
       ? "https://www.canva.com/create/instagram-stories/"
       : "https://www.canva.com/create/instagram-posts/";
-    window.open(canvaUrl, "_blank", "noopener");
+    window.open(canvaUrl, "_blank", "noopener,noreferrer");
+    void copyCanvaBrief();
+  };
+
+  const openGeminiTool = () => {
+    window.open("https://gemini.google.com/app", "_blank", "noopener,noreferrer");
+    void copyGeminiPrompt();
   };
 
   return (
@@ -359,10 +388,23 @@ Booking CTA: WhatsApp 058 821 9130`;
           {isAr ? "فتح Canva للمقاس" : "Open Canva for Ratio"}
         </button>
         <button type="button" className="secondary" onClick={() => void copyCanvaBrief()} style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
-          {copiedBrief ? <Check size={12} color="#10b981" /> : <Copy size={12} />}
-          {isAr ? "نسخ مواصفات التصميم" : "Copy Design Brief"}
+          {copyStatus === "canva" ? <Check size={12} color="#10b981" /> : <Copy size={12} />}
+          {isAr ? (copyStatus === "canva" ? "تم نسخ مواصفات Canva" : "نسخ مواصفات Canva") : (copyStatus === "canva" ? "Canva brief copied" : "Copy Canva Brief")}
+        </button>
+        <button type="button" className="secondary" onClick={openGeminiTool} style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
+          <Sparkles size={12} />
+          {isAr ? "فتح Gemini ونسخ البرومبت" : "Open Gemini & copy prompt"}
+        </button>
+        <button type="button" className="secondary" onClick={() => void copyGeminiPrompt()} style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
+          {copyStatus === "gemini" ? <Check size={12} color="#10b981" /> : <Copy size={12} />}
+          {isAr ? (copyStatus === "gemini" ? "تم نسخ برومبت Gemini" : "نسخ برومبت Gemini") : (copyStatus === "gemini" ? "Gemini prompt copied" : "Copy Gemini Prompt")}
         </button>
       </div>
+      <p role="status" aria-live="polite" style={{ margin: "0.5rem 0 0", color: copyStatus === "error" ? "#fca5a5" : "#94a3b8", fontSize: "0.78rem" }}>
+        {copyStatus === "error"
+          ? (isAr ? "تعذر نسخ النص. اسمح للموقع بالوصول إلى الحافظة ثم أعد المحاولة." : "Could not copy. Allow clipboard access for this site and try again.")
+          : (isAr ? "راجع النص العربي الناتج من Gemini قبل استخدامه؛ Canva أو PNG المحلي أنسب عندما يلزم تطابق النص حرفيًا." : "Review Gemini's Arabic text before use; Canva or the local PNG is better when exact wording matters.")}
+      </p>
     </div>
   );
 }
