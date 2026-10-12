@@ -259,6 +259,7 @@ export default function ContentGrowthHub({
     ["content", language === "ar" ? "قائمة المحتوى" : "Content list"],
     ["connections", language === "ar" ? "الاتصالات" : "Connections"],
   ] as const;
+  const activeAdvancedStage = advancedStages.find(([id]) => id === activeFactoryTab);
   const planDays = useMemo(() => {
     const start = new Date();
     start.setHours(0, 0, 0, 0);
@@ -451,12 +452,16 @@ export default function ContentGrowthHub({
           {factoryStages.map(([id, label], index) => <button type="button" role="listitem" key={id} className={activeFactoryTab === id ? "active" : ""} onClick={() => selectFactoryTab(id)}><b>{index + 1}</b><span>{label}</span></button>)}
         </div>
         <div className="factory-advanced-rail" aria-label={language === "ar" ? "أدوات إضافية" : "Additional tools"}>
-          <span>{language === "ar" ? "أدوات إضافية:" : "Additional tools:"}</span>
-          {advancedStages.map(([id, label]) => (
-            <button type="button" key={id} className={activeFactoryTab === id ? "active" : ""} onClick={() => selectFactoryTab(id)}>
-              {label}
-            </button>
-          ))}
+          <details className="factory-advanced-menu">
+            <summary><span>{activeAdvancedStage ? (language === "ar" ? `المزيد: ${activeAdvancedStage[1]}` : `More: ${activeAdvancedStage[1]}`) : (language === "ar" ? "المزيد" : "More")}</span></summary>
+            <div className="factory-advanced-menu-items">
+              {advancedStages.map(([id, label]) => (
+                <button type="button" key={id} className={activeFactoryTab === id ? "active" : ""} onClick={() => selectFactoryTab(id)}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </details>
         </div>
       </section>
       {(activeFactoryTab === "factory" || activeFactoryTab === "strategy") && (

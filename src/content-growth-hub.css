@@ -5,8 +5,9 @@
 }
 
 .content-section-nav {
+  /* Keep factory tabs below the sticky app navigation instead of stacking both at top: 0. */
   position: sticky;
-  top: 0;
+  top: 84px;
   z-index: 4;
   display: flex;
   gap: 8px;
@@ -411,9 +412,18 @@
 .factory-stage-rail span { font-weight: 800; font-size: .8rem; }
 .factory-advanced-rail { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(51, 65, 85, .4); }
 .factory-advanced-rail span { color: #94a3b8; font-size: .78rem; font-weight: 700; }
+.factory-advanced-menu { position: relative; }
+.factory-advanced-menu summary { list-style: none; border: 1px solid #334155; border-radius: 8px; padding: 4px 11px; background: rgba(15, 23, 42, .6); color: #cbd5e1; cursor: pointer; font: inherit; font-size: .78rem; font-weight: 700; }
+.factory-advanced-menu summary::-webkit-details-marker { display: none; }
+.factory-advanced-menu summary::after { content: "▾"; margin-inline-start: 8px; color: #67e8f9; }
+.factory-advanced-menu[open] summary::after { content: "▴"; }
+.factory-advanced-menu summary:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
+.factory-advanced-menu[open] .factory-advanced-menu-items { position: absolute; inset-inline-start: 0; inset-block-start: calc(100% + 6px); z-index: 30; display: grid; min-width: 180px; gap: 6px; padding: 8px; border: 1px solid #164e63; border-radius: 10px; background: #0b1321; box-shadow: 0 12px 28px rgba(0, 0, 0, .35); }
 .factory-advanced-rail button { border: 1px solid #334155; border-radius: 8px; padding: 4px 11px; background: rgba(15, 23, 42, .6); color: #cbd5e1; cursor: pointer; font: inherit; font-size: .78rem; font-weight: 700; }
+.factory-advanced-menu-items button { width: 100%; text-align: start; }
 .factory-advanced-rail button:hover,
 .factory-advanced-rail button.active { border-color: #38bdf8; background: rgba(56, 189, 248, .16); color: #f8fafc; }
+.factory-advanced-menu summary:hover { border-color: #38bdf8; color: #f8fafc; }
 .overview-brain-action { margin-top: 14px; }
 .factory-30-day-plan { border-color: #334155; }
 .factory-30-day-grid { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 8px; }
@@ -448,3 +458,9 @@
 .factory-plan-summary strong { color:#f8fafc; line-height:1.45; }
 .factory-plan-summary span { color:#bae6fd; font-size:.82rem; line-height:1.55; }
 @media(max-width:620px){ .factory-plan-controls { grid-template-columns:1fr; } }
+
+
+/* The app navigation grows to two rows at narrower widths. */
+@media (max-width: 1100px) {
+  .content-section-nav { top: 132px; }
+}
