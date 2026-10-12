@@ -20,7 +20,9 @@ test("ControlTowerV2 exposes honest channel navigation shortcuts without fake ha
   assert.match(view, /Instagram & Facebook/);
   assert.match(view, /Canva Smart Brief/);
   assert.match(view, /Coach Brain/);
-  assert.match(view, /Owner Safety Gate/);
+  assert.match(view, /Publishing requires your explicit approval/);
+  assert.match(view, /AI requests may use provider quota/);
+  assert.match(view, /النشر يحتاج موافقتك الصريحة/);
   assert.match(view, /Open shared inbox/);
   assert.match(view, /Check status/);
   assert.match(view, /Prepare a design brief/);
