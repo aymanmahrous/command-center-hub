@@ -117,9 +117,9 @@ export default function ControlTowerV2({ session, onNavigate, onSessionExpired, 
           <span className="v2-channel-icon">WA</span>
           <div>
             <strong>{language === "ar" ? "واتساب بزنس" : "WhatsApp Business"}</strong>
-            <small>{language === "ar" ? "المحادثات الواردة جاهزة" : "Incoming inbox ready"}</small>
+            <small>{language === "ar" ? "افتح صندوق المحادثات المشترك" : "Open shared inbox"}</small>
           </div>
-          <span className="v2-channel-badge ok">{language === "ar" ? "نشط" : "Active"}</span>
+          <span className="v2-channel-badge limited">{language === "ar" ? "تحقق مطلوب" : "Check status"</span>
         </button>
         <button type="button" className="v2-channel-item" onClick={() => onNavigate("content")}>
           <span className="v2-channel-icon">IG/FB</span>
@@ -133,17 +133,17 @@ export default function ControlTowerV2({ session, onNavigate, onSessionExpired, 
           <span className="v2-channel-icon">CV</span>
           <div>
             <strong>{language === "ar" ? "كانفا الذكي" : "Canva Smart Brief"}</strong>
-            <small>{language === "ar" ? "استوديو البوسترات جاهز" : "Poster Studio ready"}</small>
+            <small>{language === "ar" ? "إعداد موجز التصميم" : "Prepare a design brief"}</small>
           </div>
-          <span className="v2-channel-badge ok">{language === "ar" ? "جاهز" : "Ready"}</span>
+          <span className="v2-channel-badge limited">{language === "ar" ? "مسار يدوي" : "Manual workflow"</span>
         </button>
         <button type="button" className="v2-channel-item" onClick={() => onNavigate("brain")}>
           <span className="v2-channel-icon">AI</span>
           <div>
             <strong>{language === "ar" ? "Coach Brain" : "Coach Brain"}</strong>
-            <small>{language === "ar" ? "محمي ومفلتر للخصوصية" : "Secured & Privacy-safe"}</small>
+            <small>{language === "ar" ? "مساعد البحث والتخطيط" : "Research & planning assistant"}</small>
           </div>
-          <span className="v2-channel-badge ok">{language === "ar" ? "محمي" : "Secured"}</span>
+          <span className="v2-channel-badge limited">{language === "ar" ? "فتح" : "Open"</span>
         </button>
       </div>
       <div className="v2-safety-rule">
