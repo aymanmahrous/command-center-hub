@@ -21,7 +21,7 @@ const definitions: Record<string, { icon: string; description: Record<Language, 
   telegram: { icon: "TG", method: "manual", description: { ar: "تنبيهات الموظفين الداخلية (اختياري). محادثات العملاء تعمل عبر WhatsApp.", en: "Internal staff alerts (optional). Customer chats run via WhatsApp." } },
   google_calendar: { icon: "GC", method: "oauth", description: { ar: "قراءة المواعيد ومنع تعارض الحجوزات التدريبية.", en: "Read availability and prevent booking conflicts." } },
   canva: { icon: "CV", method: "oauth", description: { ar: "ربط التصاميم بالمنشورات. (موجز Canva الذكي متاح مجاناً دائماً).", en: "Link designs to posts. (Canva Smart Brief is always available)." } },
-  ai_provider: { icon: "AI", method: "api_key", description: { ar: "محرك الذكاء الاصطناعي (Gemini Core) مهيأ ويعمل سحابياً. لا حاجة لمفتاح إضافي للتشغيل اليومي.", en: "System AI engine (Gemini Core) is configured and running server-side. No extra key needed." } },
+  ai_provider: { icon: "AI", method: "api_key", description: { ar: "حالة محرك الذكاء الاصطناعي تعتمد على فحص الإعداد والتحقق الخارجي؛ لا نعرضه كمتاح بالكامل دون دليل.", en: "AI engine capability depends on configuration and external verification; it is not marked fully available without evidence." } },
 };
 const statusLabels: Record<Language, Record<string, string>> = { ar: { not_connected: "غير مربوط", pending: "جاري الربط", connected: "اجتاز اختبار الإعداد المحلي", needs_test: "يحتاج اختبار", error: "فشل", disabled: "متوقف" }, en: { not_connected: "Not connected", pending: "Pending", connected: "Local config test passed", needs_test: "Needs test", error: "Error", disabled: "Disabled" } };
 const capabilityLabels: Record<Language, Record<CapabilityState, string>> = {
