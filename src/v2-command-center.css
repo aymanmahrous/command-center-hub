@@ -28,3 +28,22 @@
 .v2-action-modal{width:min(720px,calc(100vw - 28px));max-height:min(82vh,760px);overflow:auto;padding:20px;border:1px solid #334155;border-radius:18px;background:#07111f;color:#e5e7eb;box-shadow:0 24px 80px #0008}.v2-modal-close{border:1px solid #334155;border-radius:9px;background:#0b1321;color:#cbd5e1;font-size:20px;line-height:1;padding:6px 10px;cursor:pointer}.v2-decision-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}.v2-decision-grid article{padding:13px;border:1px solid #26374e;border-radius:12px;background:#091321}.v2-decision-grid strong{display:block;color:#67e8f9;font-size:12px}.v2-decision-grid p{margin:7px 0 0;color:#cbd5e1;font-size:12px;line-height:1.6}.v2-action-modal-buttons{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}.v2-action-modal-buttons button{display:inline-flex;align-items:center;gap:7px;padding:10px 13px;border:1px solid #334155;border-radius:10px;background:#1e293b;color:#e2e8f0;font:inherit;font-weight:800;cursor:pointer}.v2-action-modal-buttons button.v2-primary-action{border-color:#38bdf8;background:#0c4a6e;color:#e0f2fe}.v2-action-modal-buttons button:hover{border-color:#67e8f9}@media(max-width:760px){.v2-action-modal{padding:15px}.v2-decision-grid{grid-template-columns:1fr}.v2-action-modal-buttons{display:grid}.v2-action-modal-buttons button{justify-content:center}}
 
 .v2-approval-center .v2-topbar{padding-bottom:2px}.v2-approval-center .v2-action-card>span:last-child{display:flex;align-items:center;gap:4px;justify-self:end;color:#67e8f9;font-size:11px;font-weight:800}.v2-approval-rules{margin-top:0}
+
+/* Coach Ayman Cockpit styles */
+.v2-coach-cockpit-banner{background:linear-gradient(135deg,rgba(8,47,73,.45) 0%,rgba(15,23,42,.8) 100%);border:1px solid rgba(56,189,248,.28);border-radius:18px;padding:18px 20px;display:grid;gap:14px;box-shadow:0 12px 35px rgba(2,8,23,.3)}
+.v2-cockpit-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.v2-cockpit-header h3{margin:4px 0 0;font-size:1.25rem;color:#f8fafc}
+.v2-cockpit-contacts{display:flex;gap:8px;flex-wrap:wrap}
+.v2-contact-badge{padding:6px 10px;border-radius:10px;background:rgba(14,165,233,.12);border:1px solid rgba(56,189,248,.25);font-size:12px;color:#bae6fd}
+.v2-contact-badge strong{color:#38bdf8}
+.v2-cockpit-channels{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.v2-channel-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:rgba(9,19,33,.7);border:1px solid #1e293b;cursor:pointer;text-align:start;font:inherit;transition:border-color .18s ease,transform .18s ease}
+.v2-channel-item:hover{border-color:#38bdf8;transform:translateY(-1px)}
+.v2-channel-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:8px;background:#082f49;color:#38bdf8;font-size:11px;font-weight:900;flex:0 0 auto}
+.v2-channel-item strong{display:block;font-size:13px;color:#f1f5f9}
+.v2-channel-item small{display:block;font-size:11px;color:#94a3b8}
+.v2-channel-badge{margin-inline-start:auto;padding:3px 7px;border-radius:6px;font-size:10px;font-weight:800;white-space:nowrap}
+.v2-channel-badge.ok{background:rgba(16,185,129,.15);color:#34d399;border:1px solid rgba(16,185,129,.3)}
+.v2-channel-badge.limited{background:rgba(245,158,11,.15);color:#fbbf24;border:1px solid rgba(245,158,11,.3)}
+.v2-safety-rule{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);color:#fde68a;font-size:12px}
+@media(max-width:760px){.v2-cockpit-header{flex-direction:column}.v2-cockpit-contacts{width:100%}.v2-contact-badge{width:100%}}
