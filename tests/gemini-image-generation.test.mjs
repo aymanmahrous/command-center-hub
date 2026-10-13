@@ -22,9 +22,10 @@ test("Gemini image Edge Function authenticates staff and uses the current low-co
   assert.match(edge, /estimatedCostUsd/);
 });
 
-test("Auto chooses fresh Gemini imagery instead of repeating Canva's text-only template background", () => {
-  assert.match(panel, /return "gemini";/);
-  assert.match(panel, /Canva's configured brand template currently exposes text fields only/);
+test("Auto prefers configured Canva while leaving Gemini selectable", () => {
+  assert.match(panel, /designCapabilityState !== "NOT_CONFIGURED" \? "canva" : "gemini"/);
+  assert.match(panel, /label: "Gemini Image", available: !isVideo/);
+  assert.match(panel, /label: "canva", available: !isVideo && designCapabilityState !== "NOT_CONFIGURED"/);
 });
 
 test("Gemini image prompts vary composition while preserving the academy's core brand palette", () => {
