@@ -27,7 +27,7 @@ test("batch review panel exposes generate Canva design action", () => {
 });
 
 test("Canva is the default when configured and can rotate across owner-configured brand templates", () => {
-  assert.match(panel, /designCapabilityState !== "NOT_CONFIGURED" \\? "canva" : "gemini"/);
+  assert.match(panel, /designCapabilityState !== "NOT_CONFIGURED" \? "canva" : "gemini"/);
   assert.match(edge, /CANVA_BRAND_TEMPLATE_IDS/);
   assert.match(edge, /chooseBrandTemplateId\(contentItemId\)/);
   assert.match(edge, /brandTemplateCount: CANVA_BRAND_TEMPLATE_IDS.length/);
