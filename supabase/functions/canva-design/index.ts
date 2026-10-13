@@ -336,7 +336,9 @@ async function createAutofillDesign(
   if (!ok) return { error: "AUTOFILL_CREATE_FAILED" as const, detail: payload };
   const jobId = String((payload.job as JsonObject | undefined)?.id ?? "");
   if (!jobId) return { error: "AUTOFILL_JOB_MISSING" as const };
-  return pollAutofillJob(accessToken, jobId);
+  const completed = await pollAutofillJob(accessToken, jobId);
+  if ("error" in completed) return completed;
+  return { ...completed, imageApplied: Boolean(uploadedImageAssetId) };
 }
 
 async function exportDesignPng(accessToken: string, designId: string) {
@@ -539,5 +541,6 @@ Deno.serve(async (request) => {
     mediaAssetId: stored.mediaAssetId,
     storagePath: stored.storagePath,
     canvaDesignUrl: autofill.designUrl,
+    imageApplied: autofill.imageApplied === true,
   });
 });
