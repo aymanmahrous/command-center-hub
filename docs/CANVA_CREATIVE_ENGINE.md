@@ -38,4 +38,4 @@
 - https://www.canva.com/newsroom/news/new-apis-data-connectors/
 
 ## Verification boundary
-Status checks are read-only. They do not generate images, consume Canva AI credits, export a design, or publish to social platforms. Visual variety is only verified after a real design replaces its main image through a template with an image autofill field.
+Status checks may refresh and store an OAuth token, but they do not generate images, consume Canva AI credits, export a design, or publish to social platforms. Visual variety is only verified after a real design replaces its main image through a template with an image autofill field.
