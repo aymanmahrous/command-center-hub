@@ -52,6 +52,7 @@ export async function generateCanvaDesignForContentItem(
   const result = await callCanvaDesignEdge(session, {
     mode: "generate",
     contentItemId: item.id,
+    sourceMediaAssetId: typeof item.mediaAssetId === "string" ? item.mediaAssetId : "",
     topic: item.topic,
     hook: typeof item.hook === "string" ? item.hook : "",
     caption: item.caption,
@@ -63,6 +64,16 @@ export async function generateCanvaDesignForContentItem(
 
 export function canvaDesignErrorMessage(code: string | undefined): string {
   switch (code) {
+    case "CANVA_IMAGE_UPLOAD_FAILED":
+    case "CANVA_IMAGE_UPLOAD_STATUS_FAILED":
+    case "CANVA_IMAGE_UPLOAD_JOB_MISSING":
+    case "CANVA_IMAGE_UPLOAD_TIMEOUT":
+    case "CANVA_IMAGE_ASSET_MISSING":
+      return "Canva could not import the linked library image. Check that the Canva connection has asset:write permission, then reconnect Canva if needed.";
+    case "MEDIA_ASSET_NOT_LINKED":
+      return "Link the library image to this content item first, then create the Canva design.";
+    case "IMAGE_ASSET_REQUIRED":
+      return "Canva image autofill requires an image asset. Select an image rather than a video.";
     case "CANVA_NOT_CONNECTED":
       return "Connect Canva in Media Library first, then try again.";
     case "NEEDS_CREDENTIAL":
