@@ -305,8 +305,12 @@ export function ContentBatchReviewPanel({
           : provider === "runway" ? "Runway is the video choice, but automated execution requires a verified connection. No unsupported generation is claimed." : provider === "capcut" ? "CapCut is available here as a manual editing path; the brief is ready." : "Manual path selected; use the prepared brief.");
         return;
       }
-      await generateCanvaDesignForContentItem(session, item);
-      setDesignNotice(copy.designGeneratedNotice);
+      const generated = await generateCanvaDesignForContentItem(session, item);
+      setDesignNotice(generated.imageApplied
+        ? copy.designGeneratedNotice
+        : language === "ar"
+          ? "تم إنشاء التصميم عبر Canva، لكن لم تتغير الصورة الرئيسية تلقائيًا. لزيادة التنوع، اربط صورة من مكتبة الوسائط أولًا، واستخدم قالب Canva يحتوي على حقل صورة قابل للتعبئة."
+          : "Canva created the design, but the main image was not replaced automatically. For visual variety, link a Media Library image first and use a Canva template with an autofillable image field.");
       setReplacingMediaItemId(null);
       onMediaLinked?.();
     } catch (cause) {
