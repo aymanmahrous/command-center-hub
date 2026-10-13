@@ -21,6 +21,7 @@ import {
   buildPerformanceInsights,
 } from "./content-strategy";
 import { ContentBatchReviewPanel } from "./content-batch-review-panel";
+import { fetchCanvaDesignStatus } from "./canva-design-adapter";
 import { useLanguage } from "./i18n";
 import "./content-growth-hub.css";
 
@@ -202,6 +203,7 @@ export default function ContentGrowthHub({
   const facebookAudit = useMemo(() => buildFacebookPublishAudit(items), [items]);
   const [automationStatus, setAutomationStatus] = useState<unknown>(null);
   const [staffIntegrations, setStaffIntegrations] = useState<Array<{ provider: string; status: string; lastTestedAt?: string | null }>>([]);
+  const [canvaDesignStatus, setCanvaDesignStatus] = useState<{ ready: boolean; detail: string } | null>(null);
   const [generateNotice, setGenerateNotice] = useState("");
   const [generating, setGenerating] = useState(false);
   const [batchAiProvider, setBatchAiProvider] = useState<BatchAiProvider>("auto");
@@ -217,11 +219,18 @@ export default function ContentGrowthHub({
   const [mediaAssets, setMediaAssets] = useState<ReturnType<typeof parseMediaAssetRecords>>([]);
   const integrations = useMemo(() => readIntegrationStatuses(automationStatus), [automationStatus]);
   const canvaIntegration = staffIntegrations.find((integration) => integration.provider === "canva");
-  const canvaCapabilityState = canvaIntegration?.status === "connected" && Boolean(canvaIntegration.lastTestedAt)
+  const canvaCapabilityState = canvaIntegration?.status === "connected" && canvaDesignStatus?.ready
     ? "AVAILABLE"
-    : canvaIntegration?.status === "connected" || canvaIntegration?.status === "needs_test"
-      ? "LIMITED"
-      : "NOT_CONFIGURED";
+    : "NOT_CONFIGURED";
+  const canvaStatusNotice = canvaIntegration?.status === "connected" && canvaDesignStatus && !canvaDesignStatus.ready
+    ? language === "ar"
+      ? canvaDesignStatus.detail.includes("asset:write")
+        ? "Canva يحتاج إعادة ربط لمنح صلاحية رفع الصور (asset:write). افتح Media Library وأعد ربط Canva مرة واحدة."
+        : canvaDesignStatus.detail.includes("no image field")
+          ? "قوالب Canva الحالية تحتوي على نصوص فقط ولا تحتوي على حقل صورة قابل للاستبدال. يجب تجهيز قالب بصري مختلف يحتوي على حقل صورة قبل إنشاء تصميم جديد."
+          : `إعداد Canva غير مكتمل: ${canvaDesignStatus.detail}`
+      : `Canva setup required: ${canvaDesignStatus.detail}`
+    : null;
   const videoCapabilityState = integrations.find((integration) => integration.key === "runway")?.capabilityState ?? "NOT_CONFIGURED";
   const PLAN_WINDOW_OPTIONS = [2, 3, 4, 7, 14, 30] as const;
   const handoffParams = new URLSearchParams(window.location.search);
@@ -298,6 +307,17 @@ export default function ContentGrowthHub({
       .catch(() => { if (!controller.signal.aborted) setMediaAssets([]); });
     return () => controller.abort();
   }, [session]);
+
+  useEffect(() => {
+    let active = true;
+    setCanvaDesignStatus(null);
+    void fetchCanvaDesignStatus(session)
+      .then((status) => { if (active) setCanvaDesignStatus(status); })
+      .catch(() => {
+        if (active) setCanvaDesignStatus({ ready: false, detail: "Canva status could not be verified." });
+      });
+    return () => { active = false; };
+  }, [session.accessToken]);
 
   useEffect(() => {
     if (!selectedBatchId && primaryBatch) setSelectedBatchId(primaryBatch.batchId);
@@ -515,6 +535,7 @@ export default function ContentGrowthHub({
         {mediaLinkNotice && <small role="status">{mediaLinkNotice}</small>}
       </div>}
 
+      {canvaStatusNotice && <div className="notice-box" role="status" aria-live="polite">{canvaStatusNotice}</div>}
       {generateNotice && <div className="notice-box" aria-live="polite">{generateNotice}</div>}
 
       {activeFactoryTab === "overview" && facebookAudit && (
