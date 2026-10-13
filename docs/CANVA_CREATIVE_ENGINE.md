@@ -25,6 +25,7 @@
 - **Autofill APIs** are the dependable baseline for Brand Templates with tagged text and image fields.
 - **Image generation API (preview, Oct 1)** creates an image asset from a prompt and consumes the user's Canva AI credit allowance. Never call it invisibly or during status checks.
 - **Design generation API (preview, Sep 29)** supports Canva Docs and presentations, not social-post presets; it is not a drop-in social poster generator.
+- **Canva MCP server became generally available (Oct 7)** and its `create-design` tool can create editable designs from briefs with formats such as Instagram Post. This is a different integration surface from the Connect REST design-generation endpoint; the current app does not yet call Canva MCP, so it must not be described as enabled inside Command Center until that server is deliberately integrated and authenticated.
 - **Image-to-design import (preview, Sep 21)** can convert an image already in Canva into editable layers; capability-check and test before making it a default.
 - Video autofill became generally available in September 2026; consider it only after video-field templates exist.
 - Resize adapts a finished design to another format but does not create visual diversity by itself.
