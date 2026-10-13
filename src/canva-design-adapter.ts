@@ -13,6 +13,7 @@ type CanvaDesignResponse = {
   code?: string;
   detail?: string;
   integrationStatus?: string;
+  imageApplied?: boolean;
 };
 
 async function callCanvaDesignEdge(session: CanvaDesignSession, body: Record<string, unknown>): Promise<CanvaDesignResponse> {
@@ -48,7 +49,7 @@ export async function fetchCanvaDesignStatus(session: CanvaDesignSession): Promi
 export async function generateCanvaDesignForContentItem(
   session: CanvaDesignSession,
   item: ContentBatchItem,
-): Promise<{ mediaAssetId: string; canvaDesignUrl?: string }> {
+): Promise<{ mediaAssetId: string; canvaDesignUrl?: string; imageApplied: boolean }> {
   const result = await callCanvaDesignEdge(session, {
     mode: "generate",
     contentItemId: item.id,
@@ -59,7 +60,7 @@ export async function generateCanvaDesignForContentItem(
     canvaBrief: parseCanvaBrief(typeof item.visualPrompt === "string" ? item.visualPrompt : undefined),
   });
   if (!result.success || !result.mediaAssetId) throw new Error(result.code ?? "CANVA_DESIGN_FAILED");
-  return { mediaAssetId: result.mediaAssetId, canvaDesignUrl: result.canvaDesignUrl };
+  return { mediaAssetId: result.mediaAssetId, canvaDesignUrl: result.canvaDesignUrl, imageApplied: result.imageApplied === true };
 }
 
 export function canvaDesignErrorMessage(code: string | undefined): string {
