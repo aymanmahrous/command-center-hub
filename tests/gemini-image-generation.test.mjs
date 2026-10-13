@@ -65,6 +65,6 @@ test("Factory exposes Gemini image generation, confirms cost, and links the asse
   assert.match(panel, /window\.confirm\(language === "ar"/);
   assert.match(panel, /generateGeminiImageForContentItem\(session, item\)/);
   assert.match(panel, /await linkMediaToItem\(item\.id, generated\.mediaAssetId\)/);
-  assert.match(panel, /return "gemini";/);
-  assert.match(panel, /Canva's configured brand template currently exposes text fields only/);
+  assert.match(panel, /designCapabilityState !== "NOT_CONFIGURED" \\? "canva" : "gemini"/);
+  assert.match(panel, /label: "Gemini Image", available: !isVideo/);
 });
