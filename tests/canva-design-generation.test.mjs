@@ -26,6 +26,13 @@ test("batch review panel exposes generate Canva design action", () => {
   assert.match(panel, /generateDesignButton/);
 });
 
+test("Canva is the default when configured and can rotate across owner-configured brand templates", () => {
+  assert.match(panel, /designCapabilityState !== "NOT_CONFIGURED" \\? "canva" : "gemini"/);
+  assert.match(edge, /CANVA_BRAND_TEMPLATE_IDS/);
+  assert.match(edge, /chooseBrandTemplateId\(contentItemId\)/);
+  assert.match(edge, /brandTemplateCount: CANVA_BRAND_TEMPLATE_IDS.length/);
+});
+
 test("Canva status path does not generate or export, but refreshes and stores OAuth credentials", () => {
   const statusStart = edge.indexOf('if (body.mode === "status")');
   const generateStart = edge.indexOf('if (body.mode !== "generate")', statusStart);
