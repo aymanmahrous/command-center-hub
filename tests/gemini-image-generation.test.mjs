@@ -15,11 +15,12 @@ test("Gemini image adapter keeps the API key server-side and calls the Edge Func
 
 test("Gemini image Edge Function authenticates staff and uses the current low-cost image model", () => {
   assert.match(edge, /GEMINI_API_KEY/);
-  assert.match(edge, /gemini-nano-banana-2\.1/);
+  assert.match(edge, /gemini-3\.1-flash-lite-image/);
   assert.match(edge, /v1beta\/interactions/);
   assert.match(edge, /requireStaff/);
   assert.match(edge, /GEMINI_CREDENTIAL_MISSING/);
   assert.match(edge, /estimatedCostUsd/);
+  assert.match(edge, /ESTIMATED_IMAGE_COST_USD = 0\.0336/);
 });
 
 test("Auto prefers configured Canva while leaving Gemini selectable", () => {
