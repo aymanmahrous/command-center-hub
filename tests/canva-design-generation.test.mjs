@@ -33,6 +33,16 @@ test("Canva is the default when configured and can rotate across owner-configure
   assert.match(edge, /brandTemplateCount: CANVA_BRAND_TEMPLATE_IDS.length/);
 });
 
+test("Canva can replace a template image with the content item's linked library image", () => {
+  assert.match(adapter, /sourceMediaAssetId: typeof item\.mediaAssetId === "string" \? item\.mediaAssetId : ""/);
+  assert.match(edge, /\/brand-templates\/\$\{selectedBrandTemplateId\}\/dataset/);
+  assert.match(edge, /datasetFields\(datasetResult\.dataset, "image"\)/);
+  assert.match(edge, /uploadLinkedImageToCanva\(accessToken, supabase, contentItemId, sourceMediaAssetId\)/);
+  assert.match(edge, /type: "image", asset_id: imageAssetId/);
+  assert.match(edge, /MEDIA_ASSET_NOT_LINKED/);
+  assert.match(edge, /CANVA_IMAGE_UPLOAD_FAILED/);
+});
+
 test("Canva status path does not generate or export, but refreshes and stores OAuth credentials", () => {
   const statusStart = edge.indexOf('if (body.mode === "status")');
   const generateStart = edge.indexOf('if (body.mode !== "generate")', statusStart);
