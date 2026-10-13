@@ -234,7 +234,10 @@ export function ContentBatchReviewPanel({
   function recommendedDesignProvider(item: ContentBatchItem): Exclude<DesignProvider, "auto"> {
     const isVideo = /reel|video/i.test(String(item.contentType));
     if (isVideo) return videoCapabilityState === "AVAILABLE" ? "runway" : "capcut";
-    return designCapabilityState !== "NOT_CONFIGURED" ? "canva" : "gemini";
+    // Canva's configured brand template currently exposes text fields only, so Auto would
+    // repeat its fixed background image. Prefer Gemini for genuinely varied static imagery.
+    // Canva remains available as an explicit manual choice when the owner wants that template.
+    return "gemini";
   }
 
   function availableDesignProviders(item: ContentBatchItem) {
