@@ -5,6 +5,7 @@ import test from "node:test";
 const adapter = await readFile(new URL("../src/canva-design-adapter.ts", import.meta.url), "utf8");
 const edge = await readFile(new URL("../supabase/functions/canva-design/index.ts", import.meta.url), "utf8");
 const panel = await readFile(new URL("../src/content-batch-review-panel.tsx", import.meta.url), "utf8");
+const growthHub = await readFile(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
 
 test("canva design adapter stays server-side", () => {
   assert.match(adapter, /functions\/v1\/canva-design/);
@@ -53,6 +54,13 @@ test("Canva status diagnoses missing permissions and image fields without genera
   assert.match(statusBranch, /templateImageFieldCount/);
   assert.match(statusBranch, /nextAction/);
   assert.doesNotMatch(statusBranch, /createAutofillDesign|exportDesignPng|storeDesignForContentItem/);
+});
+
+test("Factory checks Canva creative readiness before offering Canva as available", () => {
+  assert.match(growthHub, /fetchCanvaDesignStatus/);
+  assert.match(growthHub, /canvaIntegration\?\.status === "connected" && canvaDesignStatus\?\.ready/);
+  assert.match(growthHub, /canvaStatusNotice/);
+  assert.match(growthHub, /no image field/);
 });
 
 test("Canva refuses to silently create a same-looking design from a template without an image field", () => {
