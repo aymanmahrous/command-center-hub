@@ -311,7 +311,7 @@ export default function ContentGrowthHub({
   useEffect(() => {
     let active = true;
     setCanvaDesignStatus(null);
-    void fetchCanvaDesignStatus(session)
+    void fetchCanvaDesignStatus({ accessToken: session.accessToken })
       .then((status) => { if (active) setCanvaDesignStatus(status); })
       .catch(() => {
         if (active) setCanvaDesignStatus({ ready: false, detail: "Canva status could not be verified." });
