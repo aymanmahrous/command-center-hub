@@ -17,6 +17,7 @@ const RELAXFIX_WHATSAPP_LINE = "WhatsApp 058 821 9130 — messages & booking";
 const RELAXFIX_PHONE_LINE = "Call 055 137 8660 — admin team (phone calls only)";
 const RELAXFIX_ASSESSMENT_LINE = "Free initial assessment.";
 const CANVA_TOKEN_URL = "https://api.canva.com/rest/v1/oauth/token";
+const CANVA_REQUIRED_SCOPES = ["design:content:write", "asset:write"] as const;
 const CANVA_API_BASE = "https://api.canva.com/rest/v1";
 const MEDIA_BUCKET = "relax-fix-media";
 const ALLOWED_ROLES = new Set(["super_admin", "admin", "content_manager"]);
@@ -93,14 +94,14 @@ function credentialsConfigured() {
 async function refreshCanvaAccessToken(supabase: ReturnType<typeof createClient>, staffId: string) {
   const { data, error } = await supabase
     .from("staff_canva_tokens")
-    .select("access_token, refresh_token, expires_at")
+    .select("access_token, refresh_token, expires_at, scopes")
     .eq("staff_id", staffId)
     .maybeSingle();
   if (error || !data?.refresh_token) return { error: "CANVA_NOT_CONNECTED" as const };
 
   const expiresAt = new Date(String(data.expires_at)).getTime();
   if (Number.isFinite(expiresAt) && expiresAt - Date.now() > 60_000 && data.access_token) {
-    return { accessToken: String(data.access_token) };
+    return { accessToken: String(data.access_token), scopes: String(data.scopes ?? "") };
   }
 
   const body = new URLSearchParams({
@@ -127,10 +128,10 @@ async function refreshCanvaAccessToken(supabase: ReturnType<typeof createClient>
     access_token: payload.access_token,
     refresh_token: payload.refresh_token,
     expires_at: expiresAtIso,
-    scopes: String(payload.scope ?? ""),
+    scopes: String(payload.scope ?? data.scopes ?? ""),
     updated_at: new Date().toISOString(),
   });
-  return { accessToken: payload.access_token };
+  return { accessToken: payload.access_token, scopes: String(payload.scope ?? data.scopes ?? "") };
 }
 
 async function canvaFetch(accessToken: string, path: string, init?: RequestInit) {
@@ -304,8 +305,10 @@ async function createAutofillDesign(
     : `/designs/${CANVA_SOURCE_DESIGN_ID}/dataset`;
   const datasetResult = await fetchDataset(accessToken, datasetPath);
   if ("error" in datasetResult) return datasetResult;
+  const imageFields = datasetFields(datasetResult.dataset, "image");
+  if (imageFields.length === 0) return { error: "TEMPLATE_IMAGE_FIELD_MISSING" as const };
   let uploadedImageAssetId = "";
-  if (sourceMediaAssetId && datasetFields(datasetResult.dataset, "image").length > 0) {
+  if (sourceMediaAssetId && imageFields.length > 0) {
     const uploaded = await uploadLinkedImageToCanva(accessToken, supabase, contentItemId, sourceMediaAssetId);
     if ("error" in uploaded) return uploaded;
     uploadedImageAssetId = uploaded.assetId;
@@ -464,23 +467,50 @@ Deno.serve(async (request) => {
 
   if (body.mode === "status") {
     const tokenResult = await refreshCanvaAccessToken(serviceSupabase, staffId);
+    const missingScopes = "error" in tokenResult
+      ? [...CANVA_REQUIRED_SCOPES]
+      : CANVA_REQUIRED_SCOPES.filter((scope) => !tokenResult.scopes.split(/\s+/).includes(scope));
+    const selectedBrandTemplateId = chooseBrandTemplateId("canva-status");
+    const templateResult = !("error" in tokenResult) && selectedBrandTemplateId
+      ? await fetchDataset(tokenResult.accessToken, `/brand-templates/${selectedBrandTemplateId}/dataset`)
+      : null;
+    const templateDataset = templateResult && !("error" in templateResult) ? templateResult.dataset : null;
+    const imageFieldCount = datasetFields(templateDataset, "image").length;
+    const textFieldCount = datasetFields(templateDataset, "text").length;
+    const templateImageAutofillReady = imageFieldCount > 0;
+    const connected = !("error" in tokenResult);
+    const fullyReady = credentialsConfigured() && connected && missingScopes.length === 0 && templateImageAutofillReady;
+    const detail = !credentialsConfigured()
+      ? "Set CANVA_CLIENT_ID and CANVA_CLIENT_SECRET in Edge Function secrets."
+      : !connected
+      ? "Reconnect Canva from Media Library; the saved OAuth token is missing or expired."
+      : missingScopes.length > 0
+      ? `Reconnect Canva to grant the missing permission(s): ${missingScopes.join(", ")}.`
+      : templateResult && "error" in templateResult
+      ? "Canva could not inspect the selected Brand Template. Check brandtemplate:content:read and the configured template ID."
+      : !templateImageAutofillReady
+      ? "The selected Canva template has text fields but no image field. It cannot replace the visual, so repeated-looking designs are expected. Use a Brand Template with at least one image autofill field."
+      : "Canva is connected, the required permissions are present, and the selected template supports image autofill.";
     return json({
       success: true,
       credentialsConfigured: credentialsConfigured(),
-      canvaConnected: !("error" in tokenResult),
+      canvaConnected: connected,
       brandTemplateConfigured: Boolean(CANVA_BRAND_TEMPLATE_IDS.length),
       brandTemplateCount: CANVA_BRAND_TEMPLATE_IDS.length,
+      selectedBrandTemplateId,
       sourceDesignConfigured: Boolean(CANVA_SOURCE_DESIGN_ID),
-      integrationStatus: credentialsConfigured() && !("error" in tokenResult)
-        ? "READY"
-        : "NOT READY",
-      detail: !credentialsConfigured()
-        ? "Set CANVA_CLIENT_ID, CANVA_CLIENT_SECRET, and CANVA_BRAND_TEMPLATE_ID (or comma-separated CANVA_BRAND_TEMPLATE_IDS) or CANVA_SOURCE_DESIGN_ID in Edge Function secrets."
-        : !autofillSourceConfigured()
-        ? "Set CANVA_BRAND_TEMPLATE_ID or comma-separated CANVA_BRAND_TEMPLATE_IDS, or CANVA_SOURCE_DESIGN_ID to your Canva template/design."
-        : ("error" in tokenResult)
-        ? "Connect Canva OAuth in Media Library first."
-        : "Canva design generation ready.",
+      missingScopes,
+      templateImageFieldCount: imageFieldCount,
+      templateTextFieldCount: textFieldCount,
+      templateImageAutofillReady,
+      creativeReadiness: fullyReady ? "READY" : "NEEDS_SETUP",
+      integrationStatus: fullyReady ? "READY" : "NOT READY",
+      detail,
+      nextAction: missingScopes.length > 0
+        ? "Reconnect Canva in Media Library to refresh OAuth permissions."
+        : !templateImageAutofillReady
+        ? "Create/publish a Canva Brand Template with editable text fields and at least one image autofill field, then configure its ID."
+        : fullyReady ? "Ready for varied Canva designs." : "Complete Canva credentials and connection setup.",
     });
   }
 
