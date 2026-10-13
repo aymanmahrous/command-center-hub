@@ -25,7 +25,7 @@ test("Gemini image Edge Function authenticates staff and uses the current low-co
 test("Auto prefers configured Canva while leaving Gemini selectable", () => {
   assert.match(panel, /designCapabilityState !== "NOT_CONFIGURED" \? "canva" : "gemini"/);
   assert.match(panel, /label: "Gemini Image", available: !isVideo/);
-  assert.match(panel, /key: "canva", available: !isVideo && designCapabilityState !== "NOT_CONFIGURED"/);
+  assert.match(panel, /key: "canva" as const, label: "Canva", available: !isVideo && designCapabilityState !== "NOT_CONFIGURED"/);
 });
 
 test("Gemini image prompts vary composition while preserving the academy's core brand palette", () => {
