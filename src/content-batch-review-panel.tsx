@@ -309,8 +309,8 @@ export function ContentBatchReviewPanel({
       setDesignNotice(generated.imageApplied
         ? copy.designGeneratedNotice
         : language === "ar"
-          ? "تم إنشاء التصميم عبر Canva، لكن لم تتغير الصورة الرئيسية تلقائيًا. لزيادة التنوع، اربط صورة من مكتبة الوسائط أولًا، واستخدم قالب Canva يحتوي على حقل صورة قابل للتعبئة."
-          : "Canva created the design, but the main image was not replaced automatically. For visual variety, link a Media Library image first and use a Canva template with an autofillable image field.");
+          ? "تم إنشاء التصميم، لكن الصورة لم تتغير تلقائيًا. اربط صورة من المكتبة واستخدم قالب Canva بحقل صورة قابل للتعبئة."
+          : "Canva design created, but the main image was not replaced automatically. Link a Media Library image and use a template with an autofillable image field.");
       setReplacingMediaItemId(null);
       onMediaLinked?.();
     } catch (cause) {
