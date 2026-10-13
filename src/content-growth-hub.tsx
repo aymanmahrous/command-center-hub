@@ -225,10 +225,10 @@ export default function ContentGrowthHub({
   const canvaStatusNotice = canvaIntegration?.status === "connected" && canvaDesignStatus && !canvaDesignStatus.ready
     ? language === "ar"
       ? canvaDesignStatus.detail.includes("asset:write")
-        ? "Canva يحتاج إعادة ربط لمنح صلاحية رفع الصور (asset:write). افتح Media Library وأعد ربط Canva مرة واحدة."
+        ? "أعد ربط Canva لمنح صلاحية رفع الصور (asset:write)."
         : canvaDesignStatus.detail.includes("no image field")
-          ? "قوالب Canva الحالية تحتوي على نصوص فقط ولا تحتوي على حقل صورة قابل للاستبدال. يجب تجهيز قالب بصري مختلف يحتوي على حقل صورة قبل إنشاء تصميم جديد."
-          : `إعداد Canva غير مكتمل: ${canvaDesignStatus.detail}`
+          ? "قالب Canva لا يحتوي على حقل صورة؛ استخدم قالبًا يدعم تعبئة الصورة."
+          : "إعداد Canva غير مكتمل؛ راجع تفاصيل الاتصال."
       : `Canva setup required: ${canvaDesignStatus.detail}`
     : null;
   const videoCapabilityState = integrations.find((integration) => integration.key === "runway")?.capabilityState ?? "NOT_CONFIGURED";
