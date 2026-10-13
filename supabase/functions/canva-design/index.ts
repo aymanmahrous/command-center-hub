@@ -6,6 +6,8 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const CANVA_CLIENT_ID = (Deno.env.get("CANVA_CLIENT_ID") ?? "").trim();
 const CANVA_CLIENT_SECRET = (Deno.env.get("CANVA_CLIENT_SECRET") ?? "").trim();
 const CANVA_BRAND_TEMPLATE_ID = (Deno.env.get("CANVA_BRAND_TEMPLATE_ID") ?? "EAHVAAahmjU").trim();
+const CANVA_BRAND_TEMPLATE_IDS = (Deno.env.get("CANVA_BRAND_TEMPLATE_IDS") ?? CANVA_BRAND_TEMPLATE_ID)
+  .split(",").map((id) => id.trim()).filter(Boolean);
 const CANVA_SOURCE_DESIGN_ID = (Deno.env.get("CANVA_SOURCE_DESIGN_ID") ?? "DAHVAMAUP-s").trim();
 const CANVA_AUTOFILL_HEADLINE_FIELD = (Deno.env.get("CANVA_AUTOFILL_HEADLINE_FIELD") ?? "hook").trim();
 const CANVA_AUTOFILL_BODY_FIELD = (Deno.env.get("CANVA_AUTOFILL_BODY_FIELD") ?? "caption").trim();
@@ -73,7 +75,15 @@ async function requireStaff(supabase: ReturnType<typeof createClient>, token: st
 }
 
 function autofillSourceConfigured() {
-  return Boolean(CANVA_BRAND_TEMPLATE_ID || CANVA_SOURCE_DESIGN_ID);
+  return Boolean(CANVA_BRAND_TEMPLATE_IDS.length || CANVA_SOURCE_DESIGN_ID);
+}
+
+function chooseBrandTemplateId(contentItemId: string): string {
+  if (CANVA_BRAND_TEMPLATE_IDS.length <= 1) return CANVA_BRAND_TEMPLATE_IDS[0] ?? "";
+  // Stable per content item: the same item always uses the same template, while new items rotate.
+  let hash = 0;
+  for (const character of contentItemId) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  return CANVA_BRAND_TEMPLATE_IDS[hash % CANVA_BRAND_TEMPLATE_IDS.length];
 }
 
 function credentialsConfigured() {
@@ -201,17 +211,18 @@ async function pollExportJob(accessToken: string, exportId: string) {
   return { error: "EXPORT_TIMEOUT" as const };
 }
 
-async function createAutofillDesign(accessToken: string, title: string, headline: string, body: string) {
+async function createAutofillDesign(accessToken: string, contentItemId: string, title: string, headline: string, body: string) {
   let data: JsonObject;
   let requestBody: JsonObject;
+  const selectedBrandTemplateId = chooseBrandTemplateId(contentItemId);
 
-  if (CANVA_BRAND_TEMPLATE_ID) {
+  if (selectedBrandTemplateId) {
     data = {};
     data[CANVA_AUTOFILL_HEADLINE_FIELD] = { type: "text", text: headline.slice(0, 200) };
     data[CANVA_AUTOFILL_BODY_FIELD] = { type: "text", text: body.slice(0, 1200) };
     requestBody = {
       type: "create_from_brand_template",
-      brand_template_id: CANVA_BRAND_TEMPLATE_ID,
+      brand_template_id: selectedBrandTemplateId,
       title: title.slice(0, 120),
       data,
     };
@@ -364,15 +375,16 @@ Deno.serve(async (request) => {
       success: true,
       credentialsConfigured: credentialsConfigured(),
       canvaConnected: !("error" in tokenResult),
-      brandTemplateConfigured: Boolean(CANVA_BRAND_TEMPLATE_ID),
+      brandTemplateConfigured: Boolean(CANVA_BRAND_TEMPLATE_IDS.length),
+      brandTemplateCount: CANVA_BRAND_TEMPLATE_IDS.length,
       sourceDesignConfigured: Boolean(CANVA_SOURCE_DESIGN_ID),
       integrationStatus: credentialsConfigured() && !("error" in tokenResult)
         ? "READY"
         : "NOT READY",
       detail: !credentialsConfigured()
-        ? "Set CANVA_CLIENT_ID, CANVA_CLIENT_SECRET, and CANVA_BRAND_TEMPLATE_ID or CANVA_SOURCE_DESIGN_ID in Edge Function secrets."
+        ? "Set CANVA_CLIENT_ID, CANVA_CLIENT_SECRET, and CANVA_BRAND_TEMPLATE_ID (or comma-separated CANVA_BRAND_TEMPLATE_IDS) or CANVA_SOURCE_DESIGN_ID in Edge Function secrets."
         : !autofillSourceConfigured()
-        ? "Set CANVA_BRAND_TEMPLATE_ID or CANVA_SOURCE_DESIGN_ID to your Swim Fluent Canva template/design."
+        ? "Set CANVA_BRAND_TEMPLATE_ID or comma-separated CANVA_BRAND_TEMPLATE_IDS, or CANVA_SOURCE_DESIGN_ID to your Canva template/design."
         : ("error" in tokenResult)
         ? "Connect Canva OAuth in Media Library first."
         : "Canva design generation ready.",
@@ -395,6 +407,7 @@ Deno.serve(async (request) => {
 
   const autofill = await createAutofillDesign(
     tokenResult.accessToken,
+    contentItemId,
     topic,
     hook || topic,
     caption || topic,
