@@ -5,6 +5,7 @@ import test from "node:test";
 const adapter = await readFile(new URL("../src/canva-design-adapter.ts", import.meta.url), "utf8");
 const edge = await readFile(new URL("../supabase/functions/canva-design/index.ts", import.meta.url), "utf8");
 const panel = await readFile(new URL("../src/content-batch-review-panel.tsx", import.meta.url), "utf8");
+const growthHub = await readFile(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
 
 test("canva design adapter stays server-side", () => {
   assert.match(adapter, /functions\/v1\/canva-design/);
@@ -36,11 +37,35 @@ test("Canva is the default when configured and can rotate across owner-configure
 test("Canva can replace a template image with the content item's linked library image", () => {
   assert.match(adapter, /sourceMediaAssetId: typeof item\.mediaAssetId === "string" \? item\.mediaAssetId : ""/);
   assert.match(edge, /\/brand-templates\/\$\{selectedBrandTemplateId\}\/dataset/);
-  assert.match(edge, /datasetFields\(datasetResult\.dataset, "image"\)/);
+  assert.match(edge, /const imageFields = datasetFields\(datasetResult\.dataset, "image"\)/);
   assert.match(edge, /uploadLinkedImageToCanva\(accessToken, supabase, contentItemId, sourceMediaAssetId\)/);
   assert.match(edge, /type: "image", asset_id: imageAssetId/);
   assert.match(edge, /MEDIA_ASSET_NOT_LINKED/);
   assert.match(edge, /CANVA_IMAGE_UPLOAD_FAILED/);
+});
+
+test("Canva status diagnoses missing permissions and image fields without generating", () => {
+  const statusStart = edge.indexOf('if (body.mode === "status")');
+  const generateStart = edge.indexOf('if (body.mode !== "generate")', statusStart);
+  const statusBranch = edge.slice(statusStart, generateStart);
+  assert.match(edge, /CANVA_REQUIRED_SCOPES = \["design:content:write", "asset:write"\]/);
+  assert.match(statusBranch, /missingScopes/);
+  assert.match(statusBranch, /templateImageAutofillReady/);
+  assert.match(statusBranch, /templateImageFieldCount/);
+  assert.match(statusBranch, /nextAction/);
+  assert.doesNotMatch(statusBranch, /createAutofillDesign|exportDesignPng|storeDesignForContentItem/);
+});
+
+test("Factory checks Canva creative readiness before offering Canva as available", () => {
+  assert.match(growthHub, /fetchCanvaDesignStatus/);
+  assert.match(growthHub, /canvaIntegration\?\.status === "connected" && canvaDesignStatus\?\.ready/);
+  assert.match(growthHub, /canvaStatusNotice/);
+  assert.match(growthHub, /no image field/);
+});
+
+test("Canva refuses to silently create a same-looking design from a template without an image field", () => {
+  assert.match(edge, /if \(imageFields.length === 0\) return \{ error: "TEMPLATE_IMAGE_FIELD_MISSING" as const \}/);
+  assert.match(adapter, /case "TEMPLATE_IMAGE_FIELD_MISSING"/);
 });
 
 test("Canva reports when the template kept its default image instead of replacing it", () => {
