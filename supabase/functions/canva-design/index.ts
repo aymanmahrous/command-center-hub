@@ -6,6 +6,8 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const CANVA_CLIENT_ID = (Deno.env.get("CANVA_CLIENT_ID") ?? "").trim();
 const CANVA_CLIENT_SECRET = (Deno.env.get("CANVA_CLIENT_SECRET") ?? "").trim();
 const CANVA_BRAND_TEMPLATE_ID = (Deno.env.get("CANVA_BRAND_TEMPLATE_ID") ?? "EAHVAAahmjU").trim();
+const CANVA_BRAND_TEMPLATE_IDS = (Deno.env.get("CANVA_BRAND_TEMPLATE_IDS") ?? CANVA_BRAND_TEMPLATE_ID)
+  .split(",").map((id) => id.trim()).filter(Boolean);
 const CANVA_SOURCE_DESIGN_ID = (Deno.env.get("CANVA_SOURCE_DESIGN_ID") ?? "DAHVAMAUP-s").trim();
 const CANVA_AUTOFILL_HEADLINE_FIELD = (Deno.env.get("CANVA_AUTOFILL_HEADLINE_FIELD") ?? "hook").trim();
 const CANVA_AUTOFILL_BODY_FIELD = (Deno.env.get("CANVA_AUTOFILL_BODY_FIELD") ?? "caption").trim();
@@ -73,7 +75,15 @@ async function requireStaff(supabase: ReturnType<typeof createClient>, token: st
 }
 
 function autofillSourceConfigured() {
-  return Boolean(CANVA_BRAND_TEMPLATE_ID || CANVA_SOURCE_DESIGN_ID);
+  return Boolean(CANVA_BRAND_TEMPLATE_IDS.length || CANVA_SOURCE_DESIGN_ID);
+}
+
+function chooseBrandTemplateId(contentItemId: string): string {
+  if (CANVA_BRAND_TEMPLATE_IDS.length <= 1) return CANVA_BRAND_TEMPLATE_IDS[0] ?? "";
+  // Stable per content item: the same item always uses the same template, while new items rotate.
+  let hash = 0;
+  for (const character of contentItemId) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  return CANVA_BRAND_TEMPLATE_IDS[hash % CANVA_BRAND_TEMPLATE_IDS.length];
 }
 
 function credentialsConfigured() {
@@ -136,34 +146,112 @@ async function canvaFetch(accessToken: string, path: string, init?: RequestInit)
   return { ok: response.ok, status: response.status, payload };
 }
 
-function textFieldNamesFromDataset(dataset: JsonObject | undefined): string[] {
+type CanvaDataset = Record<string, { type?: string }>;
+
+function datasetFields(dataset: unknown, type: string): string[] {
   if (!dataset || typeof dataset !== "object") return [];
-  return Object.entries(dataset).flatMap(([name, def]) => {
-    if (!def || typeof def !== "object") return [];
-    return (def as JsonObject).type === "text" ? [name] : [];
-  });
+  return Object.entries(dataset as Record<string, unknown>).flatMap(([name, value]) =>
+    value && typeof value === "object" && (value as JsonObject).type === type ? [name] : [],
+  );
 }
 
-async function fetchDesignDataset(accessToken: string, designId: string) {
-  const { ok, payload } = await canvaFetch(accessToken, `/designs/${designId}/dataset`, { method: "GET" });
-  if (!ok) return { error: "AUTOFILL_DATASET_EMPTY" as const };
-  const textFields = textFieldNamesFromDataset(payload.dataset as JsonObject | undefined);
-  if (!textFields.length) return { error: "AUTOFILL_DATASET_EMPTY" as const };
-  return { textFields };
+async function fetchDataset(accessToken: string, path: string) {
+  const { ok, payload } = await canvaFetch(accessToken, path, { method: "GET" });
+  const dataset = payload.dataset as CanvaDataset | undefined;
+  if (!ok || !dataset || typeof dataset !== "object") return { error: "AUTOFILL_DATASET_EMPTY" as const };
+  return { dataset };
 }
 
-function buildAutofillDataFromTextFields(textFields: string[], headline: string, body: string): JsonObject {
+function buildAutofillDataFromDataset(
+  dataset: CanvaDataset,
+  headline: string,
+  body: string,
+  imageAssetId?: string,
+): JsonObject {
+  const textFields = datasetFields(dataset, "text");
   const bodyWithContacts = /058 821 9130/.test(body) && /055 137 8660/.test(body)
     ? body
     : `${body}\n\n${RELAXFIX_WHATSAPP_LINE}\n${RELAXFIX_PHONE_LINE}\n${RELAXFIX_ASSESSMENT_LINE}`;
   const data: JsonObject = {};
-  if (textFields.length === 1) {
-    data[textFields[0]] = { type: "text", text: bodyWithContacts.slice(0, 1200) };
-    return data;
+  const headlineField = textFields.includes(CANVA_AUTOFILL_HEADLINE_FIELD)
+    ? CANVA_AUTOFILL_HEADLINE_FIELD
+    : textFields[0];
+  const bodyField = textFields.includes(CANVA_AUTOFILL_BODY_FIELD)
+    ? CANVA_AUTOFILL_BODY_FIELD
+    : textFields.find((field) => field !== headlineField);
+  if (headlineField && bodyField) {
+    data[headlineField] = { type: "text", text: headline.slice(0, 200) };
+    data[bodyField] = { type: "text", text: bodyWithContacts.slice(0, 1200) };
+  } else if (headlineField) {
+    data[headlineField] = { type: "text", text: `${headline}\n\n${bodyWithContacts}`.slice(0, 1200) };
   }
-  data[textFields[0]] = { type: "text", text: headline.slice(0, 200) };
-  data[textFields[1]] = { type: "text", text: bodyWithContacts.slice(0, 1200) };
+  if (imageAssetId) {
+    const imageField = datasetFields(dataset, "image")[0];
+    if (imageField) data[imageField] = { type: "image", asset_id: imageAssetId };
+  }
   return data;
+}
+
+async function uploadLinkedImageToCanva(
+  accessToken: string,
+  supabase: ReturnType<typeof createClient>,
+  contentItemId: string,
+  requestedMediaAssetId: string,
+) {
+  // Only use the image currently linked to this content item; never accept arbitrary storage paths.
+  const { data: contentItem, error: contentError } = await supabase
+    .from("content_items")
+    .select("id, media_asset_id")
+    .eq("id", contentItemId)
+    .maybeSingle();
+  if (contentError) return { error: "CONTENT_ITEM_READ_FAILED" as const };
+  if (!contentItem || String(contentItem.media_asset_id ?? "") !== requestedMediaAssetId) {
+    return { error: "MEDIA_ASSET_NOT_LINKED" as const };
+  }
+  const { data: asset, error: assetError } = await supabase
+    .from("media_assets")
+    .select("id, asset_type, storage_path, publishability_status")
+    .eq("id", requestedMediaAssetId)
+    .maybeSingle();
+  if (assetError) return { error: "MEDIA_ASSET_READ_FAILED" as const };
+  if (!asset || String(asset.asset_type ?? "").toLowerCase() !== "image" || !asset.storage_path) {
+    return { error: "IMAGE_ASSET_REQUIRED" as const };
+  }
+  if (String(asset.publishability_status ?? "") === "blocked") {
+    return { error: "MEDIA_ASSET_NOT_PUBLISHABLE" as const };
+  }
+  const { data: file, error: downloadError } = await supabase.storage.from(MEDIA_BUCKET).download(String(asset.storage_path));
+  if (downloadError || !file) return { error: "MEDIA_ASSET_DOWNLOAD_FAILED" as const };
+  const mimeType = file.type.startsWith("image/") ? file.type : "image/png";
+  const extension = mimeType === "image/jpeg" ? "jpg" : mimeType === "image/webp" ? "webp" : "png";
+  const metadata = JSON.stringify({ name_base64: btoa(`coach-ayman-${contentItemId}.${extension}`) });
+  const uploadResponse = await fetch(`${CANVA_API_BASE}/asset-uploads`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/octet-stream",
+      "Asset-Upload-Metadata": metadata,
+    },
+    body: new Uint8Array(await file.arrayBuffer()),
+  });
+  const uploadPayload = await uploadResponse.json().catch(() => ({})) as JsonObject;
+  if (!uploadResponse.ok) return { error: "CANVA_IMAGE_UPLOAD_FAILED" as const };
+  const jobId = String((uploadPayload.job as JsonObject | undefined)?.id ?? "");
+  if (!jobId) return { error: "CANVA_IMAGE_UPLOAD_JOB_MISSING" as const };
+  for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
+    const { ok, payload } = await canvaFetch(accessToken, `/asset-uploads/${jobId}`, { method: "GET" });
+    if (!ok) return { error: "CANVA_IMAGE_UPLOAD_STATUS_FAILED" as const };
+    const job = payload.job as JsonObject | undefined;
+    const status = String(job?.status ?? "");
+    if (status === "success") {
+      const uploadedAsset = job?.asset as JsonObject | undefined;
+      const assetId = typeof uploadedAsset?.id === "string" ? uploadedAsset.id : "";
+      return assetId ? { assetId } : { error: "CANVA_IMAGE_ASSET_MISSING" as const };
+    }
+    if (status === "failed") return { error: "CANVA_IMAGE_UPLOAD_FAILED" as const };
+    await sleep(POLL_MS);
+  }
+  return { error: "CANVA_IMAGE_UPLOAD_TIMEOUT" as const };
 }
 
 async function pollAutofillJob(accessToken: string, jobId: string) {
@@ -201,32 +289,46 @@ async function pollExportJob(accessToken: string, exportId: string) {
   return { error: "EXPORT_TIMEOUT" as const };
 }
 
-async function createAutofillDesign(accessToken: string, title: string, headline: string, body: string) {
-  let data: JsonObject;
-  let requestBody: JsonObject;
-
-  if (CANVA_BRAND_TEMPLATE_ID) {
-    data = {};
-    data[CANVA_AUTOFILL_HEADLINE_FIELD] = { type: "text", text: headline.slice(0, 200) };
-    data[CANVA_AUTOFILL_BODY_FIELD] = { type: "text", text: body.slice(0, 1200) };
-    requestBody = {
+async function createAutofillDesign(
+  accessToken: string,
+  supabase: ReturnType<typeof createClient>,
+  contentItemId: string,
+  title: string,
+  headline: string,
+  body: string,
+  sourceMediaAssetId: string,
+) {
+  const selectedBrandTemplateId = chooseBrandTemplateId(contentItemId);
+  const datasetPath = selectedBrandTemplateId
+    ? `/brand-templates/${selectedBrandTemplateId}/dataset`
+    : `/designs/${CANVA_SOURCE_DESIGN_ID}/dataset`;
+  const datasetResult = await fetchDataset(accessToken, datasetPath);
+  if ("error" in datasetResult) return datasetResult;
+  let uploadedImageAssetId = "";
+  if (sourceMediaAssetId && datasetFields(datasetResult.dataset, "image").length > 0) {
+    const uploaded = await uploadLinkedImageToCanva(accessToken, supabase, contentItemId, sourceMediaAssetId);
+    if ("error" in uploaded) return uploaded;
+    uploadedImageAssetId = uploaded.assetId;
+  }
+  const data = buildAutofillDataFromDataset(
+    datasetResult.dataset,
+    headline,
+    body,
+    uploadedImageAssetId || undefined,
+  );
+  const requestBody: JsonObject = selectedBrandTemplateId
+    ? {
       type: "create_from_brand_template",
-      brand_template_id: CANVA_BRAND_TEMPLATE_ID,
+      brand_template_id: selectedBrandTemplateId,
       title: title.slice(0, 120),
       data,
-    };
-  } else {
-    const datasetResult = await fetchDesignDataset(accessToken, CANVA_SOURCE_DESIGN_ID);
-    if ("error" in datasetResult) return datasetResult;
-    data = buildAutofillDataFromTextFields(datasetResult.textFields, headline, body);
-    requestBody = {
+    }
+    : {
       type: "create_from_design",
       design_id: CANVA_SOURCE_DESIGN_ID,
       title: title.slice(0, 120),
       data,
     };
-  }
-
   const { ok, payload } = await canvaFetch(accessToken, "/autofills", {
     method: "POST",
     body: JSON.stringify(requestBody),
@@ -234,7 +336,9 @@ async function createAutofillDesign(accessToken: string, title: string, headline
   if (!ok) return { error: "AUTOFILL_CREATE_FAILED" as const, detail: payload };
   const jobId = String((payload.job as JsonObject | undefined)?.id ?? "");
   if (!jobId) return { error: "AUTOFILL_JOB_MISSING" as const };
-  return pollAutofillJob(accessToken, jobId);
+  const completed = await pollAutofillJob(accessToken, jobId);
+  if ("error" in completed) return completed;
+  return { ...completed, imageApplied: Boolean(uploadedImageAssetId) };
 }
 
 async function exportDesignPng(accessToken: string, designId: string) {
@@ -364,15 +468,16 @@ Deno.serve(async (request) => {
       success: true,
       credentialsConfigured: credentialsConfigured(),
       canvaConnected: !("error" in tokenResult),
-      brandTemplateConfigured: Boolean(CANVA_BRAND_TEMPLATE_ID),
+      brandTemplateConfigured: Boolean(CANVA_BRAND_TEMPLATE_IDS.length),
+      brandTemplateCount: CANVA_BRAND_TEMPLATE_IDS.length,
       sourceDesignConfigured: Boolean(CANVA_SOURCE_DESIGN_ID),
       integrationStatus: credentialsConfigured() && !("error" in tokenResult)
         ? "READY"
         : "NOT READY",
       detail: !credentialsConfigured()
-        ? "Set CANVA_CLIENT_ID, CANVA_CLIENT_SECRET, and CANVA_BRAND_TEMPLATE_ID or CANVA_SOURCE_DESIGN_ID in Edge Function secrets."
+        ? "Set CANVA_CLIENT_ID, CANVA_CLIENT_SECRET, and CANVA_BRAND_TEMPLATE_ID (or comma-separated CANVA_BRAND_TEMPLATE_IDS) or CANVA_SOURCE_DESIGN_ID in Edge Function secrets."
         : !autofillSourceConfigured()
-        ? "Set CANVA_BRAND_TEMPLATE_ID or CANVA_SOURCE_DESIGN_ID to your Swim Fluent Canva template/design."
+        ? "Set CANVA_BRAND_TEMPLATE_ID or comma-separated CANVA_BRAND_TEMPLATE_IDS, or CANVA_SOURCE_DESIGN_ID to your Canva template/design."
         : ("error" in tokenResult)
         ? "Connect Canva OAuth in Media Library first."
         : "Canva design generation ready.",
@@ -386,6 +491,7 @@ Deno.serve(async (request) => {
   const topic = typeof body.topic === "string" ? body.topic.trim() : "";
   const hook = typeof body.hook === "string" ? body.hook.trim() : "";
   const caption = typeof body.caption === "string" ? body.caption.trim() : "";
+  const sourceMediaAssetId = typeof body.sourceMediaAssetId === "string" ? body.sourceMediaAssetId : "";
   if (!/^[0-9a-f-]{36}$/i.test(contentItemId) || !topic) {
     return json({ success: false, code: "INVALID_INPUT" }, 400);
   }
@@ -395,9 +501,12 @@ Deno.serve(async (request) => {
 
   const autofill = await createAutofillDesign(
     tokenResult.accessToken,
+    serviceSupabase,
+    contentItemId,
     topic,
     hook || topic,
     caption || topic,
+    sourceMediaAssetId,
   );
   if ("error" in autofill) return json({ success: false, code: autofill.error }, 502);
 
@@ -432,5 +541,6 @@ Deno.serve(async (request) => {
     mediaAssetId: stored.mediaAssetId,
     storagePath: stored.storagePath,
     canvaDesignUrl: autofill.designUrl,
+    imageApplied: autofill.imageApplied === true,
   });
 });

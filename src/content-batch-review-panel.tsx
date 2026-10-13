@@ -234,6 +234,8 @@ export function ContentBatchReviewPanel({
   function recommendedDesignProvider(item: ContentBatchItem): Exclude<DesignProvider, "auto"> {
     const isVideo = /reel|video/i.test(String(item.contentType));
     if (isVideo) return videoCapabilityState === "AVAILABLE" ? "runway" : "capcut";
+    // Canva is the default when configured; Gemini remains an available manual choice.
+    // Multiple Canva brand templates can be configured server-side to rotate visual layouts.
     return designCapabilityState !== "NOT_CONFIGURED" ? "canva" : "gemini";
   }
 
@@ -303,8 +305,12 @@ export function ContentBatchReviewPanel({
           : provider === "runway" ? "Runway is the video choice, but automated execution requires a verified connection. No unsupported generation is claimed." : provider === "capcut" ? "CapCut is available here as a manual editing path; the brief is ready." : "Manual path selected; use the prepared brief.");
         return;
       }
-      await generateCanvaDesignForContentItem(session, item);
-      setDesignNotice(copy.designGeneratedNotice);
+      const generated = await generateCanvaDesignForContentItem(session, item);
+      setDesignNotice(generated.imageApplied
+        ? copy.designGeneratedNotice
+        : language === "ar"
+          ? "تم إنشاء التصميم، لكن الصورة لم تتغير تلقائيًا. اربط صورة من المكتبة واستخدم قالب Canva بحقل صورة قابل للتعبئة."
+          : "Canva design created, but the main image was not replaced automatically. Link a Media Library image and use a template with an autofillable image field.");
       setReplacingMediaItemId(null);
       onMediaLinked?.();
     } catch (cause) {

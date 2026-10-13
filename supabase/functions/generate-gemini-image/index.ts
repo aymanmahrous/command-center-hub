@@ -69,11 +69,29 @@ function findImageData(value: unknown, depth = 0): { data: string; mimeType: str
   return null;
 }
 
+const CREATIVE_VARIANTS = [
+  "Composition A: dynamic water-level action crop, off-center subject, visible ripples and movement; turquoise leads with navy anchors.",
+  "Composition B: overhead pool geometry and clean negative space, graphic editorial layout; navy leads with turquoise details.",
+  "Composition C: close-up detail of bubbles, hands, kickboard, or water texture rather than a repeated full swimmer scene; white and aqua lead.",
+  "Composition D: asymmetrical split composition with a calm pool scene on one side and uncluttered negative space on the other; use a restrained coral accent.",
+  "Composition E: premium illustrated editorial scene with layered shapes and a clear focal point; deep blue, mint, and a small warm accent.",
+] as const;
+
+function creativeVariantForBrief(brief: string) {
+  let hash = 7;
+  for (const character of brief.toLowerCase()) {
+    hash = (Math.imul(hash, 31) + character.charCodeAt(0)) >>> 0;
+  }
+  return CREATIVE_VARIANTS[hash % CREATIVE_VARIANTS.length];
+}
+
 function promptForImage(value: unknown) {
   const brief = typeof value === "string" ? value.trim().slice(0, 5000) : "";
   return [
     "Create one polished social-media marketing image for Coach Ayman Swimming Academy / Relax Fix UAE in Abu Dhabi.",
-    "Visual direction: premium, modern aquatic brand; clean composition; confident, calm, safe swimming education; strong turquoise/navy/white palette with restrained warm accent.",
+    "Keep the brand recognizable through a consistent premium aquatic identity, not through repeating the same layout or scene. Use navy, turquoise, and white as the core palette; vary which color dominates and use only a restrained accent.",
+    creativeVariantForBrief(brief),
+    "The specific topic, visual concept, and scene in the creative brief must determine the subject. Do not default to the same swimmer, same pool angle, same background, or same composition across posts.",
     "Make the image suitable for a vertical 4:5 social post. Keep key subjects away from the edges and leave a clean area for later brand/logo placement.",
     "Use original generic illustration or non-identifiable swimmers only; no recognizable real person, no invented logo, no fake phone number, no medical/safety guarantees, no misleading claims.",
     "Creative brief from the content item:",

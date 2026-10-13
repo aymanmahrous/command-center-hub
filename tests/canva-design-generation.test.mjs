@@ -26,6 +26,29 @@ test("batch review panel exposes generate Canva design action", () => {
   assert.match(panel, /generateDesignButton/);
 });
 
+test("Canva is the default when configured and can rotate across owner-configured brand templates", () => {
+  assert.match(panel, /designCapabilityState !== "NOT_CONFIGURED" \? "canva" : "gemini"/);
+  assert.match(edge, /CANVA_BRAND_TEMPLATE_IDS/);
+  assert.match(edge, /chooseBrandTemplateId\(contentItemId\)/);
+  assert.match(edge, /brandTemplateCount: CANVA_BRAND_TEMPLATE_IDS.length/);
+});
+
+test("Canva can replace a template image with the content item's linked library image", () => {
+  assert.match(adapter, /sourceMediaAssetId: typeof item\.mediaAssetId === "string" \? item\.mediaAssetId : ""/);
+  assert.match(edge, /\/brand-templates\/\$\{selectedBrandTemplateId\}\/dataset/);
+  assert.match(edge, /datasetFields\(datasetResult\.dataset, "image"\)/);
+  assert.match(edge, /uploadLinkedImageToCanva\(accessToken, supabase, contentItemId, sourceMediaAssetId\)/);
+  assert.match(edge, /type: "image", asset_id: imageAssetId/);
+  assert.match(edge, /MEDIA_ASSET_NOT_LINKED/);
+  assert.match(edge, /CANVA_IMAGE_UPLOAD_FAILED/);
+});
+
+test("Canva reports when the template kept its default image instead of replacing it", () => {
+  assert.match(edge, /imageApplied: autofill\.imageApplied === true/);
+  assert.match(adapter, /imageApplied: result\.imageApplied === true/);
+  assert.match(panel, /main image was not replaced automatically/);
+});
+
 test("Canva status path does not generate or export, but refreshes and stores OAuth credentials", () => {
   const statusStart = edge.indexOf('if (body.mode === "status")');
   const generateStart = edge.indexOf('if (body.mode !== "generate")', statusStart);
