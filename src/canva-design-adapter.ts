@@ -71,6 +71,8 @@ export function canvaDesignErrorMessage(code: string | undefined): string {
     case "CANVA_IMAGE_UPLOAD_TIMEOUT":
     case "CANVA_IMAGE_ASSET_MISSING":
       return "Canva could not import the linked library image. Check that the Canva connection has asset:write permission, then reconnect Canva if needed.";
+    case "TEMPLATE_IMAGE_FIELD_MISSING":
+      return "The selected Canva Brand Template has no image autofill field. It cannot change the main visual, so repeated-looking designs are expected. Add an image field to the template, publish it, and reconnect Canva if permissions changed.";
     case "MEDIA_ASSET_NOT_LINKED":
       return "Link the library image to this content item first, then create the Canva design.";
     case "IMAGE_ASSET_REQUIRED":
