@@ -22,6 +22,18 @@ test("Gemini image Edge Function authenticates staff and uses the current low-co
   assert.match(edge, /estimatedCostUsd/);
 });
 
+test("Auto chooses fresh Gemini imagery instead of repeating Canva's text-only template background", () => {
+  assert.match(panel, /return "gemini";/);
+  assert.match(panel, /Canva's configured brand template currently exposes text fields only/);
+});
+
+test("Gemini image prompts vary composition while preserving the academy's core brand palette", () => {
+  assert.match(edge, /CREATIVE_VARIANTS/);
+  assert.match(edge, /creativeVariantForBrief\(brief\)/);
+  assert.match(edge, /Do not default to the same swimmer, same pool angle, same background, or same composition/);
+  assert.match(edge, /navy, turquoise, and white as the core palette/);
+});
+
 test("estimate mode returns cost without sending a generation request", () => {
   const estimateStart = edge.indexOf('if (mode === "estimate")');
   const generateRequest = edge.indexOf("const response = await fetch(GEMINI_INTERACTIONS_URL", estimateStart);
@@ -52,5 +64,6 @@ test("Factory exposes Gemini image generation, confirms cost, and links the asse
   assert.match(panel, /window\.confirm\(language === "ar"/);
   assert.match(panel, /generateGeminiImageForContentItem\(session, item\)/);
   assert.match(panel, /await linkMediaToItem\(item\.id, generated\.mediaAssetId\)/);
-  assert.match(panel, /return designCapabilityState !== "NOT_CONFIGURED" \? "canva" : "gemini"/);
+  assert.match(panel, /return "gemini";/);
+  assert.match(panel, /Canva's configured brand template currently exposes text fields only/);
 });
