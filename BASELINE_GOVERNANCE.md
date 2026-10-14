@@ -26,3 +26,5 @@ The 12 source candidates remain pending selective-transfer gates. The 23 conditi
 ## Operational prohibitions
 
 No production deployment, external publishing, database migration, n8n runtime, chatbot provider activation, or external customer-data write is implied by this baseline.
+
+cd /workspaces/command-center-hub && npm run verify
