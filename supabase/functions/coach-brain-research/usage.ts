@@ -41,7 +41,16 @@ const RATES: Rate[] = [
 ];
 
 function safeTokenCount(value: unknown): number | null {
-  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
+  if (typeof value === "number") return Number.isSafeInteger(value) && value >= 0 ? value : null;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+  }
+  return null;
+}
+
+function normalizeSearchQuery(value: string): string {
+  return value.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
 function ratesFor(model: string, date: string): Rate | null {
@@ -52,10 +61,19 @@ function ratesFor(model: string, date: string): Rate | null {
 
 function uniqueSearchQueryCount(value: unknown): number | null {
   if (!Array.isArray(value)) return null;
-  const queries = value
-    .filter((query): query is string => typeof query === "string")
-    .map((query) => query.trim())
-    .filter(Boolean);
+  const queries = value.flatMap((entry) => {
+    if (typeof entry === "string") {
+      const normalized = normalizeSearchQuery(entry);
+      return normalized ? [normalized] : [];
+    }
+    if (entry && typeof entry === "object") {
+      const record = entry as { query?: unknown; value?: unknown; text?: unknown };
+      const candidate = typeof record.query === "string" ? record.query : typeof record.value === "string" ? record.value : typeof record.text === "string" ? record.text : "";
+      const normalized = normalizeSearchQuery(candidate);
+      return normalized ? [normalized] : [];
+    }
+    return [];
+  });
   return new Set(queries).size;
 }
 

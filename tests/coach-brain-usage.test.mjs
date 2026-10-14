@@ -45,6 +45,28 @@ test("does not report a zero cost when billable usage metadata is missing or mal
   assert.equal(malformed.estimatedTokenCostUsd, null);
 });
 
+test("normalizes numeric-string usage values and deduplicates search queries case-insensitively", () => {
+  const usage = buildGeminiUsageSummary({
+    requestedModel: "gemini-3.7-flash",
+    metadata: {
+      promptTokenCount: "1000",
+      candidatesTokenCount: "500",
+      thoughtsTokenCount: "100",
+      totalTokenCount: "1600",
+      toolUsePromptTokenCount: "120",
+    },
+    webSearchQueries: [" Swim Turns ", "swim turns", "TURN DRILLS", " turn drills "],
+    now: new Date("2026-10-01T00:00:00Z"),
+  });
+  assert.equal(usage.inputTokens, 1000);
+  assert.equal(usage.outputTokens, 500);
+  assert.equal(usage.thinkingTokens, 100);
+  assert.equal(usage.totalTokens, 1600);
+  assert.equal(usage.toolUsePromptTokens, 120);
+  assert.equal(usage.groundingSearchQueries, 2);
+  assert.equal(usage.estimatedTokenCostUsd, 0.003);
+});
+
 test("does not estimate unknown models or assume an unknown grounding quota is free", () => {
   const usage = buildGeminiUsageSummary({ ...request, requestedModel: "unlisted-model", now: new Date("2026-10-01T00:00:00Z") });
   assert.equal(usage.estimatedTokenCostUsd, null);
