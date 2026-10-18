@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { ar } from "./ar";
 import { en } from "./en";
 import type { Dictionary } from "./en";
 
@@ -7,7 +6,23 @@ export type Language = "ar" | "en";
 export type { Dictionary };
 
 const STORAGE_KEY = "relaxfix-language";
-const dictionaries: Record<Language, Dictionary> = { ar, en };
+const staticDictionaries: Partial<Record<Language, Dictionary>> = { en };
+
+let arPromise: Promise<Dictionary> | undefined;
+
+function loadArabic(): Promise<Dictionary> {
+  if (!arPromise) {
+    arPromise = import("./ar").then((m) => m.ar);
+  }
+  return arPromise;
+}
+
+if (typeof window !== "undefined") {
+  const idle = typeof window.requestIdleCallback === "function"
+    ? window.requestIdleCallback.bind(window)
+    : (cb: () => void) => window.setTimeout(cb, 200);
+  idle(() => { void loadArabic().catch(() => { arPromise = undefined; }); });
+}
 
 function readStoredLanguage(): Language {
   try {
@@ -29,14 +44,35 @@ type LanguageContextValue = {
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
+function toDictionary(value: unknown): Dictionary {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Invalid dictionary payload");
+  }
+  return value as Dictionary;
+}
+
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<Language>(() => readStoredLanguage());
+  const [loaded, setLoaded] = useState<Partial<Record<Language, Dictionary>>>(staticDictionaries);
   const dir: "rtl" | "ltr" = language === "ar" ? "rtl" : "ltr";
 
   useEffect(() => {
     document.documentElement.lang = language;
     document.documentElement.dir = dir;
   }, [dir, language]);
+
+  useEffect(() => {
+    if (loaded[language]) return;
+    let cancelled = false;
+    void loadArabic()
+      .then((dictionary) => {
+        if (!cancelled) setLoaded((prev) => ({ ...prev, [language]: dictionary }));
+      })
+      .catch(() => {
+        if (!cancelled) setLoaded((prev) => ({ ...prev, [language]: toDictionary({}) }));
+      });
+    return () => { cancelled = true; };
+  }, [language, loaded]);
 
   function setLanguage(next: Language) {
     setLanguageState(next);
@@ -48,14 +84,14 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   }
 
   const value = useMemo<LanguageContextValue>(() => {
-    const dictionary = dictionaries[language];
+    const dictionary = loaded[language] ?? staticDictionaries[language] ?? en;
     return {
       language,
       dir,
       setLanguage,
       t: (section) => dictionary[section],
     };
-  }, [dir, language]);
+  }, [language, loaded, dir]);
 
   return React.createElement(LanguageContext.Provider, { value }, children);
 }
