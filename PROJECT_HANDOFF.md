@@ -2,7 +2,11 @@
 
 ## Current stage
 
-Documentation Review on branch `docs/final-documentation-review` after the protected merges of AI Inbox PR #9, Bookings PR #10, Content Studio PR #11, Media Library PR #12, Analytics PR #13, Integrations PR #14, System Polish PR #15, Final Audit PR #16, Final Security Review PR #17, and Performance Review PR #18.
+**Historical baseline:** The detailed feature and verification bullets below describe the original July 2026 application handoff and must not be treated as a current deployment/branch assertion without fresh evidence.
+
+**Current repository state (2026-10-23):** PR #261 was merged into `main` at `1591eebb9534f3a7bb32b65d330bc48e5f812753`. Its CI passed typecheck, tests, and build. Production scheduler safety state and Dry Run evidence are recorded in `MASTER_PROJECT_HANDOFF.md`, section 19.
+
+**Active product phase:** Media Experience Simplification, as defined by the canonical master handoff. Current UI deployment parity with the merged commit has not been established in this handoff. The Vercel deployment triggered by PR #261 was canceled; do not claim the current production UI contains this commit.
 
 ## Implemented
 
@@ -57,12 +61,10 @@ Documentation Review on branch `docs/final-documentation-review` after the prote
 
 ## Pending / blocked
 
-- Complete local Documentation Review verification, then open its dedicated pull request and wait for protected CI and independent approval.
-- No permission or implementation blocker is currently known.
-
-## NEXT_REQUIRED_ACTION
-
-Complete Documentation Review, merge its pull request only after CI and protection requirements pass, then begin Release Readiness Review from updated `main`.
+- The handoff's old July Documentation Review status is historical and superseded by the current repository state.
+- Current production UI-to-`main` commit parity remains unverified; no Production UI deployment was performed as part of PR #261.
+- Media Experience Simplification still needs a focused read-only mapping of the actual Content → Media Library → Review/Approval route before any UI changes are proposed.
+- The content-automation scheduler is intentionally Dry Run only; real publishing remains disabled and requires a separate, explicitly approved phase.
 
 ## Prohibited actions
 
