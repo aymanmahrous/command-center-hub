@@ -27,3 +27,10 @@ test("first-batch integrations are in-app, masked, audited, and fail closed", ()
   assert.match(app, /get_staff_integrations/);
   assert.match(app, /active === "connections"/);
 });
+
+test("external identity checks do not falsely mark publishing or messaging as available", () => {
+  assert.match(view, /function capabilityState\(status: z\.infer<typeof Item>\["status"\]\): CapabilityState/);
+  assert.match(view, /identity\/credential check does not prove that publishing or messaging works/);
+  assert.doesNotMatch(view, /status === "connected" && lastTestedAt && verifiedExternally\) return "AVAILABLE"/);
+  assert.match(view, /const state = capabilityState\(item\.status\)/);
+});
