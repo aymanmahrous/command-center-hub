@@ -34,3 +34,9 @@ test("external identity checks do not falsely mark publishing or messaging as av
   assert.doesNotMatch(view, /status === "connected" && lastTestedAt && verifiedExternally\) return "AVAILABLE"/);
   assert.match(view, /const state = capabilityState\(item\.status\)/);
 });
+
+test("external verification label refers to the connection, not capability readiness", () => {
+  assert.match(view, /تم التحقق من الاتصال الخارجي/);
+  assert.match(view, /External connection verified/);
+  assert.match(view, /configuration exists, but external operation is not verified/);
+});
