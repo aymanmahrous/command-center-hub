@@ -263,6 +263,14 @@ test("forgot-password flow uses public recover endpoint with non-enumerating suc
   assert.match(app, /Forgot password\?/);
   assert.match(app, /PASSWORD_RESET_PATH/);
   assert.match(envExample, /^VITE_PASSWORD_RESET_PATH=/m);
+  assert.match(app, /function PasswordRecovery\(\)/);
+  assert.match(app, /params.get\("access_token"\)/);
+  assert.match(app, /params.get\("type"\) === "recovery"/);
+  assert.match(app, /method: "PUT"/);
+  assert.match(app, /auth\/v1\/user/);
+  assert.match(app, /body: JSON.stringify\(\{ password \}\)/);
+  assert.match(app, /window.history.replaceState/);
+  assert.match(app, /passwordResetRedirect\(\)[\s\S]*window.location.origin/);
 });
 
 test("System Polish cancels stale reads and handles session expiry consistently", () => {
