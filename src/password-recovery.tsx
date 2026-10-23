@@ -4,6 +4,15 @@ import { useLanguage } from "./i18n";
 
 type PasswordRecoveryProps = { supabaseUrl: string; publicKey: string; configurationReady: boolean };
 
+function RecoveryLanguageSwitcher() {
+  const { language, setLanguage, t } = useLanguage();
+  const labels = t("language");
+  return <div className="language-switcher" role="group" aria-label={labels.switchLabel}>
+    <button type="button" className={language === "ar" ? "active" : ""} aria-pressed={language === "ar"} onClick={() => setLanguage("ar")}>{labels.ar}</button>
+    <button type="button" className={language === "en" ? "active" : ""} aria-pressed={language === "en"} onClick={() => setLanguage("en")}>{labels.en}</button>
+  </div>;
+}
+
 export default function PasswordRecovery({ supabaseUrl, publicKey, configurationReady }: PasswordRecoveryProps) {
   const { language } = useLanguage();
   const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
@@ -51,7 +60,7 @@ export default function PasswordRecovery({ supabaseUrl, publicKey, configuration
 
   const ar = language === "ar";
   return <main className="login-page"><section className="login-card" aria-busy={busy}>
-    <div className="login-card-top"><div className="brand-mark"><ShieldAlert size={28} /></div><LanguageSwitcher /></div>
+    <div className="login-card-top"><div className="brand-mark"><ShieldAlert size={28} /></div><RecoveryLanguageSwitcher /></div>
     <p className="eyebrow">RELAX FIX UAE</p>
     <h1>{ar ? "تعيين كلمة مرور جديدة" : "Set a new password"}</h1>
     {complete
