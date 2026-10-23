@@ -211,25 +211,14 @@ async function processOnePublishJob(supabase: ReturnType<typeof createClient>) {
   }
 
   if (body.confirmed === true || body.success === false) {
-    const failureCode = String(body.code ?? "PUBLISH_FAILED");
-    if (failureCode === "MEDIA_MISSING") {
-      const deferred = await supabase.rpc("defer_publish_job", {
-        p_job_id: jobId,
-        p_reason: "MEDIA_MISSING",
-      });
-      if (deferred.error || !deferred.data?.success) {
-        return { attempts: 1, processed: 0, outcome: { code: "MEDIA_DEFER_RECORD_FAILED", jobId, ambiguous: true, detail: deferred.error?.message ?? deferred.data } };
-      }
-      return { attempts: 1, processed: 0, outcome: { code: "PUBLISH_DEFERRED", jobId, reason: "MEDIA_MISSING" } };
-    }
     const failed = await supabase.rpc("fail_publish_job", {
       p_job_id: jobId,
-      p_error: failureCode,
+      p_error: String(body.code ?? "PUBLISH_FAILED"),
     });
     if (failed.error || !failed.data?.success) {
       return { attempts: 1, processed: 0, outcome: { code: "FAIL_RECORD_FAILED", jobId, ambiguous: true, detail: failed.error?.message ?? failed.data } };
     }
-    return { attempts: 1, processed: 0, outcome: { code: "PUBLISH_FAILED", jobId, failure: failureCode } };
+    return { attempts: 1, processed: 0, outcome: { code: "PUBLISH_FAILED", jobId, failure: body.code ?? "PUBLISH_FAILED" } };
   }
 
   return { attempts: 1, processed: 0, outcome: { code: "AMBIGUOUS_RESULT", jobId, ambiguous: true } };
@@ -254,6 +243,24 @@ async function processOneMediaJob(supabase: ReturnType<typeof createClient>) {
   if (itemError || !item) {
     await supabase.rpc("fail_content_media_job", { p_job_id: jobId, p_error: "CONTENT_ITEM_READ_FAILED" });
     return { attempts: 1, processed: 0, outcome: { code: "CONTENT_ITEM_READ_FAILED", jobId } };
+  }
+
+  // Canva creates PNG images, not Reel/video assets. Do not label a Canva PNG as video
+  // or incur generation calls without an explicitly approved video-provider path.
+  if (String(item.content_type ?? "").toLowerCase() === "reel") {
+    const failed = await supabase.rpc("fail_content_media_job", {
+      p_job_id: jobId,
+      p_error: "VIDEO_PROVIDER_REQUIRES_EXPLICIT_APPROVAL",
+    });
+    return {
+      attempts: 1,
+      processed: 0,
+      outcome: {
+        code: failed.error ? "MEDIA_FAIL_RECORD_FAILED" : "MEDIA_PROVIDER_BLOCKED",
+        jobId,
+        failure: "VIDEO_PROVIDER_REQUIRES_EXPLICIT_APPROVAL",
+      },
+    };
   }
 
   if (!CONTENT_PUBLISHER_AUTOMATION_SECRET) {
@@ -354,6 +361,9 @@ Deno.serve(async (request) => {
     return json({ success: false, code: verify.data?.code ?? "SCHEDULER_TOKEN_INVALID" }, 401);
   }
 
+  // SAFETY LOCK: keep every invocation in dry-run until a separately reviewed change explicitly re-enables live work.
+  const dryRunRequested = true;
+
   const lease = await supabase.rpc("claim_content_automation_lease", {
     p_lease_name: LEASE_NAME,
     p_lease_seconds: 240,
@@ -371,8 +381,6 @@ Deno.serve(async (request) => {
   }
 
   const runId = String(run.data.runId);
-  // SAFETY LOCK: all invocations remain dry-run until a separately reviewed change explicitly re-enables live work.
-  const dryRunRequested = true;
   let summary: JsonObject = {
     contentBrainGenerationTriggered: false,
     humanApprovalRequired: true,
@@ -380,34 +388,37 @@ Deno.serve(async (request) => {
     media: [],
   };
 
-  try {
-    if (dryRunRequested) {
-      summary = {
-        mode: "dry-run",
-        sideEffectsSkipped: true,
-        contentBrainGenerationTriggered: false,
-        humanApprovalRequired: true,
-        publishing: [],
-        media: [],
-      };
-      const completed = await supabase.rpc("complete_content_automation_run", {
-        p_run_id: runId,
-        p_status: "completed",
-        p_media_attempts: 0,
-        p_media_processed: 0,
-        p_publish_attempts: 0,
-        p_publish_processed: 0,
-        p_summary: summary,
-      });
-      if (completed.error) throw completed.error;
-      const released = await supabase.rpc("release_content_automation_lease", {
-        p_lease_name: LEASE_NAME,
-        p_lease_token: leaseToken,
-      });
-      if (released.error) throw released.error;
-      return json({ success: true, runId, summary });
+  // Explicit dry-run records a scheduler heartbeat only. Keep this before every
+  // generation, media-claim, and publishing path so it cannot process queue work.
+  if (dryRunRequested) {
+    const dryRunSummary: JsonObject = {
+      mode: "dry-run",
+      sideEffectsSkipped: true,
+      contentBrainGenerationTriggered: false,
+      humanApprovalRequired: true,
+      publishing: [],
+      media: [],
+    };
+    const completed = await supabase.rpc("complete_content_automation_run", {
+      p_run_id: runId,
+      p_status: "completed",
+      p_media_attempts: 0,
+      p_media_processed: 0,
+      p_publish_attempts: 0,
+      p_publish_processed: 0,
+      p_summary: dryRunSummary,
+    });
+    await supabase.rpc("release_content_automation_lease", {
+      p_lease_name: LEASE_NAME,
+      p_lease_token: leaseToken,
+    });
+    if (completed.error) {
+      return json({ success: false, code: "DRY_RUN_RECORD_FAILED", runId }, 500);
     }
+    return json({ success: true, runId, summary: dryRunSummary });
+  }
 
+  try {
     const evaluation = await supabase.rpc("evaluate_content_batch_generation_need");
     if (evaluation.error) throw evaluation.error;
     summary = { ...summary, generation: evaluation.data };
