@@ -266,6 +266,7 @@ test("forgot-password flow uses public recover endpoint with non-enumerating suc
   assert.match(envExample, /^VITE_PASSWORD_RESET_PATH=/m);
   assert.match(app, /lazy\(\(\) => import\("\.\/password-recovery"\)\)/);
   assert.match(recovery, /export default function PasswordRecovery/);
+  assert.match(recovery, /const \[recovery\] = useState\(\(\) => \{/);
   assert.match(recovery, /params.get\("access_token"\)/);
   assert.match(recovery, /params.get\("type"\) === "recovery"/);
   assert.match(recovery, /method: "PUT"/);

@@ -15,9 +15,11 @@ function RecoveryLanguageSwitcher() {
 
 export default function PasswordRecovery({ supabaseUrl, publicKey, configurationReady }: PasswordRecoveryProps) {
   const { language } = useLanguage();
-  const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-  const accessToken = params.get("access_token") ?? "";
-  const recoveryType = params.get("type") === "recovery";
+  const [recovery] = useState(() => {
+    const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    return { accessToken: params.get("access_token") ?? "", recoveryType: params.get("type") === "recovery" };
+  });
+  const { accessToken, recoveryType } = recovery;
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [busy, setBusy] = useState(false);
