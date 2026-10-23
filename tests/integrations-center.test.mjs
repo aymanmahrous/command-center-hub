@@ -29,7 +29,7 @@ test("first-batch integrations are in-app, masked, audited, and fail closed", ()
 });
 
 test("Canva needs_test state exposes OAuth reconnect instead of only local configuration testing", () => {
-  assert.match(view, /const canvaNeedsOauth = item\.provider === "canva" && item\.status === "needs_test"/);
+  assert.match(view, /const canvaNeedsOauth = item\.provider === "canva" && \["connected", "needs_test"\]\.includes\(item\.status\)/);
   assert.match(view, /\|\| canvaNeedsOauth/);
   assert.match(view, /!canvaNeedsOauth/);
 });
