@@ -183,8 +183,15 @@ export function MediaAssetControls({
   onChanged: () => void;
   onSessionExpired: () => void;
 }) {
+  const { language } = useLanguage();
+  const [actionNotice, setActionNotice] = useState("");
+  const genericActionError = language === "ar"
+    ? "تعذر إكمال العملية. لم يتم تأكيد حفظ التغيير؛ حاول مرة أخرى."
+    : "The action could not be completed. The change was not confirmed as saved; please try again.";
+
   async function update(fields: { category?: MediaCategory; consent_status?: ConsentStatus; media_status?: MediaAssetRecord["mediaStatus"] }) {
     if (!canWrite || busy) return;
+    setActionNotice("");
     try {
       const rpcName = session.role === "super_admin" ? "update_owner_media_asset" : "update_staff_media_asset";
       await callRpc(session, rpcName, {
@@ -195,14 +202,19 @@ export function MediaAssetControls({
       });
       onChanged();
     } catch (cause) {
-      if (cause instanceof Error && cause.message === "SESSION_EXPIRED") onSessionExpired();
+      if (cause instanceof Error && cause.message === "SESSION_EXPIRED") {
+        onSessionExpired();
+        return;
+      }
+      setActionNotice(genericActionError);
     }
   }
 
   async function runAnalysis() {
     if (!canWrite || busy || asset.category !== "swimming_business") return;
-    const result = await analyzeMediaWithProvider(asset, session);
+    setActionNotice("");
     try {
+      const result = await analyzeMediaWithProvider(asset, session);
       await callRpc(session, "save_staff_media_ai_analysis", {
         p_media_asset_id: asset.id,
         p_analysis: result.analysis,
@@ -210,7 +222,11 @@ export function MediaAssetControls({
       });
       onChanged();
     } catch (cause) {
-      if (cause instanceof Error && cause.message === "SESSION_EXPIRED") onSessionExpired();
+      if (cause instanceof Error && cause.message === "SESSION_EXPIRED") {
+        onSessionExpired();
+        return;
+      }
+      setActionNotice(genericActionError);
     }
   }
 
@@ -230,7 +246,9 @@ export function MediaAssetControls({
       }));
       window.dispatchEvent(new CustomEvent("command-center:navigate", { detail: { section: "content" } }));
     } catch {
-      // Keep the control truthful if session storage is unavailable.
+      setActionNotice(language === "ar"
+        ? "تعذر فتح المحتوى مع هذا الأصل. لم يتم فقدان الأصل من المكتبة."
+        : "Could not open the Factory with this asset. The library asset remains unchanged.");
     }
   }
 
@@ -239,6 +257,7 @@ export function MediaAssetControls({
 
   return (
     <div className="media-asset-controls">
+      {actionNotice && <p role="alert" className="media-action-notice">{actionNotice}</p>}
       <p className="media-status-line">
         {labels.workflowStatusLabel}: {labels[`workflow_${workflowStatus}`] ?? workflowStatus}
         {" · "}{labels.publishabilityLabel}: {asset.publishabilityStatus}
