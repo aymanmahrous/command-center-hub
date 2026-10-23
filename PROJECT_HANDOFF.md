@@ -63,12 +63,12 @@
 
 - The handoff's old July Documentation Review status is historical and superseded by the current repository state.
 - Current production UI-to-`main` commit parity remains unverified; no Production UI deployment was performed as part of PR #261.
-- Source mapping of Content → Media Library → Review/Approval is complete. A verified silent-error-feedback defect in Media Library controls has a minimal proposed fix in Draft PR #263; checks are pending and the PR is unmerged.
+- Source mapping of Content → Media Library → Review/Approval is complete. A verified silent-error-feedback defect in Media Library controls has a minimal fix in PR #263; GitHub Actions checks passed, PR is ready for review and remains unmerged.
 - The content-automation scheduler is intentionally Dry Run only; real publishing remains disabled and requires a separate, explicitly approved phase.
 
 ## NEXT_REQUIRED_ACTION
 
-Verify the required checks and final diff for Draft PR #263, which addresses silent Media Library action failures. Do not merge or deploy without the required separate approval. Preserve the existing route and lifecycle; keep live publishing disabled and do not invoke WhatsApp.
+Review the final diff and GitHub Actions evidence for PR #263, which addresses silent Media Library action failures. Do not merge or deploy without the required separate approval. Preserve the existing route and lifecycle; keep live publishing disabled and do not invoke WhatsApp.
 
 ## Prohibited actions
 
