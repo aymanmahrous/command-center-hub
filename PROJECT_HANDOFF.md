@@ -63,7 +63,7 @@
 
 - The handoff's old July Documentation Review status is historical and superseded by the current repository state.
 - Current production UI-to-`main` commit parity remains unverified; no Production UI deployment was performed as part of PR #261.
-- Media Experience Simplification still needs a focused read-only mapping of the actual Content → Media Library → Review/Approval route before any UI changes are proposed.
+- Source mapping of Content → Media Library → Review/Approval is complete. A verified silent-error-feedback defect in Media Library controls has a minimal proposed fix in Draft PR #263; checks are pending and the PR is unmerged.
 - The content-automation scheduler is intentionally Dry Run only; real publishing remains disabled and requires a separate, explicitly approved phase.
 
 ## Prohibited actions
