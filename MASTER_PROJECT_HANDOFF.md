@@ -101,7 +101,9 @@
 
 ## 7. CURRENT_PHASE
 
-**EXECUTIVE PIPELINE VERIFICATION & VEO 3.1 POST-PR #239 AUDIT**
+**Media Experience Simplification — Current-state reconciliation and media-flow evidence review**
+
+Current execution status as of 2026-10-23 is recorded in section 19. Historical PR #239 verification remains historical evidence, not the current repository or production baseline.
 
 ## 8. CURRENT_BLOCKER
 
@@ -129,11 +131,8 @@
 
 ## 10. الخطوة الحالية (NEXT)
 
-1. التحقق من اتساق مسار الأكاديمية الكامل: Coach Brain → Factory → Design → Media Library → Review → Publish → Receipt.
-2. الحفاظ على الميزانية بعدم إجراء اختبارات توليد أو نشر مدفوعة متكررة.
-3. اعتماد التوثيق المحدث وتأكيد مطابقة مصفوفة قدرات المالك للواقع الفعلي للكود.
+الحالة الحالية والتسلسل التالي موثّقان في **القسم 19 — Current State Reconciliation (2026-10-23)**. لا تعتمد على SHA أو نشر Production قديم في الأقسام التاريخية باعتباره الحالة الحالية. المرحلة الوظيفية المعتمدة تظل Media Experience Simplification؛ لا تتجاوزها قبل إغلاقها بالأدلة.
 
-**آخر نقطة آمنة مؤكدة:** `main` = `851186b`، Production = READY (Vercel deployment: `35wQ6A2A5Pauym2qPsXtJSKhDY4v`).
 
 ## 11. تذكير إلزامي لكل Agent
 
@@ -252,3 +251,42 @@
   - `npm run typecheck`: 0 errors.
   - `npm test`: 253 / 253 passed.
   - `npm run build`: 370,077 bytes raw / 108,531 bytes gzip (strictly within 371,000 / 108,700 budget).
+
+
+## 19. Current State Reconciliation (2026-10-23) — authoritative update
+
+هذا القسم أحدث من خطوط الأساس التاريخية في الأقسام 8–18، ويُستخدم لتحديد الحالة الراهنة عند التعارض. لا يحذف هذا التحديث الأدلة التاريخية أو يعيد وصفها على أنها حديثة.
+
+### Governance / phase
+- **Canonical product phase:** Media Experience Simplification (section 6, stage 3). This remains the active product phase; the older “EXECUTIVE PIPELINE VERIFICATION & VEO 3.1 POST-PR #239 AUDIT” label is historical and no longer the current phase name.
+- **Documentation issue:** `PROJECT_HANDOFF.md` previously described a July 2026 Documentation Review and pending work on a historical branch, while the current repository has moved well beyond that baseline. Its old implementation/test statements are historical unless reverified.
+- **No rebuild:** continue Keep → Repair → Simplify → Consolidate. Preserve existing Coach Brain, Factory, Media Library, approvals, Meta path, and the approved n8n WhatsApp path.
+
+### Content automation scheduler — verified production safety state (2026-10-23)
+- PR #261, “fix: add side-effect-free dry-run to content automation pulse,” was merged into `main` as commit `1591eebb9534f3a7bb32b65d330bc48e5f812753`. PR: https://github.com/aymanmahrous/command-center-hub/pull/261.
+- PR-head CI run `39905673252` passed: `npm ci`, `npm run typecheck`, `npm test`, and `npm run build`.
+- Supabase project boundary remains `nmzxrjdxvmmzzmajrskm`; Edge Function `content-automation-pulse` is ACTIVE version 27. The deployed source SHA was recorded as `72a02239d4785cec5411615912d58cc3c6825b587ba84d8c869f3ffa5b2cd59d`.
+- A hard-coded safety lock forces Dry Run: `const dryRunRequested = true;`. The function exits before content generation evaluation, media queue processing, or Meta publishing.
+- Cron job `content-automation-pulse-dry-run` (job id 4) is active on `*/30 * * * *`. Recorded cron execution `runid 6422` succeeded on 2026-10-23 at 05:30 UTC.
+- Three recorded Dry Run executions completed; each reported `media_attempts=0`, `media_processed=0`, `publish_attempts=0`, and `publish_processed=0`, with `sideEffectsSkipped=true`, `contentBrainGenerationTriggered=false`, and `humanApprovalRequired=true`.
+- No real Meta publication occurred during these checks. The approved n8n WhatsApp workflow was not invoked; no WhatsApp message was sent.
+- The Vercel deployment automatically triggered by the merge was explicitly canceled: `dpl_GPZkUoigEx2cmeRNc7EXSfZykSuk`. Vercel alias verification on 2026-10-23 confirms the custom domains `hub.relaxfixuae.com` and `www.hub.relaxfixuae.com` are attached to READY Production deployment `dpl_DE4ZgBG4r2fk5fWgZS3Spi3F5q9f`, commit `55816f16e183814a77cf052669b40c92d9237d50` (PR #260). The canceled PR #261 deployment has no aliases. Therefore the Production UI is **not** running the PR #261 merged commit; it remains on the previous UI commit until a separately controlled release.
+
+### Protected boundaries
+- Do not unlock live publishing or alter the hard-coded Dry Run lock as part of documentation or media simplification work.
+- Do not invoke the WhatsApp sender from this application or create a second WhatsApp ingress/sender. The existing approved n8n path remains the only authorized WhatsApp route.
+- No live Meta publishing, WhatsApp send, production UI deployment, schema/RLS/OAuth change, or production migration is authorized by this state update.
+- The historical Facebook receipt in section 9 is not evidence that the currently restored scheduler performed a new live publication.
+
+### Media path review and minimal repair proposal (2026-10-23)
+- Source review confirms the existing route: Media Library controls can hand an asset to Content Factory via `sessionStorage`; Factory consumes the handoff, lets the owner select a content item, and links through the existing `link_staff_media_to_content_item` RPC. Review cards also support selecting a library asset or uploading a file; publishing is separately guarded by approval, media readiness, and receipt checks.
+- **Verified UX defect:** in `src/media-library-controls.tsx`, category/consent/status RPC failures were silently swallowed, AI analysis failures could escape without user-facing feedback, and the Factory handoff catch was silent. This could leave the owner uncertain whether a change saved.
+- Minimal repair is proposed in PR #263: https://github.com/aymanmahrous/command-center-hub/pull/263. It adds bilingual failure feedback and a focused contract test. PR is open, ready for review, and unmerged. GitHub Actions run `39906975017` passed `npm ci`, `npm run typecheck`, `npm test`, and `npm run build`; the main Vercel Preview check passed, while the secondary Vercel preview status was still pending at the time of this note. No Production deployment or live side effect occurred.
+- **Next safe step:** PR #263's final diff was reviewed and GitHub Actions passed; it is ready for review but unmerged. Confirm that merge will not trigger an unintended Production deployment before any merge decision. The latest documentation-only preview deployment `dpl_FgPer4YmCkCHNbj9gTzS9QPk7L8Q` reached READY and has only a branch preview alias; it has no Production target. The documentation PR's Vercel status checks may still be pending in GitHub despite the deployment being READY. Keep Media Experience Simplification active until the handoff and owner-facing states are verified end-to-end.
+
+## 20. Media path review finding (2026-10-23)
+
+- **Route confirmed from source:** Media Library → `media-factory-handoff` session handoff → Content Factory item selection → `link_staff_media_to_content_item` RPC → return to review before publishing. The review panel additionally supports existing library asset selection and direct upload. These are existing capabilities and must not be rebuilt.
+- **Root cause found:** Media Library control actions lacked truthful failure feedback for some failed persistence/provider operations. See PR #263. The proposed repair does not change RPCs, permissions, approval lifecycle, publishing, or integrations.
+- **Current status:** repair is proposed, GitHub Actions checks passed, PR #263 is ready for review and unmerged. The defect is not considered closed until the reviewed change is merged under the required approval process and the owner path is verified.
+- **Protected:** keep scheduler Dry Run lock, Meta live-publishing boundary, and the approved n8n-only WhatsApp send path unchanged.
