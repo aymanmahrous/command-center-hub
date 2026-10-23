@@ -11,6 +11,7 @@ const growthHub = await readFile(new URL("../src/content-growth-hub.tsx", import
 const batchReviewPanel = await readFile(new URL("../src/content-batch-review-panel.tsx", import.meta.url), "utf8");
 const growthCopyEn = await readFile(new URL("../src/i18n/en.ts", import.meta.url), "utf8");
 const mediaView = await readFile(new URL("../src/media-library-view.tsx", import.meta.url), "utf8");
+const internalAlertRpcMigration = await readFile(new URL("../supabase/migrations/20261018100000_restrict_internal_alert_rpc_execute.sql", import.meta.url), "utf8");
 
 test("environment example contains the browser-safe configuration contract", () => {
   assert.match(envExample, /^VITE_SUPABASE_URL=/m);
@@ -281,4 +282,23 @@ test("System Polish makes controlled interactions accessible and globally locked
   assert.match(app, /role="status"/);
   assert.match(app, /disabled=\{!canWrite \|\| busyId !== null\}/);
   assert.match(app, /Number\.isNaN\(followUpDate\.getTime\(\)\)/);
+});
+
+
+test("internal inbox alert helpers are not executable by public browser roles", () => {
+  for (const signature of [
+    "public.route_conversation_to_human(uuid, uuid, text, text, text, jsonb)",
+    "public.upsert_staff_alert(text, text, text, uuid, uuid, uuid, text, jsonb)",
+    "public.resolve_staff_alerts_for_conversation(uuid, text[])",
+  ]) {
+    const escaped = signature.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    assert.match(
+      internalAlertRpcMigration,
+      new RegExp("REVOKE ALL ON FUNCTION " + escaped + "\\s+FROM PUBLIC, anon, authenticated;", "i"),
+    );
+    assert.match(
+      internalAlertRpcMigration,
+      new RegExp("GRANT EXECUTE ON FUNCTION " + escaped + "\\s+TO service_role;", "i"),
+    );
+  }
 });
