@@ -2,6 +2,7 @@ import { Fragment, FormEvent, lazy, Suspense, useEffect, useMemo, useRef, useSta
 import { createRoot } from "react-dom/client";
 import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, LayoutDashboard, Library, LogOut, Settings2, ShieldAlert, Workflow } from "lucide-react";
 import { z } from "zod";
+import { isSupabaseBrowserConfigurationReady } from "./supabase-config";
 import { canApproveContentItem, sharedDatabaseBatchId, type ContentBatchItem } from "./content-batch";
 import { appendChangeRequest, buildChangeRequestNote, type ChangeRequestKind } from "./content-growth";
 import { formatLocalDateTimeInput } from "./date-utils";
@@ -184,27 +185,10 @@ const AUTH_MESSAGES = {
   RESET_SUCCESS: "إذا كان البريد مسجلاً، فستصلك رسالة لإعادة تعيين كلمة المرور.\nIf the email is registered, a password reset message will be sent.",
 } as const;
 
-function legacyKeyRole(key: string) {
-  try {
-    const encodedPayload = key.split(".")[1];
-    if (!encodedPayload) return null;
-    const normalized = encodedPayload.replaceAll("-", "+").replaceAll("_", "/").padEnd(encodedPayload.length + 3 & -4, "=");
-    return z.object({ role: z.string() }).parse(JSON.parse(atob(normalized))).role;
-  } catch { return null; }
-}
-
-function browserSafeApiKey(key: string) {
-  if (/^sb_publishable_[A-Za-z0-9_-]{20,}$/.test(key)) return true;
-  if (key.startsWith("sb_secret_")) return false;
-  return legacyKeyRole(key) === "anon";
-}
-
 function configurationReady() {
-  try {
-    const url = new URL(SUPABASE_URL);
-    return url.protocol === "https:" && url.hostname.endsWith(".supabase.co") && browserSafeApiKey(SUPABASE_PUBLIC_KEY) && STAFF_TABLE.length > 0;
-  } catch { return false; }
+  return isSupabaseBrowserConfigurationReady(SUPABASE_URL, SUPABASE_PUBLIC_KEY, STAFF_TABLE);
 }
+
 function passwordResetRedirect() {
   if (!PASSWORD_RESET_PATH) return null;
   if (!PASSWORD_RESET_PATH.startsWith("/")) throw new Error("CONFIGURATION_REQUIRED");
