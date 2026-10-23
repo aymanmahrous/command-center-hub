@@ -4,6 +4,7 @@ import { useLanguage } from "./i18n";
 import type { Language } from "./i18n";
 import { CANVA_OPEN_URL, canvaConnectErrorMessage, startCanvaConnect } from "./canva-adapter";
 import { googleCalendarConnectErrorMessage, startGoogleCalendarConnect } from "./google-calendar-adapter";
+import { metaOAuthErrorMessage } from "./meta-oauth-error-message";
 import "./integrations-center.css";
 
 type Role = "super_admin" | "admin" | "reception" | "coach" | "content_manager";
@@ -150,8 +151,15 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
       window.location.assign(authorizationUrl);
     } catch (cause) {
       if (cause instanceof Error && cause.message === "SESSION_EXPIRED") { onSessionExpired(); return; }
-      const code = cause instanceof Error ? cause.message.replace(/^CANVA_/, "") : undefined;
-      setNotice(provider === "google_calendar" ? (language === "ar" ? googleCalendarConnectErrorMessage(code) : `Google Calendar OAuth could not start (${code ?? "unknown"}).`) : canvaConnectErrorMessage(code, language));
+      const rawCode = cause instanceof Error ? cause.message : "unknown";
+      const code = rawCode.replace(/^(CANVA|FACEBOOK|META)_/, "");
+      if (provider === "google_calendar") {
+        setNotice(language === "ar" ? googleCalendarConnectErrorMessage(code) : `Google Calendar OAuth could not start (${code}).`);
+      } else if (provider === "facebook" || provider === "instagram") {
+        setNotice(metaOAuthErrorMessage(provider, code, language));
+      } else {
+        setNotice(canvaConnectErrorMessage(code, language));
+      }
     } finally { setBusy(null); }
   }
   function open(provider: string) { setSelected(provider); setSecret(""); setAccount(""); setNotice(""); }
