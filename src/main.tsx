@@ -1524,6 +1524,7 @@ function App() {
   const { language } = useLanguage();
   const [session, setSession] = useState<Session | null>(null);
   const [restoring, setRestoring] = useState(true);
+  const [isRecoveryFlow] = useState(() => new URLSearchParams(window.location.hash.replace(/^#/, "")).get("type") === "recovery");
   useEffect(() => { void registerServiceWorker(); }, []);
   useEffect(() => {
     const controller = new AbortController();
@@ -1542,8 +1543,7 @@ function App() {
     } catch { sessionStorage.removeItem("relaxfix-command-session"); setRestoring(false); }
     return () => controller.abort();
   }, []);
-  const recoveryParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-  if (recoveryParams.get("type") === "recovery") return <PasswordRecovery />;
+  if (isRecoveryFlow) return <PasswordRecovery />;
   if (restoring) return <main className="login-page"><p className="muted" role="status">{language === "ar" ? "جاري التحقق من الجلسة والموظف النشط..." : "Verifying session and active staff..."}</p></main>;
   if (!session) return <Login onAuthenticated={setSession} />;
   return <Dashboard session={session} onLogout={() => { sessionStorage.removeItem("relaxfix-command-session"); setSession(null); }} />;
