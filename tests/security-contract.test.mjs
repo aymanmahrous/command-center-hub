@@ -11,6 +11,7 @@ const growthHub = await readFile(new URL("../src/content-growth-hub.tsx", import
 const batchReviewPanel = await readFile(new URL("../src/content-batch-review-panel.tsx", import.meta.url), "utf8");
 const growthCopyEn = await readFile(new URL("../src/i18n/en.ts", import.meta.url), "utf8");
 const mediaView = await readFile(new URL("../src/media-library-view.tsx", import.meta.url), "utf8");
+const bufferPublisherSource = await readFile(new URL("../supabase/functions/buffer-content-publisher/index.ts", import.meta.url), "utf8");
 
 test("environment example contains the browser-safe configuration contract", () => {
   assert.match(envExample, /^VITE_SUPABASE_URL=/m);
@@ -281,4 +282,11 @@ test("System Polish makes controlled interactions accessible and globally locked
   assert.match(app, /role="status"/);
   assert.match(app, /disabled=\{!canWrite \|\| busyId !== null\}/);
   assert.match(app, /Number\.isNaN\(followUpDate\.getTime\(\)\)/);
+});
+
+
+test("legacy Buffer publisher fails closed because Buffer publishing is disabled", () => {
+  assert.match(bufferPublisherSource, /BUFFER_PUBLISHING_DISABLED/);
+  assert.match(bufferPublisherSource, /status:\s*410/);
+  assert.doesNotMatch(bufferPublisherSource, /api\.buffer\.com|SERVICE_ROLE_KEY|CONTENT_PUBLISHER_AUTOMATION_SECRET/);
 });
