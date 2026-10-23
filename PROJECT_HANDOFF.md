@@ -66,6 +66,10 @@
 - Source mapping of Content → Media Library → Review/Approval is complete. A verified silent-error-feedback defect in Media Library controls has a minimal proposed fix in Draft PR #263; checks are pending and the PR is unmerged.
 - The content-automation scheduler is intentionally Dry Run only; real publishing remains disabled and requires a separate, explicitly approved phase.
 
+## NEXT_REQUIRED_ACTION
+
+Verify the required checks and final diff for Draft PR #263, which addresses silent Media Library action failures. Do not merge or deploy without the required separate approval. Preserve the existing route and lifecycle; keep live publishing disabled and do not invoke WhatsApp.
+
 ## Prohibited actions
 
 - Do not create or edit migrations, RLS, policies, cron, or workers.
