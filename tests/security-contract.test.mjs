@@ -273,6 +273,9 @@ test("forgot-password flow uses public recover endpoint with non-enumerating suc
   assert.match(recovery, /body: JSON.stringify\(\{ password \}\)/);
   assert.match(recovery, /window.history.replaceState/);
   assert.match(app, /const \[isRecoveryFlow\] = useState\(\(\) => new URLSearchParams/);
+  assert.match(app, /setTimeout\(\(\) => \{/);
+  assert.match(app, /}, 12000\)/);
+  assert.match(app, /Never leave the sign-in screen stuck indefinitely/);
   assert.match(app, /passwordResetRedirect\(\)[\s\S]*window.location.origin/);
 });
 

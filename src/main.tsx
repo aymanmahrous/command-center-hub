@@ -1465,10 +1465,18 @@ function App() {
   useEffect(() => { void registerServiceWorker(); }, []);
   useEffect(() => {
     const controller = new AbortController();
+    let timeoutId: number | undefined;
     try {
       const raw = sessionStorage.getItem("relaxfix-command-session");
       if (!raw) { setRestoring(false); return () => controller.abort(); }
       const stored = StoredSessionSchema.parse(JSON.parse(raw));
+      // Never leave the sign-in screen stuck indefinitely if auth/profile checks hang.
+      timeoutId = window.setTimeout(() => {
+        if (controller.signal.aborted) return;
+        controller.abort();
+        sessionStorage.removeItem("relaxfix-command-session");
+        setRestoring(false);
+      }, 12000);
       restoreSession(stored.accessToken, controller.signal).then((restored) => {
         if (controller.signal.aborted) return;
         sessionStorage.setItem("relaxfix-command-session", JSON.stringify({ accessToken: restored.accessToken }));
@@ -1476,9 +1484,15 @@ function App() {
       }).catch((cause) => {
         if (cause instanceof DOMException && cause.name === "AbortError") return;
         sessionStorage.removeItem("relaxfix-command-session");
-      }).finally(() => { if (!controller.signal.aborted) setRestoring(false); });
+      }).finally(() => {
+        if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+        if (!controller.signal.aborted) setRestoring(false);
+      });
     } catch { sessionStorage.removeItem("relaxfix-command-session"); setRestoring(false); }
-    return () => controller.abort();
+    return () => {
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, []);
   if (isRecoveryFlow) return <Suspense fallback={<main className="login-page"><p className="muted" role="status">{language === "ar" ? "جارٍ تحميل صفحة الاستعادة..." : "Loading recovery page..."}</p></main>}><PasswordRecovery supabaseUrl={SUPABASE_URL} publicKey={SUPABASE_PUBLIC_KEY} configurationReady={configurationReady()} /></Suspense>;
   if (restoring) return <main className="login-page"><p className="muted" role="status">{language === "ar" ? "جاري التحقق من الجلسة والموظف النشط..." : "Verifying session and active staff..."}</p></main>;
