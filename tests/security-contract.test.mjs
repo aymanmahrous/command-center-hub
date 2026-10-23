@@ -47,8 +47,10 @@ test("staff profile lookup matches the production primary-key contract", () => {
 test("password is not persisted", () => {
   assert.doesNotMatch(app, /setItem\([^\n]*password/i);
   assert.match(app, /sessionStorage/);
-  assert.match(app, /JSON\.stringify\(\{ accessToken: session\.accessToken \}\)/);
-  assert.doesNotMatch(app, /JSON\.stringify\(session\)/);
+  assert.match(app, /JSON\.stringify\(\{ accessToken: restored\.accessToken \}\)/);
+  assert.match(loginView, /sessionStorage/);
+  assert.match(loginView, /JSON\.stringify\(\{ accessToken: session\.accessToken \}\)/);
+  assert.doesNotMatch(loginView, /JSON\.stringify\(session\)/);
 });
 
 test("booking writes use the approved RPC and never direct table mutation", () => {
