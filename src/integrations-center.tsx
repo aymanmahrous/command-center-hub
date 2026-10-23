@@ -4,6 +4,7 @@ import { useLanguage } from "./i18n";
 import type { Language } from "./i18n";
 import { CANVA_OPEN_URL, canvaConnectErrorMessage, startCanvaConnect } from "./canva-adapter";
 import { googleCalendarConnectErrorMessage, startGoogleCalendarConnect } from "./google-calendar-adapter";
+import { metaOAuthErrorMessage } from "./meta-oauth-error-message";
 import "./integrations-center.css";
 
 type Role = "super_admin" | "admin" | "reception" | "coach" | "content_manager";
@@ -155,9 +156,7 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
       if (provider === "google_calendar") {
         setNotice(language === "ar" ? googleCalendarConnectErrorMessage(code) : `Google Calendar OAuth could not start (${code}).`);
       } else if (provider === "facebook" || provider === "instagram") {
-        setNotice(language === "ar"
-          ? `تعذر بدء ربط ${provider === "facebook" ? "Facebook" : "Instagram"} عبر Meta (${code}). تحقق من إعداد OAuth الخاص بـMeta أو أعد المحاولة لاحقًا.`
-          : `${provider === "facebook" ? "Facebook" : "Instagram"} OAuth could not start (${code}). Check the Meta OAuth setup or try again later.`);
+        setNotice(metaOAuthErrorMessage(provider, code, language));
       } else {
         setNotice(canvaConnectErrorMessage(code, language));
       }
