@@ -6,6 +6,8 @@ const envExample = await readFile(new URL("../.env.example", import.meta.url), "
 const gitignore = await readFile(new URL("../.gitignore", import.meta.url), "utf8");
 const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
 const app = await readFile(new URL("../src/main.tsx", import.meta.url), "utf8");
+const loginView = await readFile(new URL("../src/login-view.tsx", import.meta.url), "utf8");
+const recovery = await readFile(new URL("../src/password-recovery.tsx", import.meta.url), "utf8");
 const operations = await readFile(new URL("../src/operations-queue-view.tsx", import.meta.url), "utf8");
 const growthHub = await readFile(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
 const batchReviewPanel = await readFile(new URL("../src/content-batch-review-panel.tsx", import.meta.url), "utf8");
@@ -45,8 +47,10 @@ test("staff profile lookup matches the production primary-key contract", () => {
 test("password is not persisted", () => {
   assert.doesNotMatch(app, /setItem\([^\n]*password/i);
   assert.match(app, /sessionStorage/);
-  assert.match(app, /JSON\.stringify\(\{ accessToken: session\.accessToken \}\)/);
-  assert.doesNotMatch(app, /JSON\.stringify\(session\)/);
+  assert.match(app, /JSON\.stringify\(\{ accessToken: restored\.accessToken \}\)/);
+  assert.match(loginView, /sessionStorage/);
+  assert.match(loginView, /JSON\.stringify\(\{ accessToken: session\.accessToken \}\)/);
+  assert.doesNotMatch(loginView, /JSON\.stringify\(session\)/);
 });
 
 test("booking writes use the approved RPC and never direct table mutation", () => {
@@ -259,10 +263,27 @@ test("forgot-password flow uses public recover endpoint with non-enumerating suc
   assert.match(app, /\/auth\/v1\/recover/);
   assert.match(app, /RESET_SUCCESS/);
   assert.match(app, /If the email is registered, a password reset message will be sent/);
-  assert.match(app, /نسيت كلمة المرور؟/);
-  assert.match(app, /Forgot password\?/);
+  assert.match(loginView, /نسيت كلمة المرور؟/);
+  assert.match(loginView, /Forgot password\?/);
   assert.match(app, /PASSWORD_RESET_PATH/);
   assert.match(envExample, /^VITE_PASSWORD_RESET_PATH=/m);
+  assert.match(app, /lazy\(\(\) => import\("\.\/password-recovery"\)\)/);
+  assert.match(app, /lazy\(\(\) => import\("\.\/login-view"\)\)/);
+  assert.match(loginView, /export default function LoginView/);
+  assert.match(loginView, /onRequestPasswordReset/);
+  assert.match(recovery, /export default function PasswordRecovery/);
+  assert.match(recovery, /const \[recovery\] = useState\(\(\) => \{/);
+  assert.match(recovery, /params.get\("access_token"\)/);
+  assert.match(recovery, /params.get\("type"\) === "recovery"/);
+  assert.match(recovery, /method: "PUT"/);
+  assert.match(recovery, /auth\/v1\/user/);
+  assert.match(recovery, /body: JSON.stringify\(\{ password \}\)/);
+  assert.match(recovery, /window.history.replaceState/);
+  assert.match(app, /const \[isRecoveryFlow\] = useState\(\(\) => new URLSearchParams/);
+  assert.match(app, /setTimeout\(\(\) => \{/);
+  assert.match(app, /}, 12000\)/);
+  assert.match(app, /Never leave the sign-in screen stuck indefinitely/);
+  assert.match(app, /passwordResetRedirect\(\)[\s\S]*window.location.origin/);
 });
 
 test("System Polish cancels stale reads and handles session expiry consistently", () => {
