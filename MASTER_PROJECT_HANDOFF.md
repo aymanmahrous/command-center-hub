@@ -278,5 +278,15 @@ Current execution status as of 2026-10-23 is recorded in section 19. Historical 
 - No live Meta publishing, WhatsApp send, production UI deployment, schema/RLS/OAuth change, or production migration is authorized by this state update.
 - The historical Facebook receipt in section 9 is not evidence that the currently restored scheduler performed a new live publication.
 
-### Next safe step
-Continue the active Media Experience Simplification phase with a focused, read-only capability/routing review of the existing Content → Media Library → Review/Approval path. Classify only material gaps and retain evidence. Do not redesign or remove functionality until the current route and its source-of-truth state are mapped.
+### Media path review and minimal repair proposal (2026-10-23)
+- Source review confirms the existing route: Media Library controls can hand an asset to Content Factory via `sessionStorage`; Factory consumes the handoff, lets the owner select a content item, and links through the existing `link_staff_media_to_content_item` RPC. Review cards also support selecting a library asset or uploading a file; publishing is separately guarded by approval, media readiness, and receipt checks.
+- **Verified UX defect:** in `src/media-library-controls.tsx`, category/consent/status RPC failures were silently swallowed, AI analysis failures could escape without user-facing feedback, and the Factory handoff catch was silent. This could leave the owner uncertain whether a change saved.
+- Minimal repair is proposed in Draft PR #263: https://github.com/aymanmahrous/command-center-hub/pull/263. It adds bilingual failure feedback and a focused contract test. PR is open and unmerged; CI/preview checks were pending at the time of this note. No Production deployment or live side effect occurred.
+- **Next safe step:** verify PR #263 checks and inspect its final diff. If all required checks pass, retain it for review; do not merge or deploy without the required separate approval. Keep Media Experience Simplification active until the handoff and owner-facing states are verified end-to-end.
+
+## 20. Media path review finding (2026-10-23)
+
+- **Route confirmed from source:** Media Library → `media-factory-handoff` session handoff → Content Factory item selection → `link_staff_media_to_content_item` RPC → return to review before publishing. The review panel additionally supports existing library asset selection and direct upload. These are existing capabilities and must not be rebuilt.
+- **Root cause found:** Media Library control actions lacked truthful failure feedback for some failed persistence/provider operations. See Draft PR #263. The proposed repair does not change RPCs, permissions, approval lifecycle, publishing, or integrations.
+- **Current status:** repair is proposed, not verified or merged. Await the actual required checks; never mark this issue fixed until checks pass and the diff is reviewed.
+- **Protected:** keep scheduler Dry Run lock, Meta live-publishing boundary, and the approved n8n-only WhatsApp send path unchanged.
