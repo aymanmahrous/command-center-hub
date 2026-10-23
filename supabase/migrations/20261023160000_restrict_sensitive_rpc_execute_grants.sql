@@ -110,3 +110,15 @@ REVOKE EXECUTE ON FUNCTION public.update_staff_content_batch_planned_for(uuid, j
 GRANT EXECUTE ON FUNCTION public.update_staff_content_batch_planned_for(uuid, jsonb) TO authenticated, service_role;
 REVOKE EXECUTE ON FUNCTION public.update_staff_media_asset(uuid, text, text, text, uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.update_staff_media_asset(uuid, text, text, text, uuid) TO authenticated, service_role;
+
+-- Internal concierge helper routines that mutate staff alerts or perform the
+-- service-only booking workflow. They are invoked by SECURITY DEFINER/service
+-- callers, not directly by the browser or public webhook clients.
+REVOKE EXECUTE ON FUNCTION public.resolve_staff_alerts_for_conversation(uuid, text[]) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.resolve_staff_alerts_for_conversation(uuid, text[]) TO service_role;
+REVOKE EXECUTE ON FUNCTION public.route_conversation_to_human(uuid, uuid, text, text, text, jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.route_conversation_to_human(uuid, uuid, text, text, text, jsonb) TO service_role;
+REVOKE EXECUTE ON FUNCTION public.upsert_staff_alert(text, text, text, uuid, uuid, uuid, text, jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.upsert_staff_alert(text, text, text, uuid, uuid, uuid, text, jsonb) TO service_role;
+REVOKE EXECUTE ON FUNCTION public.rf_schedule_booking_turn(text, text, text, text, text, jsonb, text, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.rf_schedule_booking_turn(text, text, text, text, text, jsonb, text, text) TO service_role;
