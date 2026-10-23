@@ -63,12 +63,12 @@
 
 - The handoff's old July Documentation Review status is historical and superseded by the current repository state.
 - Current production UI-to-`main` commit parity remains unverified; no Production UI deployment was performed as part of PR #261.
-- Source mapping of Content → Media Library → Review/Approval is complete. A verified silent-error-feedback defect in Media Library controls has a minimal fix in PR #263; GitHub Actions checks passed, PR is ready for review and remains unmerged.
+- Source mapping of Content → Media Library → Review/Approval is complete. The silent-error-feedback repair in PR #263 is merged as `6200815a5546e5d8febf9917880830ca698a6c08`; CI passed and the Vercel deployment is Preview-only. End-to-end owner flow verification remains pending.
 - The content-automation scheduler is intentionally Dry Run only; real publishing remains disabled and requires a separate, explicitly approved phase.
 
 ## NEXT_REQUIRED_ACTION
 
-Review the final diff and GitHub Actions evidence for PR #263, which addresses silent Media Library action failures. Do not merge or deploy without the required separate approval. Preserve the existing route and lifecycle; keep live publishing disabled and do not invoke WhatsApp.
+Verify the owner-facing Media Library → Content Factory → Review flow in a non-production Preview using safe test data. Confirm action failure feedback is visible and no publish action, Meta API, or WhatsApp sender is triggered. Do not promote Preview to Production; preserve the existing route and lifecycle.
 
 ## Prohibited actions
 
