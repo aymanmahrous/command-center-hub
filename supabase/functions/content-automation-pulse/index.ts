@@ -361,6 +361,9 @@ Deno.serve(async (request) => {
     return json({ success: false, code: verify.data?.code ?? "SCHEDULER_TOKEN_INVALID" }, 401);
   }
 
+  // SAFETY LOCK: keep every invocation in dry-run until a separately reviewed change explicitly re-enables live work.
+  const dryRunRequested = true;
+
   const lease = await supabase.rpc("claim_content_automation_lease", {
     p_lease_name: LEASE_NAME,
     p_lease_seconds: 240,
@@ -384,6 +387,36 @@ Deno.serve(async (request) => {
     publishing: [],
     media: [],
   };
+
+  // Explicit dry-run records a scheduler heartbeat only. Keep this before every
+  // generation, media-claim, and publishing path so it cannot process queue work.
+  if (dryRunRequested) {
+    const dryRunSummary: JsonObject = {
+      mode: "dry-run",
+      sideEffectsSkipped: true,
+      contentBrainGenerationTriggered: false,
+      humanApprovalRequired: true,
+      publishing: [],
+      media: [],
+    };
+    const completed = await supabase.rpc("complete_content_automation_run", {
+      p_run_id: runId,
+      p_status: "completed",
+      p_media_attempts: 0,
+      p_media_processed: 0,
+      p_publish_attempts: 0,
+      p_publish_processed: 0,
+      p_summary: dryRunSummary,
+    });
+    await supabase.rpc("release_content_automation_lease", {
+      p_lease_name: LEASE_NAME,
+      p_lease_token: leaseToken,
+    });
+    if (completed.error) {
+      return json({ success: false, code: "DRY_RUN_RECORD_FAILED", runId }, 500);
+    }
+    return json({ success: true, runId, summary: dryRunSummary });
+  }
 
   try {
     const evaluation = await supabase.rpc("evaluate_content_batch_generation_need");
