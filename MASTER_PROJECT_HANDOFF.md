@@ -101,7 +101,9 @@
 
 ## 7. CURRENT_PHASE
 
-**EXECUTIVE PIPELINE VERIFICATION & VEO 3.1 POST-PR #239 AUDIT**
+**Media Experience Simplification — Current-state reconciliation and media-flow evidence review**
+
+Current execution status as of 2026-10-23 is recorded in section 19. Historical PR #239 verification remains historical evidence, not the current repository or production baseline.
 
 ## 8. CURRENT_BLOCKER
 
@@ -129,11 +131,8 @@
 
 ## 10. الخطوة الحالية (NEXT)
 
-1. التحقق من اتساق مسار الأكاديمية الكامل: Coach Brain → Factory → Design → Media Library → Review → Publish → Receipt.
-2. الحفاظ على الميزانية بعدم إجراء اختبارات توليد أو نشر مدفوعة متكررة.
-3. اعتماد التوثيق المحدث وتأكيد مطابقة مصفوفة قدرات المالك للواقع الفعلي للكود.
+الحالة الحالية والتسلسل التالي موثّقان في **القسم 19 — Current State Reconciliation (2026-10-23)**. لا تعتمد على SHA أو نشر Production قديم في الأقسام التاريخية باعتباره الحالة الحالية. المرحلة الوظيفية المعتمدة تظل Media Experience Simplification؛ لا تتجاوزها قبل إغلاقها بالأدلة.
 
-**آخر نقطة آمنة مؤكدة:** `main` = `851186b`، Production = READY (Vercel deployment: `35wQ6A2A5Pauym2qPsXtJSKhDY4v`).
 
 ## 11. تذكير إلزامي لكل Agent
 
@@ -252,3 +251,32 @@
   - `npm run typecheck`: 0 errors.
   - `npm test`: 253 / 253 passed.
   - `npm run build`: 370,077 bytes raw / 108,531 bytes gzip (strictly within 371,000 / 108,700 budget).
+
+
+## 19. Current State Reconciliation (2026-10-23) — authoritative update
+
+هذا القسم أحدث من خطوط الأساس التاريخية في الأقسام 8–18، ويُستخدم لتحديد الحالة الراهنة عند التعارض. لا يحذف هذا التحديث الأدلة التاريخية أو يعيد وصفها على أنها حديثة.
+
+### Governance / phase
+- **Canonical product phase:** Media Experience Simplification (section 6, stage 3). This remains the active product phase; the older “EXECUTIVE PIPELINE VERIFICATION & VEO 3.1 POST-PR #239 AUDIT” label is historical and no longer the current phase name.
+- **Documentation issue:** `PROJECT_HANDOFF.md` previously described a July 2026 Documentation Review and pending work on a historical branch, while the current repository has moved well beyond that baseline. Its old implementation/test statements are historical unless reverified.
+- **No rebuild:** continue Keep → Repair → Simplify → Consolidate. Preserve existing Coach Brain, Factory, Media Library, approvals, Meta path, and the approved n8n WhatsApp path.
+
+### Content automation scheduler — verified production safety state (2026-10-23)
+- PR #261, “fix: add side-effect-free dry-run to content automation pulse,” was merged into `main` as commit `1591eebb9534f3a7bb32b65d330bc48e5f812753`. PR: https://github.com/aymanmahrous/command-center-hub/pull/261.
+- PR-head CI run `39905673252` passed: `npm ci`, `npm run typecheck`, `npm test`, and `npm run build`.
+- Supabase project boundary remains `nmzxrjdxvmmzzmajrskm`; Edge Function `content-automation-pulse` is ACTIVE version 27. The deployed source SHA was recorded as `72a02239d4785cec5411615912d58cc3c6825b587ba84d8c869f3ffa5b2cd59d`.
+- A hard-coded safety lock forces Dry Run: `const dryRunRequested = true;`. The function exits before content generation evaluation, media queue processing, or Meta publishing.
+- Cron job `content-automation-pulse-dry-run` (job id 4) is active on `*/30 * * * *`. Recorded cron execution `runid 6422` succeeded on 2026-10-23 at 05:30 UTC.
+- Three recorded Dry Run executions completed; each reported `media_attempts=0`, `media_processed=0`, `publish_attempts=0`, and `publish_processed=0`, with `sideEffectsSkipped=true`, `contentBrainGenerationTriggered=false`, and `humanApprovalRequired=true`.
+- No real Meta publication occurred during these checks. The approved n8n WhatsApp workflow was not invoked; no WhatsApp message was sent.
+- The Vercel deployment automatically triggered by the merge was explicitly canceled: `dpl_GPZkUoigEx2cmeRNc7EXSfZykSuk`. This documentation does **not** assert that the current Production UI is running the merged commit; current alias/deployment parity still requires direct verification before any UI-release claim.
+
+### Protected boundaries
+- Do not unlock live publishing or alter the hard-coded Dry Run lock as part of documentation or media simplification work.
+- Do not invoke the WhatsApp sender from this application or create a second WhatsApp ingress/sender. The existing approved n8n path remains the only authorized WhatsApp route.
+- No live Meta publishing, WhatsApp send, production UI deployment, schema/RLS/OAuth change, or production migration is authorized by this state update.
+- The historical Facebook receipt in section 9 is not evidence that the currently restored scheduler performed a new live publication.
+
+### Next safe step
+Continue the active Media Experience Simplification phase with a focused, read-only capability/routing review of the existing Content → Media Library → Review/Approval path. Classify only material gaps and retain evidence. Do not redesign or remove functionality until the current route and its source-of-truth state are mapped.
