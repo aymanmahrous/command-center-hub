@@ -16,3 +16,13 @@ test("media library controls use normalized analysis instead of unchecked casts"
   assert.match(controls, /readStoredMediaAnalysis\(asset\.metadata\)/);
   assert.doesNotMatch(controls, /as MediaAnalysisResult \| null/);
 });
+
+
+test("media library actions surface failures instead of silently swallowing them", () => {
+  assert.match(controls, /const \[actionNotice, setActionNotice\] = useState\(""\)/);
+  assert.match(controls, /role="alert" className="media-action-notice"/);
+  assert.match(controls, /The action could not be completed/);
+  assert.match(controls, /تعذر إكمال العملية/);
+  assert.match(controls, /setActionNotice\(genericActionError\)/);
+  assert.match(controls, /Could not open the Factory with this asset/);
+});
