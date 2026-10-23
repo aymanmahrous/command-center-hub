@@ -28,6 +28,12 @@ test("first-batch integrations are in-app, masked, audited, and fail closed", ()
   assert.match(app, /active === "connections"/);
 });
 
+test("Canva needs_test state exposes OAuth reconnect instead of only local configuration testing", () => {
+  assert.match(view, /const canvaNeedsOauth = item\.provider === "canva" && item\.status === "needs_test"/);
+  assert.match(view, /\|\| canvaNeedsOauth/);
+  assert.match(view, /!canvaNeedsOauth/);
+});
+
 test("external identity checks do not falsely mark publishing or messaging as available", () => {
   assert.match(view, /function capabilityState\(status: z\.infer<typeof Item>\["status"\]\): CapabilityState/);
   assert.match(view, /identity\/credential check does not prove that publishing or messaging works/);
