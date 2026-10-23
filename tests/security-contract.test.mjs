@@ -6,6 +6,7 @@ const envExample = await readFile(new URL("../.env.example", import.meta.url), "
 const gitignore = await readFile(new URL("../.gitignore", import.meta.url), "utf8");
 const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
 const app = await readFile(new URL("../src/main.tsx", import.meta.url), "utf8");
+const loginView = await readFile(new URL("../src/login-view.tsx", import.meta.url), "utf8");
 const recovery = await readFile(new URL("../src/password-recovery.tsx", import.meta.url), "utf8");
 const operations = await readFile(new URL("../src/operations-queue-view.tsx", import.meta.url), "utf8");
 const growthHub = await readFile(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
@@ -260,11 +261,14 @@ test("forgot-password flow uses public recover endpoint with non-enumerating suc
   assert.match(app, /\/auth\/v1\/recover/);
   assert.match(app, /RESET_SUCCESS/);
   assert.match(app, /If the email is registered, a password reset message will be sent/);
-  assert.match(app, /نسيت كلمة المرور؟/);
-  assert.match(app, /Forgot password\?/);
+  assert.match(loginView, /نسيت كلمة المرور؟/);
+  assert.match(loginView, /Forgot password\?/);
   assert.match(app, /PASSWORD_RESET_PATH/);
   assert.match(envExample, /^VITE_PASSWORD_RESET_PATH=/m);
   assert.match(app, /lazy\(\(\) => import\("\.\/password-recovery"\)\)/);
+  assert.match(app, /lazy\(\(\) => import\("\.\/login-view"\)\)/);
+  assert.match(loginView, /export default function LoginView/);
+  assert.match(loginView, /onRequestPasswordReset/);
   assert.match(recovery, /export default function PasswordRecovery/);
   assert.match(recovery, /const \[recovery\] = useState\(\(\) => \{/);
   assert.match(recovery, /params.get\("access_token"\)/);

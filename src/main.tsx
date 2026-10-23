@@ -18,6 +18,7 @@ import "./system-polish.css";
 import "./coach-cockpit-theme.css";
 
 const PasswordRecovery = lazy(() => import("./password-recovery"));
+const LoginView = lazy(() => import("./login-view"));
 const MediaLibraryView = lazy(() => import("./media-library-view"));
 const TodayView = lazy(() => import("./today-view"));
 const ControlTowerV2 = lazy(() => import("./control-tower-v2"));
@@ -370,51 +371,6 @@ function LanguageSwitcher({ onDark = false }: { onDark?: boolean }) {
     <button type="button" className={language === "ar" ? "active" : ""} aria-pressed={language === "ar"} onClick={() => setLanguage("ar")}>{labels.ar}</button>
     <button type="button" className={language === "en" ? "active" : ""} aria-pressed={language === "en"} onClick={() => setLanguage("en")}>{labels.en}</button>
   </div>;
-}
-
-function Login({ onAuthenticated }: { onAuthenticated: (session: Session) => void }) {
-  const { language, t } = useLanguage();
-  const copy = t("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [resetBusy, setResetBusy] = useState(false);
-  const [resetError, setResetError] = useState("");
-  const [resetNotice, setResetNotice] = useState("");
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    setError("");
-    setResetError("");
-    setResetNotice("");
-    try {
-      const session = await signIn(email.trim(), password);
-      sessionStorage.setItem("relaxfix-command-session", JSON.stringify({ accessToken: session.accessToken }));
-      onAuthenticated(session);
-    } catch (cause) {
-      setError(authMessage(authErrorCode(cause)));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function forgotPassword() {
-    setResetBusy(true);
-    setResetError("");
-    setResetNotice("");
-    try {
-      await requestPasswordReset(email.trim());
-      setResetNotice(AUTH_MESSAGES.RESET_SUCCESS);
-    } catch (cause) {
-      setResetError(authMessage(authErrorCode(cause)));
-    } finally {
-      setResetBusy(false);
-    }
-  }
-
-  return <main className="login-page"><section className="login-card" aria-busy={busy || resetBusy}><div className="login-card-top"><div className="brand-mark"><ShieldAlert size={28} /></div><LanguageSwitcher /></div><p className="eyebrow">{copy.eyebrow}</p><h1>{copy.title}</h1><p className="muted">{copy.subtitle}</p><form onSubmit={submit}><label>{copy.emailLabel}<input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} /></label><label>{copy.passwordLabel}<input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></label><button type="button" className="text-button forgot-password" disabled={busy || resetBusy} onClick={() => void forgotPassword()}>{language === "ar" ? <span lang="ar" dir="rtl">نسيت كلمة المرور؟</span> : <span lang="en" dir="ltr">Forgot password?</span>}</button>{resetNotice && <div className="notice-box" role="status">{resetNotice}</div>}{resetError && <div className="error-box" role="alert">{resetError}</div>}{error && <div className="error-box" role="alert">{error}</div>}<button disabled={busy || resetBusy}>{busy ? copy.submitting : copy.submit}</button></form><p className="security-note">{copy.securityNote}</p></section></main>;
 }
 
 const ID_LIKE_PATTERN = /^[0-9a-fA-F-]{16,}$/;
@@ -1496,7 +1452,7 @@ function App() {
   }, []);
   if (isRecoveryFlow) return <Suspense fallback={<main className="login-page"><p className="muted" role="status">{language === "ar" ? "جارٍ تحميل صفحة الاستعادة..." : "Loading recovery page..."}</p></main>}><PasswordRecovery supabaseUrl={SUPABASE_URL} publicKey={SUPABASE_PUBLIC_KEY} configurationReady={configurationReady()} /></Suspense>;
   if (restoring) return <main className="login-page"><p className="muted" role="status">{language === "ar" ? "جاري التحقق من الجلسة والموظف النشط..." : "Verifying session and active staff..."}</p></main>;
-  if (!session) return <Login onAuthenticated={setSession} />;
+  if (!session) return <Suspense fallback={<main className="login-page"><p className="muted" role="status">{language === "ar" ? "جارٍ تحميل صفحة الدخول..." : "Loading sign-in..."}</p></main>}><LoginView onAuthenticated={setSession} onSignIn={signIn} onRequestPasswordReset={requestPasswordReset} authMessage={authMessage} resetSuccess={AUTH_MESSAGES.RESET_SUCCESS} /></Suspense>;
   return <Dashboard session={session} onLogout={() => { sessionStorage.removeItem("relaxfix-command-session"); setSession(null); }} />;
 }
 createRoot(document.getElementById("root")!).render(<LanguageProvider><App /></LanguageProvider>);
