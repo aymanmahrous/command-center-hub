@@ -20,12 +20,12 @@ test("Canva media worker blocks Reel jobs before calling the image generator", (
 
 test("content automation pulse dry-run exits before generation, media claims, or publishing", () => {
   const handler = worker.slice(worker.indexOf("Deno.serve"));
-  const dryRunParse = handler.indexOf('requestBody.mode === "dry-run"');
+  const dryRunLock = handler.indexOf("const dryRunRequested = true");
   const dryRunBranch = handler.indexOf("if (dryRunRequested)");
   const generation = handler.indexOf('rpc("evaluate_content_batch_generation_need")');
   const mediaClaim = handler.indexOf("processOneMediaJob(supabase)");
   const publishClaim = handler.indexOf("processOnePublishJob(supabase)");
-  assert.notEqual(dryRunParse, -1, "explicit dry-run mode must be parsed from the request body");
+  assert.notEqual(dryRunLock, -1, "live execution must remain globally locked off until separately approved");
   assert.notEqual(dryRunBranch, -1, "dry-run must have a dedicated early-return branch");
   assert.ok(dryRunBranch < generation, "dry-run must return before content generation evaluation");
   assert.ok(dryRunBranch < mediaClaim, "dry-run must return before media queue processing");
