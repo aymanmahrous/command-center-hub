@@ -7,9 +7,12 @@ const source = await readFile(new URL("../src/integrations-center.tsx", import.m
 test("integration status requires explicit external verification evidence", () => {
   assert.match(source, /function externallyVerified\(item:/);
   assert.match(source, /verifiedExternally === true/);
-  assert.match(source, /status === "connected" && lastTestedAt && verifiedExternally/);
+  assert.match(source, /function capabilityState\(status: z\.infer<typeof Item>\["status"\]\): CapabilityState/);
+  assert.doesNotMatch(source, /status === "connected" && lastTestedAt && verifiedExternally/);
+  assert.match(source, /identity\/credential check does not prove that publishing or messaging works/);
   assert.match(source, /const verified = Boolean\(item\.lastTestedAt && externallyVerified\(item\)\)/);
-  assert.match(source, /Externally verified/);
+  assert.match(source, /External connection verified/);
+  assert.match(source, /تم التحقق من الاتصال الخارجي/);
   assert.match(source, /a live external check passed/);
 });
 
