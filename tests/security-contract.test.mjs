@@ -11,6 +11,7 @@ const growthHub = await readFile(new URL("../src/content-growth-hub.tsx", import
 const batchReviewPanel = await readFile(new URL("../src/content-batch-review-panel.tsx", import.meta.url), "utf8");
 const growthCopyEn = await readFile(new URL("../src/i18n/en.ts", import.meta.url), "utf8");
 const mediaView = await readFile(new URL("../src/media-library-view.tsx", import.meta.url), "utf8");
+const configGuard = await readFile(new URL("../src/supabase-config.ts", import.meta.url), "utf8");
 
 test("environment example contains the browser-safe configuration contract", () => {
   assert.match(envExample, /^VITE_SUPABASE_URL=/m);
@@ -210,12 +211,12 @@ test("deployment configuration fails closed and never embeds a live Supabase pro
 });
 
 test("browser API key validation rejects elevated or malformed credentials", () => {
-  assert.match(app, /function browserSafeApiKey/);
-  assert.match(app, /\^sb_publishable_/);
-  assert.match(app, /key\.startsWith\("sb_secret_"\)/);
-  assert.match(app, /legacyKeyRole\(key\) === "anon"/);
-  assert.match(app, /browserSafeApiKey\(SUPABASE_PUBLIC_KEY\)/);
-  assert.doesNotMatch(app, /SUPABASE_PUBLIC_KEY\.length > 20/);
+  assert.match(configGuard, /function browserSafeApiKey/);
+  assert.match(configGuard, /\^sb_publishable_/);
+  assert.match(configGuard, /normalizedKey\.startsWith\("sb_secret_"\)/);
+  assert.match(configGuard, /legacyKeyRole\(normalizedKey\) === "anon"/);
+  assert.match(app, /isSupabaseBrowserConfigurationReady\(SUPABASE_URL, SUPABASE_PUBLIC_KEY, STAFF_TABLE\)/);
+  assert.doesNotMatch(configGuard, /publicKey\.length > 20/);
 });
 
 test("restored sessions revalidate the JWT and active staff profile", () => {
