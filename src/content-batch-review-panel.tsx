@@ -18,6 +18,7 @@ import { readContentPillar, readTimeSlot } from "./content-strategy";
 import { readPublishingCopy } from "./content-publishing-copy";
 import { ContentBatchMediaPreview } from "./content-batch-media-preview";
 import { canvaDesignErrorMessage, generateCanvaDesignForContentItem } from "./canva-design-adapter";
+import { resolveDesignProvider, type DesignProvider } from "./canva-readiness";
 import { uploadStaffMediaFile } from "./staff-media-storage";
 import { canUseInMarketingBatch, type MediaAssetRecord } from "./media-types";
 import type { CapabilityState } from "./content-growth";
@@ -129,6 +130,7 @@ type ContentBatchReviewPanelProps = {
   onOpenConnections?: () => void;
   workspaceMode?: "designs" | "reels" | "campaigns" | "review";
   designCapabilityState?: CapabilityState;
+  designCapabilityDetail?: string;
   videoCapabilityState?: CapabilityState;
 };
 
@@ -159,6 +161,7 @@ export function ContentBatchReviewPanel({
   onOpenConnections,
   workspaceMode = "review",
   designCapabilityState = "NOT_CONFIGURED",
+  designCapabilityDetail,
   videoCapabilityState = "NOT_CONFIGURED",
 }: ContentBatchReviewPanelProps) {
   const { language, t } = useLanguage();
@@ -229,23 +232,18 @@ export function ContentBatchReviewPanel({
     setChangeKind("caption");
   }
 
-  type DesignProvider = "auto" | "canva" | "gemini" | "chatgpt" | "runway" | "capcut" | "manual";
-
   function recommendedDesignProvider(item: ContentBatchItem): Exclude<DesignProvider, "auto"> {
     const isVideo = /reel|video/i.test(String(item.contentType));
-    if (isVideo) return videoCapabilityState === "AVAILABLE" ? "runway" : "capcut";
-    // Canva is the default when configured; Gemini remains an available manual choice.
-    // Multiple Canva brand templates can be configured server-side to rotate visual layouts.
-    return designCapabilityState !== "NOT_CONFIGURED" ? "canva" : "gemini";
+    return resolveDesignProvider("auto", isVideo, designCapabilityState === "AVAILABLE", videoCapabilityState === "AVAILABLE");
   }
 
   function availableDesignProviders(item: ContentBatchItem) {
     const isVideo = /reel|video/i.test(String(item.contentType));
     return [
       { key: "auto" as const, label: language === "ar" ? "تلقائي — أوصي بالأفضل" : "Auto — recommend best", available: true, detail: language === "ar" ? "يختار المسار الأفضل حسب ما هو متصل ومتحقق" : "Chooses the best verified connected path" },
-      { key: "canva" as const, label: "Canva", available: !isVideo && designCapabilityState !== "NOT_CONFIGURED", detail: language === "ar"
-          ? designCapabilityState === "LIMITED" ? "متصل عبر OAuth — سيُتحقق منه بأول تصميم حقيقي" : "تصميم صورة / Carousel"
-          : designCapabilityState === "LIMITED" ? "OAuth connected — first real design will verify it" : "Image / carousel design" },
+      { key: "canva" as const, label: "Canva", available: !isVideo && designCapabilityState === "AVAILABLE", detail: designCapabilityState === "AVAILABLE"
+          ? (language === "ar" ? "Canva متصل وجاهز لتصميم صورة / Carousel" : "Canva is connected and ready for image / carousel design")
+          : designCapabilityDetail ?? (language === "ar" ? "Canva غير جاهز للتصميم حاليًا" : "Canva is not ready for design yet") },
       { key: "gemini" as const, label: "Gemini Image", available: !isVideo, detail: language === "ar" ? "توليد صورة عبر Gemini مع تأكيد التكلفة" : "Gemini image generation; confirm cost first" },
       { key: "chatgpt" as const, label: "ChatGPT", available: false, detail: language === "ar" ? "توليد بصري — غير موصول داخل المصنع حاليًا" : "Visual generation — not wired into Factory yet" },
       { key: "runway" as const, label: "Runway", available: isVideo && videoCapabilityState === "AVAILABLE", detail: language === "ar" ? "توليد فيديو" : "Video generation" },
@@ -270,7 +268,7 @@ export function ContentBatchReviewPanel({
         onOpenConnections?.();
         return;
       }
-      const provider = requestedProvider === "auto" ? recommendedDesignProvider(item) : requestedProvider;
+      const provider = resolveDesignProvider(requestedProvider, isVideo, designCapabilityState === "AVAILABLE", videoCapabilityState === "AVAILABLE");
       activeProvider = provider;
       const providerInfo = availableDesignProviders(item).find((entry) => entry.key === provider);
       if (!providerInfo?.available) {
@@ -278,9 +276,11 @@ export function ContentBatchReviewPanel({
           onOpenConnections?.();
           return;
         }
-        setDesignNotice(language === "ar"
-          ? "هذا المزود ظاهر للاختيار، لكنه غير متصل/غير مدعوم فعليًا في المصنع حاليًا. لم يتم تشغيل أي عملية وهمية."
-          : "This provider is shown as an option, but it is not currently connected/supported by the Factory. No fake operation was started.");
+        setDesignNotice(provider === "canva" && designCapabilityDetail
+          ? designCapabilityDetail
+          : language === "ar"
+            ? "هذا المزود غير جاهز حاليًا. لم يتم تشغيل أي عملية."
+            : "This provider is not ready right now. No operation was started.");
         return;
       }
       if (provider === "gemini") {
@@ -785,7 +785,10 @@ export function ContentBatchReviewPanel({
                         ))}
                       </select>
                     </label>
-                    {designCapabilityState !== "AVAILABLE" && onOpenConnections && (
+                    {designCapabilityDetail && designCapabilityState !== "AVAILABLE" && (
+                      <small role="status" aria-live="polite">{designCapabilityDetail}</small>
+                    )}
+                    {designCapabilityState === "NOT_CONFIGURED" && onOpenConnections && (
                       <button
                         type="button"
                         className="secondary"

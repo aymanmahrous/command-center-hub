@@ -27,8 +27,9 @@ test("batch review panel exposes generate Canva design action", () => {
   assert.match(panel, /generateDesignButton/);
 });
 
-test("Canva is the default when configured and can rotate across owner-configured brand templates", () => {
-  assert.match(panel, /designCapabilityState !== "NOT_CONFIGURED" \? "canva" : "gemini"/);
+test("Canva is selected automatically only when fully ready and can rotate across configured templates", () => {
+  assert.match(panel, /designCapabilityState === "AVAILABLE"/);
+  assert.match(panel, /resolveDesignProvider\("auto"/);
   assert.match(edge, /CANVA_BRAND_TEMPLATE_IDS/);
   assert.match(edge, /chooseBrandTemplateId\(contentItemId\)/);
   assert.match(edge, /brandTemplateCount: CANVA_BRAND_TEMPLATE_IDS.length/);
@@ -58,9 +59,12 @@ test("Canva status diagnoses missing permissions and image fields without genera
 
 test("Factory checks Canva creative readiness before offering Canva as available", () => {
   assert.match(growthHub, /fetchCanvaDesignStatus/);
-  assert.match(growthHub, /canvaIntegration\?\.status === "connected" && canvaDesignStatus\?\.ready/);
+  assert.match(growthHub, /assessCanvaReadiness\(canvaIntegration\?\.status, canvaDesignStatus\)/);
+  assert.match(growthHub, /formatCanvaDiagnosticDetails\(canvaDesignStatus\)/);
   assert.match(growthHub, /canvaStatusNotice/);
-  assert.match(growthHub, /no image field/);
+  assert.match(adapter, /templateImageFieldCount/);
+  assert.match(adapter, /credentialsConfigured/);
+  assert.match(adapter, /missingScopes/);
 });
 
 test("Canva refuses to silently create a same-looking design from a template without an image field", () => {
