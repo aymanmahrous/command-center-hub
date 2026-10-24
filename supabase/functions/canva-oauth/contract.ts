@@ -8,7 +8,7 @@ export const CANVA_CORS_HEADERS = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-export type CanvaAction = "status" | "authorize";
+export type CanvaAction = "status" | "authorize" | "test";
 
 type GateResult<T> = { ok: true; value: T } | { ok: false; response: Response };
 
@@ -31,7 +31,7 @@ export async function parseCanvaAction(request: Request): Promise<GateResult<Can
   const body: unknown = await request.json().catch(() => ({}));
   if (body && typeof body === "object" && "mode" in body) {
     const mode = (body as { mode?: unknown }).mode;
-    if (mode === "status" || mode === "authorize") {
+    if (mode === "status" || mode === "authorize" || mode === "test") {
       return { ok: true, value: mode };
     }
   }

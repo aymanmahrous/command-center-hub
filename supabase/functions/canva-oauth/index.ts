@@ -6,16 +6,22 @@ const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/$/, "");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const CANVA_CLIENT_ID = (Deno.env.get("CANVA_CLIENT_ID") ?? "").trim();
 const CANVA_CLIENT_SECRET = (Deno.env.get("CANVA_CLIENT_SECRET") ?? "").trim();
+const CANVA_OAUTH_REDIRECT_PATH = "/functions/v1/canva-oauth";
 
 function normalizeRedirectUri(supabaseUrl: string, raw: string): string {
+  const canonical = `${supabaseUrl}${CANVA_OAUTH_REDIRECT_PATH}`;
   const trimmed = raw.trim();
-  if (!trimmed) return `${supabaseUrl}/functions/v1/canva-oauth`;
+  if (!trimmed) return canonical;
   try {
     const url = new URL(trimmed);
     url.hash = "";
-    return url.toString();
+    // Canva requires an exact callback URI. Never let a stale env typo route
+    // OAuth to canva-design or another function that only accepts POST.
+    return url.origin === new URL(supabaseUrl).origin && url.pathname === CANVA_OAUTH_REDIRECT_PATH
+      ? url.toString()
+      : canonical;
   } catch {
-    return trimmed.split("#")[0] ?? trimmed;
+    return canonical;
   }
 }
 
@@ -27,6 +33,7 @@ const CANVA_LEGACY_REDIRECT_URI = `${SUPABASE_URL}/functions/v1/canva-oauth?acti
 const COMMAND_CENTER_RETURN_URL = (Deno.env.get("COMMAND_CENTER_RETURN_URL") ?? "https://hub.relaxfixuae.com").replace(/\/$/, "");
 const CANVA_AUTH_URL = "https://www.canva.com/api/oauth/authorize";
 const CANVA_TOKEN_URL = "https://api.canva.com/rest/v1/oauth/token";
+const CANVA_USER_ME_URL = "https://api.canva.com/rest/v1/users/me";
 const CANVA_SCOPES = "profile:read design:meta:read design:content:read design:content:write brandtemplate:meta:read brandtemplate:content:read asset:write";
 const ALLOWED_ROLES = new Set(["super_admin", "admin", "content_manager"]);
 const STATE_TTL_MS = 15 * 60 * 1000;
@@ -201,6 +208,7 @@ async function refreshCanvaAccessToken(supabase: ReturnType<typeof createClient>
   if (data.access_token && Number.isFinite(expiresAt) && expiresAt - Date.now() > 60_000) {
     return { accessToken: String(data.access_token), refreshed: false };
   }
+  if (!credentialsConfigured()) return { error: "CANVA_OAUTH_CREDENTIALS_MISSING" as const };
 
   const body = new URLSearchParams({
     grant_type: "refresh_token",
@@ -277,6 +285,146 @@ async function handleStatus(supabase: ReturnType<typeof createClient>, staffId: 
   });
 }
 
+function canvaApiErrorCode(payload: unknown, status: number): string {
+  const body = payload && typeof payload === "object" ? payload as JsonObject : {};
+  const nested = body.error && typeof body.error === "object" ? body.error as JsonObject : {};
+  const rawCode = nested.code ?? body.code ?? body.error;
+  if (typeof rawCode === "string" && /^[a-z0-9_.-]{1,80}$/i.test(rawCode)) {
+    return `CANVA_API_${rawCode.toUpperCase().replace(/[.-]/g, "_")}`;
+  }
+  return `CANVA_API_HTTP_${status}`;
+}
+
+async function recordCanvaConnectionTest(
+  supabase: ReturnType<typeof createClient>,
+  integration: { id: string; metadata: unknown },
+  actorId: string,
+  testedAt: string,
+  success: boolean,
+  errorCode?: string,
+) {
+  const previousMetadata = integration.metadata && typeof integration.metadata === "object" && !Array.isArray(integration.metadata)
+    ? integration.metadata as JsonObject
+    : {};
+  const metadata = {
+    ...previousMetadata,
+    verifiedExternally: success,
+    canvaConnectionTest: {
+      result: success ? "success" : "failed",
+      endpoint: "/users/me",
+      testedAt,
+      ...(errorCode ? { errorCode } : {}),
+    },
+  };
+  const { error: updateError } = await supabase
+    .from("staff_integrations")
+    .update({
+      status: success ? "connected" : "error",
+      last_tested_at: testedAt,
+      last_error_code: errorCode ?? null,
+      metadata,
+      updated_at: testedAt,
+    })
+    .eq("id", integration.id);
+  if (updateError) return { stored: false, auditRecorded: false };
+
+  const { error: auditError } = await supabase.from("audit_logs").insert({
+    actor_id: actorId,
+    actor_type: "user",
+    action: "integration_tested",
+    entity_type: "staff_integration",
+    entity_id: integration.id,
+    detail: {
+      provider: "canva",
+      result: success ? "external_read_verified" : "external_read_failed",
+      endpoint: "/users/me",
+      ...(errorCode ? { errorCode } : {}),
+    },
+  });
+  return { stored: true, auditRecorded: !auditError };
+}
+
+async function handleConnectionTest(supabase: ReturnType<typeof createClient>, actorId: string) {
+  const testedAt = new Date().toISOString();
+  const { data: integration, error: integrationError } = await supabase
+    .from("staff_integrations")
+    .select("id, metadata, connected_by")
+    .eq("provider", "canva")
+    .maybeSingle();
+  if (integrationError || !integration) {
+    return json({ success: false, code: "CANVA_INTEGRATION_RECORD_MISSING", testedAt }, 424);
+  }
+
+  const connectedStaffId = typeof integration.connected_by === "string" ? integration.connected_by : actorId;
+  let errorCode: string | undefined;
+  let httpStatus: number | undefined;
+  let readSucceeded = false;
+
+  const tokenResult = await refreshCanvaAccessToken(supabase, connectedStaffId);
+  if ("error" in tokenResult) {
+    errorCode = tokenResult.error;
+  } else {
+    try {
+      const response = await fetch(CANVA_USER_ME_URL, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${tokenResult.accessToken}`, Accept: "application/json" },
+        signal: AbortSignal.timeout(15_000),
+      });
+      const payload = await response.json().catch(() => null) as JsonObject | null;
+      httpStatus = response.status;
+      if (!response.ok) {
+        errorCode = canvaApiErrorCode(payload, response.status);
+      } else {
+        const teamUser = payload?.team_user && typeof payload.team_user === "object"
+          ? payload.team_user as JsonObject
+          : null;
+        if (typeof teamUser?.user_id !== "string" || typeof teamUser.team_id !== "string") {
+          errorCode = "CANVA_API_RESPONSE_INVALID";
+        } else {
+          readSucceeded = true;
+        }
+      }
+    } catch (cause) {
+      errorCode = cause instanceof DOMException && cause.name === "TimeoutError"
+        ? "CANVA_API_TIMEOUT"
+        : "CANVA_API_REQUEST_FAILED";
+    }
+  }
+
+  const recorded = await recordCanvaConnectionTest(
+    supabase,
+    integration,
+    actorId,
+    testedAt,
+    readSucceeded,
+    errorCode,
+  );
+  if (!recorded.stored) {
+    return json({
+      success: false,
+      externalReadSucceeded: readSucceeded,
+      code: "CANVA_TEST_RESULT_STORE_FAILED",
+      testedAt,
+      ...(errorCode ? { errorCode } : {}),
+    }, 500);
+  }
+  if (!readSucceeded) {
+    return json({
+      success: false,
+      code: errorCode ?? "CANVA_API_READ_FAILED",
+      testedAt,
+      ...(httpStatus ? { httpStatus } : {}),
+    }, 502);
+  }
+  return json({
+    success: true,
+    code: "CANVA_READ_VERIFIED",
+    endpoint: "/users/me",
+    testedAt,
+    auditRecorded: recorded.auditRecorded,
+  });
+}
+
 async function handleAuthorize(supabase: ReturnType<typeof createClient>, staffId: string) {
   if (!credentialsConfigured()) {
     return json({
@@ -346,6 +494,7 @@ Deno.serve(async (request) => {
   const action = await parseCanvaAction(request);
   if (!action.ok) return action.response;
   if (action.value === "status") return handleStatus(supabase, staff.staffId!);
+  if (action.value === "test") return handleConnectionTest(supabase, staff.staffId!);
   if (action.value === "authorize") return handleAuthorize(supabase, staff.staffId!);
 
   return json({ success: false, code: "INVALID_INPUT" }, 400);
