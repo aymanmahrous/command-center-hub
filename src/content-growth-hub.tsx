@@ -22,6 +22,7 @@ import {
 } from "./content-strategy";
 import { ContentBatchReviewPanel } from "./content-batch-review-panel";
 import { fetchCanvaDesignStatus } from "./canva-design-adapter";
+import { assessCanvaReadiness, formatCanvaDiagnosticDetails, type CanvaStatusDiagnostic } from "./canva-readiness";
 import { useLanguage } from "./i18n";
 import "./content-growth-hub.css";
 
@@ -203,7 +204,7 @@ export default function ContentGrowthHub({
   const facebookAudit = useMemo(() => buildFacebookPublishAudit(items), [items]);
   const [automationStatus, setAutomationStatus] = useState<unknown>(null);
   const [staffIntegrations, setStaffIntegrations] = useState<Array<{ provider: string; status: string; lastTestedAt?: string | null }>>([]);
-  const [canvaDesignStatus, setCanvaDesignStatus] = useState<{ ready: boolean; detail: string } | null>(null);
+  const [canvaDesignStatus, setCanvaDesignStatus] = useState<CanvaStatusDiagnostic | null>(null);
   const [generateNotice, setGenerateNotice] = useState("");
   const [generating, setGenerating] = useState(false);
   const [batchAiProvider, setBatchAiProvider] = useState<BatchAiProvider>("auto");
@@ -219,17 +220,11 @@ export default function ContentGrowthHub({
   const [mediaAssets, setMediaAssets] = useState<ReturnType<typeof parseMediaAssetRecords>>([]);
   const integrations = useMemo(() => readIntegrationStatuses(automationStatus), [automationStatus]);
   const canvaIntegration = staffIntegrations.find((integration) => integration.provider === "canva");
-  const canvaCapabilityState = canvaIntegration?.status === "connected" && canvaDesignStatus?.ready
-    ? "AVAILABLE"
-    : "NOT_CONFIGURED";
-  const canvaStatusNotice = canvaIntegration?.status === "connected" && canvaDesignStatus && !canvaDesignStatus.ready
-    ? language === "ar"
-      ? canvaDesignStatus.detail.includes("asset:write")
-        ? "أعد ربط Canva لمنح صلاحية رفع الصور (asset:write)."
-        : canvaDesignStatus.detail.includes("no image field")
-          ? "قالب Canva لا يحتوي على حقل صورة؛ استخدم قالبًا يدعم تعبئة الصورة."
-          : "إعداد Canva غير مكتمل؛ راجع تفاصيل الاتصال."
-      : `Canva setup required: ${canvaDesignStatus.detail}`
+  const canvaReadiness = assessCanvaReadiness(canvaIntegration?.status, canvaDesignStatus);
+  const canvaCapabilityState = canvaReadiness.capabilityState;
+  const canvaDiagnosticDetails = formatCanvaDiagnosticDetails(canvaDesignStatus);
+  const canvaStatusNotice = canvaIntegration || canvaDesignStatus
+    ? `${language === "ar" ? "اتصال Canva" : "Canva connection"}: ${canvaReadiness.connectionLabel} · ${language === "ar" ? "جاهزية التصميم" : "Design readiness"}: ${canvaReadiness.readinessLabel}. ${canvaReadiness.detail}${canvaDiagnosticDetails.length ? ` · ${canvaDiagnosticDetails.join(" · ")}` : ""}`
     : null;
   const videoCapabilityState = integrations.find((integration) => integration.key === "runway")?.capabilityState ?? "NOT_CONFIGURED";
   const PLAN_WINDOW_OPTIONS = [2, 3, 4, 7, 14, 30] as const;
@@ -314,7 +309,11 @@ export default function ContentGrowthHub({
     void fetchCanvaDesignStatus({ accessToken: session.accessToken })
       .then((status) => { if (active) setCanvaDesignStatus(status); })
       .catch(() => {
-        if (active) setCanvaDesignStatus({ ready: false, detail: "Canva status could not be verified." });
+        if (active) setCanvaDesignStatus({
+          ready: false,
+          statusCheckFailed: true,
+          detail: "Canva status could not be verified; no design generation was attempted.",
+        });
       });
     return () => { active = false; };
   }, [session.accessToken]);
@@ -739,6 +738,7 @@ export default function ContentGrowthHub({
             batch={selectedBatch}
             workspaceMode={activeFactoryTab === "designs" || activeFactoryTab === "reels" || activeFactoryTab === "campaigns" || activeFactoryTab === "review" ? activeFactoryTab : "review"}
             designCapabilityState={canvaCapabilityState}
+            designCapabilityDetail={canvaReadiness.detail}
             videoCapabilityState={videoCapabilityState}
             canWrite={canWrite}
           busy={panelBusy}

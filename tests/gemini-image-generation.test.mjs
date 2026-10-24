@@ -23,10 +23,12 @@ test("Gemini image Edge Function authenticates staff and uses the current low-co
   assert.match(edge, /ESTIMATED_IMAGE_COST_USD = 0\.0336/);
 });
 
-test("Auto prefers configured Canva while leaving Gemini selectable", () => {
-  assert.match(panel, /designCapabilityState !== "NOT_CONFIGURED" \? "canva" : "gemini"/);
+test("Auto never selects Gemini as fallback; Canva requires READY and Gemini remains explicit", () => {
+  assert.match(panel, /resolveDesignProvider\(requestedProvider/);
+  assert.match(panel, /designCapabilityState === "AVAILABLE"/);
+  assert.match(panel, /if \(provider === "gemini"\)/);
   assert.match(panel, /label: "Gemini Image", available: !isVideo/);
-  assert.match(panel, /key: "canva" as const, label: "Canva", available: !isVideo && designCapabilityState !== "NOT_CONFIGURED"/);
+  assert.match(panel, /key: "canva" as const, label: "Canva", available: !isVideo && designCapabilityState === "AVAILABLE"/);
 });
 
 test("Gemini image prompts vary composition while preserving the academy's core brand palette", () => {
@@ -66,6 +68,6 @@ test("Factory exposes Gemini image generation, confirms cost, and links the asse
   assert.match(panel, /window\.confirm\(language === "ar"/);
   assert.match(panel, /generateGeminiImageForContentItem\(session, item\)/);
   assert.match(panel, /await linkMediaToItem\(item\.id, generated\.mediaAssetId\)/);
-  assert.match(panel, /designCapabilityState !== "NOT_CONFIGURED" \? "canva" : "gemini"/);
+  assert.match(panel, /resolveDesignProvider\(requestedProvider/);
   assert.match(panel, /label: "Gemini Image", available: !isVideo/);
 });

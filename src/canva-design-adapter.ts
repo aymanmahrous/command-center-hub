@@ -1,18 +1,17 @@
 import type { ContentBatchItem } from "./content-batch";
 import { parseCanvaBrief } from "./content-batch-media-preview";
+import type { CanvaStatusDiagnostic } from "./canva-readiness";
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
 const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
 
 type CanvaDesignSession = { accessToken: string };
 
-type CanvaDesignResponse = {
+type CanvaDesignResponse = CanvaStatusDiagnostic & {
   success?: boolean;
   mediaAssetId?: string;
   canvaDesignUrl?: string;
   code?: string;
-  detail?: string;
-  integrationStatus?: string;
   imageApplied?: boolean;
 };
 
@@ -32,17 +31,33 @@ async function callCanvaDesignEdge(session: CanvaDesignSession, body: Record<str
   return (await response.json().catch(() => ({}))) as CanvaDesignResponse;
 }
 
-export async function fetchCanvaDesignStatus(session: CanvaDesignSession): Promise<{ ready: boolean; detail: string }> {
+export async function fetchCanvaDesignStatus(session: CanvaDesignSession): Promise<CanvaStatusDiagnostic> {
   try {
     const result = await callCanvaDesignEdge(session, { mode: "status" });
-    const ready = result.integrationStatus === "READY";
+    const ready = result.success === true && result.integrationStatus === "READY";
     return {
       ready,
+      statusCheckFailed: result.success !== true,
       detail: result.detail ?? (ready ? "Canva design generation ready." : "Canva design generation not ready."),
+      credentialsConfigured: result.credentialsConfigured,
+      canvaConnected: result.canvaConnected,
+      brandTemplateConfigured: result.brandTemplateConfigured,
+      brandTemplateCount: result.brandTemplateCount,
+      missingScopes: Array.isArray(result.missingScopes) ? result.missingScopes.filter((scope): scope is string => typeof scope === "string") : undefined,
+      templateImageFieldCount: typeof result.templateImageFieldCount === "number" ? result.templateImageFieldCount : undefined,
+      templateTextFieldCount: typeof result.templateTextFieldCount === "number" ? result.templateTextFieldCount : undefined,
+      templateImageAutofillReady: result.templateImageAutofillReady,
+      integrationStatus: result.integrationStatus,
+      creativeReadiness: result.creativeReadiness,
+      nextAction: result.nextAction,
     };
   } catch (cause) {
     if (cause instanceof Error && cause.message === "SESSION_EXPIRED") throw cause;
-    return { ready: false, detail: "Canva design status unavailable." };
+    return {
+      ready: false,
+      statusCheckFailed: true,
+      detail: "Canva design status unavailable; no design generation was attempted.",
+    };
   }
 }
 
