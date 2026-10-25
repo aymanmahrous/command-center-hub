@@ -12,11 +12,13 @@ const CANVA_SOURCE_DESIGN_ID = (Deno.env.get("CANVA_SOURCE_DESIGN_ID") ?? "DAHZB
 const CANVA_RECOVERED_SOURCE_DESIGN_ID = "DAHZBpiQ_H8";
 const CANVA_AUTOFILL_HEADLINE_FIELD = (Deno.env.get("CANVA_AUTOFILL_HEADLINE_FIELD") ?? "hook").trim();
 const CANVA_AUTOFILL_BODY_FIELD = (Deno.env.get("CANVA_AUTOFILL_BODY_FIELD") ?? "caption").trim();
+const CANVA_AUTOFILL_CTA_FIELD = (Deno.env.get("CANVA_AUTOFILL_CTA_FIELD") ?? "cta").trim();
 const CANVA_AUTOFILL_WHATSAPP_FIELD = (Deno.env.get("CANVA_AUTOFILL_WHATSAPP_FIELD") ?? "whatsapp").trim();
 const CANVA_AUTOFILL_PHONE_FIELD = (Deno.env.get("CANVA_AUTOFILL_PHONE_FIELD") ?? "phone").trim();
 const RELAXFIX_WHATSAPP_LINE = "WhatsApp 058 821 9130 — messages & booking";
 const RELAXFIX_PHONE_LINE = "Call 055 137 8660 — admin team (phone calls only)";
 const RELAXFIX_ASSESSMENT_LINE = "Free initial assessment.";
+const RELAXFIX_CTA_LINE = "Book your free initial assessment via WhatsApp 058 821 9130.";
 const CANVA_TOKEN_URL = "https://api.canva.com/rest/v1/oauth/token";
 const CANVA_REQUIRED_SCOPES = ["design:content:write", "asset:write"] as const;
 const CANVA_API_BASE = "https://api.canva.com/rest/v1";
@@ -178,15 +180,17 @@ function buildAutofillDataFromDataset(
   const headlineField = textFields.includes(CANVA_AUTOFILL_HEADLINE_FIELD)
     ? CANVA_AUTOFILL_HEADLINE_FIELD
     : textFields[0];
-  const bodyField = textFields.includes(CANVA_AUTOFILL_BODY_FIELD)
+  const ctaField = textFields.includes(CANVA_AUTOFILL_CTA_FIELD) ? CANVA_AUTOFILL_CTA_FIELD : undefined;
+  const bodyField = textFields.includes(CANVA_AUTOFILL_BODY_FIELD) && CANVA_AUTOFILL_BODY_FIELD !== headlineField && CANVA_AUTOFILL_BODY_FIELD !== ctaField
     ? CANVA_AUTOFILL_BODY_FIELD
-    : textFields.find((field) => field !== headlineField);
+    : textFields.find((field) => field !== headlineField && field !== ctaField);
   if (headlineField && bodyField) {
     data[headlineField] = { type: "text", text: headline.slice(0, 200) };
     data[bodyField] = { type: "text", text: bodyWithContacts.slice(0, 1200) };
   } else if (headlineField) {
     data[headlineField] = { type: "text", text: `${headline}\n\n${bodyWithContacts}`.slice(0, 1200) };
   }
+  if (ctaField) data[ctaField] = { type: "text", text: RELAXFIX_CTA_LINE };
   if (imageAssetId) {
     const imageField = datasetFields(dataset, "image")[0];
     if (imageField) data[imageField] = { type: "image", asset_id: imageAssetId };
