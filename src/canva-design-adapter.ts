@@ -80,12 +80,14 @@ export async function generateCanvaDesignForContentItem(
 
 export function canvaDesignErrorMessage(code: string | undefined): string {
   switch (code) {
+    case "CANVA_MISSING_SCOPES":
+      return "Canva is connected, but the saved permission set is incomplete. Reconnect Canva from Media Library once to grant the missing asset:read permission, then verify readiness before generating again.";
     case "CANVA_IMAGE_UPLOAD_FAILED":
     case "CANVA_IMAGE_UPLOAD_STATUS_FAILED":
     case "CANVA_IMAGE_UPLOAD_JOB_MISSING":
     case "CANVA_IMAGE_UPLOAD_TIMEOUT":
     case "CANVA_IMAGE_ASSET_MISSING":
-      return "Canva could not import the linked library image. Check that the Canva connection has asset:write permission, then reconnect Canva if needed.";
+      return "Canva could not import the linked library image. Check the Canva connection permissions (asset:write and asset:read), then reconnect only if the status check identifies a missing permission.";
     case "TEMPLATE_IMAGE_FIELD_MISSING":
       return "The selected Canva Brand Template has no image autofill field. It cannot change the main visual, so repeated-looking designs are expected. Add an image field to the template, publish it, and reconnect Canva if permissions changed.";
     case "MEDIA_ASSET_NOT_LINKED":
