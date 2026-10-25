@@ -8,7 +8,8 @@ const CANVA_CLIENT_SECRET = (Deno.env.get("CANVA_CLIENT_SECRET") ?? "").trim();
 const CANVA_BRAND_TEMPLATE_ID = (Deno.env.get("CANVA_BRAND_TEMPLATE_ID") ?? "EAHVAAahmjU").trim();
 const CANVA_BRAND_TEMPLATE_IDS = (Deno.env.get("CANVA_BRAND_TEMPLATE_IDS") ?? CANVA_BRAND_TEMPLATE_ID)
   .split(",").map((id) => id.trim()).filter(Boolean);
-const CANVA_SOURCE_DESIGN_ID = (Deno.env.get("CANVA_SOURCE_DESIGN_ID") ?? "DAHVAMAUP-s").trim();
+const CANVA_SOURCE_DESIGN_ID = (Deno.env.get("CANVA_SOURCE_DESIGN_ID") ?? "DAHZBpiQ_H8").trim();
+const CANVA_RECOVERED_SOURCE_DESIGN_ID = "DAHZBpiQ_H8";
 const CANVA_AUTOFILL_HEADLINE_FIELD = (Deno.env.get("CANVA_AUTOFILL_HEADLINE_FIELD") ?? "hook").trim();
 const CANVA_AUTOFILL_BODY_FIELD = (Deno.env.get("CANVA_AUTOFILL_BODY_FIELD") ?? "caption").trim();
 const CANVA_AUTOFILL_WHATSAPP_FIELD = (Deno.env.get("CANVA_AUTOFILL_WHATSAPP_FIELD") ?? "whatsapp").trim();
@@ -299,12 +300,30 @@ async function createAutofillDesign(
   body: string,
   sourceMediaAssetId: string,
 ) {
-  const selectedBrandTemplateId = chooseBrandTemplateId(contentItemId);
-  const datasetPath = selectedBrandTemplateId
-    ? `/brand-templates/${selectedBrandTemplateId}/dataset`
-    : `/designs/${CANVA_SOURCE_DESIGN_ID}/dataset`;
-  const datasetResult = await fetchDataset(accessToken, datasetPath);
-  if ("error" in datasetResult) return datasetResult;
+  let selectedBrandTemplateId = chooseBrandTemplateId(contentItemId);
+  let sourceDesignId = CANVA_SOURCE_DESIGN_ID;
+  let datasetResult = selectedBrandTemplateId
+    ? await fetchDataset(accessToken, `/brand-templates/${selectedBrandTemplateId}/dataset`)
+    : { error: "AUTOFILL_DATASET_EMPTY" as const };
+  // A stale/unavailable Brand Template must not block a valid, editable source design.
+  if ("error" in datasetResult || datasetFields(datasetResult.dataset, "image").length === 0) {
+    selectedBrandTemplateId = "";
+    const sourceCandidates = [...new Set([CANVA_SOURCE_DESIGN_ID, CANVA_RECOVERED_SOURCE_DESIGN_ID].filter(Boolean))];
+    let sourceResult: Awaited<ReturnType<typeof fetchDataset>> | null = null;
+    for (const candidateId of sourceCandidates) {
+      const candidate = await fetchDataset(accessToken, `/designs/${candidateId}/dataset`);
+      if (!("error" in candidate) && datasetFields(candidate.dataset, "image").length > 0) {
+        sourceResult = candidate;
+        sourceDesignId = candidateId;
+        break;
+      }
+      sourceResult = candidate;
+    }
+    if (!sourceResult || "error" in sourceResult || datasetFields(sourceResult.dataset, "image").length === 0) {
+      return { error: "TEMPLATE_IMAGE_FIELD_MISSING" as const };
+    }
+    datasetResult = sourceResult;
+  }
   const imageFields = datasetFields(datasetResult.dataset, "image");
   if (imageFields.length === 0) return { error: "TEMPLATE_IMAGE_FIELD_MISSING" as const };
   let uploadedImageAssetId = "";
@@ -328,7 +347,7 @@ async function createAutofillDesign(
     }
     : {
       type: "create_from_design",
-      design_id: CANVA_SOURCE_DESIGN_ID,
+      design_id: sourceDesignId,
       title: title.slice(0, 120),
       data,
     };
@@ -471,14 +490,27 @@ Deno.serve(async (request) => {
       ? [...CANVA_REQUIRED_SCOPES]
       : CANVA_REQUIRED_SCOPES.filter((scope) => !tokenResult.scopes.split(/\s+/).includes(scope));
     const selectedBrandTemplateId = chooseBrandTemplateId("canva-status");
-    const templateResult = !("error" in tokenResult) && selectedBrandTemplateId
-      ? await fetchDataset(tokenResult.accessToken, `/brand-templates/${selectedBrandTemplateId}/dataset`)
-      : null;
-    const templateDataset = templateResult && !("error" in templateResult) ? templateResult.dataset : null;
-    const imageFieldCount = datasetFields(templateDataset, "image").length;
-    const textFieldCount = datasetFields(templateDataset, "text").length;
-    const templateImageAutofillReady = imageFieldCount > 0;
     const connected = !("error" in tokenResult);
+    const templateResult = connected && selectedBrandTemplateId
+      ? await fetchDataset(tokenResult.accessToken, `/brand-templates/${selectedBrandTemplateId}/dataset`)
+      : { error: "AUTOFILL_DATASET_EMPTY" as const };
+    let activeDataset: CanvaDataset | null = !("error" in templateResult) ? templateResult.dataset : null;
+    let activeSource: "brand_template" | "design" | "none" = activeDataset && datasetFields(activeDataset, "image").length > 0
+      ? "brand_template"
+      : "none";
+    if (connected && activeSource === "none") {
+      for (const candidateId of [...new Set([CANVA_SOURCE_DESIGN_ID, CANVA_RECOVERED_SOURCE_DESIGN_ID].filter(Boolean))]) {
+        const candidate = await fetchDataset(tokenResult.accessToken, `/designs/${candidateId}/dataset`);
+        if (!("error" in candidate) && datasetFields(candidate.dataset, "image").length > 0) {
+          activeDataset = candidate.dataset;
+          activeSource = "design";
+          break;
+        }
+      }
+    }
+    const imageFieldCount = datasetFields(activeDataset, "image").length;
+    const textFieldCount = datasetFields(activeDataset, "text").length;
+    const templateImageAutofillReady = imageFieldCount > 0;
     const fullyReady = credentialsConfigured() && connected && missingScopes.length === 0 && templateImageAutofillReady;
     const detail = !credentialsConfigured()
       ? "Set CANVA_CLIENT_ID and CANVA_CLIENT_SECRET in Edge Function secrets."
@@ -486,11 +518,11 @@ Deno.serve(async (request) => {
       ? "Reconnect Canva from Media Library; the saved OAuth token is missing or expired."
       : missingScopes.length > 0
       ? `Reconnect Canva to grant the missing permission(s): ${missingScopes.join(", ")}.`
-      : templateResult && "error" in templateResult
-      ? "Canva could not inspect the selected Brand Template. Check brandtemplate:content:read and the configured template ID."
+      : activeSource === "design"
+      ? "The configured Brand Template is unavailable or not fillable; using the verified editable Canva source design instead."
       : !templateImageAutofillReady
-      ? "The selected Canva template has text fields but no image field. It cannot replace the visual, so repeated-looking designs are expected. Use a Brand Template with at least one image autofill field."
-      : "Canva is connected, the required permissions are present, and the selected template supports image autofill.";
+      ? "No usable Canva source with an image autofill field was found. Configure a Brand Template or source design with image and text autofill fields."
+      : "Canva is connected, the required permissions are present, and the selected source supports image autofill.";
     return json({
       success: true,
       credentialsConfigured: credentialsConfigured(),
@@ -498,6 +530,7 @@ Deno.serve(async (request) => {
       brandTemplateConfigured: Boolean(CANVA_BRAND_TEMPLATE_IDS.length),
       brandTemplateCount: CANVA_BRAND_TEMPLATE_IDS.length,
       selectedBrandTemplateId,
+      autofillSource: activeSource,
       sourceDesignConfigured: Boolean(CANVA_SOURCE_DESIGN_ID),
       missingScopes,
       templateImageFieldCount: imageFieldCount,
@@ -508,8 +541,10 @@ Deno.serve(async (request) => {
       detail,
       nextAction: missingScopes.length > 0
         ? "Reconnect Canva in Media Library to refresh OAuth permissions."
+        : activeSource === "design"
+        ? "The existing editable Canva design is being used as the autofill source; a Brand Template can be configured later."
         : !templateImageAutofillReady
-        ? "Create/publish a Canva Brand Template with editable text fields and at least one image autofill field, then configure its ID."
+        ? "Configure a Canva Brand Template or editable source design with text and image autofill fields."
         : fullyReady ? "Ready for varied Canva designs." : "Complete Canva credentials and connection setup.",
     });
   }
