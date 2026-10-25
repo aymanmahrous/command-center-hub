@@ -163,11 +163,22 @@ Deno.serve(async (request) => {
   const result = await response.json().catch(() => null) as JsonObject | null;
   if (!response.ok) {
     const error = result?.error && typeof result.error === "object" ? result.error as JsonObject : {};
+    const providerMessage = typeof error.message === "string"
+      ? error.message.slice(0, 180)
+      : "Google image generation request failed.";
+    const providerCode = typeof error.status === "string" ? error.status.slice(0, 80) : undefined;
+    // Keep actionable upstream diagnostics in server logs without recording prompts, image data, or API credentials.
+    console.error("GEMINI_IMAGE_UPSTREAM_ERROR", JSON.stringify({
+      providerStatus: response.status,
+      ...(providerCode ? { providerCode } : {}),
+      detail: providerMessage,
+    }));
     return json({
       success: false,
       code: "GEMINI_IMAGE_REQUEST_FAILED",
       providerStatus: response.status,
-      detail: typeof error.message === "string" ? error.message.slice(0, 180) : "Google image generation request failed.",
+      ...(providerCode ? { providerCode } : {}),
+      detail: providerMessage,
     }, 502);
   }
 
