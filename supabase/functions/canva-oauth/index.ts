@@ -27,7 +27,7 @@ const CANVA_LEGACY_REDIRECT_URI = `${SUPABASE_URL}/functions/v1/canva-oauth?acti
 const COMMAND_CENTER_RETURN_URL = (Deno.env.get("COMMAND_CENTER_RETURN_URL") ?? "https://hub.relaxfixuae.com").replace(/\/$/, "");
 const CANVA_AUTH_URL = "https://www.canva.com/api/oauth/authorize";
 const CANVA_TOKEN_URL = "https://api.canva.com/rest/v1/oauth/token";
-const CANVA_SCOPES = "profile:read design:meta:read design:content:read design:content:write brandtemplate:meta:read brandtemplate:content:read asset:write";
+const CANVA_SCOPES = "profile:read design:meta:read design:content:read design:content:write brandtemplate:meta:read brandtemplate:content:read asset:write asset:read";
 const ALLOWED_ROLES = new Set(["super_admin", "admin", "content_manager"]);
 const STATE_TTL_MS = 15 * 60 * 1000;
 

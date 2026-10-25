@@ -20,7 +20,7 @@ const RELAXFIX_PHONE_LINE = "Call 055 137 8660 — admin team (phone calls only)
 const RELAXFIX_ASSESSMENT_LINE = "Free initial assessment.";
 const RELAXFIX_CTA_LINE = "Book your free initial assessment via WhatsApp 058 821 9130.";
 const CANVA_TOKEN_URL = "https://api.canva.com/rest/v1/oauth/token";
-const CANVA_REQUIRED_SCOPES = ["design:content:write", "asset:write"] as const;
+const CANVA_REQUIRED_SCOPES = ["design:content:write", "asset:write", "asset:read"] as const;
 const CANVA_API_BASE = "https://api.canva.com/rest/v1";
 const MEDIA_BUCKET = "relax-fix-media";
 const ALLOWED_ROLES = new Set(["super_admin", "admin", "content_manager"]);
@@ -567,6 +567,10 @@ Deno.serve(async (request) => {
 
   const tokenResult = await refreshCanvaAccessToken(serviceSupabase, staffId);
   if ("error" in tokenResult) return json({ success: false, code: tokenResult.error }, 424);
+  const missingScopes = CANVA_REQUIRED_SCOPES.filter((scope) => !tokenResult.scopes.split(/\s+/).includes(scope));
+  if (missingScopes.length > 0) {
+    return json({ success: false, code: "CANVA_MISSING_SCOPES", missingScopes }, 424);
+  }
 
   const autofill = await createAutofillDesign(
     tokenResult.accessToken,
