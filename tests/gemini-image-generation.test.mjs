@@ -17,6 +17,8 @@ test("Gemini image Edge Function authenticates staff and uses the current low-co
   assert.match(edge, /GEMINI_API_KEY/);
   assert.match(edge, /gemini-3\.1-flash-lite-image/);
   assert.match(edge, /v1beta\/interactions/);
+  assert.match(edge, /mime_type: "image\\/jpeg"/);
+  assert.doesNotMatch(edge, /mime_type: "image\\/png"/);
   assert.match(edge, /requireStaff/);
   assert.match(edge, /GEMINI_CREDENTIAL_MISSING/);
   assert.match(edge, /estimatedCostUsd/);
