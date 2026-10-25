@@ -567,7 +567,7 @@ Deno.serve(async (request) => {
 
   const tokenResult = await refreshCanvaAccessToken(serviceSupabase, staffId);
   if ("error" in tokenResult) return json({ success: false, code: tokenResult.error }, 424);
-  const missingScopes = CANVA_REQUIRED_SCOPES.filter((scope) => !tokenResult.scopes.split(/\\s+/).includes(scope));
+  const missingScopes = CANVA_REQUIRED_SCOPES.filter((scope) => !tokenResult.scopes.split(/\s+/).includes(scope));
   if (missingScopes.length > 0) {
     return json({ success: false, code: "CANVA_MISSING_SCOPES", missingScopes }, 424);
   }
