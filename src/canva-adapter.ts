@@ -91,8 +91,8 @@ export function canvaConnectErrorMessage(code: string | undefined, language: "ar
   }
   if (normalized === "TOKEN_EXCHANGE_FAILED" || normalized === "TOKEN_RESPONSE_INVALID") {
     return isAr
-      ? "وافقت Canva على الوصول ولكن فشل تبادل الرمز. تأكد في بوابة المطورين من ضبط رابط إعادة التوجيه بالضبط على: https://nmzxrjdxvmmzzmajrskm.supabase.co/functions/v1/canva-oauth"
-      : "Canva approved access but token exchange failed. In Canva Developer Portal, set Redirect URI exactly to: https://nmzxrjdxvmmzzmajrskm.supabase.co/functions/v1/canva-oauth — then click Connect Canva again.";
+      ? "وافقت Canva على الوصول ولكن فشل تبادل الرمز. تحقق في بوابة مطوري Canva من أن رابط إعادة التوجيه يطابق رابط callback الخاص ببيئة التشغيل الحالية، ولا تستخدم رابط بيئة أخرى."
+      : "Canva approved access but token exchange failed. In Canva Developer Portal, verify that the Redirect URI matches the callback URL for the current environment; do not use a URL from another environment. Then click Connect Canva again.";
   }
   if (normalized === "TOKEN_STORE_FAILED") {
     return isAr
