@@ -26,6 +26,11 @@ export type MediaAssetRecord = {
   assetType: "image" | "video" | "logo" | "other";
   source: "upload" | "ai_generated" | "external";
   storagePath: string | null;
+  name?: string;
+  webUrl?: string | null;
+  mimeType?: string | null;
+  previewUrl?: string | null;
+  folder?: string;
   category: MediaCategory;
   mediaStatus: MediaWorkflowStatus;
   aiAnalysisStatus: AiAnalysisStatus;
@@ -40,6 +45,18 @@ export type MediaAssetRecord = {
   updatedAt: string | null;
   [key: string]: unknown;
 };
+
+export function resolveMediaAssetName(asset: {
+  metadata?: Record<string, unknown>;
+  storagePath?: string | null;
+}): string {
+  for (const key of ["file_name", "fileName", "originalName", "name", "title"]) {
+    const value = asset.metadata?.[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  const pathName = asset.storagePath?.split("/").filter(Boolean).at(-1);
+  return pathName || "Media asset";
+}
 
 export function normalizeMediaCategory(value: unknown): MediaCategory {
   if (typeof value === "string" && MEDIA_CATEGORIES.includes(value as MediaCategory)) {
