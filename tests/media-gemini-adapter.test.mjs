@@ -21,3 +21,9 @@ test("analyze-staff-media edge function keeps Gemini key server-side only", () =
   assert.match(edge, /Consent required/);
   assert.doesNotMatch(edge, /VITE_|console\.log\(.*GEMINI/i);
 });
+
+
+test("analyze-staff-media uses a supported Gemini Flash model", () => {
+  assert.match(edge, /const GEMINI_MODEL = "gemini-3\.8-flash"/);
+  assert.doesNotMatch(edge, /gemini-2\.0-flash/);
+});
