@@ -49,7 +49,7 @@ test("Canva status diagnoses missing permissions and image fields without genera
   const statusStart = edge.indexOf('if (body.mode === "status")');
   const generateStart = edge.indexOf('if (body.mode !== "generate")', statusStart);
   const statusBranch = edge.slice(statusStart, generateStart);
-  assert.match(edge, /CANVA_REQUIRED_SCOPES = \["design:content:write", "asset:write", "asset:read"\]/);
+  assert.match(edge, /CANVA_REQUIRED_SCOPES = \["design:content:read", "design:content:write", "asset:write", "asset:read"\]/);
   assert.match(edge, /code: "CANVA_MISSING_SCOPES", missingScopes/);
   assert.match(statusBranch, /missingScopes/);
   assert.match(statusBranch, /templateImageAutofillReady/);
