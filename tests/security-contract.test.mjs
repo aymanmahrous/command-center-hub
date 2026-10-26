@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { readFile, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const envExample = await readFile(new URL("../.env.example", import.meta.url), "utf8");
