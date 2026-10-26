@@ -29,3 +29,12 @@ test("direct Canva asset upload failures use the sanitized diagnostic helper", (
   assert.match(source, /canvaFailureDiagnostic\("\/asset-uploads", uploadResponse\)/);
   assert.doesNotMatch(source, /console\.warn\([^\n]+uploadPayload/i);
 });
+
+test("Canva job failures log only fixed stage and error codes", () => {
+  assert.match(source, /logCanvaStageFailure\("dataset", ok \? "DATASET_MISSING" : "UPSTREAM_REQUEST_FAILED"\)/);
+  assert.match(source, /logCanvaStageFailure\("autofill", "JOB_FAILED"\)/);
+  assert.match(source, /logCanvaStageFailure\("export", "JOB_FAILED"\)/);
+  assert.match(source, /logCanvaStageFailure\("asset_upload", "JOB_FAILED"\)/);
+  assert.match(source, /\[canva-design\] stage failed/);
+  assert.doesNotMatch(source, /console\.warn\([^\n]*(?:payload|topic|caption|accessToken|refresh_token)/i);
+});
