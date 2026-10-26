@@ -4,6 +4,7 @@ import test from "node:test";
 
 const adapter = await readFile(new URL("../src/media-gemini-adapter.ts", import.meta.url), "utf8");
 const edge = await readFile(new URL("../supabase/functions/analyze-staff-media/index.ts", import.meta.url), "utf8");
+const batch = await readFile(new URL("../supabase/functions/generate-content-batch/index.ts", import.meta.url), "utf8");
 
 test("gemini adapter stays server-side and never embeds client secrets", () => {
   assert.match(adapter, /analyze-staff-media/);
@@ -20,4 +21,9 @@ test("analyze-staff-media edge function keeps Gemini key server-side only", () =
   assert.match(edge, /x-goog-api-key/);
   assert.match(edge, /Consent required/);
   assert.doesNotMatch(edge, /VITE_|console\.log\(.*GEMINI/i);
+});
+
+test("Gemini text endpoints use the currently supported stable Flash model", () => {
+  assert.match(edge, /const GEMINI_MODEL = "gemini-3\\.8-flash"/);
+  assert.match(batch, /const GEMINI_MODEL = "gemini-3\\.8-flash"/);
 });
