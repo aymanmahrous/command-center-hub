@@ -306,8 +306,8 @@ test("System Polish makes controlled interactions accessible and globally locked
   assert.match(app, /Number\.isNaN\(followUpDate\.getTime\(\)\)/);
 });
 
-test("internal inbox alert helpers are not executable by public browser roles", () => {
-  const migration = readFileSync(new URL("../supabase/migrations/20261018100000_restrict_internal_alert_rpc_execute.sql", import.meta.url), "utf8");
+test("internal inbox alert helpers remain restricted by the existing sensitive RPC migration", () => {
+  const migration = readFileSync(new URL("../supabase/migrations/20261023160000_restrict_sensitive_rpc_execute_grants.sql", import.meta.url), "utf8");
   for (const signature of [
     "public.route_conversation_to_human(uuid, uuid, text, text, text, jsonb)",
     "public.upsert_staff_alert(text, text, text, uuid, uuid, uuid, text, jsonb)",
@@ -316,7 +316,7 @@ test("internal inbox alert helpers are not executable by public browser roles", 
     const escaped = signature.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     assert.match(
       migration,
-      new RegExp("REVOKE ALL ON FUNCTION " + escaped + "\\s+FROM PUBLIC, anon, authenticated;", "i"),
+      new RegExp("REVOKE (?:ALL|EXECUTE) ON FUNCTION " + escaped + "\\s+FROM PUBLIC, anon, authenticated;", "i"),
     );
     assert.match(
       migration,
