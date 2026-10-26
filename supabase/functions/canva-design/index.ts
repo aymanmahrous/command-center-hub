@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { canvaFailureDiagnostic } from "./diagnostics.ts";
 
 const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/$/, "");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -149,15 +150,7 @@ async function canvaFetch(accessToken: string, path: string, init?: RequestInit)
   const payload = await response.json().catch(() => ({})) as JsonObject;
   if (!response.ok) {
     // Keep diagnostics useful without logging credentials, request bodies, or Canva response payloads.
-    const safeEndpoint = path.replace(
-      /^(\/(?:brand-templates|designs|autofills|exports|asset-uploads))\/[^/]+/,
-      "$1/:id",
-    );
-    console.warn("[canva-design] upstream request failed", JSON.stringify({
-      endpoint: safeEndpoint,
-      status: response.status,
-      requestId: response.headers.get("x-request-id") ?? response.headers.get("x-canva-request-id") ?? null,
-    }));
+    console.warn("[canva-design] upstream request failed", JSON.stringify(canvaFailureDiagnostic(path, response)));
   }
   return { ok: response.ok, status: response.status, payload };
 }
@@ -257,7 +250,10 @@ async function uploadLinkedImageToCanva(
     body: new Uint8Array(await file.arrayBuffer()),
   });
   const uploadPayload = await uploadResponse.json().catch(() => ({})) as JsonObject;
-  if (!uploadResponse.ok) return { error: "CANVA_IMAGE_UPLOAD_FAILED" as const };
+  if (!uploadResponse.ok) {
+    console.warn("[canva-design] upstream request failed", JSON.stringify(canvaFailureDiagnostic("/asset-uploads", uploadResponse)));
+    return { error: "CANVA_IMAGE_UPLOAD_FAILED" as const };
+  }
   const jobId = String((uploadPayload.job as JsonObject | undefined)?.id ?? "");
   if (!jobId) return { error: "CANVA_IMAGE_UPLOAD_JOB_MISSING" as const };
   for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
