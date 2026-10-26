@@ -18,7 +18,7 @@ const CANVA_AUTOFILL_PHONE_FIELD = (Deno.env.get("CANVA_AUTOFILL_PHONE_FIELD") ?
 const ACADEMY_WHATSAPP_LINE = "للحجز والاستفسار عبر واتساب: 058 821 9130";
 const ACADEMY_PHONE_LINE = "هاتف الإدارة: 055 137 8660";
 const ACADEMY_BRANCH_LINE = "فرع المشرف — أبوظبي";
-const ACADEMY_CTA_LINE = "احجز التقييم الأولي عبر واتساب 058 821 9130 — فرع المشرف، أبوظبي.";
+const ACADEMY_CTA_LINE = "للاستفسار والحجز عبر واتساب: 058 821 9130 — فرع المشرف، أبوظبي."
 const CANVA_TOKEN_URL = "https://api.canva.com/rest/v1/oauth/token";
 const CANVA_REQUIRED_SCOPES = ["design:content:read", "design:content:write", "asset:write", "asset:read"] as const;
 const CANVA_API_BASE = "https://api.canva.com/rest/v1";
@@ -234,7 +234,7 @@ async function uploadLinkedImageToCanva(
   if (downloadError || !file) return { error: "MEDIA_ASSET_DOWNLOAD_FAILED" as const };
   const mimeType = file.type.startsWith("image/") ? file.type : "image/png";
   const extension = mimeType === "image/jpeg" ? "jpg" : mimeType === "image/webp" ? "webp" : "png";
-  const metadata = JSON.stringify({ name_base64: btoa(`coach-ayman-${contentItemId}.${extension}`) });
+  const metadata = JSON.stringify({ name_base64: btoa(`swimming-academy-${contentItemId}.${extension}`) });
   const uploadResponse = await fetch(`${CANVA_API_BASE}/asset-uploads`, {
     method: "POST",
     headers: {
