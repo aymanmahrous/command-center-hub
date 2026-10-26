@@ -242,6 +242,15 @@ export default function ContentGrowthHub({
       setActiveFactoryTab(activeTab);
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== "content") return;
+    const handoff = readMediaFactoryHandoff();
+    if (handoff) {
+      setMediaFactoryHandoff(handoff);
+      setMediaLinkNotice("");
+    }
+  }, [activeTab]);
   function selectFactoryTab(tab: typeof activeFactoryTab) {
     setActiveFactoryTab(tab);
     onTabChange?.(tab);
