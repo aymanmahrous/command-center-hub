@@ -15,12 +15,12 @@ const CANVA_AUTOFILL_BODY_FIELD = (Deno.env.get("CANVA_AUTOFILL_BODY_FIELD") ?? 
 const CANVA_AUTOFILL_CTA_FIELD = (Deno.env.get("CANVA_AUTOFILL_CTA_FIELD") ?? "cta").trim();
 const CANVA_AUTOFILL_WHATSAPP_FIELD = (Deno.env.get("CANVA_AUTOFILL_WHATSAPP_FIELD") ?? "whatsapp").trim();
 const CANVA_AUTOFILL_PHONE_FIELD = (Deno.env.get("CANVA_AUTOFILL_PHONE_FIELD") ?? "phone").trim();
-const ACADEMY_WHATSAPP_LINE = "واتساب للاستفسار والحجز: 058 821 9130";
-const ACADEMY_PHONE_LINE = "هاتف الإدارة للمكالمات: 055 137 8660";
-
-const ACADEMY_CTA_LINE = "للاستفسار والحجز عبر واتساب: 058 821 9130";
+const ACADEMY_WHATSAPP_LINE = "للحجز والاستفسار عبر واتساب: 058 821 9130";
+const ACADEMY_PHONE_LINE = "هاتف الإدارة: 055 137 8660";
+const ACADEMY_BRANCH_LINE = "فرع المشرف — أبوظبي";
+const ACADEMY_CTA_LINE = "للاستفسار والحجز عبر واتساب: 058 821 9130 — فرع المشرف، أبوظبي.";
 const CANVA_TOKEN_URL = "https://api.canva.com/rest/v1/oauth/token";
-const CANVA_REQUIRED_SCOPES = ["design:content:write", "asset:write", "asset:read"] as const;
+const CANVA_REQUIRED_SCOPES = ["design:content:read", "design:content:write", "asset:write", "asset:read"] as const;
 const CANVA_API_BASE = "https://api.canva.com/rest/v1";
 const MEDIA_BUCKET = "relax-fix-media";
 const ALLOWED_ROLES = new Set(["super_admin", "admin", "content_manager"]);
@@ -170,12 +170,16 @@ function buildAutofillDataFromDataset(
   dataset: CanvaDataset,
   headline: string,
   body: string,
+  cta: string,
   imageAssetId?: string,
 ): JsonObject {
   const textFields = datasetFields(dataset, "text");
-  const bodyWithContacts = /058 821 9130/.test(body) && /055 137 8660/.test(body)
-    ? body
-    : `${body}\n\n${ACADEMY_WHATSAPP_LINE}\n${ACADEMY_PHONE_LINE}`;
+  const contactLines = [
+    /058\\s*821\\s*9130/.test(body) ? "" : ACADEMY_WHATSAPP_LINE,
+    /055\\s*137\\s*8660/.test(body) ? "" : ACADEMY_PHONE_LINE,
+    /المشرف/.test(body) ? "" : ACADEMY_BRANCH_LINE,
+  ].filter(Boolean);
+  const bodyWithContacts = [body, ...contactLines].filter(Boolean).join("\n\n");
   const data: JsonObject = {};
   const headlineField = textFields.includes(CANVA_AUTOFILL_HEADLINE_FIELD)
     ? CANVA_AUTOFILL_HEADLINE_FIELD
@@ -190,7 +194,7 @@ function buildAutofillDataFromDataset(
   } else if (headlineField) {
     data[headlineField] = { type: "text", text: `${headline}\n\n${bodyWithContacts}`.slice(0, 1200) };
   }
-  if (ctaField) data[ctaField] = { type: "text", text: ACADEMY_CTA_LINE };
+  if (ctaField) data[ctaField] = { type: "text", text: (cta.trim() || ACADEMY_CTA_LINE).slice(0, 200) };
   if (imageAssetId) {
     const imageField = datasetFields(dataset, "image")[0];
     if (imageField) data[imageField] = { type: "image", asset_id: imageAssetId };
@@ -302,6 +306,7 @@ async function createAutofillDesign(
   title: string,
   headline: string,
   body: string,
+  cta: string,
   sourceMediaAssetId: string,
 ) {
   let selectedBrandTemplateId = chooseBrandTemplateId(contentItemId);
@@ -340,6 +345,7 @@ async function createAutofillDesign(
     datasetResult.dataset,
     headline,
     body,
+    cta,
     uploadedImageAssetId || undefined,
   );
   const requestBody: JsonObject = selectedBrandTemplateId
@@ -560,6 +566,7 @@ Deno.serve(async (request) => {
   const topic = typeof body.topic === "string" ? body.topic.trim() : "";
   const hook = typeof body.hook === "string" ? body.hook.trim() : "";
   const caption = typeof body.caption === "string" ? body.caption.trim() : "";
+  const cta = typeof body.cta === "string" ? body.cta.trim() : "";
   const sourceMediaAssetId = typeof body.sourceMediaAssetId === "string" ? body.sourceMediaAssetId : "";
   if (!/^[0-9a-f-]{36}$/i.test(contentItemId) || !topic) {
     return json({ success: false, code: "INVALID_INPUT" }, 400);
@@ -579,6 +586,7 @@ Deno.serve(async (request) => {
     topic,
     hook || topic,
     caption || topic,
+    cta,
     sourceMediaAssetId,
   );
   if ("error" in autofill) return json({ success: false, code: autofill.error }, 502);
