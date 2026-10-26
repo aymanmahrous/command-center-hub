@@ -60,7 +60,7 @@ async function requireStaff(supabase: ReturnType<typeof createClient>, token: st
   return { staffId: authData.user.id };
 }
 
-(supabase: ReturnType<typeof createClient>, storagePath: string) {
+async function loadMediaBytes(supabase: ReturnType<typeof createClient>, storagePath: string) {
   const { data, error } = await supabase.storage.from(MEDIA_BUCKET).download(storagePath);
   if (error || !data) return null;
   const bytes = new Uint8Array(await data.arrayBuffer());
