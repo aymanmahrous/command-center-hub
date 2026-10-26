@@ -684,7 +684,13 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
   const [undoAction, setUndoAction] = useState<{ itemId: string; action: "return_to_review" | "unschedule"; label: string } | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ContentStatus | "all">("all");
-  const [factoryTab, setFactoryTab] = useState<ContentFactoryTab>("overview");
+  const [factoryTab, setFactoryTab] = useState<ContentFactoryTab>(() => {
+    try {
+      return sessionStorage.getItem("media-factory-handoff") ? "content" : "overview";
+    } catch {
+      return "overview";
+    }
+  });
   const [contentPage, setContentPage] = useState(1);
   const [expandedContentId, setExpandedContentId] = useState<string | null>(null);
   const canWrite = ["super_admin", "admin", "content_manager"].includes(session.role);
