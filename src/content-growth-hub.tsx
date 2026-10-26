@@ -518,8 +518,8 @@ export default function ContentGrowthHub({
           <small>{language === "ar" ? "لا يوجد حاليًا محتوى مسودة يحتاج وسائط. اختر/أنشئ محتوى أولًا، ثم سيظهر هنا للربط." : "There is no draft content waiting for media right now. Create or select content first, then it will appear here."}</small>
         )}
         {mediaFactoryHandoff.asset.webUrl && <a className="today-quick-action" href={mediaFactoryHandoff.asset.webUrl} target="_blank" rel="noreferrer noopener">{language === "ar" ? "فتح الأصل" : "Open asset"}</a>}
-        {mediaLinkNotice && <small role="status">{mediaLinkNotice}</small>}
       </div>}
+      {mediaLinkNotice && <div className="notice-box" role="status" aria-live="polite">{mediaLinkNotice}</div>}
 
       {canvaStatusNotice && <div className="notice-box" role="status" aria-live="polite">{canvaStatusNotice}</div>}
       {generateNotice && <div className="notice-box" aria-live="polite">{generateNotice}</div>}

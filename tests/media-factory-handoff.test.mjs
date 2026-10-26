@@ -45,4 +45,5 @@ test("Media Library wires the resolved handoff into session storage and renders 
   assert.match(controls, /sessionStorage\.setItem\(MEDIA_FACTORY_HANDOFF_KEY,\s*JSON\.stringify\(createMediaFactoryHandoff\(asset\)\)\)/);
   assert.match(factory, /parseMediaFactoryHandoff\(sessionStorage\.getItem\(MEDIA_FACTORY_HANDOFF_KEY\)\)/);
   assert.match(factory, /mediaFactoryHandoff\.asset\.webUrl\s*&&\s*<a/);
+  assert.match(factory, /<\/div>}\s*\{mediaLinkNotice\s*&&\s*<div className="notice-box" role="status" aria-live="polite">/);
 });
