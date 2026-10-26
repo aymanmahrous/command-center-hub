@@ -24,6 +24,7 @@ import { ContentBatchReviewPanel } from "./content-batch-review-panel";
 import { fetchCanvaDesignStatus } from "./canva-design-adapter";
 import { assessCanvaReadiness, formatCanvaDiagnosticDetails, type CanvaStatusDiagnostic } from "./canva-readiness";
 import { useLanguage } from "./i18n";
+import { MEDIA_FACTORY_HANDOFF_KEY, parseMediaFactoryHandoff, type MediaFactoryHandoff } from "./media-factory-handoff";
 import "./content-growth-hub.css";
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
@@ -32,33 +33,10 @@ const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || im
 type GrowthSession = { accessToken: string };
 
 export const COACH_BRAIN_FACTORY_HANDOFF_KEY = "coach-brain-factory-handoff";
-const MEDIA_FACTORY_HANDOFF_KEY = "media-factory-handoff";
-
-type MediaFactoryHandoff = {
-  asset: { id: string; provider: string; name: string; mimeType: string; webUrl: string; previewUrl: string | null; folder: string };
-  createdAt: string;
-};
 
 function readMediaFactoryHandoff(): MediaFactoryHandoff | null {
   try {
-    const raw = sessionStorage.getItem(MEDIA_FACTORY_HANDOFF_KEY);
-    if (!raw) return null;
-    const value = JSON.parse(raw) as Partial<MediaFactoryHandoff>;
-    if (!value.asset || typeof value.asset !== "object") return null;
-    const asset = value.asset as Partial<MediaFactoryHandoff["asset"]>;
-    if (typeof asset.id !== "string" || typeof asset.name !== "string" || typeof asset.webUrl !== "string") return null;
-    return {
-      asset: {
-        id: asset.id,
-        provider: typeof asset.provider === "string" ? asset.provider : "unknown",
-        name: asset.name,
-        mimeType: typeof asset.mimeType === "string" ? asset.mimeType : "application/octet-stream",
-        webUrl: asset.webUrl,
-        previewUrl: typeof asset.previewUrl === "string" ? asset.previewUrl : null,
-        folder: typeof asset.folder === "string" ? asset.folder : "",
-      },
-      createdAt: typeof value.createdAt === "string" ? value.createdAt : "",
-    };
+    return parseMediaFactoryHandoff(sessionStorage.getItem(MEDIA_FACTORY_HANDOFF_KEY));
   } catch {
     return null;
   }
@@ -539,7 +517,7 @@ export default function ContentGrowthHub({
         ) : (
           <small>{language === "ar" ? "لا يوجد حاليًا محتوى مسودة يحتاج وسائط. اختر/أنشئ محتوى أولًا، ثم سيظهر هنا للربط." : "There is no draft content waiting for media right now. Create or select content first, then it will appear here."}</small>
         )}
-        <a className="today-quick-action" href={mediaFactoryHandoff.asset.webUrl} target="_blank" rel="noreferrer noopener">{language === "ar" ? "فتح الأصل" : "Open asset"}</a>
+        {mediaFactoryHandoff.asset.webUrl && <a className="today-quick-action" href={mediaFactoryHandoff.asset.webUrl} target="_blank" rel="noreferrer noopener">{language === "ar" ? "فتح الأصل" : "Open asset"}</a>}
         {mediaLinkNotice && <small role="status">{mediaLinkNotice}</small>}
       </div>}
 

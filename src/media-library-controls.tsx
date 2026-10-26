@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useLanguage } from "./i18n";
 import { z } from "zod";
 import type { AiSuitabilityVerdict, MediaAssetRecord, MediaCategory, ConsentStatus } from "./media-types";
-import { displayMediaWorkflowStatus } from "./media-types";
+import { displayMediaWorkflowStatus, resolveMediaAssetName } from "./media-types";
+import { createMediaFactoryHandoff, MEDIA_FACTORY_HANDOFF_KEY } from "./media-factory-handoff";
 import { analyzeMediaWithProvider, fetchGeminiIntegrationStatus, type GeminiIntegrationStatus } from "./media-gemini-adapter";
 import { CANVA_OPEN_URL, canvaConnectErrorMessage, fetchCanvaIntegrationStatus, readCanvaCallbackNotice, startCanvaConnect, type CanvaIntegrationStatus } from "./canva-adapter";
 import { readStoredMediaAnalysis, type MediaAnalysisResult } from "./media-ai-analysis";
@@ -52,6 +53,11 @@ export function parseMediaAssetRecords(value: unknown): MediaAssetRecord[] {
   if (!parsed.success) return [];
   return parsed.data.map((row) => ({
     ...row,
+    name: resolveMediaAssetName(row),
+    webUrl: typeof row.webUrl === "string" ? row.webUrl : typeof row.metadata?.external_web_url === "string" ? row.metadata.external_web_url : null,
+    mimeType: typeof row.mimeType === "string" ? row.mimeType : typeof row.metadata?.mime_type === "string" ? row.metadata.mime_type : null,
+    previewUrl: typeof row.previewUrl === "string" ? row.previewUrl : null,
+    folder: typeof row.folder === "string" ? row.folder : typeof row.metadata?.folder === "string" ? row.metadata.folder : "",
     category: normalizeMediaCategory(row.category),
     mediaStatus: (row.mediaStatus ?? "unclassified") as MediaAssetRecord["mediaStatus"],
     aiAnalysisStatus: (row.aiAnalysisStatus ?? "not_started") as MediaAssetRecord["aiAnalysisStatus"],
@@ -232,18 +238,7 @@ export function MediaAssetControls({
 
   function useInFactory() {
     try {
-      sessionStorage.setItem("media-factory-handoff", JSON.stringify({
-        asset: {
-          id: asset.id,
-          provider: asset.provider,
-          name: asset.name,
-          mimeType: asset.mimeType,
-          webUrl: asset.webUrl,
-          previewUrl: asset.previewUrl ?? null,
-          folder: asset.folder,
-        },
-        createdAt: new Date().toISOString(),
-      }));
+      sessionStorage.setItem(MEDIA_FACTORY_HANDOFF_KEY, JSON.stringify(createMediaFactoryHandoff(asset)));
       window.dispatchEvent(new CustomEvent("command-center:navigate", { detail: { section: "content" } }));
     } catch {
       setActionNotice(language === "ar"
