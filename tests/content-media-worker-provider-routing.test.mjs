@@ -39,5 +39,5 @@ test("content automation pulse dry-run exits before generation, media claims, or
 });
 
 test("content automation uses the supported stable Gemini Flash model", () => {
-  assert.match(worker, /const GEMINI_MODEL = "gemini-3\\.8-flash"/);
+  assert.match(worker, /const GEMINI_MODEL = "gemini-3\.8-flash"/);
 });
