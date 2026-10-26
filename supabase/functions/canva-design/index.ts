@@ -15,10 +15,10 @@ const CANVA_AUTOFILL_BODY_FIELD = (Deno.env.get("CANVA_AUTOFILL_BODY_FIELD") ?? 
 const CANVA_AUTOFILL_CTA_FIELD = (Deno.env.get("CANVA_AUTOFILL_CTA_FIELD") ?? "cta").trim();
 const CANVA_AUTOFILL_WHATSAPP_FIELD = (Deno.env.get("CANVA_AUTOFILL_WHATSAPP_FIELD") ?? "whatsapp").trim();
 const CANVA_AUTOFILL_PHONE_FIELD = (Deno.env.get("CANVA_AUTOFILL_PHONE_FIELD") ?? "phone").trim();
-const RELAXFIX_WHATSAPP_LINE = "WhatsApp 058 821 9130 — messages & booking";
-const RELAXFIX_PHONE_LINE = "Call 055 137 8660 — admin team (phone calls only)";
-const RELAXFIX_ASSESSMENT_LINE = "Free initial assessment.";
-const RELAXFIX_CTA_LINE = "Book your free initial assessment via WhatsApp 058 821 9130.";
+const ACADEMY_WHATSAPP_LINE = "واتساب للاستفسار والحجز: 058 821 9130";
+const ACADEMY_PHONE_LINE = "هاتف الإدارة للمكالمات: 055 137 8660";
+
+const ACADEMY_CTA_LINE = "للاستفسار والحجز عبر واتساب: 058 821 9130";
 const CANVA_TOKEN_URL = "https://api.canva.com/rest/v1/oauth/token";
 const CANVA_REQUIRED_SCOPES = ["design:content:write", "asset:write", "asset:read"] as const;
 const CANVA_API_BASE = "https://api.canva.com/rest/v1";
@@ -175,7 +175,7 @@ function buildAutofillDataFromDataset(
   const textFields = datasetFields(dataset, "text");
   const bodyWithContacts = /058 821 9130/.test(body) && /055 137 8660/.test(body)
     ? body
-    : `${body}\n\n${RELAXFIX_WHATSAPP_LINE}\n${RELAXFIX_PHONE_LINE}\n${RELAXFIX_ASSESSMENT_LINE}`;
+    : `${body}\n\n${ACADEMY_WHATSAPP_LINE}\n${ACADEMY_PHONE_LINE}`;
   const data: JsonObject = {};
   const headlineField = textFields.includes(CANVA_AUTOFILL_HEADLINE_FIELD)
     ? CANVA_AUTOFILL_HEADLINE_FIELD
@@ -190,7 +190,7 @@ function buildAutofillDataFromDataset(
   } else if (headlineField) {
     data[headlineField] = { type: "text", text: `${headline}\n\n${bodyWithContacts}`.slice(0, 1200) };
   }
-  if (ctaField) data[ctaField] = { type: "text", text: RELAXFIX_CTA_LINE };
+  if (ctaField) data[ctaField] = { type: "text", text: ACADEMY_CTA_LINE };
   if (imageAssetId) {
     const imageField = datasetFields(dataset, "image")[0];
     if (imageField) data[imageField] = { type: "image", asset_id: imageAssetId };
@@ -230,7 +230,7 @@ async function uploadLinkedImageToCanva(
   if (downloadError || !file) return { error: "MEDIA_ASSET_DOWNLOAD_FAILED" as const };
   const mimeType = file.type.startsWith("image/") ? file.type : "image/png";
   const extension = mimeType === "image/jpeg" ? "jpg" : mimeType === "image/webp" ? "webp" : "png";
-  const metadata = JSON.stringify({ name_base64: btoa(`coach-ayman-${contentItemId}.${extension}`) });
+  const metadata = JSON.stringify({ name_base64: btoa(`swimming-academy-${contentItemId}.${extension}`) });
   const uploadResponse = await fetch(`${CANVA_API_BASE}/asset-uploads`, {
     method: "POST",
     headers: {
