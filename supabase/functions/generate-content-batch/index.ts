@@ -18,7 +18,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const GEMINI_API_KEY = (Deno.env.get("GEMINI_API_KEY") ?? "").trim();
 const OPENAI_API_KEY = (Deno.env.get("OPENAI_API_KEY") ?? "").trim();
-const GEMINI_MODEL = "gemini-2.0-flash";
+const GEMINI_MODEL = "gemini-3.8-flash";
 const OPENAI_MODEL = (Deno.env.get("OPENAI_MODEL") ?? "gpt-6-luna").trim();
 const ALLOWED_ROLES = new Set(["super_admin", "admin", "content_manager"]);
 const CORS_HEADERS = {
@@ -243,7 +243,7 @@ async function callGemini(prompt: string) {
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { temperature: 0.9, responseMimeType: "application/json" } }),
+    body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } }),
   });
   if (!response.ok) return { error: json({ success: false, code: "GEMINI_REQUEST_FAILED", status: response.status }, 502) };
   const payload = await response.json().catch(() => null) as JsonObject | null;
