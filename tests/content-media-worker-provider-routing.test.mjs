@@ -18,15 +18,16 @@ test("Canva media worker blocks Reel jobs before calling the image generator", (
   assert.match(mediaJob, /VIDEO_PROVIDER_REQUIRES_EXPLICIT_APPROVAL/);
 });
 
-test("content automation pulse dry-run exits before generation, media claims, or publishing", () => {
+test("content automation remains dry-run by default and returns before generation, media claims, or publishing", () => {
   const handler = worker.slice(worker.indexOf("Deno.serve"));
-  const dryRunLock = handler.indexOf("const dryRunRequested = true");
+  const liveGate = handler.indexOf('const dryRunRequested = Deno.env.get("CONTENT_AUTOMATION_LIVE_ENABLED") !== "true"');
   const dryRunBranch = handler.indexOf("if (dryRunRequested)");
   const generation = handler.indexOf('rpc("evaluate_content_batch_generation_need")');
   const mediaClaim = handler.indexOf("processOneMediaJob(supabase)");
   const publishClaim = handler.indexOf("processOnePublishJob(supabase)");
-  assert.notEqual(dryRunLock, -1, "live execution must remain globally locked off until separately approved");
+  assert.notEqual(liveGate, -1, "live mode must require the exact explicit opt-in value");
   assert.notEqual(dryRunBranch, -1, "dry-run must have a dedicated early-return branch");
+  assert.ok(liveGate < dryRunBranch, "the explicit opt-in gate must be evaluated before the dry-run branch");
   assert.ok(dryRunBranch < generation, "dry-run must return before content generation evaluation");
   assert.ok(dryRunBranch < mediaClaim, "dry-run must return before media queue processing");
   assert.ok(dryRunBranch < publishClaim, "dry-run must return before publishing queue processing");
