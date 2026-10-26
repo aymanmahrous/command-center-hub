@@ -72,6 +72,7 @@ export async function generateCanvaDesignForContentItem(
     topic: item.topic,
     hook: typeof item.hook === "string" ? item.hook : "",
     caption: item.caption,
+    cta: typeof item.cta === "string" ? item.cta.trim() : "",
     canvaBrief: parseCanvaBrief(typeof item.visualPrompt === "string" ? item.visualPrompt : undefined),
   });
   if (!result.success || !result.mediaAssetId) throw new Error(result.code ?? "CANVA_DESIGN_FAILED");
