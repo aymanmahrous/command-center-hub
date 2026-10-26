@@ -175,8 +175,8 @@ function buildAutofillDataFromDataset(
 ): JsonObject {
   const textFields = datasetFields(dataset, "text");
   const contactLines = [
-    /058\s*821\s*9130/.test(body) ? "" : ACADEMY_WHATSAPP_LINE,
-    /055\s*137\s*8660/.test(body) ? "" : ACADEMY_PHONE_LINE,
+    /058\\s*821\\s*9130/.test(body) ? "" : ACADEMY_WHATSAPP_LINE,
+    /055\\s*137\\s*8660/.test(body) ? "" : ACADEMY_PHONE_LINE,
     /المشرف/.test(body) ? "" : ACADEMY_BRANCH_LINE,
   ].filter(Boolean);
   const bodyWithContacts = [body, ...contactLines].filter(Boolean).join("\n\n");
