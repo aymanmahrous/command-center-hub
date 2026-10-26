@@ -22,7 +22,7 @@ const GEMINI_API_KEY = (Deno.env.get("GEMINI_API_KEY") ?? "").trim();
 const CONTENT_PUBLISHER_AUTOMATION_SECRET = Deno.env.get("CONTENT_PUBLISHER_AUTOMATION_SECRET") ?? "";
 const SAFE_PUBLISHER_TIMEOUT_MS = 45_000;
 const SAFE_PUBLISHER_URL = `${SUPABASE_URL}/functions/v1/safe-content-publisher`;
-const GEMINI_MODEL = "gemini-2.0-flash";
+const GEMINI_MODEL = "gemini-3.8-flash";
 const LEASE_NAME = "content_automation_pulse";
 const CORS_HEADERS = {
   "access-control-allow-origin": "*",
