@@ -78,7 +78,7 @@ async function callGemini(prompt: string) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.9, responseMimeType: "application/json" },
+        generationConfig: { responseMimeType: "application/json" },
       }),
     },
   );

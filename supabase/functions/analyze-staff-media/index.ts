@@ -148,7 +148,6 @@ async function callGemini(prompt: string, inlinePart?: { mimeType: string; base6
       body: JSON.stringify({
         contents: [{ role: "user", parts }],
         generationConfig: {
-          temperature: 0.2,
           responseMimeType: "application/json",
         },
       }),
