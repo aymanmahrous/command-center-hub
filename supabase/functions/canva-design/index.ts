@@ -155,6 +155,11 @@ async function canvaFetch(accessToken: string, path: string, init?: RequestInit)
   return { ok: response.ok, status: response.status, payload };
 }
 
+function logCanvaStageFailure(operation: "dataset" | "asset_upload" | "autofill" | "export", code: string) {
+  // Static stage and error codes only; never log provider payloads or user content.
+  console.warn("[canva-design] stage failed", JSON.stringify({ operation, code }));
+}
+
 type CanvaDataset = Record<string, { type?: string }>;
 
 function datasetFields(dataset: unknown, type: string): string[] {
@@ -167,7 +172,10 @@ function datasetFields(dataset: unknown, type: string): string[] {
 async function fetchDataset(accessToken: string, path: string) {
   const { ok, payload } = await canvaFetch(accessToken, path, { method: "GET" });
   const dataset = payload.dataset as CanvaDataset | undefined;
-  if (!ok || !dataset || typeof dataset !== "object") return { error: "AUTOFILL_DATASET_EMPTY" as const };
+  if (!ok || !dataset || typeof dataset !== "object") {
+    logCanvaStageFailure("dataset", ok ? "DATASET_MISSING" : "UPSTREAM_REQUEST_FAILED");
+    return { error: "AUTOFILL_DATASET_EMPTY" as const };
+  }
   return { dataset };
 }
 
@@ -255,7 +263,10 @@ async function uploadLinkedImageToCanva(
     return { error: "CANVA_IMAGE_UPLOAD_FAILED" as const };
   }
   const jobId = String((uploadPayload.job as JsonObject | undefined)?.id ?? "");
-  if (!jobId) return { error: "CANVA_IMAGE_UPLOAD_JOB_MISSING" as const };
+  if (!jobId) {
+    logCanvaStageFailure("asset_upload", "JOB_ID_MISSING");
+    return { error: "CANVA_IMAGE_UPLOAD_JOB_MISSING" as const };
+  }
   for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
     const { ok, payload } = await canvaFetch(accessToken, `/asset-uploads/${jobId}`, { method: "GET" });
     if (!ok) return { error: "CANVA_IMAGE_UPLOAD_STATUS_FAILED" as const };
@@ -266,9 +277,13 @@ async function uploadLinkedImageToCanva(
       const assetId = typeof uploadedAsset?.id === "string" ? uploadedAsset.id : "";
       return assetId ? { assetId } : { error: "CANVA_IMAGE_ASSET_MISSING" as const };
     }
-    if (status === "failed") return { error: "CANVA_IMAGE_UPLOAD_FAILED" as const };
+    if (status === "failed") {
+      logCanvaStageFailure("asset_upload", "JOB_FAILED");
+      return { error: "CANVA_IMAGE_UPLOAD_FAILED" as const };
+    }
     await sleep(POLL_MS);
   }
+  logCanvaStageFailure("asset_upload", "JOB_TIMEOUT");
   return { error: "CANVA_IMAGE_UPLOAD_TIMEOUT" as const };
 }
 
@@ -281,12 +296,19 @@ async function pollAutofillJob(accessToken: string, jobId: string) {
     if (status === "success") {
       const design = ((job?.result as JsonObject | undefined)?.design ?? null) as JsonObject | null;
       const designId = typeof design?.id === "string" ? design.id : "";
-      if (!designId) return { error: "AUTOFILL_NO_DESIGN" as const };
+      if (!designId) {
+        logCanvaStageFailure("autofill", "DESIGN_MISSING");
+        return { error: "AUTOFILL_NO_DESIGN" as const };
+      }
       return { designId, designUrl: typeof design?.url === "string" ? design.url : null };
     }
-    if (status === "failed") return { error: "AUTOFILL_FAILED" as const };
+    if (status === "failed") {
+      logCanvaStageFailure("autofill", "JOB_FAILED");
+      return { error: "AUTOFILL_FAILED" as const };
+    }
     await sleep(POLL_MS);
   }
+  logCanvaStageFailure("autofill", "JOB_TIMEOUT");
   return { error: "AUTOFILL_TIMEOUT" as const };
 }
 
@@ -298,12 +320,19 @@ async function pollExportJob(accessToken: string, exportId: string) {
     const status = String(job?.status ?? "");
     if (status === "success") {
       const urls = Array.isArray(job?.urls) ? job.urls.filter((url) => typeof url === "string") as string[] : [];
-      if (!urls.length) return { error: "EXPORT_NO_URL" as const };
+      if (!urls.length) {
+        logCanvaStageFailure("export", "URL_MISSING");
+        return { error: "EXPORT_NO_URL" as const };
+      }
       return { downloadUrl: urls[0] };
     }
-    if (status === "failed") return { error: "EXPORT_FAILED" as const };
+    if (status === "failed") {
+      logCanvaStageFailure("export", "JOB_FAILED");
+      return { error: "EXPORT_FAILED" as const };
+    }
     await sleep(POLL_MS);
   }
+  logCanvaStageFailure("export", "JOB_TIMEOUT");
   return { error: "EXPORT_TIMEOUT" as const };
 }
 
@@ -375,7 +404,10 @@ async function createAutofillDesign(
   });
   if (!ok) return { error: "AUTOFILL_CREATE_FAILED" as const, detail: payload };
   const jobId = String((payload.job as JsonObject | undefined)?.id ?? "");
-  if (!jobId) return { error: "AUTOFILL_JOB_MISSING" as const };
+  if (!jobId) {
+    logCanvaStageFailure("autofill", "JOB_ID_MISSING");
+    return { error: "AUTOFILL_JOB_MISSING" as const };
+  }
   const completed = await pollAutofillJob(accessToken, jobId);
   if ("error" in completed) return completed;
   return { ...completed, imageApplied: Boolean(uploadedImageAssetId) };
@@ -391,7 +423,10 @@ async function exportDesignPng(accessToken: string, designId: string) {
   });
   if (!ok) return { error: "EXPORT_CREATE_FAILED" as const };
   const exportId = String((payload.job as JsonObject | undefined)?.id ?? "");
-  if (!exportId) return { error: "EXPORT_JOB_MISSING" as const };
+  if (!exportId) {
+    logCanvaStageFailure("export", "JOB_ID_MISSING");
+    return { error: "EXPORT_JOB_MISSING" as const };
+  }
   return pollExportJob(accessToken, exportId);
 }
 
