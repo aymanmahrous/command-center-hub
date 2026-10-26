@@ -9,7 +9,8 @@ test("Canva endpoint sanitization removes dynamic resource IDs", () => {
   assert.equal(sanitizeCanvaEndpoint("/brand-templates/template-secret-123/dataset"), "/brand-templates/:id/dataset");
   assert.equal(sanitizeCanvaEndpoint("/asset-uploads/job-secret-456"), "/asset-uploads/:id");
   assert.equal(sanitizeCanvaEndpoint("/autofills"), "/autofills");
-  assert.equal(sanitizeCanvaEndpoint("/unknown/resource-secret"), "/unknown/resource-secret");
+  assert.equal(sanitizeCanvaEndpoint("/unknown/resource-secret"), "unclassified");
+  assert.equal(sanitizeCanvaEndpoint("/exports/export-secret-789?access_token=query-secret"), "/exports/:id");
 });
 
 test("Canva diagnostics contain only the approved endpoint, status, and request ID", () => {
