@@ -95,8 +95,10 @@ test("Canva autofill uses Al Mushrif Swimming Academy contacts and forwards the 
   assert.match(edge, /const ACADEMY_WHATSAPP_LINE = "للحجز والاستفسار عبر واتساب: 058 821 9130"/);
   assert.match(edge, /const ACADEMY_PHONE_LINE = "هاتف الإدارة: 055 137 8660"/);
   assert.match(edge, /const ACADEMY_BRANCH_LINE = "فرع المشرف — أبوظبي"/);
-  assert.match(edge, /const ACADEMY_CTA_LINE = "احجز التقييم الأولي عبر واتساب 058 821 9130 — فرع المشرف، أبوظبي\."/);
+  assert.match(edge, /const ACADEMY_CTA_LINE = "للاستفسار والحجز عبر واتساب: 058 821 9130 — فرع المشرف، أبوظبي"/);
   assert.match(edge, /const cta = typeof body\.cta === "string" \? body\.cta\.trim\(\) : ""/);
   assert.match(edge, /text: \(cta\.trim\(\) \|\| ACADEMY_CTA_LINE\)\.slice\(0, 200\)/);
-  assert.match(adapter, /cta: typeof item\.cta === "string" \? item\.cta : ""/);
+  assert.match(adapter, /cta: typeof item\.cta === "string" \? item\.cta\.trim\(\) : ""/);
+  assert.match(edge, /name_base64: btoa\(\`swimming-academy-\$\{contentItemId\}\.\$\{extension\}\`\)/);
+  assert.doesNotMatch(edge, /Free initial assessment|coach-ayman-/i);
 });
