@@ -150,7 +150,7 @@ async function canvaFetch(accessToken: string, path: string, init?: RequestInit)
   if (!response.ok) {
     // Keep diagnostics useful without logging credentials, request bodies, or Canva response payloads.
     const safeEndpoint = path.replace(
-      /^(\\/(?:brand-templates|designs|autofills|exports|asset-uploads))\\/[^/]+/,
+      /^(\/(?:brand-templates|designs|autofills|exports|asset-uploads))\/[^/]+/,
       "$1/:id",
     );
     console.warn("[canva-design] upstream request failed", JSON.stringify({
