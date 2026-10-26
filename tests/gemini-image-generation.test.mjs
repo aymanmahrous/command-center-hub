@@ -74,5 +74,5 @@ test("Factory exposes Gemini image generation, confirms cost, and links the asse
 
 test("Gemini image generation requests the supported JPEG response format", async () => {
   const source = await readFile(new URL("../supabase/functions/generate-gemini-image/index.ts", import.meta.url), "utf8");
-  assert.match(source, /mime_type: "image\\/jpeg"/);
+  assert.match(source, /mime_type: "image\/jpeg"/);
 });
