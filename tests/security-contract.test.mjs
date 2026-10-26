@@ -1,17 +1,19 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, readFileSync } from "node:fs";
 import test from "node:test";
 
 const envExample = await readFile(new URL("../.env.example", import.meta.url), "utf8");
 const gitignore = await readFile(new URL("../.gitignore", import.meta.url), "utf8");
 const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
 const app = await readFile(new URL("../src/main.tsx", import.meta.url), "utf8");
+const loginView = await readFile(new URL("../src/login-view.tsx", import.meta.url), "utf8");
+const recovery = await readFile(new URL("../src/password-recovery.tsx", import.meta.url), "utf8");
 const operations = await readFile(new URL("../src/operations-queue-view.tsx", import.meta.url), "utf8");
 const growthHub = await readFile(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
 const batchReviewPanel = await readFile(new URL("../src/content-batch-review-panel.tsx", import.meta.url), "utf8");
 const growthCopyEn = await readFile(new URL("../src/i18n/en.ts", import.meta.url), "utf8");
 const mediaView = await readFile(new URL("../src/media-library-view.tsx", import.meta.url), "utf8");
-const internalAlertRpcMigration = await readFile(new URL("../supabase/migrations/20261018100000_restrict_internal_alert_rpc_execute.sql", import.meta.url), "utf8");
+const configGuard = await readFile(new URL("../src/supabase-config.ts", import.meta.url), "utf8");
 
 test("environment example contains the browser-safe configuration contract", () => {
   assert.match(envExample, /^VITE_SUPABASE_URL=/m);
@@ -45,8 +47,10 @@ test("staff profile lookup matches the production primary-key contract", () => {
 test("password is not persisted", () => {
   assert.doesNotMatch(app, /setItem\([^\n]*password/i);
   assert.match(app, /sessionStorage/);
-  assert.match(app, /JSON\.stringify\(\{ accessToken: session\.accessToken \}\)/);
-  assert.doesNotMatch(app, /JSON\.stringify\(session\)/);
+  assert.match(app, /JSON\.stringify\(\{ accessToken: restored\.accessToken \}\)/);
+  assert.match(loginView, /sessionStorage/);
+  assert.match(loginView, /JSON\.stringify\(\{ accessToken: session\.accessToken \}\)/);
+  assert.doesNotMatch(loginView, /JSON\.stringify\(session\)/);
 });
 
 test("booking writes use the approved RPC and never direct table mutation", () => {
@@ -211,12 +215,12 @@ test("deployment configuration fails closed and never embeds a live Supabase pro
 });
 
 test("browser API key validation rejects elevated or malformed credentials", () => {
-  assert.match(app, /function browserSafeApiKey/);
-  assert.match(app, /\^sb_publishable_/);
-  assert.match(app, /key\.startsWith\("sb_secret_"\)/);
-  assert.match(app, /legacyKeyRole\(key\) === "anon"/);
-  assert.match(app, /browserSafeApiKey\(SUPABASE_PUBLIC_KEY\)/);
-  assert.doesNotMatch(app, /SUPABASE_PUBLIC_KEY\.length > 20/);
+  assert.match(configGuard, /function browserSafeApiKey/);
+  assert.match(configGuard, /\^sb_publishable_/);
+  assert.match(configGuard, /normalizedKey\.startsWith\("sb_secret_"\)/);
+  assert.match(configGuard, /legacyKeyRole\(normalizedKey\) === "anon"/);
+  assert.match(app, /isSupabaseBrowserConfigurationReady\(SUPABASE_URL, SUPABASE_PUBLIC_KEY, STAFF_TABLE\)/);
+  assert.doesNotMatch(configGuard, /publicKey\.length > 20/);
 });
 
 test("restored sessions revalidate the JWT and active staff profile", () => {
@@ -259,10 +263,27 @@ test("forgot-password flow uses public recover endpoint with non-enumerating suc
   assert.match(app, /\/auth\/v1\/recover/);
   assert.match(app, /RESET_SUCCESS/);
   assert.match(app, /If the email is registered, a password reset message will be sent/);
-  assert.match(app, /نسيت كلمة المرور؟/);
-  assert.match(app, /Forgot password\?/);
+  assert.match(loginView, /نسيت كلمة المرور؟/);
+  assert.match(loginView, /Forgot password\?/);
   assert.match(app, /PASSWORD_RESET_PATH/);
   assert.match(envExample, /^VITE_PASSWORD_RESET_PATH=/m);
+  assert.match(app, /lazy\(\(\) => import\("\.\/password-recovery"\)\)/);
+  assert.match(app, /lazy\(\(\) => import\("\.\/login-view"\)\)/);
+  assert.match(loginView, /export default function LoginView/);
+  assert.match(loginView, /onRequestPasswordReset/);
+  assert.match(recovery, /export default function PasswordRecovery/);
+  assert.match(recovery, /const \[recovery\] = useState\(\(\) => \{/);
+  assert.match(recovery, /params.get\("access_token"\)/);
+  assert.match(recovery, /params.get\("type"\) === "recovery"/);
+  assert.match(recovery, /method: "PUT"/);
+  assert.match(recovery, /auth\/v1\/user/);
+  assert.match(recovery, /body: JSON.stringify\(\{ password \}\)/);
+  assert.match(recovery, /window.history.replaceState/);
+  assert.match(app, /const \[isRecoveryFlow\] = useState\(\(\) => new URLSearchParams/);
+  assert.match(app, /setTimeout\(\(\) => \{/);
+  assert.match(app, /}, 12000\)/);
+  assert.match(app, /Never leave the sign-in screen stuck indefinitely/);
+  assert.match(app, /passwordResetRedirect\(\)[\s\S]*window.location.origin/);
 });
 
 test("System Polish cancels stale reads and handles session expiry consistently", () => {
@@ -284,8 +305,8 @@ test("System Polish makes controlled interactions accessible and globally locked
   assert.match(app, /Number\.isNaN\(followUpDate\.getTime\(\)\)/);
 });
 
-
 test("internal inbox alert helpers are not executable by public browser roles", () => {
+  const migration = readFileSync(new URL("../supabase/migrations/20261018100000_restrict_internal_alert_rpc_execute.sql", import.meta.url), "utf8");
   for (const signature of [
     "public.route_conversation_to_human(uuid, uuid, text, text, text, jsonb)",
     "public.upsert_staff_alert(text, text, text, uuid, uuid, uuid, text, jsonb)",
@@ -293,11 +314,11 @@ test("internal inbox alert helpers are not executable by public browser roles", 
   ]) {
     const escaped = signature.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     assert.match(
-      internalAlertRpcMigration,
+      migration,
       new RegExp("REVOKE ALL ON FUNCTION " + escaped + "\\s+FROM PUBLIC, anon, authenticated;", "i"),
     );
     assert.match(
-      internalAlertRpcMigration,
+      migration,
       new RegExp("GRANT EXECUTE ON FUNCTION " + escaped + "\\s+TO service_role;", "i"),
     );
   }
