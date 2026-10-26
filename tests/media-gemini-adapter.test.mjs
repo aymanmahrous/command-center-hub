@@ -24,6 +24,6 @@ test("analyze-staff-media edge function keeps Gemini key server-side only", () =
 });
 
 test("Gemini text endpoints use the currently supported stable Flash model", () => {
-  assert.match(edge, /const GEMINI_MODEL = "gemini-3\\.8-flash"/);
-  assert.match(batch, /const GEMINI_MODEL = "gemini-3\\.8-flash"/);
+  assert.match(edge, /const GEMINI_MODEL = "gemini-3\.8-flash"/);
+  assert.match(batch, /const GEMINI_MODEL = "gemini-3\.8-flash"/);
 });
