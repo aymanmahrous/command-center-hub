@@ -147,6 +147,18 @@ async function canvaFetch(accessToken: string, path: string, init?: RequestInit)
     },
   });
   const payload = await response.json().catch(() => ({})) as JsonObject;
+  if (!response.ok) {
+    // Keep diagnostics useful without logging credentials, request bodies, or Canva response payloads.
+    const safeEndpoint = path.replace(
+      /^(\\/(?:brand-templates|designs|autofills|exports|asset-uploads))\\/[^/]+/,
+      "$1/:id",
+    );
+    console.warn("[canva-design] upstream request failed", JSON.stringify({
+      endpoint: safeEndpoint,
+      status: response.status,
+      requestId: response.headers.get("x-request-id") ?? response.headers.get("x-canva-request-id") ?? null,
+    }));
+  }
   return { ok: response.ok, status: response.status, payload };
 }
 
