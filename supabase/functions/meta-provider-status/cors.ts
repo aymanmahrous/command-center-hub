@@ -1,5 +1,5 @@
 export const CORS_HEADERS: Record<string, string> = {
-  "access-control-allow-origin": "*",
+  "access-control-allow-origin": "https://hub.relaxfixuae.com",
   "access-control-allow-headers": "authorization, apikey, content-type, x-client-info, x-supabase-api-version",
   "access-control-allow-methods": "POST, OPTIONS",
 };
