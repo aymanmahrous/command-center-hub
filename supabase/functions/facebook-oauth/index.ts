@@ -18,8 +18,8 @@ const REQUESTED_SCOPES = "pages_show_list,pages_read_engagement,pages_manage_pos
 const ALLOWED_ROLES = new Set(["super_admin", "admin", "content_manager"]);
 const HUB_ORIGIN = "https://hub.relaxfixuae.com";
 const CORS_HEADERS = {
-  "access-control-allow-origin": HUB_ORIGIN,
-  "access-control-allow-headers": "authorization, apikey, content-type",
+  "access-control-allow-origin": "*",
+  "access-control-allow-headers": "authorization, apikey, content-type, x-client-info, x-supabase-api-version",
   "access-control-allow-methods": "POST, GET, OPTIONS",
   "content-type": "application/json; charset=utf-8",
 };
