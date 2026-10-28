@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { canvaFailureDiagnostic, sanitizeCanvaEndpoint } from "../supabase/functions/canva-design/diagnostics.ts";
+import { buildCanvaAssetName, canvaFailureDiagnostic, sanitizeCanvaEndpoint } from "../supabase/functions/canva-design/diagnostics.ts";
 
 const source = readFileSync(new URL("../supabase/functions/canva-design/index.ts", import.meta.url), "utf8");
 
@@ -9,6 +9,7 @@ test("Canva endpoint sanitization removes dynamic resource IDs", () => {
   assert.equal(sanitizeCanvaEndpoint("/brand-templates/template-secret-123/dataset"), "/brand-templates/:id/dataset");
   assert.equal(sanitizeCanvaEndpoint("/asset-uploads/job-secret-456"), "/asset-uploads/:id");
   assert.equal(sanitizeCanvaEndpoint("/autofills"), "/autofills");
+  assert.equal(sanitizeCanvaEndpoint("/asset-uploads"), "/asset-uploads");
   assert.equal(sanitizeCanvaEndpoint("/unknown/resource-secret"), "unclassified");
   assert.equal(sanitizeCanvaEndpoint("/exports/export-secret-789?access_token=query-secret"), "/exports/:id");
 });
@@ -37,4 +38,12 @@ test("Canva job failures log only fixed stage and error codes", () => {
   assert.match(source, /logCanvaStageFailure\("asset_upload", "JOB_FAILED"\)/);
   assert.match(source, /\[canva-design\] stage failed/);
   assert.doesNotMatch(source, /console\.warn\([^\n]*(?:payload|topic|caption|accessToken|refresh_token)/i);
+});
+
+
+test("Canva uploaded asset names stay within the provider's 50-character limit", () => {
+  const name = buildCanvaAssetName("0c568fd5-97bd-4c47-9295-8596317e0247", "png");
+  assert.equal(name, "coach-8596317e0247.png");
+  assert.ok(name.length <= 50);
+  assert.ok(buildCanvaAssetName("very-long-content-id-".repeat(8), "jpeg").length <= 50);
 });
