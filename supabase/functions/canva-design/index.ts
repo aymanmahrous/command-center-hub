@@ -195,6 +195,43 @@ async function discoverAccessibleSourceDesignIds(accessToken: string): Promise<s
   return [...candidates].slice(0, 20);
 }
 
+function compactPosterCopy(value: string, maxLength: number): string {
+  return value
+    .replace(/https?:\/\/\S+/gi, "")
+    .replace(/\bwww\.\S+/gi, "")
+    .replace(/\s+/g, " ")
+    .replace(/\s*[|•·]\s*/g, " · ")
+    .trim()
+    .slice(0, maxLength)
+    .trim();
+}
+
+function posterBodyCopy(value: string): string {
+  const lines = value
+    .replace(/https?:\/\/\S+/gi, "")
+    .replace(/\bwww\.\S+/gi, "")
+    .split(/\r?\n/)
+    .map((line) => line
+      .replace(/^\s*(?:short reel|instagram reel|reel)\s*(?:\([^)]*\))?\s*:\s*/i, "")
+      .replace(/\s+/g, " ")
+      .trim())
+    .filter(Boolean)
+    .filter((line) => !/wa\.me|whatsapp link|utm_|https?:|www\.|hashtags?|follow us|save this post|booking|contact|phone|واتساب|للحجز|للاستفسار|هاتف الإدارة|رقم الهاتف|free initial assessment/i.test(line))
+    .filter((line) => !/(?:\+?971|0)?\s*5[0-9][\s-]*[0-9]{3}[\s-]*[0-9]{4}/.test(line));
+  const sentences = lines.join(" ").split(/(?<=[.!؟])\s+/).filter(Boolean);
+  const selected: string[] = [];
+  let length = 0;
+  for (const sentence of sentences) {
+    const clean = compactPosterCopy(sentence, 125);
+    if (!clean || clean.length < 8) continue;
+    if (length + clean.length > 230) break;
+    selected.push(clean);
+    length += clean.length + 1;
+    if (selected.length === 2) break;
+  }
+  return selected.join("\n");
+}
+
 function buildAutofillDataFromDataset(
   dataset: CanvaDataset,
   headline: string,
@@ -203,12 +240,6 @@ function buildAutofillDataFromDataset(
   imageAssetId?: string,
 ): JsonObject {
   const textFields = datasetFields(dataset, "text");
-  const contactLines = [
-    /058\\s*821\\s*9130/.test(body) ? "" : ACADEMY_WHATSAPP_LINE,
-    /055\\s*137\\s*8660/.test(body) ? "" : ACADEMY_PHONE_LINE,
-    /المشرف/.test(body) ? "" : ACADEMY_BRANCH_LINE,
-  ].filter(Boolean);
-  const bodyWithContacts = [body, ...contactLines].filter(Boolean).join("\n\n");
   const data: JsonObject = {};
   const headlineField = textFields.includes(CANVA_AUTOFILL_HEADLINE_FIELD)
     ? CANVA_AUTOFILL_HEADLINE_FIELD
@@ -217,13 +248,16 @@ function buildAutofillDataFromDataset(
   const bodyField = textFields.includes(CANVA_AUTOFILL_BODY_FIELD) && CANVA_AUTOFILL_BODY_FIELD !== headlineField && CANVA_AUTOFILL_BODY_FIELD !== ctaField
     ? CANVA_AUTOFILL_BODY_FIELD
     : textFields.find((field) => field !== headlineField && field !== ctaField);
+  const cleanHeadline = compactPosterCopy(headline, 90);
+  const cleanBody = posterBodyCopy(body);
+  const cleanCta = compactPosterCopy(cta, 90) || "Free initial assessment · WhatsApp 058 821 9130";
   if (headlineField && bodyField) {
-    data[headlineField] = { type: "text", text: headline.slice(0, 200) };
-    data[bodyField] = { type: "text", text: bodyWithContacts.slice(0, 1200) };
+    data[headlineField] = { type: "text", text: cleanHeadline };
+    data[bodyField] = { type: "text", text: cleanBody };
   } else if (headlineField) {
-    data[headlineField] = { type: "text", text: `${headline}\n\n${bodyWithContacts}`.slice(0, 1200) };
+    data[headlineField] = { type: "text", text: [cleanHeadline, cleanBody].filter(Boolean).join("\n").slice(0, 180) };
   }
-  if (ctaField) data[ctaField] = { type: "text", text: (cta.trim() || ACADEMY_CTA_LINE).slice(0, 200) };
+  if (ctaField) data[ctaField] = { type: "text", text: cleanCta };
   if (imageAssetId) {
     const imageField = datasetFields(dataset, "image")[0];
     if (imageField) data[imageField] = { type: "image", asset_id: imageAssetId };
@@ -237,8 +271,7 @@ async function uploadLinkedImageToCanva(
   contentItemId: string,
   requestedMediaAssetId: string,
 ) {
-  // Only use the image currently linked to this content item; never accept arbitrary storage paths.
-  const { data: contentItem, error: contentError } = await supabase
+  // Only use the image currently linked to this content item; never accept arbitrary storage paths.  const { data: contentItem, error: contentError } = await supabase
     .from("content_items")
     .select("id, media_asset_id")
     .eq("id", contentItemId)
@@ -517,7 +550,6 @@ async function storeDesignForContentItem(
     .from("media_assets")
     .update({ content_item_id: contentItemId, updated_at: new Date().toISOString() })
     .eq("id", mediaAssetId);
-
   return { mediaAssetId, storagePath };
 }
 
