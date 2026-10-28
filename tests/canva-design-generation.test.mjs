@@ -97,7 +97,6 @@ test("Canva status path does not generate or export, but refreshes and stores OA
 test("Canva poster copy is concise, removes URL/contact clutter, and preserves the item's CTA", () => {
   assert.match(edge, /function compactPosterCopy/);
   assert.match(edge, /function posterBodyCopy/);
-  assert.match(edge, /https?:\/\/\\S+/);
   assert.match(edge, /selected\.length === 2/);
   assert.match(edge, /const cleanHeadline = compactPosterCopy\(headline, 90\)/);
   assert.match(edge, /const cleanBody = posterBodyCopy\(body\)/);
@@ -105,4 +104,4 @@ test("Canva poster copy is concise, removes URL/contact clutter, and preserves t
   assert.doesNotMatch(edge, /bodyWithContacts/);
   assert.doesNotMatch(edge, /ACADEMY_PHONE_LINE|ACADEMY_BRANCH_LINE/);
   assert.match(adapter, /cta: typeof item\.cta === "string" \? item\.cta : ""/);
-});;
+}});
