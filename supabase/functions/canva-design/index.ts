@@ -271,7 +271,8 @@ async function uploadLinkedImageToCanva(
   contentItemId: string,
   requestedMediaAssetId: string,
 ) {
-  // Only use the image currently linked to this content item; never accept arbitrary storage paths.  const { data: contentItem, error: contentError } = await supabase
+  // Only use the image currently linked to this content item; never accept arbitrary storage paths.
+  const { data: contentItem, error: contentError } = await supabase
     .from("content_items")
     .select("id, media_asset_id")
     .eq("id", contentItemId)
