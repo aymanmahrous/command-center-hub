@@ -104,4 +104,4 @@ test("Canva poster copy is concise, removes URL/contact clutter, and preserves t
   assert.doesNotMatch(edge, /bodyWithContacts/);
   assert.doesNotMatch(edge, /ACADEMY_PHONE_LINE|ACADEMY_BRANCH_LINE/);
   assert.match(adapter, /cta: typeof item\.cta === "string" \? item\.cta : ""/);
-}});
+});
