@@ -16,6 +16,8 @@ test("canva design adapter stays server-side", () => {
 test("canva design edge function uses brand template or source design autofill and export", () => {
   assert.match(edge, /CANVA_BRAND_TEMPLATE_ID/);
   assert.match(edge, /CANVA_SOURCE_DESIGN_ID/);
+  assert.match(edge, /discoverAccessibleSourceDesignIds/);
+  assert.match(edge, /\/designs\?query=\$\{encodeURIComponent\(query\)\}&limit=50/);
   assert.match(edge, /create_from_design/);
   assert.match(edge, /\/autofills/);
   assert.match(edge, /\/exports/);
@@ -31,6 +33,7 @@ test("Canva is selected automatically only when fully ready and can rotate acros
   assert.match(panel, /designCapabilityState === "AVAILABLE"/);
   assert.match(panel, /resolveDesignProvider\("auto"/);
   assert.match(edge, /CANVA_BRAND_TEMPLATE_IDS/);
+  assert.match(edge, /Deno\.env\.get\("CANVA_BRAND_TEMPLATE_ID"\) \?\? ""/);
   assert.match(edge, /chooseBrandTemplateId\(contentItemId\)/);
   assert.match(edge, /brandTemplateCount: CANVA_BRAND_TEMPLATE_IDS.length/);
 });

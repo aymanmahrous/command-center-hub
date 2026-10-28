@@ -1,12 +1,12 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { canvaFailureDiagnostic } from "./diagnostics.ts";
+import { buildCanvaAssetName, canvaFailureDiagnostic } from "./diagnostics.ts";
 
 const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/$/, "");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const CANVA_CLIENT_ID = (Deno.env.get("CANVA_CLIENT_ID") ?? "").trim();
 const CANVA_CLIENT_SECRET = (Deno.env.get("CANVA_CLIENT_SECRET") ?? "").trim();
-const CANVA_BRAND_TEMPLATE_ID = (Deno.env.get("CANVA_BRAND_TEMPLATE_ID") ?? "EAHVAAahmjU").trim();
+const CANVA_BRAND_TEMPLATE_ID = (Deno.env.get("CANVA_BRAND_TEMPLATE_ID") ?? "").trim();
 const CANVA_BRAND_TEMPLATE_IDS = (Deno.env.get("CANVA_BRAND_TEMPLATE_IDS") ?? CANVA_BRAND_TEMPLATE_ID)
   .split(",").map((id) => id.trim()).filter(Boolean);
 const CANVA_SOURCE_DESIGN_ID = (Deno.env.get("CANVA_SOURCE_DESIGN_ID") ?? "DAHZBpiQ_H8").trim();
@@ -179,6 +179,23 @@ async function fetchDataset(accessToken: string, path: string) {
   return { dataset };
 }
 
+async function discoverAccessibleSourceDesignIds(accessToken: string): Promise<string[]> {
+  const candidates = new Set<string>();
+  for (const query of ["Coach Ayman", "Swimming Academy"]) {
+    const { ok, payload } = await canvaFetch(accessToken, `/designs?query=${encodeURIComponent(query)}&limit=50`, { method: "GET" });
+    if (!ok) continue;
+    const items = Array.isArray(payload.items) ? payload.items : [];
+    for (const item of items) {
+      if (!item || typeof item !== "object") continue;
+      const design = item as JsonObject;
+      const id = typeof design.id === "string" ? design.id.trim() : "";
+      const title = typeof design.title === "string" ? design.title.toLowerCase() : "";
+      if (id && (/coach|ayman|swimming|relax fix/.test(title))) candidates.add(id);
+    }
+  }
+  return [...candidates].slice(0, 20);
+}
+
 function buildAutofillDataFromDataset(
   dataset: CanvaDataset,
   headline: string,
@@ -247,7 +264,7 @@ async function uploadLinkedImageToCanva(
   if (downloadError || !file) return { error: "MEDIA_ASSET_DOWNLOAD_FAILED" as const };
   const mimeType = file.type.startsWith("image/") ? file.type : "image/png";
   const extension = mimeType === "image/jpeg" ? "jpg" : mimeType === "image/webp" ? "webp" : "png";
-  const metadata = JSON.stringify({ name_base64: btoa(`coach-ayman-${contentItemId}.${extension}`) });
+  const metadata = JSON.stringify({ name_base64: btoa(buildCanvaAssetName(contentItemId, extension)) });
   const uploadResponse = await fetch(`${CANVA_API_BASE}/asset-uploads`, {
     method: "POST",
     headers: {
@@ -354,7 +371,9 @@ async function createAutofillDesign(
   // A stale/unavailable Brand Template must not block a valid, editable source design.
   if ("error" in datasetResult || datasetFields(datasetResult.dataset, "image").length === 0) {
     selectedBrandTemplateId = "";
-    const sourceCandidates = [...new Set([CANVA_SOURCE_DESIGN_ID, CANVA_RECOVERED_SOURCE_DESIGN_ID].filter(Boolean))];
+    const configuredCandidates = [...new Set([CANVA_SOURCE_DESIGN_ID, CANVA_RECOVERED_SOURCE_DESIGN_ID].filter(Boolean))];
+    const discoveredCandidates = await discoverAccessibleSourceDesignIds(accessToken);
+    const sourceCandidates = [...new Set([...configuredCandidates, ...discoveredCandidates])];
     let sourceResult: Awaited<ReturnType<typeof fetchDataset>> | null = null;
     for (const candidateId of sourceCandidates) {
       const candidate = await fetchDataset(accessToken, `/designs/${candidateId}/dataset`);
