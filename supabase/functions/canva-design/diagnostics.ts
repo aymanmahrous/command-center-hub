@@ -2,7 +2,7 @@ export function sanitizeCanvaEndpoint(path: string): string {
   const pathname = path.split(/[?#]/, 1)[0];
   const segments = pathname.split("/").filter(Boolean);
 
-  if (segments.length === 1 && ["autofills", "exports"].includes(segments[0])) {
+  if (segments.length === 1 && ["autofills", "exports", "asset-uploads"].includes(segments[0])) {
     return `/${segments[0]}`;
   }
 
@@ -27,4 +27,12 @@ export function canvaFailureDiagnostic(path: string, response: Response) {
     status: response.status,
     requestId: response.headers.get("x-request-id") ?? response.headers.get("x-canva-request-id") ?? null,
   };
+}
+
+
+/** Keep uploaded asset names within Canva's 50-character limit. */
+export function buildCanvaAssetName(contentItemId: string, extension: string): string {
+  const compactId = contentItemId.replace(/[^a-zA-Z0-9]/g, "").slice(-12) || "asset";
+  const safeExtension = extension.replace(/[^a-zA-Z0-9]/g, "").slice(0, 5) || "png";
+  return `coach-${compactId}.${safeExtension}`.slice(0, 50);
 }
