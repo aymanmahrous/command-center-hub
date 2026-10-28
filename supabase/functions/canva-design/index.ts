@@ -571,7 +571,9 @@ Deno.serve(async (request) => {
       ? "brand_template"
       : "none";
     if (connected && activeSource === "none") {
-      for (const candidateId of [...new Set([CANVA_SOURCE_DESIGN_ID, CANVA_RECOVERED_SOURCE_DESIGN_ID].filter(Boolean))]) {
+      // Keep the status probe aligned with generation: discover designs the connected OAuth user can actually access.
+      const discoveredStatusCandidates = await discoverAccessibleSourceDesignIds(tokenResult.accessToken);
+      for (const candidateId of [...new Set([CANVA_SOURCE_DESIGN_ID, CANVA_RECOVERED_SOURCE_DESIGN_ID, ...discoveredStatusCandidates].filter(Boolean))]) {
         const candidate = await fetchDataset(tokenResult.accessToken, `/designs/${candidateId}/dataset`);
         if (!("error" in candidate) && datasetFields(candidate.dataset, "image").length > 0) {
           activeDataset = candidate.dataset;
