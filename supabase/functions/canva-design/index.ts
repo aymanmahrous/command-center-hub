@@ -1,5 +1,4 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildCanvaAssetName, canvaFailureDiagnostic } from "./diagnostics.ts";
 
 const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/$/, "");
