@@ -47,3 +47,9 @@ test("Canva uploaded asset names stay within the provider's 50-character limit",
   assert.ok(name.length <= 50);
   assert.ok(buildCanvaAssetName("very-long-content-id-".repeat(8), "jpeg").length <= 50);
 });
+
+
+test("Canva status readiness probes the same dynamically discovered source designs as generation", () => {
+  assert.match(source, /const discoveredStatusCandidates = await discoverAccessibleSourceDesignIds\(tokenResult\.accessToken\)/);
+  assert.match(source, /discoveredStatusCandidates\].*fetchDataset/s);
+});
