@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { canvaFailureDiagnostic } from "./diagnostics.ts";
+import { buildCanvaAssetName, canvaFailureDiagnostic } from "./diagnostics.ts";
 
 const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/$/, "");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -247,7 +247,7 @@ async function uploadLinkedImageToCanva(
   if (downloadError || !file) return { error: "MEDIA_ASSET_DOWNLOAD_FAILED" as const };
   const mimeType = file.type.startsWith("image/") ? file.type : "image/png";
   const extension = mimeType === "image/jpeg" ? "jpg" : mimeType === "image/webp" ? "webp" : "png";
-  const metadata = JSON.stringify({ name_base64: btoa(`coach-ayman-${contentItemId}.${extension}`) });
+  const metadata = JSON.stringify({ name_base64: btoa(buildCanvaAssetName(contentItemId, extension)) });
   const uploadResponse = await fetch(`${CANVA_API_BASE}/asset-uploads`, {
     method: "POST",
     headers: {
