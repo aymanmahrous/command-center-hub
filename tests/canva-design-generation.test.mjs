@@ -94,12 +94,15 @@ test("Canva status path does not generate or export, but refreshes and stores OA
   assert.match(edge, /from\("staff_canva_tokens"\)\.upsert/);
 });
 
-test("Canva autofill uses Al Mushrif Swimming Academy contacts and forwards the item's CTA", () => {
-  assert.match(edge, /const ACADEMY_WHATSAPP_LINE = "للحجز والاستفسار عبر واتساب: 058 821 9130"/);
-  assert.match(edge, /const ACADEMY_PHONE_LINE = "هاتف الإدارة: 055 137 8660"/);
-  assert.match(edge, /const ACADEMY_BRANCH_LINE = "فرع المشرف — أبوظبي"/);
-  assert.match(edge, /const ACADEMY_CTA_LINE = "احجز التقييم الأولي عبر واتساب 058 821 9130 — فرع المشرف، أبوظبي\."/);
-  assert.match(edge, /const cta = typeof body\.cta === "string" \? body\.cta\.trim\(\) : ""/);
-  assert.match(edge, /text: \(cta\.trim\(\) \|\| ACADEMY_CTA_LINE\)\.slice\(0, 200\)/);
+test("Canva poster copy is concise, removes URL/contact clutter, and preserves the item's CTA", () => {
+  assert.match(edge, /function compactPosterCopy/);
+  assert.match(edge, /function posterBodyCopy/);
+  assert.match(edge, /https?:\/\/\\S+/);
+  assert.match(edge, /selected\.length === 2/);
+  assert.match(edge, /const cleanHeadline = compactPosterCopy\(headline, 90\)/);
+  assert.match(edge, /const cleanBody = posterBodyCopy\(body\)/);
+  assert.match(edge, /const cleanCta = compactPosterCopy\(cta, 90\) \|\| "Free initial assessment · WhatsApp 058 821 9130"/);
+  assert.doesNotMatch(edge, /bodyWithContacts/);
+  assert.doesNotMatch(edge, /ACADEMY_PHONE_LINE|ACADEMY_BRANCH_LINE/);
   assert.match(adapter, /cta: typeof item\.cta === "string" \? item\.cta : ""/);
-});
+});;
