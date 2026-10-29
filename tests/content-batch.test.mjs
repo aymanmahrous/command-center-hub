@@ -78,6 +78,17 @@ test("selectPrimaryBatch prefers the batch with the most needs_review items", ()
   assert.equal(primary?.batchId, "current");
 });
 
+test("selectPrimaryBatch does not replace an approved batch with a newer scheduled-only batch", () => {
+  const batches = groupContentBatches([
+    item({ id: "approved-1", batch_id: "approved-batch", status: "approved", createdAt: "2026-09-01T10:00:00.000Z" }),
+    item({ id: "approved-2", batch_id: "approved-batch", status: "approved", createdAt: "2026-09-01T11:00:00.000Z" }),
+    item({ id: "scheduled-1", batch_id: "newer-scheduled", status: "scheduled", createdAt: "2026-09-08T10:00:00.000Z" }),
+    item({ id: "scheduled-2", batch_id: "newer-scheduled", status: "scheduled", createdAt: "2026-09-08T11:00:00.000Z" }),
+  ]);
+  const primary = selectPrimaryBatch(batches);
+  assert.equal(primary?.batchId, "approved-batch");
+});
+
 test("computeCycleDay tracks the 10-day content cycle", () => {
   const start = new Date("2026-09-01T10:00:00.000Z");
   assert.equal(computeCycleDay("2026-09-01T10:00:00.000Z", start), 1);
