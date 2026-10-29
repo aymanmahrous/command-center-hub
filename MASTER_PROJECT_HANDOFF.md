@@ -371,3 +371,26 @@ Current execution status as of 2026-10-23 is recorded in section 19. Historical 
 
 ### حدود السلامة
 لم يحدث أي تغيير في Supabase schema أو RLS أو OAuth أو الأسرار، ولم يحدث Merge أو Production deployment أو نشر Meta أو إرسال WhatsApp أو تشغيل Canva/Gemini مدفوع أو تفعيل جدولة حية.
+
+## 26. Media Experience Simplification — closeout and next-stage handoff (2026-10-29)
+
+### حالة المرحلة
+أُغلقت مرحلة **Media Experience Simplification** بالأدلة المتاحة لمسار **Media Library → Content Factory → Review** والتحقق المرتبط باختيار الدفعة، ولا يعني ذلك إثبات كل مزود خارجي مدفوع.
+
+### الأدلة المعتمدة
+- **PR #283** مدمج فعليًا في `main`؛ التحقق التفاعلي السابق على Preview المعزول أثبت انتقال الوسيط الخاص إلى Factory وظهور عنصر المحتوى في Review مع بقاء إشعار النجاح، دون موافقة أو جدولة أو نشر.
+- **اختيار الدفعة:** الفرع `fix/primary-batch-selection` موجود على GitHub، والالتزام `aabccaf9707bc11559198a34be52de500618d0e4` يحتوي إصلاح اختيار الدفعة واختبار regression؛ التحقق البصري السابق على Preview المعزول أظهر اختيار الدفعة وظهور عنصر معتمد، دون توليد أو نشر أو إرسال.
+- **PR #293** مفتوح للمراجعة على `main`: https://github.com/aymanmahrous/command-center-hub/pull/293. حالته الحالية `MERGEABLE` تقنيًا لكن `REVIEW_REQUIRED`.
+
+### حالة الإصلاحات المرتبطة وقت التحديث
+- **PR #283:** `MERGED`.
+- **PR #285:** `MERGED`.
+- **PR #286:** `MERGED`.
+- **PR #292:** `MERGED`.
+- **PR #293:** `OPEN`, `MERGEABLE`, `REVIEW_REQUIRED`, غير مدمج.
+
+### ما لم يُثبت بعد
+لم يُثبت السبب الجذري التفصيلي لأخطاء Canva 502 أو إعادة اتصال Canva وإنشاء/تصدير تصميم حقيقي. كما لم يُثبت توليد Gemini حي أو اختبار Meta/WhatsApp حي، ولم يحدث نشر Production جديد ضمن هذا التسليم.
+
+### المرحلة التالية المعتمدة
+الانتقال إلى **Connections / Truthful Status**: توحيد الحالات المعروضة للتكاملات مع الأدلة الفعلية، بدءًا من Canva وGemini، باستخدام تشخيصات قراءة آمنة أو مسارات غير مدفوعة فقط.
