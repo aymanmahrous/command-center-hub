@@ -143,7 +143,7 @@ export function MediaProviderStrip({ session, canWrite = false }: { session?: Co
         {providers.map((provider) => (
           <span
             key={provider.key}
-            className={(provider.connected || (geminiStatus === "CONNECTED" && provider.key === "gemini") || (canvaConnected && provider.key === "canva")) ? "connected" : provider.optional ? "optional" : provider.manual ? "manual" : "disconnected"}
+            className={(provider.connected || ((geminiStatus === "CONNECTED" || geminiStatus === "EXTERNAL CHECK VERIFIED") && provider.key === "gemini") || (canvaConnected && provider.key === "canva")) ? "connected" : provider.optional ? "optional" : provider.manual ? "manual" : "disconnected"}
             title={provider.key === "canva" ? canvaDetail || provider.detail : provider.detail}
           >
             {provider.key}: {provider.key === "canva" && canvaConnected ? "NEEDS ATTENTION" : displayProviderStatus(provider, { geminiIntegration: geminiStatus ?? undefined, canvaConnected })}

@@ -154,6 +154,7 @@ function credentialStatus() {
     return {
       connected: false,
       integrationStatus: "NEEDS CREDENTIAL",
+      credentialsConfigured: false,
       provider: null,
       providers,
       detail: "Set GEMINI_API_KEY or OPENAI_API_KEY in Supabase Edge Function secrets (server-side only).",
@@ -161,13 +162,28 @@ function credentialStatus() {
     };
   }
   return {
-    connected: true,
-    integrationStatus: "CONNECTED",
+    connected: false,
+    integrationStatus: "CREDENTIALS CONFIGURED",
+    credentialsConfigured: true,
     provider: GEMINI_API_KEY ? "gemini" : "openai",
     providers,
-    detail: GEMINI_API_KEY ? "Gemini batch text generation ready." : "OpenAI batch text generation ready.",
-    code: "READY",
+    detail: "Provider credentials are configured; an external check is still required.",
+    code: "CREDENTIALS_CONFIGURED",
   };
+}
+
+async function verifyGeminiCredential() {
+  if (!GEMINI_API_KEY) return { verified: false, code: "NOT_CONFIGURED" as const };
+  try {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models", {
+      method: "GET",
+      headers: { "x-goog-api-key": GEMINI_API_KEY },
+    });
+    if (response.ok) return { verified: true as const };
+    return { verified: false, code: "GEMINI_EXTERNAL_CHECK_FAILED" as const, providerStatus: response.status };
+  } catch {
+    return { verified: false, code: "GEMINI_EXTERNAL_CHECK_FAILED" as const };
+  }
 }
 
 async function requireStaff(supabase: ReturnType<typeof createClient>, token: string) {
@@ -331,15 +347,23 @@ Deno.serve(async (request) => {
   const status = credentialStatus();
 
   if (body.mode === "status") {
+    const geminiCheck = await verifyGeminiCredential();
+    const externallyVerified = geminiCheck.verified;
     return json({
       success: true,
-      connected: status.connected,
-      integrationStatus: status.integrationStatus,
-      detail: status.detail,
-      code: status.code,
+      connected: externallyVerified,
+      credentialsConfigured: status.credentialsConfigured,
+      externalCheck: GEMINI_API_KEY ? (externallyVerified ? "PASSED" : "FAILED") : "NOT RUN",
+      functionVerified: false,
+      integrationStatus: externallyVerified ? "EXTERNAL CHECK VERIFIED" : status.integrationStatus,
+      detail: externallyVerified
+        ? "Gemini accepted a safe read-only models request. Batch generation has not been run."
+        : status.detail,
+      code: externallyVerified ? "EXTERNAL_CHECK_PASSED" : geminiCheck.code === "GEMINI_EXTERNAL_CHECK_FAILED" ? geminiCheck.code : status.code,
       credentialEnvVars: ["GEMINI_API_KEY", "OPENAI_API_KEY"],
       provider: status.provider,
       providers: status.providers,
+      providerStatus: "providerStatus" in geminiCheck ? geminiCheck.providerStatus : undefined,
     });
   }
 

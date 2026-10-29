@@ -33,16 +33,32 @@ function credentialStatus() {
     return {
       connected: false,
       integrationStatus: "NEEDS CREDENTIAL" as const,
+      credentialsConfigured: false,
       detail: "Set GEMINI_API_KEY in Supabase Edge Function secrets (server-side only).",
       code: "NEEDS_CREDENTIAL",
     };
   }
   return {
-    connected: true,
-    integrationStatus: "CONNECTED" as const,
-    detail: "Gemini server-side credentials detected.",
-    code: "READY",
+    connected: false,
+    integrationStatus: "CREDENTIALS CONFIGURED" as const,
+    credentialsConfigured: true,
+    detail: "Gemini credentials are configured; an external provider check is still required.",
+    code: "CREDENTIALS_CONFIGURED",
   };
+}
+
+async function verifyGeminiCredential() {
+  if (!GEMINI_API_KEY) return { verified: false, code: "NEEDS_CREDENTIAL" as const };
+  try {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models", {
+      method: "GET",
+      headers: { "x-goog-api-key": GEMINI_API_KEY },
+    });
+    if (response.ok) return { verified: true as const };
+    return { verified: false, code: "GEMINI_EXTERNAL_CHECK_FAILED" as const, providerStatus: response.status };
+  } catch {
+    return { verified: false, code: "GEMINI_EXTERNAL_CHECK_FAILED" as const };
+  }
 }
 
 async function requireStaff(supabase: ReturnType<typeof createClient>, token: string) {
@@ -197,17 +213,26 @@ Deno.serve(async (request) => {
   const status = credentialStatus();
 
   if (body.mode === "status") {
+    const externalCheck = await verifyGeminiCredential();
     return json({
       success: true,
-      connected: status.connected,
-      integrationStatus: status.integrationStatus,
-      detail: status.detail,
-      code: status.code,
+      connected: externalCheck.verified,
+      credentialsConfigured: status.credentialsConfigured,
+      externalCheck: externalCheck.verified ? "PASSED" : "FAILED",
+      functionVerified: false,
+      integrationStatus: externalCheck.verified ? "EXTERNAL CHECK VERIFIED" : status.credentialsConfigured ? "EXTERNAL CHECK FAILED" : status.integrationStatus,
+      detail: externalCheck.verified
+        ? "Gemini accepted a safe read-only models request. Media analysis has not been run."
+        : status.credentialsConfigured
+          ? "Gemini credentials are present, but the safe external provider check failed."
+          : status.detail,
+      code: externalCheck.verified ? "EXTERNAL_CHECK_PASSED" : externalCheck.code ?? status.code,
       credentialEnvVar: "GEMINI_API_KEY",
+      providerStatus: "providerStatus" in externalCheck ? externalCheck.providerStatus : undefined,
     });
   }
 
-  if (!status.connected) {
+  if (!status.credentialsConfigured) {
     return json({
       success: false,
       connected: false,
@@ -244,6 +269,9 @@ Deno.serve(async (request) => {
   return json({
     success: true,
     connected: true,
+    credentialsConfigured: true,
+    externalCheck: "PASSED",
+    functionVerified: true,
     integrationStatus: "CONNECTED",
     provider: "gemini",
     analysis,
