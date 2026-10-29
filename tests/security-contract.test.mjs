@@ -309,6 +309,6 @@ test("System Polish makes controlled interactions accessible and globally locked
 test("legacy Buffer publisher fails closed because Buffer publishing is disabled", async () => {
   const bufferPublisherSource = await readFile(new URL("../supabase/functions/buffer-content-publisher/index.ts", import.meta.url), "utf8");
   assert.match(bufferPublisherSource, /BUFFER_PUBLISHING_DISABLED/);
-  assert.match(bufferPublisherSource, /status:\\s*410/);
-  assert.doesNotMatch(bufferPublisherSource, /api\\.buffer\\.com|SERVICE_ROLE_KEY|CONTENT_PUBLISHER_AUTOMATION_SECRET/);
+  assert.match(bufferPublisherSource, /status:\s*410/);
+  assert.doesNotMatch(bufferPublisherSource, /api\.buffer\.com|SERVICE_ROLE_KEY|CONTENT_PUBLISHER_AUTOMATION_SECRET/);
 });
