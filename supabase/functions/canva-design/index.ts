@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildCanvaAssetName, canvaFailureDiagnostic } from "./diagnostics.ts";
+import { buildStrictAutofillData, prepareCanvaCopy, type AutofillDataset } from "./copy.ts";
 
 const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/$/, "");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -155,7 +156,7 @@ function logCanvaStageFailure(operation: "dataset" | "asset_upload" | "autofill"
   console.warn("[canva-design] stage failed", JSON.stringify({ operation, code }));
 }
 
-type CanvaDataset = Record<string, { type?: string }>;
+type CanvaDataset = AutofillDataset;
 
 function datasetFields(dataset: unknown, type: string): string[] {
   if (!dataset || typeof dataset !== "object") return [];
@@ -191,43 +192,6 @@ async function discoverAccessibleSourceDesignIds(accessToken: string): Promise<s
   return [...candidates].slice(0, 20);
 }
 
-function compactPosterCopy(value: string, maxLength: number): string {
-  return value
-    .replace(/https?:\/\/\S+/gi, "")
-    .replace(/\bwww\.\S+/gi, "")
-    .replace(/\s+/g, " ")
-    .replace(/\s*[|•·]\s*/g, " · ")
-    .trim()
-    .slice(0, maxLength)
-    .trim();
-}
-
-function posterBodyCopy(value: string): string {
-  const lines = value
-    .replace(/https?:\/\/\S+/gi, "")
-    .replace(/\bwww\.\S+/gi, "")
-    .split(/\r?\n/)
-    .map((line) => line
-      .replace(/^\s*(?:short reel|instagram reel|reel)\s*(?:\([^)]*\))?\s*:\s*/i, "")
-      .replace(/\s+/g, " ")
-      .trim())
-    .filter(Boolean)
-    .filter((line) => !/wa\.me|whatsapp link|utm_|https?:|www\.|hashtags?|follow us|save this post|booking|contact|phone|واتساب|للحجز|للاستفسار|هاتف الإدارة|رقم الهاتف|free initial assessment/i.test(line))
-    .filter((line) => !/(?:\+?971|0)?\s*5[0-9][\s-]*[0-9]{3}[\s-]*[0-9]{4}/.test(line));
-  const sentences = lines.join(" ").split(/(?<=[.!؟])\s+/).filter(Boolean);
-  const selected: string[] = [];
-  let length = 0;
-  for (const sentence of sentences) {
-    const clean = compactPosterCopy(sentence, 125);
-    if (!clean || clean.length < 8) continue;
-    if (length + clean.length > 230) break;
-    selected.push(clean);
-    length += clean.length + 1;
-    if (selected.length === 2) break;
-  }
-  return selected.join("\n");
-}
-
 function buildAutofillDataFromDataset(
   dataset: CanvaDataset,
   headline: string,
@@ -235,30 +199,10 @@ function buildAutofillDataFromDataset(
   cta: string,
   imageAssetId?: string,
 ): JsonObject {
-  const textFields = datasetFields(dataset, "text");
-  const data: JsonObject = {};
-  const headlineField = textFields.includes(CANVA_AUTOFILL_HEADLINE_FIELD)
-    ? CANVA_AUTOFILL_HEADLINE_FIELD
-    : textFields[0];
-  const ctaField = textFields.includes(CANVA_AUTOFILL_CTA_FIELD) ? CANVA_AUTOFILL_CTA_FIELD : undefined;
-  const bodyField = textFields.includes(CANVA_AUTOFILL_BODY_FIELD) && CANVA_AUTOFILL_BODY_FIELD !== headlineField && CANVA_AUTOFILL_BODY_FIELD !== ctaField
-    ? CANVA_AUTOFILL_BODY_FIELD
-    : textFields.find((field) => field !== headlineField && field !== ctaField);
-  const cleanHeadline = compactPosterCopy(headline, 90);
-  const cleanBody = posterBodyCopy(body);
-  const cleanCta = compactPosterCopy(cta, 90) || "Free initial assessment · WhatsApp 058 821 9130";
-  if (headlineField && bodyField) {
-    data[headlineField] = { type: "text", text: cleanHeadline };
-    data[bodyField] = { type: "text", text: cleanBody };
-  } else if (headlineField) {
-    data[headlineField] = { type: "text", text: [cleanHeadline, cleanBody].filter(Boolean).join("\n").slice(0, 180) };
-  }
-  if (ctaField) data[ctaField] = { type: "text", text: cleanCta };
-  if (imageAssetId) {
-    const imageField = datasetFields(dataset, "image")[0];
-    if (imageField) data[imageField] = { type: "image", asset_id: imageAssetId };
-  }
-  return data;
+  const copy = prepareCanvaCopy({ hook: headline, caption: body, cta });
+  const result = buildStrictAutofillData(dataset, copy, imageAssetId);
+  if (result.error) throw new Error(result.error);
+  return result.data as JsonObject;
 }
 
 async function uploadLinkedImageToCanva(
@@ -420,19 +364,23 @@ async function createAutofillDesign(
   }
   const imageFields = datasetFields(datasetResult.dataset, "image");
   if (imageFields.length === 0) return { error: "TEMPLATE_IMAGE_FIELD_MISSING" as const };
+  let data: JsonObject;
+  try {
+    data = buildAutofillDataFromDataset(datasetResult.dataset, headline, body, cta);
+  } catch (cause) {
+    if (cause instanceof Error && cause.message === "TEMPLATE_FIELDS_INVALID") {
+      logCanvaStageFailure("autofill", "TEMPLATE_FIELDS_INVALID");
+      return { error: "TEMPLATE_FIELDS_INVALID" as const };
+    }
+    throw cause;
+  }
   let uploadedImageAssetId = "";
   if (sourceMediaAssetId && imageFields.length > 0) {
     const uploaded = await uploadLinkedImageToCanva(accessToken, supabase, contentItemId, sourceMediaAssetId);
     if ("error" in uploaded) return uploaded;
     uploadedImageAssetId = uploaded.assetId;
+    data[imageFields[0]] = { type: "image", asset_id: uploadedImageAssetId };
   }
-  const data = buildAutofillDataFromDataset(
-    datasetResult.dataset,
-    headline,
-    body,
-    cta,
-    uploadedImageAssetId || undefined,
-  );
   const requestBody: JsonObject = selectedBrandTemplateId
     ? {
       type: "create_from_brand_template",
@@ -613,7 +561,8 @@ Deno.serve(async (request) => {
     const imageFieldCount = datasetFields(activeDataset, "image").length;
     const textFieldCount = datasetFields(activeDataset, "text").length;
     const templateImageAutofillReady = imageFieldCount > 0;
-    const fullyReady = credentialsConfigured() && connected && missingScopes.length === 0 && templateImageAutofillReady;
+    const templateFieldsAutofillReady = Boolean(activeDataset && !buildStrictAutofillData(activeDataset, { headline: "Title", body: "Body", cta: "CTA" }).error);
+    const fullyReady = credentialsConfigured() && connected && missingScopes.length === 0 && templateImageAutofillReady && templateFieldsAutofillReady;
     const detail = !credentialsConfigured()
       ? "Set CANVA_CLIENT_ID and CANVA_CLIENT_SECRET in Edge Function secrets."
       : !connected
@@ -624,6 +573,8 @@ Deno.serve(async (request) => {
       ? "The configured Brand Template is unavailable or not fillable; using the verified editable Canva source design instead."
       : !templateImageAutofillReady
       ? "No usable Canva source with an image autofill field was found. Configure a Brand Template or source design with image and text autofill fields."
+      : !templateFieldsAutofillReady
+      ? "The selected Canva source does not expose the confirmed hook, caption, CTA, and image fields. No design will be created until the template is repaired."
       : "Canva is connected, the required permissions are present, and the selected source supports image autofill.";
     return json({
       success: true,
@@ -638,6 +589,7 @@ Deno.serve(async (request) => {
       templateImageFieldCount: imageFieldCount,
       templateTextFieldCount: textFieldCount,
       templateImageAutofillReady,
+      templateFieldsAutofillReady,
       creativeReadiness: fullyReady ? "READY" : "NEEDS_SETUP",
       integrationStatus: fullyReady ? "READY" : "NOT READY",
       detail,
@@ -647,6 +599,7 @@ Deno.serve(async (request) => {
         ? "The existing editable Canva design is being used as the autofill source; a Brand Template can be configured later."
         : !templateImageAutofillReady
         ? "Configure a Canva Brand Template or editable source design with text and image autofill fields."
+        : !templateFieldsAutofillReady ? "Repair the Canva source fields so hook, caption, cta, and image are available as autofill fields."
         : fullyReady ? "Ready for varied Canva designs." : "Complete Canva credentials and connection setup.",
     });
   }

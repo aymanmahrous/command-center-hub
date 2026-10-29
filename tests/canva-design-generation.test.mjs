@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { buildStrictAutofillData, prepareCanvaCopy } from "../supabase/functions/canva-design/copy.ts";
 
 const adapter = await readFile(new URL("../src/canva-design-adapter.ts", import.meta.url), "utf8");
 const edge = await readFile(new URL("../supabase/functions/canva-design/index.ts", import.meta.url), "utf8");
+const copySource = await readFile(new URL("../supabase/functions/canva-design/copy.ts", import.meta.url), "utf8");
 const panel = await readFile(new URL("../src/content-batch-review-panel.tsx", import.meta.url), "utf8");
 const growthHub = await readFile(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
 
@@ -43,7 +45,7 @@ test("Canva can replace a template image with the content item's linked library 
   assert.match(edge, /\/brand-templates\/\$\{selectedBrandTemplateId\}\/dataset/);
   assert.match(edge, /const imageFields = datasetFields\(datasetResult\.dataset, "image"\)/);
   assert.match(edge, /uploadLinkedImageToCanva\(accessToken, supabase, contentItemId, sourceMediaAssetId\)/);
-  assert.match(edge, /type: "image", asset_id: imageAssetId/);
+  assert.match(copySource, /type: "image", asset_id: imageAssetId/);
   assert.match(edge, /MEDIA_ASSET_NOT_LINKED/);
   assert.match(edge, /CANVA_IMAGE_UPLOAD_FAILED/);
 });
@@ -94,14 +96,38 @@ test("Canva status path does not generate or export, but refreshes and stores OA
   assert.match(edge, /from\("staff_canva_tokens"\)\.upsert/);
 });
 
-test("Canva poster copy is concise, removes URL/contact clutter, and preserves the item's CTA", () => {
-  assert.match(edge, /function compactPosterCopy/);
-  assert.match(edge, /function posterBodyCopy/);
-  assert.match(edge, /selected\.length === 2/);
-  assert.match(edge, /const cleanHeadline = compactPosterCopy\(headline, 90\)/);
-  assert.match(edge, /const cleanBody = posterBodyCopy\(body\)/);
-  assert.match(edge, /const cleanCta = compactPosterCopy\(cta, 90\) \|\| "Free initial assessment · WhatsApp 058 821 9130"/);
-  assert.doesNotMatch(edge, /bodyWithContacts/);
-  assert.doesNotMatch(edge, /ACADEMY_PHONE_LINE|ACADEMY_BRANCH_LINE/);
-  assert.match(adapter, /cta: typeof item\.cta === "string" \? item\.cta : ""/);
+test("Canva copy removes production instructions and keeps the publishing caption untouched", () => {
+  const original = "Q: هل طفلك يخاف من الماء؟\nA: ابدأ بخطوات هادئة وبسيطة.\n0–2s: title card\n3–8s: child a9–10s\nWhatsApp 058 821 9130";
+  const copy = prepareCanvaCopy({ hook: "هل طفلك يخاف من الماء؟", caption: original, cta: "احجز التقييم المجاني" });
+  assert.equal(copy.headline, "هل طفلك يخاف من الماء؟");
+  assert.equal(copy.body, "سؤال: هل طفلك يخاف من الماء؟\nإجابة: ابدأ بخطوات هادئة وبسيطة.");
+  assert.equal(copy.cta, "احجز التقييم المجاني");
+  assert.doesNotMatch(copy.body, /0–2s|3–8s|child a9–10s|058 821 9130/);
+  assert.equal(original.includes("0–2s"), true);
+});
+
+test("Canva copy supports English and mixed-language content without incomplete fragments", () => {
+  const copy = prepareCanvaCopy({
+    hook: "Calm progress starts with one skill",
+    caption: "VIDEO BRIEF: Short Reel (10s)\n0–2s: title card\n3–8s: show child a9–10s\nOne calm skill at a time. احفظي هذه النصيحة.",
+    cta: "Book a free assessment",
+  });
+  assert.equal(copy.headline, "Calm progress starts with one skill");
+  assert.equal(copy.body, "One calm skill at a time. احفظي هذه النصيحة.");
+  assert.doesNotMatch(copy.body, /VIDEO BRIEF|0–2s|3–8s|a9–10s/);
+});
+
+test("Canva autofill uses confirmed field names and rejects an unsuitable template", () => {
+  const copy = prepareCanvaCopy({ hook: "عنوان واضح", caption: "محتوى قصير ومفهوم.", cta: "ابدأ الآن" });
+  const result = buildStrictAutofillData({ hook: { type: "text" }, caption: { type: "text" }, cta: { type: "text" }, image: { type: "image" } }, copy, "asset-1");
+  assert.deepEqual(result.data, {
+    hook: { type: "text", text: "عنوان واضح" },
+    caption: { type: "text", text: "محتوى قصير ومفهوم." },
+    cta: { type: "text", text: "ابدأ الآن" },
+    image: { type: "image", asset_id: "asset-1" },
+  });
+  assert.equal(buildStrictAutofillData({ title: { type: "text" }, body: { type: "text" }, image: { type: "image" } }, copy).error, "TEMPLATE_FIELDS_INVALID");
+  assert.match(edge, /buildStrictAutofillData/);
+  assert.match(edge, /prepareCanvaCopy/);
+  assert.match(adapter, /caption: item\.caption/);
 });

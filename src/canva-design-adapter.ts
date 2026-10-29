@@ -91,6 +91,8 @@ export function canvaDesignErrorMessage(code: string | undefined): string {
       return "Canva could not import the linked library image. Check the Canva connection permissions (asset:write and asset:read), then reconnect only if the status check identifies a missing permission.";
     case "TEMPLATE_IMAGE_FIELD_MISSING":
       return "The selected Canva Brand Template has no image autofill field. It cannot change the main visual, so repeated-looking designs are expected. Add an image field to the template, publish it, and reconnect Canva if permissions changed.";
+    case "TEMPLATE_FIELDS_INVALID":
+      return "The selected Canva template does not expose the required hook, caption, CTA, and image fields. No defective design was created; select the confirmed DAHZBpiQ_H8 template or repair its field mapping.";
     case "MEDIA_ASSET_NOT_LINKED":
       return "Link the library image to this content item first, then create the Canva design.";
     case "IMAGE_ASSET_REQUIRED":
