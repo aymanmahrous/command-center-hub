@@ -5,7 +5,7 @@ const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\
 const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
 export const GEMINI_CREDENTIAL_ENV_VAR = "GEMINI_API_KEY";
 
-export type GeminiIntegrationStatus = "CONNECTED" | "NOT CONNECTED" | "NEEDS CREDENTIAL";
+export type GeminiIntegrationStatus = "CONNECTED" | "NOT CONNECTED" | "NEEDS CREDENTIAL" | "CREDENTIALS CONFIGURED" | "EXTERNAL CHECK VERIFIED" | "EXTERNAL CHECK FAILED";
 
 export type MediaAnalysisProviderResult = {
   analysis: MediaAnalysisResult;
@@ -21,6 +21,9 @@ type EdgeGeminiResponse = {
   success?: boolean;
   connected?: boolean;
   integrationStatus?: GeminiIntegrationStatus;
+  credentialsConfigured?: boolean;
+  externalCheck?: "PASSED" | "FAILED" | "NOT RUN";
+  functionVerified?: boolean;
   detail?: string;
   code?: string;
   credentialEnvVar?: string;
@@ -62,8 +65,14 @@ export async function fetchGeminiIntegrationStatus(session: GeminiSession): Prom
         detail: `Gemini requires ${result.credentialEnvVar ?? GEMINI_CREDENTIAL_ENV_VAR} in Supabase Edge Function secrets.`,
       };
     }
-    if (result.connected) {
-      return { connected: true, integrationStatus: "CONNECTED", detail: result.detail ?? "Gemini server-side credentials detected." };
+    if (result.integrationStatus === "EXTERNAL CHECK VERIFIED" && result.externalCheck === "PASSED") {
+      return { connected: true, integrationStatus: "EXTERNAL CHECK VERIFIED", detail: result.detail ?? "Gemini external credential check passed; media analysis has not run." };
+    }
+    if (result.integrationStatus === "EXTERNAL CHECK FAILED") {
+      return { connected: false, integrationStatus: "EXTERNAL CHECK FAILED", detail: result.detail ?? "Gemini credentials are present, but the external provider check failed." };
+    }
+    if (result.integrationStatus === "CREDENTIALS CONFIGURED") {
+      return { connected: false, integrationStatus: "CREDENTIALS CONFIGURED", detail: result.detail ?? "Gemini credentials are configured; external verification is pending." };
     }
     return {
       connected: false,

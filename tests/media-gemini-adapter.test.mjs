@@ -19,8 +19,23 @@ test("analyze-staff-media edge function keeps Gemini key server-side only", () =
   assert.match(edge, /Deno\.env\.get\("GEMINI_API_KEY"\)/);
   assert.match(edge, /NEEDS_CREDENTIAL/);
   assert.match(edge, /x-goog-api-key/);
+  assert.match(edge, /verifyGeminiCredential/);
+  assert.match(edge, /EXTERNAL CHECK VERIFIED/);
+  assert.match(edge, /functionVerified: false/);
+  assert.match(edge, /functionVerified: true/);
+  assert.doesNotMatch(edge, /credentialsConfigured\)\s*\{[\s\S]{0,80}connected: true/);
   assert.match(edge, /Consent required/);
   assert.doesNotMatch(edge, /VITE_|console\.log\(.*GEMINI/i);
+});
+
+test("Gemini status separates configured credentials, safe external verification, and executed function success", () => {
+  assert.match(adapter, /CREDENTIALS CONFIGURED/);
+  assert.match(adapter, /EXTERNAL CHECK VERIFIED/);
+  assert.match(adapter, /function has not run|media analysis has not run/i);
+  assert.match(batch, /verifyGeminiCredential/);
+  assert.match(batch, /functionVerified: false/);
+  assert.match(batch, /Batch generation has not been run/);
+  assert.match(batch, /integrationStatus: "CREDENTIALS CONFIGURED"/);
 });
 
 test("Gemini text endpoints use the currently supported stable Flash model", () => {

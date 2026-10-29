@@ -101,7 +101,7 @@
 
 ## 7. CURRENT_PHASE
 
-**Media Experience Simplification — Current-state reconciliation and media-flow evidence review**
+**Connections / Truthful Status — implementation complete; Preview verification pending**
 
 Current execution status as of 2026-10-23 is recorded in section 19. Historical PR #239 verification remains historical evidence, not the current repository or production baseline.
 
@@ -131,7 +131,7 @@ Current execution status as of 2026-10-23 is recorded in section 19. Historical 
 
 ## 10. الخطوة الحالية (NEXT)
 
-الحالة الحالية والتسلسل التالي موثّقان في **القسم 19 — Current State Reconciliation (2026-10-23)**. لا تعتمد على SHA أو نشر Production قديم في الأقسام التاريخية باعتباره الحالة الحالية. المرحلة الوظيفية المعتمدة تظل Media Experience Simplification؛ لا تتجاوزها قبل إغلاقها بالأدلة.
+الحالة التاريخية والتسلسل السابق موثّقان في **القسم 19 — Current State Reconciliation (2026-10-23)** وما يليه. آخر تحديث تنفيذي هو القسم 25 أدناه؛ لا تعتمد على SHA أو نشر Production قديم في الأقسام التاريخية باعتباره الحالة الحالية.
 
 
 ## 11. تذكير إلزامي لكل Agent
@@ -340,30 +340,57 @@ Current execution status as of 2026-10-23 is recorded in section 19. Historical 
 - **Gemini follow-up:** Google’s official model page lists `gemini-3.8-flash` as stable and supports text/image/video/audio/PDF input. The official Generate Content migration notes say Gemini 3.6+ ignores `temperature`/`top_p`/`top_k` today and will reject them with HTTP 400 in a future release. PR #285 (`2bac015f1ec0bd134a0691239e9bc0bfbeae511f`) now updates all three text/media/automation functions to 3.8 and removes the temperature overrides; added contract tests pass. PR remains OPEN/unmerged with Verify, CodeQL, and Preview checks passing. Google refs: [model](https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash), [Generate Content migration](https://ai.google.dev/gemini-api/docs/generate-content/whats-new-gemini-3.8).
 - **Gemini image:** PR #286 (`56ec63d92618cea46417f9ce870cf16a40d8643a`) requests JPEG, matching current deployed function v19 behavior; response MIME is still detected and determines `.jpg`/`.png`/`.webp` storage metadata. PR is OPEN/unmerged; CI/CodeQL/Preview checks passed. No Google provider call was made, so credentials, live generation, timeout behavior, and actual returned bytes remain unverified. Production functions remain deployed as `generate-content-batch` v29, `analyze-staff-media` v30, `content-automation-pulse` v31, and `generate-gemini-image` v19; source PRs have not been deployed to Supabase.
 
+
+## 25. Connections / Truthful Status — تنفيذ 2026-10-29
+
+### النتيجة التنفيذية
+تم إصلاح التناقض الذي كان يعرض وجود `GEMINI_API_KEY` وحده كحالة `CONNECTED`. وجود الاعتماد أصبح حالة مستقلة (`CREDENTIALS CONFIGURED`) ولا يُعرض كاتصال ناجح. فحص الحالة ينفذ طلبًا خارجيًا آمنًا للقراءة فقط إلى قائمة نماذج Gemini؛ نجاحه يظهر كـ`EXTERNAL CHECK VERIFIED` مع `functionVerified: false`. لا تظهر `CONNECTED` إلا بعد نجاح الوظيفة نفسها فعليًا، ويُسجل ذلك عبر `functionVerified: true` في `analyze-staff-media` أو بعد تنفيذ توليد الدفعة.
+
+### السبب الجذري المثبت
+كان `credentialStatus()` في `analyze-staff-media` و`generate-content-batch` يحول `Boolean(GEMINI_API_KEY)` مباشرة إلى `connected: true` و`integrationStatus: CONNECTED` قبل أي استدعاء إلى Google. هذا خلط بين وجود السر، وفحص الاتصال الخارجي، ونجاح الوظيفة المطلوبة. تم فصل الحالات الثلاث دون تغيير سلوك التوليد عند وجود الاعتماد.
+
+### ما تغيّر
+- `supabase/functions/analyze-staff-media/index.ts`: فحص Gemini خارجي آمن read-only، حالات اعتماد/فحص/وظيفة منفصلة، مع بقاء المفتاح server-side.
+- `supabase/functions/generate-content-batch/index.ts`: نفس الفصل في status endpoint؛ مسار التوليد لا يتطلب فحصًا إضافيًا ولا يعلن النجاح قبل النتيجة الفعلية.
+- `src/media-gemini-adapter.ts`, `src/media-providers.ts`, `src/media-library-controls.tsx`: عرض الحالات الجديدة بوضوح في Media Library.
+- `tests/media-gemini-adapter.test.mjs`: regression تمنع العودة إلى اعتبار المفتاح وحده اتصالًا أو نجاح وظيفة.
+
+### الأدلة والاختبارات
+- Commits: code `a09317fecab0199de384db5576175cd85291e5fe`; handoff update `e1d7922b8826303b9097aa934a03dcaa0a1592d2`.
+- PR للمراجعة فقط: [#295](https://github.com/aymanmahrous/command-center-hub/pull/295) — مفتوح، غير مدموج، وغير منشور إلى Production.
+- `npm test`: **320/320 passed**.
+- `npm run build`: **passed** — TypeScript، Vite، وperformance budget.
+- اختبارات النطاق المركزة Connections / Gemini / Canva: **22/22 passed**.
+- PRs المرتبطة التي تم اعتماد حالتها من GitHub: #283 و#285 و#286 مدمجة؛ #292 مفتوح؛ #295 مفتوح للمراجعة.
+
+### ما لم يُثبت بعد
+لم يتم نشر PR #295 إلى Preview، لذلك لم يُثبت بعد أن Edge Functions المنشورة تنفذ فحص Gemini الخارجي أو تعرض الحالات الجديدة بحساب QA. كما لم تُشغّل وظيفة تحليل وسائط أو توليد دفعة حقيقية ضمن هذه المهمة، ولم تُنفذ أي عملية Gemini مدفوعة أو إنشاء Canva.
+
+### العائق الحقيقي والخطوة التالية الوحيدة
+العائق هو غياب تحقق Preview المنشور للـcommit الجديد، وليس عطلًا مثبتًا في الكود المحلي. الخطوة الوحيدة التالية: بعد مراجعة PR #295، نشره إلى Preview فقط ثم تنفيذ قراءة status بحساب QA للتحقق من `credentialsConfigured` و`externalCheck` و`functionVerified` بصريًا/شبكيًا، دون توليد أو نشر أو جدولة.
+
+### حدود السلامة
+لم يحدث أي تغيير في Supabase schema أو RLS أو OAuth أو الأسرار، ولم يحدث Merge أو Production deployment أو نشر Meta أو إرسال WhatsApp أو تشغيل Canva/Gemini مدفوع أو تفعيل جدولة حية.
+
 ## 26. Media Experience Simplification — closeout and next-stage handoff (2026-10-29)
 
 ### حالة المرحلة
-أُغلقت مرحلة **Media Experience Simplification** بالأدلة المتاحة. الإغلاق يخص مسار **Media Library → Content Factory → Review** والتحقق المرتبط باختيار الدفعة، ولا يعني إثبات كل مزود خارجي مدفوع.
+أُغلقت مرحلة **Media Experience Simplification** بالأدلة المتاحة لمسار **Media Library → Content Factory → Review** والتحقق المرتبط باختيار الدفعة، ولا يعني ذلك إثبات كل مزود خارجي مدفوع.
 
 ### الأدلة المعتمدة
-- **PR #283** (`fix/media-factory-handoff-refresh`) مدمج فعليًا في `main` بدمج `996e69ac558313d58815cf81ad4b9ae3411c451e`. التحقق التفاعلي السابق على Preview المعزول أثبت أن الوسيط الخاص ينتقل من Media Library إلى Factory، وأن عنصر المحتوى يظهر في Factory، وأن `link_staff_media_to_content_item` ينجح، وأن إشعار النجاح يبقى ظاهرًا بعد إزالة بطاقة handoff، ثم يظهر العنصر في قائمة Review. لم تُنفّذ موافقة أو جدولة أو نشر أو عملية خارجية.
-- **اختيار الدفعة:** الفرع `fix/primary-batch-selection` موجود على GitHub، والالتزام `aabccaf9707bc11559198a34be52de500618d0e4` مبني مباشرة على `a8b4f7ab9a0f32cfa21cbcd77027a5cdfdefbed3` ويحتوي فقط على إصلاح اختيار الدفعة واختبار regression. التحقق البصري السابق على Preview المعزول أظهر اختيار الدفعة `194bc6b0-7c1d-4089-9320-7ef43c86a295` وظهور عنصر معتمد في مساحة التصميم. لا توجد عملية توليد أو نشر أو إرسال مرتبطة بالتحقق.
-- **PR #293** مفتوح للمراجعة على `main`: https://github.com/aymanmahrous/command-center-hub/pull/293. لم يُدمج ولم يُنشر إلى Production.
+- **PR #283** مدمج فعليًا في `main`؛ التحقق التفاعلي السابق على Preview المعزول أثبت انتقال الوسيط الخاص إلى Factory وظهور عنصر المحتوى في Review مع بقاء إشعار النجاح، دون موافقة أو جدولة أو نشر.
+- **اختيار الدفعة:** الفرع `fix/primary-batch-selection` موجود على GitHub، والالتزام `aabccaf9707bc11559198a34be52de500618d0e4` يحتوي إصلاح اختيار الدفعة واختبار regression؛ التحقق البصري السابق على Preview المعزول أظهر اختيار الدفعة وظهور عنصر معتمد، دون توليد أو نشر أو إرسال.
+- **PR #293** مفتوح للمراجعة على `main`: https://github.com/aymanmahrous/command-center-hub/pull/293. حالته الحالية `MERGEABLE` تقنيًا لكن `REVIEW_REQUIRED`.
 
-### حالة الإصلاحات المرتبطة
-- **PR #283:** `MERGED` — merge commit `996e69ac558313d58815cf81ad4b9ae3411c451e`.
-- **PR #285:** `MERGED` — merge commit `614ccedb384b313f6375282ac9ee85d8471a7481`؛ تحديث مراجع نماذج Gemini وإزالة إعدادات قديمة وفق التغييرات المدمجة.
-- **PR #286:** `MERGED` — merge commit `cb3dacfeedece2e816dd1a7a52ef090c5c573cdf`؛ مزامنة MIME لصورة Gemini مع سلوك JPEG المنشور.
-- **PR #292:** `OPEN`, `MERGEABLE`, `APPROVED`, غير مدمج؛ يخص Resilience/Canva، وليس شرطًا لإغلاق مسار Media Library → Factory → Review.
-- **PR #293:** `OPEN`, `MERGEABLE`, `REVIEW_REQUIRED`, غير مدمج؛ يخص اختيار الدفعة بعد استعادة الجلسة.
+### حالة الإصلاحات المرتبطة وقت التحديث
+- **PR #283:** `MERGED`.
+- **PR #285:** `MERGED`.
+- **PR #286:** `MERGED`.
+- **PR #292:** `MERGED`.
+- **PR #293:** `OPEN`, `MERGEABLE`, `REVIEW_REQUIRED`, غير مدمج.
 
 ### ما لم يُثبت بعد
-- السبب الجذري التفصيلي لأخطاء Canva 502، وإعادة اتصال Canva أو إنشاء/تصدير تصميم حقيقي.
-- توليد Gemini حي أو سلوك مزود خارجي مدفوع وعودة bytes فعلية؛ التقدير والاختبارات الساكنة لا يثبتان ذلك.
-- أي نشر Production جديد أو اختبار Meta/WhatsApp حي.
-
-### الأثر والحماية
-لم يحدث في هذه المرحلة دمج أو نشر Production أو تغيير Supabase/RLS/OAuth أو تشغيل Gemini/Canva المدفوعين أو إرسال WhatsApp أو نشر Meta أو تفعيل الجدولة. الأدلة التفاعلية استخدمت Preview وبيانات QA المعزولة فقط، وتم تنظيف fixture المؤقت المستخدم للتحقق من اختيار الدفعة.
+لم يُثبت السبب الجذري التفصيلي لأخطاء Canva 502 أو إعادة اتصال Canva وإنشاء/تصدير تصميم حقيقي. كما لم يُثبت توليد Gemini حي أو اختبار Meta/WhatsApp حي، ولم يحدث نشر Production جديد ضمن هذا التسليم.
 
 ### المرحلة التالية المعتمدة
-الانتقال إلى **Connections / Truthful Status**: توحيد الحالات المعروضة للتكاملات مع الأدلة الفعلية، بدءًا من Canva وGemini، باستخدام تشخيصات قراءة آمنة أو مسارات غير مدفوعة فقط. لا يُعتبر أي مزود `Connected` أو `Generated` أو `Success` دون دليل خارجي مناسب، ولا تُنفذ تغييرات إنتاجية أو عمليات مدفوعة ضمن هذا التسليم.
+الانتقال إلى **Connections / Truthful Status**: توحيد الحالات المعروضة للتكاملات مع الأدلة الفعلية، بدءًا من Canva وGemini، باستخدام تشخيصات قراءة آمنة أو مسارات غير مدفوعة فقط.

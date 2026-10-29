@@ -47,14 +47,17 @@ const DEFAULT_STATUSES: Record<ProviderKey, ProviderStatus> = {
 export function displayProviderStatus(
   provider: ProviderStatus,
   options?: {
-    geminiIntegration?: "CONNECTED" | "NOT CONNECTED" | "NEEDS CREDENTIAL";
+    geminiIntegration?: "CONNECTED" | "NOT CONNECTED" | "NEEDS CREDENTIAL" | "CREDENTIALS CONFIGURED" | "EXTERNAL CHECK VERIFIED" | "EXTERNAL CHECK FAILED";
     canvaConnected?: boolean;
   },
 ): string {
   const geminiIntegration = options?.geminiIntegration;
   if (provider.key === "gemini") {
     if (geminiIntegration === "CONNECTED" || provider.connected) return "CONNECTED";
+    if (geminiIntegration === "EXTERNAL CHECK VERIFIED") return "EXTERNAL CHECK VERIFIED";
     if (geminiIntegration === "NEEDS CREDENTIAL") return "NEEDS CREDENTIAL";
+    if (geminiIntegration === "CREDENTIALS CONFIGURED") return "CREDENTIALS CONFIGURED";
+    if (geminiIntegration === "EXTERNAL CHECK FAILED") return "EXTERNAL CHECK FAILED";
     return "NOT CONNECTED";
   }
   if (provider.key === "canva") {
