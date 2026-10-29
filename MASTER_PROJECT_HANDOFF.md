@@ -101,7 +101,7 @@
 
 ## 7. CURRENT_PHASE
 
-**Connections / Truthful Status — implementation complete; Preview verification pending**
+**Connections / Truthful Status — implementation complete; Production/QA verification recorded**
 
 Current execution status as of 2026-10-23 is recorded in section 19. Historical PR #239 verification remains historical evidence, not the current repository or production baseline.
 
@@ -361,13 +361,28 @@ Current execution status as of 2026-10-23 is recorded in section 19. Historical 
 - `npm test`: **320/320 passed**.
 - `npm run build`: **passed** — TypeScript، Vite، وperformance budget.
 - اختبارات النطاق المركزة Connections / Gemini / Canva: **22/22 passed**.
-- PRs المرتبطة التي تم اعتماد حالتها من GitHub: #283 و#285 و#286 مدمجة؛ #292 مفتوح؛ #295 مفتوح للمراجعة.
+- PRs المرتبطة التي تم اعتماد حالتها من GitHub: #283 و#285 و#286 و#292 مدمجة؛ #295 مدمج في `main` بالـcommit `e5379b962a19ffcdbad055dd645f52eafce7311c`. #293 و#294 مفتوحان للمراجعة فقط.
 
 ### ما لم يُثبت بعد
-لم يتم نشر PR #295 إلى Preview، لذلك لم يُثبت بعد أن Edge Functions المنشورة تنفذ فحص Gemini الخارجي أو تعرض الحالات الجديدة بحساب QA. كما لم تُشغّل وظيفة تحليل وسائط أو توليد دفعة حقيقية ضمن هذه المهمة، ولم تُنفذ أي عملية Gemini مدفوعة أو إنشاء Canva.
+تم التحقق من Production وQA دون تشغيل وظيفة تحليل وسائط أو توليد دفعة حقيقية، ودون أي عملية Gemini مدفوعة أو إنشاء Canva. لم يُثبت اتصال Canva الحي؛ QA يعرض بصدق أن أسرار الخادم وصلاحيات OAuth غير متاحة.
 
 ### العائق الحقيقي والخطوة التالية الوحيدة
-العائق هو غياب تحقق Preview المنشور للـcommit الجديد، وليس عطلًا مثبتًا في الكود المحلي. الخطوة الوحيدة التالية: بعد مراجعة PR #295، نشره إلى Preview فقط ثم تنفيذ قراءة status بحساب QA للتحقق من `credentialsConfigured` و`externalCheck` و`functionVerified` بصريًا/شبكيًا، دون توليد أو نشر أو جدولة.
+لا يوجد عطل Production مثبت. العائق المتبقي الوحيد هو مراجعة بشرية مطلوبة لـPR #293 و#294؛ لا يجوز إنشاء موافقة وهمية. الخطوة التالية: مراجعة PRs المفتوحة ثم دمجها فقط وفق سياسة المستودع، دون نشر أو تشغيل مسارات مدفوعة.
 
 ### حدود السلامة
 لم يحدث أي تغيير في Supabase schema أو RLS أو OAuth أو الأسرار، ولم يحدث Merge أو Production deployment أو نشر Meta أو إرسال WhatsApp أو تشغيل Canva/Gemini مدفوع أو تفعيل جدولة حية.
+
+
+## 26. Final Production / QA Audit — 2026-10-30
+
+### الأدلة الفعلية
+- **Vercel Production:** Deployment `dpl_3vpXiW8ZSEL2921mqMLJxyjqj8FN` بحالة `READY`، مرتبط بـ`main` والـcommit `da4bafc879778085c60293ba5364be4a1e0f1812`. النطاق `hub.relaxfixuae.com` أعاد صفحة الدخول، وملف JavaScript الثابت أعاد HTTP 200. فحص Vercel لآخر 24 ساعة: لا توجد Runtime Errors.
+- **Supabase Production:** المشروع `nmzxrjdxvmmzzmajrskm` سليم، و`analyze-staff-media` منشور v31، و`generate-content-batch` v30، و`canva-design` v50. مصدر الدوال المنشور يثبت فصل `credentialsConfigured` عن `externalCheck` و`functionVerified`; لا يوجد استدعاء توليد أو Canva أثناء التدقيق.
+- **Safety lock:** مصدر `content-automation-pulse` على `main` يحتوي `dryRunRequested = true` مع `sideEffectsSkipped = true` قبل مسارات التوليد والوسائط والنشر. لم تُشغّل الجدولة.
+- **QA Preview:** تم تسجيل الدخول بحساب QA في Preview غير الإنتاجي. Media Library تعرض أصل QA الاصطناعي الخاص بحالة `ready_for_review`، وContent Factory يعرض العنصرين بحالة `Needs review`، مع بقاء الجدولة والنشر والموافقة صفرًا. تم فتح Connections للقراءة فقط؛ Canva ظهر `Not connected / Not ready` مع غياب أسرار الخادم وصلاحيات OAuth، وهو عرض صادق لا يدّعي الاتصال.
+
+### ما لم يُثبت
+لم يُثبت اتصال Canva الحي أو إنشاء/تصدير تصميم، ولم يُنفذ Gemini حي أو Meta/WhatsApp أو موافقة أو جدولة أو نشر. لا تُعد هذه المرحلة إثباتًا لوظيفة مزود خارجي مدفوعة.
+
+### الحالة النهائية
+مرحلة **Connections / Truthful Status** مكتملة برمجيًا ومتحقق منها تشغيليًا بحدود آمنة: Production سليم، وQA يعرض حالات التكامل وفق الدليل، ومسار الوسائط يبقى خلف المراجعة البشرية.
