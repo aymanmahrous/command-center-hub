@@ -339,3 +339,31 @@ Current execution status as of 2026-10-23 is recorded in section 19. Historical 
 - **Remaining:** isolated Home page still reports a read failure/404 for an unrelated dashboard dependency; this did not block Media → Factory → Review. Canva status in Preview reports missing server credentials and scopes. Gemini provider generation and Canva 502 upstream stage remain unverified; no live Gemini generation, Canva reconnect, design creation, or export was performed. PRs #285 and #286 remain OPEN, unmerged. No production deploy, production migration, Meta post, or WhatsApp send occurred.
 - **Gemini follow-up:** Google’s official model page lists `gemini-3.8-flash` as stable and supports text/image/video/audio/PDF input. The official Generate Content migration notes say Gemini 3.6+ ignores `temperature`/`top_p`/`top_k` today and will reject them with HTTP 400 in a future release. PR #285 (`2bac015f1ec0bd134a0691239e9bc0bfbeae511f`) now updates all three text/media/automation functions to 3.8 and removes the temperature overrides; added contract tests pass. PR remains OPEN/unmerged with Verify, CodeQL, and Preview checks passing. Google refs: [model](https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash), [Generate Content migration](https://ai.google.dev/gemini-api/docs/generate-content/whats-new-gemini-3.8).
 - **Gemini image:** PR #286 (`56ec63d92618cea46417f9ce870cf16a40d8643a`) requests JPEG, matching current deployed function v19 behavior; response MIME is still detected and determines `.jpg`/`.png`/`.webp` storage metadata. PR is OPEN/unmerged; CI/CodeQL/Preview checks passed. No Google provider call was made, so credentials, live generation, timeout behavior, and actual returned bytes remain unverified. Production functions remain deployed as `generate-content-batch` v29, `analyze-staff-media` v30, `content-automation-pulse` v31, and `generate-gemini-image` v19; source PRs have not been deployed to Supabase.
+
+## 26. Media Experience Simplification — closeout and next-stage handoff (2026-10-29)
+
+### حالة المرحلة
+أُغلقت مرحلة **Media Experience Simplification** بالأدلة المتاحة. الإغلاق يخص مسار **Media Library → Content Factory → Review** والتحقق المرتبط باختيار الدفعة، ولا يعني إثبات كل مزود خارجي مدفوع.
+
+### الأدلة المعتمدة
+- **PR #283** (`fix/media-factory-handoff-refresh`) مدمج فعليًا في `main` بدمج `996e69ac558313d58815cf81ad4b9ae3411c451e`. التحقق التفاعلي السابق على Preview المعزول أثبت أن الوسيط الخاص ينتقل من Media Library إلى Factory، وأن عنصر المحتوى يظهر في Factory، وأن `link_staff_media_to_content_item` ينجح، وأن إشعار النجاح يبقى ظاهرًا بعد إزالة بطاقة handoff، ثم يظهر العنصر في قائمة Review. لم تُنفّذ موافقة أو جدولة أو نشر أو عملية خارجية.
+- **اختيار الدفعة:** الفرع `fix/primary-batch-selection` موجود على GitHub، والالتزام `aabccaf9707bc11559198a34be52de500618d0e4` مبني مباشرة على `a8b4f7ab9a0f32cfa21cbcd77027a5cdfdefbed3` ويحتوي فقط على إصلاح اختيار الدفعة واختبار regression. التحقق البصري السابق على Preview المعزول أظهر اختيار الدفعة `194bc6b0-7c1d-4089-9320-7ef43c86a295` وظهور عنصر معتمد في مساحة التصميم. لا توجد عملية توليد أو نشر أو إرسال مرتبطة بالتحقق.
+- **PR #293** مفتوح للمراجعة على `main`: https://github.com/aymanmahrous/command-center-hub/pull/293. لم يُدمج ولم يُنشر إلى Production.
+
+### حالة الإصلاحات المرتبطة
+- **PR #283:** `MERGED` — merge commit `996e69ac558313d58815cf81ad4b9ae3411c451e`.
+- **PR #285:** `MERGED` — merge commit `614ccedb384b313f6375282ac9ee85d8471a7481`؛ تحديث مراجع نماذج Gemini وإزالة إعدادات قديمة وفق التغييرات المدمجة.
+- **PR #286:** `MERGED` — merge commit `cb3dacfeedece2e816dd1a7a52ef090c5c573cdf`؛ مزامنة MIME لصورة Gemini مع سلوك JPEG المنشور.
+- **PR #292:** `OPEN`, `MERGEABLE`, `APPROVED`, غير مدمج؛ يخص Resilience/Canva، وليس شرطًا لإغلاق مسار Media Library → Factory → Review.
+- **PR #293:** `OPEN`, `MERGEABLE`, `REVIEW_REQUIRED`, غير مدمج؛ يخص اختيار الدفعة بعد استعادة الجلسة.
+
+### ما لم يُثبت بعد
+- السبب الجذري التفصيلي لأخطاء Canva 502، وإعادة اتصال Canva أو إنشاء/تصدير تصميم حقيقي.
+- توليد Gemini حي أو سلوك مزود خارجي مدفوع وعودة bytes فعلية؛ التقدير والاختبارات الساكنة لا يثبتان ذلك.
+- أي نشر Production جديد أو اختبار Meta/WhatsApp حي.
+
+### الأثر والحماية
+لم يحدث في هذه المرحلة دمج أو نشر Production أو تغيير Supabase/RLS/OAuth أو تشغيل Gemini/Canva المدفوعين أو إرسال WhatsApp أو نشر Meta أو تفعيل الجدولة. الأدلة التفاعلية استخدمت Preview وبيانات QA المعزولة فقط، وتم تنظيف fixture المؤقت المستخدم للتحقق من اختيار الدفعة.
+
+### المرحلة التالية المعتمدة
+الانتقال إلى **Connections / Truthful Status**: توحيد الحالات المعروضة للتكاملات مع الأدلة الفعلية، بدءًا من Canva وGemini، باستخدام تشخيصات قراءة آمنة أو مسارات غير مدفوعة فقط. لا يُعتبر أي مزود `Connected` أو `Generated` أو `Success` دون دليل خارجي مناسب، ولا تُنفذ تغييرات إنتاجية أو عمليات مدفوعة ضمن هذا التسليم.
