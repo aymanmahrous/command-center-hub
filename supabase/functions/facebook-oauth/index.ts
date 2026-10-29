@@ -7,7 +7,19 @@ const META_APP_ID = "980385998373405";
 const META_APP_SECRET = (Deno.env.get("META_APP_SECRET") ?? "").trim();
 const FACEBOOK_PAGE_ID = "1164107840123575";
 const CALLBACK_URL = `${SUPABASE_URL}/functions/v1/facebook-oauth`;
+const HUB_ORIGIN = "https://hub.relaxfixuae.com";
+const PREVIEW_ORIGIN = "https://command-center-hub-git-fix-e76bd9-swimmingayman-8492s-projects.vercel.app";
 const RETURN_BASE = (Deno.env.get("COMMAND_CENTER_RETURN_URL") ?? "https://hub.relaxfixuae.com/").trim();
+const RETURN_URL = (() => {
+  try {
+    const candidate = new URL(RETURN_BASE);
+    if (candidate.protocol === "https:" && [HUB_ORIGIN, PREVIEW_ORIGIN].includes(candidate.origin)) return candidate;
+  } catch {
+    // Fall back to the production hub if the configured return URL is malformed.
+  }
+  return new URL(`${HUB_ORIGIN}/`);
+})();
+const RETURN_ORIGIN = RETURN_URL.origin;
 const GRAPH_VERSION = "v26.0";
 const AUTH_URL = `https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth`;
 const GRAPH_URL = `https://graph.facebook.com/${GRAPH_VERSION}`;
@@ -16,9 +28,8 @@ const STATE_PREFIX = "facebook:";
 const STATE_TTL_MS = 15 * 60 * 1000;
 const REQUESTED_SCOPES = "pages_show_list,pages_read_engagement,pages_manage_posts,instagram_basic,instagram_content_publish";
 const ALLOWED_ROLES = new Set(["super_admin", "admin", "content_manager"]);
-const HUB_ORIGIN = "https://hub.relaxfixuae.com";
 const CORS_HEADERS = {
-  "access-control-allow-origin": HUB_ORIGIN,
+  "access-control-allow-origin": RETURN_ORIGIN,
   "access-control-allow-headers": "authorization, apikey, content-type, x-client-info, x-supabase-api-version",
   "access-control-allow-methods": "POST, GET, OPTIONS",
   "content-type": "application/json; charset=utf-8",
@@ -64,13 +75,7 @@ function configured() {
 }
 
 function returnRedirect(status: "connected" | "error", code?: string) {
-  let target: URL;
-  try {
-    target = new URL(RETURN_BASE);
-  } catch {
-    target = new URL("https://hub.relaxfixuae.com/");
-  }
-  if (target.origin !== HUB_ORIGIN) target = new URL("https://hub.relaxfixuae.com/");
+  const target = new URL(RETURN_URL.toString());
   target.pathname = "/";
   target.hash = "";
   target.searchParams.set("section", "connections");
