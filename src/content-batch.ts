@@ -166,10 +166,18 @@ export function groupContentBatches(items: ContentBatchItem[]): ContentBatch[] {
 export function selectPrimaryBatch(batches: ContentBatch[]): ContentBatch | null {
   if (batches.length === 0) return null;
   return batches.reduce((best, current) => {
-    const bestScore = best.items.filter((item) => item.status === "needs_review").length;
-    const currentScore = current.items.filter((item) => item.status === "needs_review").length;
-    if (currentScore > bestScore) return current;
-    if (currentScore === bestScore && new Date(current.createdAt).getTime() > new Date(best.createdAt).getTime()) return current;
+    const reviewableStatuses = (item: ContentBatchItem) => REVIEWABLE_FOR_APPROVAL.has(item.status);
+    const bestReviewable = best.items.filter(reviewableStatuses).length;
+    const currentReviewable = current.items.filter(reviewableStatuses).length;
+    if (currentReviewable > bestReviewable) return current;
+    if (currentReviewable < bestReviewable) return best;
+
+    const bestApproved = best.items.filter((item) => item.status === "approved").length;
+    const currentApproved = current.items.filter((item) => item.status === "approved").length;
+    if (currentApproved > bestApproved) return current;
+    if (currentApproved < bestApproved) return best;
+
+    if (new Date(current.createdAt).getTime() > new Date(best.createdAt).getTime()) return current;
     return best;
   });
 }
