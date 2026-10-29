@@ -356,7 +356,7 @@ Current execution status as of 2026-10-23 is recorded in section 19. Historical 
 - `tests/media-gemini-adapter.test.mjs`: regression تمنع العودة إلى اعتبار المفتاح وحده اتصالًا أو نجاح وظيفة.
 
 ### الأدلة والاختبارات
-- Commit: `a09317fecab0199de384db5576175cd85291e5fe`.
+- Commits: code `a09317fecab0199de384db5576175cd85291e5fe`; handoff update `e1d7922b8826303b9097aa934a03dcaa0a1592d2`.
 - PR للمراجعة فقط: [#295](https://github.com/aymanmahrous/command-center-hub/pull/295) — مفتوح، غير مدموج، وغير منشور إلى Production.
 - `npm test`: **320/320 passed**.
 - `npm run build`: **passed** — TypeScript، Vite، وperformance budget.
