@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
@@ -303,4 +304,23 @@ test("System Polish makes controlled interactions accessible and globally locked
   assert.match(app, /role="status"/);
   assert.match(app, /disabled=\{!canWrite \|\| busyId !== null\}/);
   assert.match(app, /Number\.isNaN\(followUpDate\.getTime\(\)\)/);
+});
+
+test("internal inbox alert helpers remain restricted by the existing sensitive RPC migration", () => {
+  const migration = readFileSync(new URL("../supabase/migrations/20261023160000_restrict_sensitive_rpc_execute_grants.sql", import.meta.url), "utf8");
+  for (const signature of [
+    "public.route_conversation_to_human(uuid, uuid, text, text, text, jsonb)",
+    "public.upsert_staff_alert(text, text, text, uuid, uuid, uuid, text, jsonb)",
+    "public.resolve_staff_alerts_for_conversation(uuid, text[])",
+  ]) {
+    const escaped = signature.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    assert.match(
+      migration,
+      new RegExp("REVOKE (?:ALL|EXECUTE) ON FUNCTION " + escaped + "\\s+FROM PUBLIC, anon, authenticated;", "i"),
+    );
+    assert.match(
+      migration,
+      new RegExp("GRANT EXECUTE ON FUNCTION " + escaped + "\\s+TO service_role;", "i"),
+    );
+  }
 });
