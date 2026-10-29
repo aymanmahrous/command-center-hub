@@ -101,7 +101,7 @@
 
 ## 7. CURRENT_PHASE
 
-**Connections / Truthful Status — implementation complete; Preview verification pending**
+**Connections / Truthful Status — implementation complete; Production/QA verification recorded (2026-10-30)**
 
 Current execution status as of 2026-10-23 is recorded in section 19. Historical PR #239 verification remains historical evidence, not the current repository or production baseline.
 
@@ -357,11 +357,11 @@ Current execution status as of 2026-10-23 is recorded in section 19. Historical 
 
 ### الأدلة والاختبارات
 - Commits: code `a09317fecab0199de384db5576175cd85291e5fe`; handoff update `e1d7922b8826303b9097aa934a03dcaa0a1592d2`.
-- PR للمراجعة فقط: [#295](https://github.com/aymanmahrous/command-center-hub/pull/295) — مفتوح، غير مدموج، وغير منشور إلى Production.
+- PR للمراجعة فقط: [#295](https://github.com/aymanmahrous/command-center-hub/pull/295) — `MERGED` في `main` بالـcommit `e5379b962a19ffcdbad055dd645f52eafce7311c`؛ لا يعني ذلك نشرًا منفصلًا إلى Supabase Production.
 - `npm test`: **320/320 passed**.
 - `npm run build`: **passed** — TypeScript، Vite، وperformance budget.
 - اختبارات النطاق المركزة Connections / Gemini / Canva: **22/22 passed**.
-- PRs المرتبطة التي تم اعتماد حالتها من GitHub: #283 و#285 و#286 مدمجة؛ #292 مفتوح؛ #295 مفتوح للمراجعة.
+- PRs المرتبطة التي تم اعتماد حالتها من GitHub: #283 و#285 و#286 و#292 و#295 مدمجة؛ #293 و#294 مفتوحان للمراجعة فقط.
 
 ### ما لم يُثبت بعد
 لم يتم نشر PR #295 إلى Preview، لذلك لم يُثبت بعد أن Edge Functions المنشورة تنفذ فحص Gemini الخارجي أو تعرض الحالات الجديدة بحساب QA. كما لم تُشغّل وظيفة تحليل وسائط أو توليد دفعة حقيقية ضمن هذه المهمة، ولم تُنفذ أي عملية Gemini مدفوعة أو إنشاء Canva.
@@ -394,3 +394,19 @@ Current execution status as of 2026-10-23 is recorded in section 19. Historical 
 
 ### المرحلة التالية المعتمدة
 الانتقال إلى **Connections / Truthful Status**: توحيد الحالات المعروضة للتكاملات مع الأدلة الفعلية، بدءًا من Canva وGemini، باستخدام تشخيصات قراءة آمنة أو مسارات غير مدفوعة فقط.
+
+
+## 27. Final Production / QA Audit — 2026-10-30 (reconciled onto current main)
+
+### Evidence recorded
+- **Vercel Production:** the read-only audit recorded deployment `dpl_3vpXiW8ZSEL2921mqMLJxyjqj8FN` as `READY`, associated with `main` at commit `da4bafc879778085c60293ba5364be4a1e0f1812`. The `hub.relaxfixuae.com` login page and its static JavaScript asset returned HTTP 200; the queried Vercel Runtime Errors window reported none. This is the observed deployment at audit time, not a claim that the newer `main` head is already deployed.
+- **Supabase Production:** project ref `nmzxrjdxvmmzzmajrskm`; the audit recorded `analyze-staff-media` v31, `generate-content-batch` v30, and `canva-design` v50. No generation or Canva creation was invoked during the audit.
+- **Automation safety:** the audited `main` source for `content-automation-pulse` explicitly sets `dryRunRequested = true` and `sideEffectsSkipped = true` before generation/media/publishing paths. No schedule was triggered.
+- **QA Preview:** a QA account was used to inspect the isolated Preview. Media Library showed the synthetic QA asset; Content Factory showed two items in `Needs review`; approval, scheduling, and publishing remained zero. Connections were read-only; Canva showed `Not connected / Not ready` because server credentials and OAuth scopes were unavailable in QA.
+- **Scope:** documentation only. No application code, schema/RLS, OAuth, secrets, Production configuration, live scheduling, approvals, publishing, WhatsApp, Meta, paid Gemini, or Canva generation was changed or triggered.
+
+### Explicit limits
+Canva live connectivity and design creation/export were not proven. No live Gemini generation, Meta/WhatsApp action, approval, scheduling, or publishing was performed. The observed Production deployment was on commit `da4bafc...`; do not infer the latest `main` head is deployed without a fresh deployment check.
+
+### Status
+The Connections / Truthful Status phase has recorded read-only Production and QA evidence. This closes the documentation of that audit only; it does not certify untested external-provider operations or authorize a Production release.
