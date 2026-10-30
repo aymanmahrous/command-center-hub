@@ -16,7 +16,7 @@ test("Media Library keeps private RPC boundary for documents", () => {
 });
 
 test("Media Library exposes document asset type without public preview URLs", () => {
-  assert.match(mediaView, /"other"/);
+  assert.match(mediaView, /"document"/);
   assert.match(mediaView, /Document/);
   assert.match(mediaView, /مستند/);
   assert.match(mediaView, /documentPreviewPrivate/);
@@ -26,6 +26,6 @@ test("Media Library exposes document asset type without public preview URLs", ()
 });
 
 test("document storage path contract uses staff-owned private prefix in UI", () => {
-  assert.match(css, /media-other/);
+  assert.match(css, /media-document/);
   assert.match(mediaView, /media-document-actions/);
 });
