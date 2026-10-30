@@ -502,7 +502,7 @@ async function storeDesignForContentItem(
     .insert({
       created_by: staffId,
       asset_type: "image",
-      source: "ai_generated",
+      source: "generated",
       storage_path: storagePath,
       provider: "canva",
       prompt: topic,
