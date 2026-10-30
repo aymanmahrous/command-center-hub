@@ -14,6 +14,10 @@ const approvalMigration = await readFile(
   new URL("../supabase/migrations/20261030095125_align_content_approval_audit_actor_and_external_media_defaults.sql", import.meta.url),
   "utf8",
 );
+const generatedMigration = await readFile(
+  new URL("../supabase/migrations/20261030095427_align_generated_media_completion_and_link_guard.sql", import.meta.url),
+  "utf8",
+);
 const batchMigration = await readFile(
   new URL("../supabase/migrations/20260911143100_content_batch_media_linkage.sql", import.meta.url),
   "utf8",
@@ -46,4 +50,12 @@ test("content approval uses an allowed audit actor and external media uses schem
   assert.doesNotMatch(approvalMigration, /auth\.uid\(\),\s*'staff',\s*'content_status_transition'/s);
   assert.match(approvalMigration, /'unclassified', 'pending', 'pending', 'blocked', NULL/);
   assert.doesNotMatch(approvalMigration, /'unclassified', 'unclassified', 'not_started', 'blocked', 'unknown'/);
+});
+
+test("generated media completion uses schema-safe states and the link gate requires ready media", () => {
+  assert.match(generatedMigration, /source = 'generated'/);
+  assert.match(generatedMigration, /'generated', btrim\(p_storage_path\)/);
+  assert.match(generatedMigration, /'ready', 'skipped', 'blocked', 'pending'/);
+  assert.match(generatedMigration, /v_asset\.media_status is distinct from 'ready'/);
+  assert.match(generatedMigration, /v_asset\.consent_status is distinct from 'consent_confirmed'/);
 });
