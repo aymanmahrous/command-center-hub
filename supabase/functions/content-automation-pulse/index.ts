@@ -361,8 +361,9 @@ Deno.serve(async (request) => {
     return json({ success: false, code: verify.data?.code ?? "SCHEDULER_TOKEN_INVALID" }, 401);
   }
 
-  // SAFETY LOCK: keep every invocation in dry-run until a separately reviewed change explicitly re-enables live work.
-  const dryRunRequested = true;
+  // SAFETY DEFAULT: remain dry-run unless the operator explicitly enables live work in Supabase Edge Function secrets.
+  // This avoids accidental publishing from stale queued jobs after deployment or recovery.
+  const dryRunRequested = Deno.env.get("CONTENT_AUTOMATION_LIVE_ENABLED") !== "true";
 
   const lease = await supabase.rpc("claim_content_automation_lease", {
     p_lease_name: LEASE_NAME,
