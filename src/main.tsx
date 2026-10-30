@@ -161,8 +161,8 @@ const ContentBatchApprovalSchema = z.object({
   skippedCount: z.number().int().nonnegative().optional(),
 }).passthrough();
 const MediaAssetSchema = z.object({
-  id: z.string().uuid(), createdBy: z.string().uuid(), contentItemId: z.string().uuid().nullable(),
-  assetType: z.enum(["image", "video", "logo", "other"]), source: z.enum(["upload", "ai_generated", "external"]),
+  id: z.string().uuid(), createdBy: z.string().uuid().nullable(), contentItemId: z.string().uuid().nullable(),
+  assetType: z.enum(["image", "video", "document", "audio"]), source: z.enum(["upload", "generated", "external", "stock"]),
   storagePath: z.string().nullable(), provider: z.string().nullable(), providerJobId: z.string().nullable(),
   prompt: z.string().nullable(), metadata: z.record(z.unknown()), createdAt: z.string(),
 }).passthrough();
