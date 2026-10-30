@@ -26,7 +26,7 @@ test("content batch media linkage validates publishable swimming media", () => {
 });
 
 test("media lifecycle migration writes only values accepted by the QA schema", () => {
-  assert.match(lifecycleMigration, /media_status[^;]*'pending','ready','processing','failed'/s);
+  assert.match(lifecycleMigration, /v_status not in \('pending','ready','processing','failed'\)/);
   assert.match(lifecycleMigration, /ai_analysis_status = 'analyzed'/);
   assert.match(lifecycleMigration, /'pending','granted','denied','expired','consent_confirmed'/);
   assert.match(lifecycleMigration, /publishability_status = v_publishability/);
