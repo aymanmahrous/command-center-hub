@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLanguage } from "./i18n";
 import { z } from "zod";
-import type { AiSuitabilityVerdict, MediaAssetRecord, MediaCategory, ConsentStatus } from "./media-types";
+import type { AiSuitabilityVerdict, MediaAssetRecord, MediaCategory, ConsentStatus, MediaWorkflowStatus } from "./media-types";
 import { displayMediaWorkflowStatus, resolveMediaAssetName } from "./media-types";
 import { createMediaFactoryHandoff, MEDIA_FACTORY_HANDOFF_KEY } from "./media-factory-handoff";
 import { analyzeMediaWithProvider, fetchGeminiIntegrationStatus, type GeminiIntegrationStatus } from "./media-gemini-adapter";
@@ -34,14 +34,14 @@ async function callRpc(session: ControlSession, rpcName: string, body: Record<st
 export function parseMediaAssetRecords(value: unknown): MediaAssetRecord[] {
   const parsed = z.array(z.object({
     id: z.string().uuid(),
-    assetType: z.enum(["image", "video", "logo", "other"]),
-    source: z.enum(["upload", "ai_generated", "external"]),
+    assetType: z.enum(["image", "video", "document", "audio"]),
+    source: z.enum(["upload", "generated", "external", "stock"]),
     storagePath: z.string().nullable(),
     category: z.string().optional(),
-    mediaStatus: z.string().optional(),
-    aiAnalysisStatus: z.string().optional(),
-    publishabilityStatus: z.string().optional(),
-    consentStatus: z.string().optional(),
+    mediaStatus: z.enum(["pending", "ready", "processing", "failed"]).optional(),
+    aiAnalysisStatus: z.enum(["pending", "analyzed", "failed", "skipped"]).optional(),
+    publishabilityStatus: z.enum(["pending", "cleared", "blocked", "review", "ready_for_review"]).nullable().optional(),
+    consentStatus: z.enum(["pending", "granted", "denied", "expired", "consent_confirmed"]).nullable().optional(),
     suggestedPlatforms: z.array(z.string()).optional(),
     suggestedFormats: z.array(z.string()).optional(),
     aiNotes: z.string().optional(),
@@ -59,10 +59,10 @@ export function parseMediaAssetRecords(value: unknown): MediaAssetRecord[] {
     previewUrl: typeof row.previewUrl === "string" ? row.previewUrl : null,
     folder: typeof row.folder === "string" ? row.folder : typeof row.metadata?.folder === "string" ? row.metadata.folder : "",
     category: normalizeMediaCategory(row.category),
-    mediaStatus: (row.mediaStatus ?? "unclassified") as MediaAssetRecord["mediaStatus"],
-    aiAnalysisStatus: (row.aiAnalysisStatus ?? "not_started") as MediaAssetRecord["aiAnalysisStatus"],
+    mediaStatus: (row.mediaStatus ?? "pending") as MediaAssetRecord["mediaStatus"],
+    aiAnalysisStatus: (row.aiAnalysisStatus ?? "pending") as MediaAssetRecord["aiAnalysisStatus"],
     publishabilityStatus: (row.publishabilityStatus ?? "blocked") as MediaAssetRecord["publishabilityStatus"],
-    consentStatus: (row.consentStatus ?? "unknown") as ConsentStatus,
+    consentStatus: row.consentStatus ?? null,
     suggestedPlatforms: row.suggestedPlatforms ?? [],
     suggestedFormats: row.suggestedFormats ?? [],
     aiNotes: row.aiNotes ?? "",
@@ -195,7 +195,7 @@ export function MediaAssetControls({
     ? "تعذر إكمال العملية. لم يتم تأكيد حفظ التغيير؛ حاول مرة أخرى."
     : "The action could not be completed. The change was not confirmed as saved; please try again.";
 
-  async function update(fields: { category?: MediaCategory; consent_status?: ConsentStatus; media_status?: MediaAssetRecord["mediaStatus"] }) {
+  async function update(fields: { category?: MediaCategory; consent_status?: ConsentStatus; media_status?: MediaWorkflowStatus }) {
     if (!canWrite || busy) return;
     setActionNotice("");
     try {
@@ -203,7 +203,7 @@ export function MediaAssetControls({
       await callRpc(session, rpcName, {
         p_media_asset_id: asset.id,
         ...(fields.category ? { p_category: fields.category } : {}),
-        ...(fields.consent_status ? { p_consent_status: fields.consent_status } : {}),
+        ...(fields.consent_status !== undefined ? { p_consent_status: fields.consent_status } : {}),
         ...(fields.media_status ? { p_media_status: fields.media_status } : {}),
       });
       onChanged();
@@ -272,19 +272,31 @@ export function MediaAssetControls({
       <label>{labels.consentLabel}
         <select
           disabled={!canWrite || busy}
-          value={asset.consentStatus}
-          onChange={(event) => void update({ consent_status: event.target.value as ConsentStatus })}
+          value={asset.consentStatus ?? ""}
+          onChange={(event) => {
+            const value = event.target.value;
+            if (value) void update({ consent_status: value as Exclude<ConsentStatus, null> });
+          }}
         >
-          {(["unknown", "consent_required", "consent_confirmed", "no_consent"] as ConsentStatus[]).map((status) => (
+          <option value="">{labels.consent_not_recorded}</option>
+          {(["pending", "granted", "denied", "expired", "consent_confirmed"] as const).map((status) => (
             <option key={status} value={status}>{labels[`consent_${status}`] ?? status}</option>
           ))}
         </select>
       </label>
+      <label>{labels.mediaStatusLabel}
+        <select
+          disabled={!canWrite || busy}
+          value={asset.mediaStatus}
+          onChange={(event) => void update({ media_status: event.target.value as MediaWorkflowStatus })}
+        >
+          {(["pending", "ready", "processing", "failed"] as const).map((status) => (
+            <option key={status} value={status}>{labels[`workflow_${status}`] ?? status}</option>
+          ))}
+        </select>
+      </label>
       <div className="media-control-actions">
-        <button type="button" disabled={!canWrite || busy} onClick={() => void update({ media_status: "approved" })}>{labels.approveMedia}</button>
         <button type="button" className="secondary" disabled={!canWrite || busy} onClick={useInFactory}>{labels.useInFactory ?? "Use in Content Factory"}</button>
-        <button type="button" className="secondary" disabled={!canWrite || busy} onClick={() => void update({ media_status: "rejected" })}>{labels.rejectMedia}</button>
-        <button type="button" className="secondary" disabled={!canWrite || busy} onClick={() => void update({ media_status: "unsuitable" })}>{labels.unsuitableMedia}</button>
         <button type="button" disabled={!canWrite || busy || asset.category !== "swimming_business"} onClick={() => void runAnalysis()}>{labels.analyzeMedia}</button>
       </div>
       {analysis && (

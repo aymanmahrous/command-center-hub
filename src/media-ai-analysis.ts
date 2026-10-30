@@ -1,4 +1,4 @@
-import type { MediaAssetRecord, MediaCategory, AiSuitabilityVerdict } from "./media-types";
+import type { MediaAssetRecord, MediaCategory, AiSuitabilityVerdict, ConsentStatus, MediaWorkflowStatus } from "./media-types";
 import { derivePublishability } from "./media-types";
 
 export type MediaAnalysisResult = {
@@ -143,15 +143,15 @@ export function analyzeMediaLocally(asset: Pick<MediaAssetRecord, "assetType" | 
   };
 }
 
-export function analysisConsentHint(analysis: MediaAnalysisResult): "unknown" | "consent_required" | "consent_confirmed" | "no_consent" {
-  if (analysis.containsChildrenGuess === "possible") return "consent_required";
-  return "unknown";
+export function analysisConsentHint(analysis: MediaAnalysisResult): ConsentStatus {
+  if (analysis.containsChildrenGuess === "possible") return "pending";
+  return null;
 }
 
 export function analysisPublishability(
   category: MediaCategory,
-  consentStatus: ReturnType<typeof analysisConsentHint>,
-  mediaStatus: "unclassified" | "approved" | "rejected" | "unsuitable",
+  consentStatus: ConsentStatus,
+  mediaStatus: MediaWorkflowStatus,
 ) {
   return derivePublishability(category, consentStatus, mediaStatus);
 }

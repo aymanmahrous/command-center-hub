@@ -207,7 +207,7 @@ Deno.serve(async (request) => {
     .insert({
       created_by: staff.staffId,
       asset_type: "image",
-      source: "ai_generated",
+      source: "generated",
       storage_path: storagePath,
       provider: "google_gemini",
       prompt,
@@ -226,10 +226,10 @@ Deno.serve(async (request) => {
         analysisProvider: "google_gemini",
       },
       category: "swimming_business",
-      media_status: "unclassified",
-      ai_analysis_status: "completed",
-      publishability_status: "ready_for_review",
-      consent_status: "consent_confirmed",
+      media_status: "ready",
+      ai_analysis_status: "skipped",
+      publishability_status: "blocked",
+      consent_status: "pending",
       updated_at: new Date().toISOString(),
     })
     .select("id")

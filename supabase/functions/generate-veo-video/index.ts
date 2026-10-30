@@ -157,7 +157,7 @@ async function storeVideo(
     .insert({
       created_by: staffId,
       asset_type: "video",
-      source: "ai_generated",
+      source: "generated",
       storage_path: storagePath,
       provider: "google_veo",
       provider_job_id: operationName,
@@ -180,10 +180,10 @@ async function storeVideo(
         analysisProvider: "google_veo",
       },
       category: "swimming_business",
-      media_status: "unclassified",
-      ai_analysis_status: "completed",
-      publishability_status: "ready_for_review",
-      consent_status: "consent_confirmed",
+      media_status: "ready",
+      ai_analysis_status: "skipped",
+      publishability_status: "blocked",
+      consent_status: "pending",
       updated_at: new Date().toISOString(),
     })
     .select("id")

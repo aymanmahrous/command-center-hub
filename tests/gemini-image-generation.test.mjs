@@ -56,9 +56,12 @@ test("target content is validated before the billable Google image request", () 
 });
 
 test("generated image is stored as a reviewable asset, not published", () => {
-  assert.match(edge, /source: "ai_generated"/);
+  assert.match(edge, /source: "generated"/);
   assert.match(edge, /provider: "google_gemini"/);
-  assert.match(edge, /publishability_status: "ready_for_review"/);
+  assert.match(edge, /media_status: "ready"/);
+  assert.match(edge, /ai_analysis_status: "skipped"/);
+  assert.match(edge, /publishability_status: "blocked"/);
+  assert.match(edge, /consent_status: "pending"/);
   assert.match(edge, /reviewRequired: true/);
   assert.doesNotMatch(edge, /media_status: "published"|status: "published"/);
 });
