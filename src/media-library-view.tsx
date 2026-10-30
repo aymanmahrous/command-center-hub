@@ -21,7 +21,7 @@ const MediaAssetSchema = z.object({
   assetType: z.enum(["image", "video", "document", "audio"]), source: z.enum(["upload", "generated", "external", "stock"]),
   storagePath: z.string().nullable(), provider: z.string().nullable(), providerJobId: z.string().nullable(),
   prompt: z.string().nullable(), metadata: z.record(z.unknown()), createdAt: z.string(),
-  category: z.enum(["swimming_business", "family_personal", "other_business", "other", "unclassified"]).optional(),
+  category: z.string().optional(),
   mediaStatus: z.enum(["pending", "ready", "processing", "failed"]).optional(),
   aiAnalysisStatus: z.enum(["pending", "analyzed", "failed", "skipped"]).optional(),
   publishabilityStatus: z.enum(["pending", "cleared", "blocked", "review", "ready_for_review"]).nullable().optional(), consentStatus: z.enum(["pending", "granted", "denied", "expired", "consent_confirmed"]).nullable().optional(),
