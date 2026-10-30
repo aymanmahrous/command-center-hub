@@ -157,7 +157,7 @@ async function storeVideo(
     .insert({
       created_by: staffId,
       asset_type: "video",
-      source: "ai_generated",
+      source: "generated",
       storage_path: storagePath,
       provider: "google_veo",
       provider_job_id: operationName,
