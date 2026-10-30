@@ -7,33 +7,33 @@ import type { Dictionary, Language } from "./i18n";
 import MediaLibraryUploadPanel from "./media-library-upload";
 import { MediaAssetControls, MediaProviderStrip, parseMediaAssetRecords } from "./media-library-controls";
 import MediaSourceHubView from "./media-source-hub-view";
-import type { MediaCategory } from "./media-types";
+import type { MediaAssetRecord, MediaCategory } from "./media-types";
 import { MEDIA_CATEGORIES } from "./media-types";
 import { fetchStaffMediaSignedUrl, openStaffMediaAsset } from "./staff-media-storage";
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
-type MediaAssetType = "image" | "video" | "logo" | "other";
-type MediaSource = "upload" | "ai_generated" | "external";
+type MediaAssetType = MediaAssetRecord["assetType"];
+type MediaSource = MediaAssetRecord["source"];
 type MediaLibrarySession = { accessToken: string };
 
 const MediaAssetSchema = z.object({
   id: z.string().uuid(), createdBy: z.string().uuid().nullable(), contentItemId: z.string().uuid().nullable(),
-  assetType: z.enum(["image", "video", "logo", "other"]), source: z.enum(["upload", "ai_generated", "external"]),
+  assetType: z.enum(["image", "video", "document", "audio"]), source: z.enum(["upload", "generated", "external", "stock"]),
   storagePath: z.string().nullable(), provider: z.string().nullable(), providerJobId: z.string().nullable(),
   prompt: z.string().nullable(), metadata: z.record(z.unknown()), createdAt: z.string(),
   category: z.string().optional(), mediaStatus: z.string().optional(), aiAnalysisStatus: z.string().optional(),
-  publishabilityStatus: z.string().optional(), consentStatus: z.string().optional(),
+  publishabilityStatus: z.enum(["pending", "cleared", "blocked", "review", "ready_for_review"]).nullable().optional(), consentStatus: z.enum(["pending", "granted", "denied", "expired", "consent_confirmed"]).nullable().optional(),
   suggestedPlatforms: z.array(z.string()).optional(), suggestedFormats: z.array(z.string()).optional(),
   aiNotes: z.string().optional(), updatedAt: z.string().nullable().optional(),
 }).passthrough();
 
 const mediaTypeLabels: Record<Language, Record<MediaAssetType, string>> = {
-  ar: { image: "صورة", video: "فيديو", logo: "شعار", other: "مستند" },
-  en: { image: "Image", video: "Video", logo: "Logo", other: "Document" },
+  ar: { image: "صورة", video: "فيديو", document: "مستند", audio: "صوت" },
+  en: { image: "Image", video: "Video", document: "Document", audio: "Audio" },
 };
 const mediaSourceLabels: Record<Language, Record<MediaSource, string>> = {
-  ar: { upload: "رفع موظف", ai_generated: "مولّد بالذكاء الاصطناعي", external: "مصدر خارجي" },
-  en: { upload: "Staff upload", ai_generated: "AI generated", external: "External source" },
+  ar: { upload: "رفع موظف", generated: "مولّد", external: "مصدر خارجي", stock: "مخزون" },
+  en: { upload: "Staff upload", generated: "Generated", external: "External source", stock: "Stock" },
 };
 
 function formatBookingDateTime(language: Language, value: string) {
@@ -50,7 +50,8 @@ function mediaFileName(language: Language, copy: Dictionary["media"], storagePat
 
 function mediaPreviewHint(language: Language, copy: Dictionary["media"], assetType: MediaAssetType) {
   if (assetType === "video") return language === "ar" ? "معاينة خاصة غير مكشوفة" : "Private preview, not disclosed";
-  if (assetType === "other") return copy.documentPreviewPrivate;
+  if (assetType === "document") return copy.documentPreviewPrivate;
+  if (assetType === "audio") return copy.audioPreviewPrivate;
   return language === "ar" ? "معاينة خاصة غير مكشوفة" : "Private preview, not disclosed";
 }
 
@@ -95,10 +96,10 @@ function MediaAssetPreview({
   const externalUrl = asset.source === "external" && typeof asset.metadata.external_web_url === "string" && asset.metadata.external_web_url.startsWith("https://")
     ? asset.metadata.external_web_url
     : null;
-  const canPreviewImage = Boolean(asset.storagePath) && (asset.assetType === "image" || asset.assetType === "logo");
+  const canPreviewImage = Boolean(asset.storagePath) && asset.assetType === "image";
   const canPreviewVideo = Boolean(asset.storagePath) && asset.assetType === "video";
   const canPreviewMedia = canPreviewImage || canPreviewVideo;
-  const isDocument = asset.assetType === "other";
+  const isDocument = asset.assetType === "document";
 
   useEffect(() => {
     if (!canPreviewMedia || !asset.storagePath) {
@@ -201,7 +202,7 @@ export default function MediaLibraryView({
   const [categoryFilter, setCategoryFilter] = useState<MediaCategory | "all">("all");
   const assets = parsed.success ? parsed.data : [];
   const counts = useMemo(() => {
-    const initial: Record<MediaAssetType, number> = { image: 0, video: 0, logo: 0, other: 0 };
+    const initial: Record<MediaAssetType, number> = { image: 0, video: 0, document: 0, audio: 0 };
     for (const asset of assets) initial[asset.assetType] += 1;
     return initial;
   }, [assets]);
@@ -226,9 +227,8 @@ export default function MediaLibraryView({
   const controlLabels = useMemo(() => ({
     categoryLabel: copy.categoryLabel,
     consentLabel: copy.consentLabel,
-    approveMedia: copy.approveMedia,
-    rejectMedia: copy.rejectMedia,
-    unsuitableMedia: copy.unsuitableMedia,
+    consent_not_recorded: copy.consent_not_recorded,
+    mediaStatusLabel: copy.mediaStatusLabel,
     analyzeMedia: copy.analyzeMedia,
     useInFactory: language === "ar" ? "استخدام في مصنع المحتوى" : "Use in Content Factory",
     publishabilityLabel: copy.publishabilityLabel,
@@ -244,10 +244,10 @@ export default function MediaLibraryView({
     suggestedCropLabel: copy.suggestedCropLabel,
     suggestedEditLabel: copy.suggestedEditLabel,
     reelSegmentLabel: copy.reelSegmentLabel,
-    ...Object.fromEntries(["pending_review", "reviewed", "approved", "rejected", "unsuitable"].map((status) => [`workflow_${status}`, copy[`workflow_${status}` as keyof typeof copy] ?? status])),
+    ...Object.fromEntries(["pending", "ready", "processing", "failed"].map((status) => [`workflow_${status}`, copy[`workflow_${status}` as keyof typeof copy] ?? status])),
     ...Object.fromEntries(["good", "needs_review", "unsuitable"].map((verdict) => [`aiVerdict_${verdict}`, copy[`aiVerdict_${verdict}` as keyof typeof copy] ?? verdict])),
     ...Object.fromEntries(MEDIA_CATEGORIES.map((category) => [`category_${category}`, categoryLabels[category]])),
-    ...Object.fromEntries(["unknown", "consent_required", "consent_confirmed", "no_consent"].map((status) => [`consent_${status}`, copy[`consent_${status}` as keyof typeof copy] ?? status])),
+    ...Object.fromEntries(["pending", "granted", "denied", "expired", "consent_confirmed"].map((status) => [`consent_${status}`, copy[`consent_${status}` as keyof typeof copy] ?? status])),
   }), [categoryLabels, copy]);
 
   if (!parsed.success) return <div className="error-box">{copy.invalidFormat}</div>;
