@@ -56,7 +56,7 @@ test("target content is validated before the billable Google image request", () 
 });
 
 test("generated image is stored as a reviewable asset, not published", () => {
-  assert.match(edge, /source: "ai_generated"/);
+  assert.match(edge, /source: "generated"/);
   assert.match(edge, /provider: "google_gemini"/);
   assert.match(edge, /publishability_status: "ready_for_review"/);
   assert.match(edge, /reviewRequired: true/);
