@@ -65,8 +65,8 @@ type ConversationMode = "ai_active" | "human_required" | "human_takeover" | "pau
 type ContentStatus = "idea" | "draft" | "generated" | "needs_review" | "approved" | "scheduled" | "published" | "failed" | "cancelled";
 type ContentFactoryTab = "overview" | "strategy" | "factory" | "content" | "designs" | "reels" | "campaigns" | "review" | "connections";
 type ContentAction = "approve" | "return_to_review" | "schedule" | "unschedule";
-type MediaAssetType = "image" | "video" | "logo" | "other";
-type MediaSource = "upload" | "ai_generated" | "external";
+type MediaAssetType = "image" | "video" | "document" | "audio";
+type MediaSource = "upload" | "generated" | "external" | "stock";
 type JobStatus = "queued" | "processing" | "completed" | "failed" | "retrying" | "dead";
 
 // `command` is a historical URL alias. ControlTowerV2 is the single owner decision gateway.
