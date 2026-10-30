@@ -6,7 +6,7 @@ const mediaMigration = await readFile(
   new URL("../supabase/migrations/20260911143000_media_library_pipeline.sql", import.meta.url),
   "utf8",
 );
-const batchMigration = await readFile(
+const lifecycleMigration = await readFile(\n  new URL("../supabase/migrations/20261030150000_align_media_lifecycle_schema_contract.sql", import.meta.url),\n  "utf8",\n);\nconst batchMigration = await readFile(
   new URL("../supabase/migrations/20260911143100_content_batch_media_linkage.sql", import.meta.url),
   "utf8",
 );
@@ -23,4 +23,12 @@ test("content batch media linkage validates publishable swimming media", () => {
   assert.match(batchMigration, /MEDIA_ASSET_NOT_PUBLISHABLE/);
   assert.match(batchMigration, /swimming_business/);
   assert.doesNotMatch(batchMigration, /\bDROP\b|\bTRUNCATE\b/i);
+});
+
+test("media lifecycle migration writes only values accepted by the QA schema", () => {
+  assert.match(lifecycleMigration, /media_status[^;]*'pending','ready','processing','failed'/s);
+  assert.match(lifecycleMigration, /ai_analysis_status = 'analyzed'/);
+  assert.match(lifecycleMigration, /'pending','granted','denied','expired','consent_confirmed'/);
+  assert.match(lifecycleMigration, /publishability_status = v_publishability/);
+  assert.doesNotMatch(lifecycleMigration, /'completed'|'not_started'|'unknown'|'consent_required'|'unsuitable'/);
 });
