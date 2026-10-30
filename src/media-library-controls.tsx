@@ -37,7 +37,7 @@ export function parseMediaAssetRecords(value: unknown): MediaAssetRecord[] {
     assetType: z.enum(["image", "video", "document", "audio"]),
     source: z.enum(["upload", "generated", "external", "stock"]),
     storagePath: z.string().nullable(),
-    category: z.enum(["swimming_business", "family_personal", "other_business", "other", "unclassified"]).optional(),
+    category: z.string().optional(),
     mediaStatus: z.enum(["pending", "ready", "processing", "failed"]).optional(),
     aiAnalysisStatus: z.enum(["pending", "analyzed", "failed", "skipped"]).optional(),
     publishabilityStatus: z.enum(["pending", "cleared", "blocked", "review", "ready_for_review"]).nullable().optional(),
