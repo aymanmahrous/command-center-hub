@@ -39,8 +39,7 @@ BEGIN
 
   v_consent_not_applicable :=
     (
-      v_asset.source <> 'generated'
-      AND v_asset.metadata->>'consentApplicability' = 'not_applicable_no_real_person'
+      v_asset.metadata->>'consentApplicability' = 'not_applicable_no_real_person'
       AND v_asset.metadata->'containsRealPerson' = 'false'::jsonb
       AND nullif(v_asset.metadata->>'personPresenceReviewedAt', '') IS NOT NULL
       AND nullif(v_asset.metadata->>'personPresenceReviewedBy', '') IS NOT NULL
