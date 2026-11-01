@@ -9,6 +9,7 @@ import { CANVA_OPEN_URL, canvaConnectErrorMessage, fetchCanvaIntegrationStatus, 
 import { readStoredMediaAnalysis, type MediaAnalysisResult } from "./media-ai-analysis";
 import { displayProviderStatus, readMediaProviderStatuses } from "./media-providers";
 import { normalizeMediaCategory } from "./media-types";
+import { normalizeLegacyMediaAssetRows } from "./media-legacy-compat";
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
 const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
@@ -37,14 +38,16 @@ async function callRpc(session: ControlSession, rpcName: string, body: Record<st
 }
 
 export function parseMediaAssetRecords(value: unknown): MediaAssetRecord[] {
+  const normalizedValue = normalizeLegacyMediaAssetRows(value);
+
   const parsed = z.array(z.object({
     id: z.string().uuid(),
-    assetType: z.enum(["image", "video", "document", "audio"]),
+    assetType: z.enum(["image", "video", "document", "audio", "other"]),
     source: z.enum(["upload", "generated", "external", "stock"]),
     storagePath: z.string().nullable(),
-    category: z.string().optional(),
-    mediaStatus: z.enum(["pending", "ready", "processing", "failed"]).optional(),
-    aiAnalysisStatus: z.enum(["pending", "analyzed", "failed", "skipped"]).optional(),
+    category: z.string().nullable().optional(),
+    mediaStatus: z.enum(["pending", "ready", "processing", "failed"]).nullable().optional(),
+    aiAnalysisStatus: z.enum(["pending", "analyzed", "failed", "skipped"]).nullable().optional(),
     publishabilityStatus: z.enum(["pending", "cleared", "blocked", "review", "ready_for_review"]).nullable().optional(),
     consentStatus: z.enum(["pending", "granted", "denied", "expired", "consent_confirmed"]).nullable().optional(),
     suggestedPlatforms: z.array(z.string()).optional(),
@@ -54,7 +57,7 @@ export function parseMediaAssetRecords(value: unknown): MediaAssetRecord[] {
     contentItemId: z.string().uuid().nullable().optional(),
     createdAt: z.string(),
     updatedAt: z.string().nullable().optional(),
-  }).passthrough()).safeParse(value);
+  }).passthrough()).safeParse(normalizedValue);
   if (!parsed.success) return [];
   return parsed.data.map((row) => ({
     ...row,

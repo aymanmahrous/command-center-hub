@@ -42,7 +42,13 @@ test("media lifecycle migration writes only values accepted by the QA schema", (
   assert.match(lifecycleMigration, /ai_analysis_status = 'analyzed'/);
   assert.match(lifecycleMigration, /'pending','granted','denied','expired','consent_confirmed'/);
   assert.match(lifecycleMigration, /publishability_status = v_publishability/);
-  assert.doesNotMatch(lifecycleMigration, /'completed'|'not_started'|'unknown'|'consent_required'/);
+  assert.match(lifecycleMigration, /WHEN 'unknown' THEN 'pending'/);
+  assert.match(lifecycleMigration, /WHEN 'consent_required' THEN 'pending'/);
+  assert.match(lifecycleMigration, /WHEN 'no_consent' THEN 'denied'/);
+  assert.match(lifecycleMigration, /WHEN 'unclassified' THEN 'pending'/);
+  assert.match(lifecycleMigration, /WHEN 'approved' THEN 'pending'/);
+  assert.match(lifecycleMigration, /ai_analysis_status = 'analyzed'/);
+  assert.doesNotMatch(lifecycleMigration, /ai_analysis_status\\s*=\\s*'completed'|media_status\\s*=\\s*'approved'/);
 });
 
 test("content approval uses an allowed audit actor and external media uses schema-safe defaults", () => {
