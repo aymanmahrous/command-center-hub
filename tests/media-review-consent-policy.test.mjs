@@ -59,7 +59,7 @@ test("person-presence review is distinct from consent and applies to uploaded me
   assert.match(personPresenceMigration, /'consent_required'/);
   assert.match(personPresenceMigration, /IS NOT TRUE/);
   assert.match(personPresenceMigration, /WHEN v_asset\.media_status = 'ready'/);
-  assert.match(personPresenceMigration, /THEN 'ready_for_review'/);
+  assert.match(personPresenceMigration, /v_publishability := 'ready_for_review'/);
   assert.match(personPresenceMigration, /'containsRealPerson', p_contains_real_person/);
   assert.match(personPresenceMigration, /'media_person_presence_reviewed'/);
   assert.match(personPresenceMigration, /REVOKE ALL ON FUNCTION public\.attest_media_person_presence\(uuid, boolean\) FROM PUBLIC, anon/);
@@ -85,5 +85,5 @@ test("AI analysis preserves the audited no-real-person consent exemption", () =>
   assert.match(analysisPolicyMigration, /consent_confirmed/);
   assert.match(analysisPolicyMigration, /suitabilityVerdict/);
   assert.match(analysisPolicyMigration, /THEN 'ready_for_review'/);
-  assert.match(analysisPolicyMigration, /ELSE 'blocked'/);
+  assert.match(analysisPolicyMigration, /v_publishability := 'blocked'/);
 });
