@@ -279,7 +279,7 @@ BEGIN
     RAISE EXCEPTION 'STAFF_ACCESS_DENIED' USING errcode = '42501';
   END IF;
 
-  IF v_status NOT IN ('pending_review','approved','rejected','unsuitable') THEN
+  IF v_status IS NULL OR v_status NOT IN ('pending_review','approved','rejected','unsuitable') THEN
     RETURN jsonb_build_object('success', false, 'code', 'INVALID_REVIEW_STATUS');
   END IF;
 
