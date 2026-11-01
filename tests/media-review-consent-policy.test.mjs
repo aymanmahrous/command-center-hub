@@ -39,10 +39,10 @@ test("internal review outcomes are stored separately from CHECK-constrained medi
   assert.match(controls, /asset\.mediaStatus === "ready"/);
 });
 
-test("synthetic attestation UI is only offered for generated media and is explicit", () => {
-  assert.match(controls, /asset\.source === "generated"/);
-  assert.match(controls, /attest_generated_media_synthetic/);
-  assert.match(controls, /no real-person photo or likeness|بلا شخص حقيقي/);
+test("person-presence UI is explicit and does not claim to record consent", () => {
+  assert.match(controls, /asset\.assetType === "image" \|\| asset\.assetType === "video"/);
+  assert.match(controls, /attest_media_person_presence/);
+  assert.match(controls, /This is not a person's consent|هذا ليس موافقة شخص/);
 });
 
 test("media link gate remains review-only and never publishes content", () => {
