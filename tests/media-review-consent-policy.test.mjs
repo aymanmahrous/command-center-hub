@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const migration = await readFile(
-  new URL("../supabase/migrations/20261101090000_restore_media_internal_review_and_generated_consent_policy.sql", import.meta.url),
+  new URL("../supabase/migrations/20261101051009_restore_media_internal_review_and_generated_consent_policy.sql", import.meta.url),
   "utf8",
 );
 const controls = await readFile(new URL("../src/media-library-controls.tsx", import.meta.url), "utf8");
