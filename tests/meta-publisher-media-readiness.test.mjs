@@ -6,6 +6,10 @@ const migration = await readFile(
   new URL("../supabase/migrations/20261101070000_enforce_media_review_before_publish.sql", import.meta.url),
   "utf8",
 );
+const receiptMigration = await readFile(
+  new URL("../supabase/migrations/20261101070500_guard_pending_publication_receipts.sql", import.meta.url),
+  "utf8",
+);
 const publisher = await readFile(
   new URL("../supabase/functions/safe-content-publisher/index.ts", import.meta.url),
   "utf8",
