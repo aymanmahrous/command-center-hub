@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseMediaAssetRecords } from "../src/media-library-controls.tsx";
+import { normalizeLegacyMediaAssetRows, parseMediaAssetRecords } from "../src/media-library-controls.tsx";
 
 const legacyRows = [
   {
@@ -52,4 +52,11 @@ test("legacy approved and unknown consent values never become publish approval",
   assert.equal(parsed[1].publishabilityStatus, "ready_for_review");
   assert.equal(parsed[1].metadata.legacy_media_status, "approved");
   assert.equal(parsed[1].metadata.legacy_consent_status, "unknown");
+});
+
+test("the strict Media Library view receives normalized rows before validation", () => {
+  const normalized = normalizeLegacyMediaAssetRows(legacyRows);
+  assert.ok(Array.isArray(normalized));
+  assert.equal(normalized.length, 2);
+  assert.equal(parseMediaAssetRecords(normalized).length, 2);
 });
