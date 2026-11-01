@@ -114,10 +114,10 @@ export function derivePublishability(
   consentStatus: ConsentStatus,
   mediaStatus: MediaWorkflowStatus,
   suitabilityVerdict?: AiSuitabilityVerdict,
-  consentNotApplicableSynthetic = false,
+  consentNotApplicableForAsset = false,
 ): Exclude<PublishabilityStatus, null> {
   if (MARKETING_BLOCKED_CATEGORIES.has(category)) return "blocked";
   if (mediaStatus !== "ready" || suitabilityVerdict === "unsuitable") return "blocked";
-  if (category === "swimming_business" && !consentNotApplicableSynthetic && consentStatus !== "consent_confirmed") return "blocked";
+  if (category === "swimming_business" && !consentNotApplicableForAsset && consentStatus !== "consent_confirmed") return "blocked";
   return "ready_for_review";
 }
