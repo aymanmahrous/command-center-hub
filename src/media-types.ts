@@ -78,11 +78,15 @@ export function displayMediaWorkflowStatus(
 }
 
 export function canUseInMarketingBatch(
-  asset: Pick<MediaAssetRecord, "category" | "consentStatus" | "publishabilityStatus" | "mediaStatus">,
+  asset: Pick<MediaAssetRecord, "category" | "consentStatus" | "publishabilityStatus" | "mediaStatus" | "source" | "metadata">,
 ): boolean {
   if (!isMarketingEligibleCategory(asset.category)) return false;
   if (asset.mediaStatus !== "ready") return false;
-  if (asset.category === "swimming_business" && asset.consentStatus !== "consent_confirmed") return false;
+  if (
+    asset.category === "swimming_business"
+    && asset.consentStatus !== "consent_confirmed"
+    && !isSyntheticConsentExempt(asset.source, asset.metadata)
+  ) return false;
   return asset.publishabilityStatus === "ready_for_review";
 }
 
