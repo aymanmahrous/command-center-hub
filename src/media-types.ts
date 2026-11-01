@@ -85,9 +85,18 @@ export function canUseInMarketingBatch(
   if (
     asset.category === "swimming_business"
     && asset.consentStatus !== "consent_confirmed"
-    && !isSyntheticConsentExempt(asset.source, asset.metadata)
+    && !isConsentNotApplicable(asset.source, asset.metadata)
   ) return false;
   return asset.publishabilityStatus === "ready_for_review";
+}
+
+export function isConsentNotApplicable(
+  source: MediaSourceKind,
+  metadata: Record<string, unknown>,
+): boolean {
+  return ["upload", "generated", "external", "stock"].includes(source)
+    && ["not_applicable_synthetic", "not_applicable_no_real_person"].includes(String(metadata.consentApplicability ?? ""))
+    && metadata.containsRealPerson === false;
 }
 
 export function isSyntheticConsentExempt(
