@@ -22,6 +22,9 @@ export function normalizeLegacyMediaAssetRows(value: unknown): unknown {
   if (mediaStatus === "approved" || mediaStatus === "unclassified") {
     rememberLegacy("media_status", mediaStatus);
     mediaStatus = "pending";
+  } else if (mediaStatus === "rejected" || mediaStatus === "unsuitable") {
+    rememberLegacy("media_status", mediaStatus);
+    mediaStatus = "failed";
   }
   let aiAnalysisStatus = row.aiAnalysisStatus;
   if (aiAnalysisStatus === "completed") {
@@ -32,7 +35,7 @@ export function normalizeLegacyMediaAssetRows(value: unknown): unknown {
     aiAnalysisStatus = "pending";
   }
   let publishabilityStatus = row.publishabilityStatus;
-  if (publishabilityStatus === "consent_required") {
+  if (publishabilityStatus === "consent_required" || publishabilityStatus === "unsuitable") {
     rememberLegacy("publishability_status", publishabilityStatus);
     publishabilityStatus = "blocked";
   }
@@ -40,6 +43,9 @@ export function normalizeLegacyMediaAssetRows(value: unknown): unknown {
   if (consentStatus === "unknown" || consentStatus === "consent_required") {
     rememberLegacy("consent_status", consentStatus);
     consentStatus = "pending";
+  } else if (consentStatus === "no_consent") {
+    rememberLegacy("consent_status", consentStatus);
+    consentStatus = "denied";
   }
 
   return { ...row, assetType, source, mediaStatus, aiAnalysisStatus, publishabilityStatus, consentStatus, metadata };
