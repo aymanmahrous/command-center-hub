@@ -75,7 +75,7 @@ const analysisPolicyMigration = await readFile(
 );
 
 test("AI analysis preserves the audited no-real-person consent exemption", () => {
-  assert.match(analysisPolicyMigration, /CREATE OR REPLACE FUNCTION public\\.save_staff_media_ai_analysis/);
+  assert.match(analysisPolicyMigration, /CREATE OR REPLACE FUNCTION public\.save_staff_media_ai_analysis/);
   assert.match(analysisPolicyMigration, /consentApplicability' = 'not_applicable_no_real_person'/);
   assert.match(analysisPolicyMigration, /personPresenceReviewedAt/);
   assert.match(analysisPolicyMigration, /personPresenceReviewedBy/);
