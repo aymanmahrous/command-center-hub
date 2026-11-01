@@ -55,7 +55,8 @@ export function normalizeLegacyMediaAssetRows(value: unknown): unknown {
   }
 
   return { ...row, assetType, source, mediaStatus, aiAnalysisStatus, publishabilityStatus, consentStatus, metadata };
-}) : value;
+  }) : value;
+}
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
 const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
