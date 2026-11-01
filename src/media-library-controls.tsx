@@ -259,13 +259,13 @@ export function MediaAssetControls({
     }
   }
 
-  async function attestSynthetic() {
-    if (!canWrite || busy || asset.source !== "generated") return;
+  async function reviewPersonPresence(containsRealPerson: boolean) {
+    if (!canWrite || busy || (asset.assetType !== "image" && asset.assetType !== "video")) return;
     setActionNotice("");
     try {
-      await callRpc(session, "attest_generated_media_synthetic", {
+      await callRpc(session, "attest_media_person_presence", {
         p_media_asset_id: asset.id,
-        p_synthetic_no_real_person: true,
+        p_contains_real_person: containsRealPerson,
       });
       onChanged();
     } catch (cause) {
@@ -341,20 +341,35 @@ export function MediaAssetControls({
       <p className="media-status-line">
         {language === "ar" ? "المراجعة الداخلية" : "Internal review"}: {currentReviewStatus}
       </p>
-      {asset.source === "generated" && (
-        <button
-          type="button"
-          className="secondary"
-          disabled={!canWrite || busy || asset.metadata?.consentApplicability === "not_applicable_synthetic"}
-          onClick={() => void attestSynthetic()}
-          title={language === "ar"
-            ? "إقرار بأن الأصل مولّد للأكاديمية ولا يستخدم صورة أو شبه شخص حقيقي"
-            : "Attest this academy-generated asset uses no real-person photo or likeness"}
-        >
-          {asset.metadata?.consentApplicability === "not_applicable_synthetic"
-            ? (language === "ar" ? "تم توثيق الأصل الاصطناعي" : "Synthetic asset attested")
-            : (language === "ar" ? "تأكيد أصل اصطناعي بلا شخص حقيقي" : "Attest synthetic / no real person")}
-        </button>
+      {(asset.assetType === "image" || asset.assetType === "video") && (
+        <>
+          <button
+            type="button"
+            className="secondary"
+            disabled={!canWrite || busy || (asset.metadata?.containsRealPerson === false && asset.metadata?.consentApplicability === "not_applicable_no_real_person")}
+            onClick={() => void reviewPersonPresence(false)}
+            title={language === "ar"
+              ? "تصنيف داخلي فقط: لا يظهر شخص حقيقي يمكن التعرف عليه. هذا ليس موافقة شخص."
+              : "Internal classification only: no identifiable real person is depicted. This is not a person's consent."}
+          >
+            {asset.metadata?.containsRealPerson === false && asset.metadata?.consentApplicability === "not_applicable_no_real_person"
+              ? (language === "ar" ? "تم توثيق عدم وجود شخص" : "No-person review recorded")
+              : (language === "ar" ? "لا يظهر شخص حقيقي" : "No identifiable person")}
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            disabled={!canWrite || busy || (asset.metadata?.containsRealPerson === true && asset.metadata?.consentApplicability === "consent_required")}
+            onClick={() => void reviewPersonPresence(true)}
+            title={language === "ar"
+              ? "تصنيف وجود شخص حقيقي. سيظل الوسيط محظورًا حتى تأكيد الموافقة المطلوبة."
+              : "Mark that a real person is depicted. The asset stays blocked until required consent is confirmed."}
+          >
+            {asset.metadata?.containsRealPerson === true
+              ? (language === "ar" ? "يوجد شخص — الموافقة مطلوبة" : "Person present — consent required")
+              : (language === "ar" ? "يوجد شخص حقيقي" : "Person present")}
+          </button>
+        </>
       )}
       <div className="media-control-actions">
         <button type="button" disabled={!canWrite || busy || !canApproveInternally || currentReviewStatus === "approved"} onClick={() => void review("approved")}>
