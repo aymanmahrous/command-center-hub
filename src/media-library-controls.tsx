@@ -37,14 +37,60 @@ async function callRpc(session: ControlSession, rpcName: string, body: Record<st
 }
 
 export function parseMediaAssetRecords(value: unknown): MediaAssetRecord[] {
+  // Normalize historical database vocabulary at the read boundary. Never promote
+  // legacy "approved" rows to publish-ready: they require fresh human review.
+  const normalizedValue = Array.isArray(value) ? value.map((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return item;
+    const row = item as Record<string, unknown>;
+    const metadata = row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+      ? { ...(row.metadata as Record<string, unknown>) }
+      : {};
+    const rememberLegacy = (key: string, legacy: unknown) => {
+      if (typeof legacy === "string" && legacy.length > 0) metadata[`legacy_${key}`] = legacy;
+    };
+
+    let assetType = row.assetType;
+    if (assetType === "other") rememberLegacy("asset_type", assetType);
+    let source = row.source;
+    if (source === "ai_generated") {
+      rememberLegacy("source", source);
+      source = "generated";
+    }
+    let mediaStatus = row.mediaStatus;
+    if (mediaStatus === "approved" || mediaStatus === "unclassified") {
+      rememberLegacy("media_status", mediaStatus);
+      mediaStatus = "pending";
+    }
+    let aiAnalysisStatus = row.aiAnalysisStatus;
+    if (aiAnalysisStatus === "completed") {
+      rememberLegacy("ai_analysis_status", aiAnalysisStatus);
+      aiAnalysisStatus = "analyzed";
+    } else if (aiAnalysisStatus === "not_started") {
+      rememberLegacy("ai_analysis_status", aiAnalysisStatus);
+      aiAnalysisStatus = "pending";
+    }
+    let publishabilityStatus = row.publishabilityStatus;
+    if (publishabilityStatus === "consent_required") {
+      rememberLegacy("publishability_status", publishabilityStatus);
+      publishabilityStatus = "blocked";
+    }
+    let consentStatus = row.consentStatus;
+    if (consentStatus === "unknown" || consentStatus === "consent_required") {
+      rememberLegacy("consent_status", consentStatus);
+      consentStatus = "pending";
+    }
+
+    return { ...row, assetType, source, mediaStatus, aiAnalysisStatus, publishabilityStatus, consentStatus, metadata };
+  }) : value;
+
   const parsed = z.array(z.object({
     id: z.string().uuid(),
-    assetType: z.enum(["image", "video", "document", "audio"]),
+    assetType: z.enum(["image", "video", "document", "audio", "other"]),
     source: z.enum(["upload", "generated", "external", "stock"]),
     storagePath: z.string().nullable(),
-    category: z.string().optional(),
-    mediaStatus: z.enum(["pending", "ready", "processing", "failed"]).optional(),
-    aiAnalysisStatus: z.enum(["pending", "analyzed", "failed", "skipped"]).optional(),
+    category: z.string().nullable().optional(),
+    mediaStatus: z.enum(["pending", "ready", "processing", "failed"]).nullable().optional(),
+    aiAnalysisStatus: z.enum(["pending", "analyzed", "failed", "skipped"]).nullable().optional(),
     publishabilityStatus: z.enum(["pending", "cleared", "blocked", "review", "ready_for_review"]).nullable().optional(),
     consentStatus: z.enum(["pending", "granted", "denied", "expired", "consent_confirmed"]).nullable().optional(),
     suggestedPlatforms: z.array(z.string()).optional(),
@@ -54,7 +100,7 @@ export function parseMediaAssetRecords(value: unknown): MediaAssetRecord[] {
     contentItemId: z.string().uuid().nullable().optional(),
     createdAt: z.string(),
     updatedAt: z.string().nullable().optional(),
-  }).passthrough()).safeParse(value);
+  }).passthrough()).safeParse(normalizedValue);
   if (!parsed.success) return [];
   return parsed.data.map((row) => ({
     ...row,
