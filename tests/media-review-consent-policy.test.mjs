@@ -70,7 +70,7 @@ test("person-presence review is distinct from consent and applies to uploaded me
 });
 
 const analysisPolicyMigration = await readFile(
-  new URL("../supabase/migrations/20261101063800_preserve_no_person_media_readiness_after_ai_analysis.sql", import.meta.url),
+  new URL("../supabase/migrations/20261101064240_preserve_no_person_media_readiness_after_ai_analysis.sql", import.meta.url),
   "utf8",
 );
 
