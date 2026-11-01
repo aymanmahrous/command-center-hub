@@ -401,3 +401,9 @@ BEGIN
     'consentApplicability', 'not_applicable_synthetic');
 END;
 $function$;
+
+-- New SECURITY DEFINER RPCs are executable only by authenticated users; role checks remain inside each function.
+REVOKE ALL ON FUNCTION public.review_staff_media_asset(uuid, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.review_staff_media_asset(uuid, text) TO authenticated;
+REVOKE ALL ON FUNCTION public.attest_generated_media_synthetic(uuid, boolean) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.attest_generated_media_synthetic(uuid, boolean) TO authenticated;
