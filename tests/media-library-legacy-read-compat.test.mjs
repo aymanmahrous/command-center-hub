@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeLegacyMediaAssetRows, parseMediaAssetRecords } from "../src/media-library-controls.tsx";
+import { readFile } from "node:fs/promises";
+import { normalizeLegacyMediaAssetRows } from "../src/media-legacy-compat.ts";
 
 const legacyRows = [
   {
@@ -32,7 +33,8 @@ const legacyRows = [
 ];
 
 test("legacy media vocabulary is normalized without dropping library records", () => {
-  const parsed = parseMediaAssetRecords(legacyRows);
+  const parsed = normalizeLegacyMediaAssetRows(legacyRows);
+  assert.ok(Array.isArray(parsed));
   assert.equal(parsed.length, 2);
   assert.equal(parsed[0].source, "generated");
   assert.equal(parsed[0].mediaStatus, "pending");
@@ -44,8 +46,8 @@ test("legacy media vocabulary is normalized without dropping library records", (
   assert.equal(parsed[0].metadata.legacy_publishability_status, "consent_required");
 });
 
-test("legacy approved and unknown consent values never become publish approval", () => {
-  const parsed = parseMediaAssetRecords(legacyRows);
+test("legacy approved and unknown consent values never become workflow approval", () => {
+  const parsed = normalizeLegacyMediaAssetRows(legacyRows);
   assert.equal(parsed[1].assetType, "other");
   assert.equal(parsed[1].mediaStatus, "pending");
   assert.equal(parsed[1].consentStatus, "pending");
@@ -54,9 +56,12 @@ test("legacy approved and unknown consent values never become publish approval",
   assert.equal(parsed[1].metadata.legacy_consent_status, "unknown");
 });
 
-test("the strict Media Library view receives normalized rows before validation", () => {
-  const normalized = normalizeLegacyMediaAssetRows(legacyRows);
-  assert.ok(Array.isArray(normalized));
-  assert.equal(normalized.length, 2);
-  assert.equal(parseMediaAssetRecords(normalized).length, 2);
+test("both Media Library parsing paths normalize legacy rows before strict validation", async () => {
+  const [controls, view] = await Promise.all([
+    readFile(new URL("../src/media-library-controls.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/media-library-view.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(controls, /normalizeLegacyMediaAssetRows\(value\)/);
+  assert.match(view, /normalizeLegacyMediaAssetRows\(value\)/);
+  assert.match(view, /safeParse\(normalizedValue\)/);
 });
