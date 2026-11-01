@@ -78,7 +78,7 @@ test("legacy media updates normalize old persisted states before validation", as
 });
 
 test("legacy and current media source values remain accepted by the compatibility constraint", async () => {
-  const migration = await readFile(new URL("../supabase/migrations/20261101100000_align_legacy_media_source_check.sql", import.meta.url), "utf8");
+  const migration = await readFile(new URL("../supabase/migrations/20261101104925_align_legacy_media_source_check.sql", import.meta.url), "utf8");
   for (const source of ["upload", "ai_generated", "generated", "external", "stock"]) {
     assert.match(migration, new RegExp(`'${source}'\\s*::text`));
   }
