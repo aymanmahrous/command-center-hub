@@ -259,6 +259,24 @@ export function MediaAssetControls({
     }
   }
 
+  async function attestSynthetic() {
+    if (!canWrite || busy || asset.source !== "generated") return;
+    setActionNotice("");
+    try {
+      await callRpc(session, "attest_generated_media_synthetic", {
+        p_media_asset_id: asset.id,
+        p_synthetic_no_real_person: true,
+      });
+      onChanged();
+    } catch (cause) {
+      if (cause instanceof Error && cause.message === "SESSION_EXPIRED") {
+        onSessionExpired();
+        return;
+      }
+      setActionNotice(genericActionError);
+    }
+  }
+
   function useInFactory() {
     try {
       sessionStorage.setItem(MEDIA_FACTORY_HANDOFF_KEY, JSON.stringify(createMediaFactoryHandoff(asset)));
@@ -323,6 +341,21 @@ export function MediaAssetControls({
       <p className="media-status-line">
         {language === "ar" ? "المراجعة الداخلية" : "Internal review"}: {currentReviewStatus}
       </p>
+      {asset.source === "generated" && (
+        <button
+          type="button"
+          className="secondary"
+          disabled={!canWrite || busy || asset.metadata?.consentApplicability === "not_applicable_synthetic"}
+          onClick={() => void attestSynthetic()}
+          title={language === "ar"
+            ? "إقرار بأن الأصل مولّد للأكاديمية ولا يستخدم صورة أو شبه شخص حقيقي"
+            : "Attest this academy-generated asset uses no real-person photo or likeness"}
+        >
+          {asset.metadata?.consentApplicability === "not_applicable_synthetic"
+            ? (language === "ar" ? "تم توثيق الأصل الاصطناعي" : "Synthetic asset attested")
+            : (language === "ar" ? "تأكيد أصل اصطناعي بلا شخص حقيقي" : "Attest synthetic / no real person")}
+        </button>
+      )}
       <div className="media-control-actions">
         <button type="button" disabled={!canWrite || busy || !canApproveInternally || currentReviewStatus === "approved"} onClick={() => void review("approved")}>
           {language === "ar" ? "اعتماد داخلي" : "Approve internally"}
