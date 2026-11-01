@@ -297,7 +297,7 @@ BEGIN
     OR v_asset.publishability_status IS DISTINCT FROM 'ready_for_review'
     OR coalesce(v_asset.category, 'unclassified') NOT IN ('swimming_business','other_business')
     OR (coalesce(v_asset.category, 'unclassified') = 'swimming_business'
-        AND (v_asset.source <> 'generated' OR coalesce((v_asset.metadata->>'containsRealPerson')::boolean, false))
+        AND (v_asset.source <> 'generated' OR v_asset.metadata->>'consentApplicability' <> 'not_applicable_synthetic' OR coalesce((v_asset.metadata->>'containsRealPerson')::boolean, true))
         AND v_asset.consent_status IS DISTINCT FROM 'consent_confirmed')
   ) THEN
     RETURN jsonb_build_object('success', false, 'code', 'MEDIA_ASSET_NOT_READY_FOR_REVIEW');
