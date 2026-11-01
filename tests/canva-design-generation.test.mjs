@@ -101,7 +101,10 @@ test("Canva poster copy is concise, removes URL/contact clutter, and preserves t
   assert.match(edge, /selected\.length === 2/);
   assert.match(edge, /const cleanHeadline = compactPosterCopy\(headline, 90\)/);
   assert.match(edge, /const cleanBody = posterBodyCopy\(body\)/);
-  assert.match(edge, /const cleanCta = compactPosterCopy\(cta, 90\) \|\| "Free initial assessment · WhatsApp 058 821 9130"/);
+  assert.match(edge, /const baseCta = compactPosterCopy\(cta, 30\)/);
+  assert.ok(edge.includes("واتساب 058 821 9130 | الإدارة 055 137 8660"));
+  assert.ok(edge.includes("WhatsApp 058 821 9130 | Admin 055 137 8660"));
+  assert.ok(edge.includes('.join("\\n").slice(0, 90)'));
   assert.doesNotMatch(edge, /bodyWithContacts/);
   assert.doesNotMatch(edge, /ACADEMY_PHONE_LINE|ACADEMY_BRANCH_LINE/);
   assert.match(adapter, /cta: typeof item\.cta === "string" \? item\.cta\.trim\(\) : ""/);
