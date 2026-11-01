@@ -5,6 +5,7 @@ import test from "node:test";
 const panel = await readFile(new URL("../src/content-batch-review-panel.tsx", import.meta.url), "utf8");
 const copy = await readFile(new URL("../src/content-publishing-copy.ts", import.meta.url), "utf8");
 const migration = await readFile(new URL("../supabase/migrations/20260923100000_record_staff_content_publish_result.sql", import.meta.url), "utf8");
+const publisher = await readFile(new URL("../supabase/functions/safe-content-publisher/index.ts", import.meta.url), "utf8");
 
 test("approved publish runs through the protected in-app Meta function", () => {
   assert.match(panel, /functions\/v1\/safe-content-publisher/);
@@ -25,4 +26,11 @@ test("publish result RPC is staff-gated, idempotent, and audited", () => {
   assert.match(migration, /content_publish_failed/);
   assert.match(migration, /PUBLISHED_RECORDED/);
   assert.match(migration, /revoke all on function/);
+});
+
+test("manual and scheduled Meta publishing share the media approval gate", () => {
+  assert.equal((publisher.match(/mediaApprovalError\(asset, contentItemId\)/g) ?? []).length, 1);
+  assert.equal((publisher.match(/if \(media\.approvalError\) return fail\(media\.approvalError, 422\)/g) ?? []).length, 2);
+  assert.match(publisher, /publishAutomation\(req\)/);
+  assert.match(publisher, /safe-content-publisher: Meta publish failed/);
 });

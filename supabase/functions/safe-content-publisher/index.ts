@@ -16,7 +16,7 @@
 //   INSTAGRAM_ACCOUNT_ID, INSTAGRAM_ACCESS_TOKEN,
 //   META_APP_SECRET, CONTENT_PUBLISHER_AUTOMATION_SECRET
 
-import { formatHashtags } from "./text.ts";
+import { confirmedExternalPostId, formatHashtags, mediaApprovalError } from "./text.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -166,8 +166,9 @@ async function publishAutomation(req: Request): Promise<Response> {
   }
   if (platform === "facebook" && (!pageId || !accessToken)) return fail("META_NOT_CONFIGURED", 500);
   if (platform === "instagram" && (!instagramAccountId || !accessToken)) return fail("META_NOT_CONFIGURED", 500);
-  const media = await resolveSignedMediaUrl(item.media_asset_id, SUPABASE_SERVICE_ROLE_KEY, true);
-  if ((platform === "instagram" || platform === "facebook") && !media) return fail("MEDIA_MISSING", 422);
+  const media = await resolveSignedMediaUrl(item.media_asset_id, contentItemId, SUPABASE_SERVICE_ROLE_KEY, true);
+  if (!media) return fail("MEDIA_MISSING", 422);
+  if (media.approvalError) return fail(media.approvalError, 422);
   const caption = [item.hook, item.caption, item.cta, formatHashtags(item.hashtags)].filter(Boolean).join("\n\n").slice(0, 5000);
   let publishResult: PublishOutcome;
   try {
@@ -236,8 +237,9 @@ Deno.serve(async (req) => {
   const accessToken = connectedCredential?.token ?? (platform === "facebook" ? FACEBOOK_PAGE_ACCESS_TOKEN : INSTAGRAM_ACCESS_TOKEN);
   if (platform === "facebook" && (!pageId || !accessToken)) return fail("META_NOT_CONFIGURED", 500);
   if (platform === "instagram" && (!instagramAccountId || !accessToken)) return fail("META_NOT_CONFIGURED", 500);
-  const media = await resolveSignedMediaUrl(item.media_asset_id, staffJwt, false);
-  if ((platform === "instagram" || platform === "facebook") && !media) return fail("MEDIA_MISSING", 422);
+  const media = await resolveSignedMediaUrl(item.media_asset_id, contentItemId, staffJwt, false);
+  if (!media) return fail("MEDIA_MISSING", 422);
+  if (media.approvalError) return fail(media.approvalError, 422);
   const caption = [item.hook, item.caption, item.cta, formatHashtags(item.hashtags)].filter(Boolean).join("\n\n").slice(0, 5000);
   let publishResult: PublishOutcome;
   try {
@@ -254,19 +256,22 @@ Deno.serve(async (req) => {
 
 async function resolveSignedMediaUrl(
   mediaAssetId: string | null | undefined,
+  contentItemId: string,
   authToken: string,
   useServiceRole: boolean,
-): Promise<{ url: string; assetType: "image" | "video" } | null> {
+): Promise<{ url: string; assetType: "image" | "video"; approvalError: string | null } | null> {
   if (!mediaAssetId) return null;
   const key = useServiceRole ? SUPABASE_SERVICE_ROLE_KEY : SUPABASE_ANON_KEY;
   const response = await fetch(
-    `${SUPABASE_URL}/rest/v1/media_assets?id=eq.${encodeURIComponent(mediaAssetId)}&select=storage_path,asset_type&limit=1`,
+    `${SUPABASE_URL}/rest/v1/media_assets?id=eq.${encodeURIComponent(mediaAssetId)}&select=storage_path,asset_type,source,content_item_id,category,media_status,consent_status,publishability_status,metadata&limit=1`,
     { headers: { apikey: key, Authorization: `Bearer ${authToken}` } },
   );
   if (!response.ok) return null;
   const assets = await response.json().catch(() => []);
-  const asset = assets[0] as { storage_path?: string; asset_type?: string } | undefined;
+  const asset = assets[0] as { storage_path?: string; asset_type?: string; source?: string; content_item_id?: string; category?: string; media_status?: string; consent_status?: string; publishability_status?: string; metadata?: Record<string, unknown> } | undefined;
   if (!asset?.storage_path) return null;
+  const approvalError = mediaApprovalError(asset, contentItemId);
+  if (approvalError) return { url: "", assetType: "image", approvalError };
   const assetType = String(asset.asset_type ?? "").toLowerCase() === "video" ? "video" : "image";
   const bucket = "relax-fix-media";
   const signResponse = await fetch(
@@ -284,7 +289,7 @@ async function resolveSignedMediaUrl(
   if (!signResponse.ok) return null;
   const signed = await signResponse.json().catch(() => null) as { signedURL?: string } | null;
   return signed?.signedURL
-    ? { url: `${SUPABASE_URL}/storage/v1${signed.signedURL}`, assetType }
+    ? { url: `${SUPABASE_URL}/storage/v1${signed.signedURL}`, assetType, approvalError: null }
     : null;
 }
 
@@ -329,7 +334,9 @@ async function publishToFacebook(
   const response = await fetch(`https://graph.facebook.com/${META_GRAPH_VERSION}/${pageId}/photos`, { method: "POST", body: params });
   const data = await response.json().catch(() => null) as Record<string, unknown> | null;
   if (!response.ok || data?.error) return { success: false, errorCode: "META_API_ERROR" };
-  return { success: true, providerExternalId: String(data?.post_id ?? data?.id) };
+  const externalPostId = confirmedExternalPostId(data);
+  if (!externalPostId) return { success: false, errorCode: "META_CONFIRMATION_MISSING" };
+  return { success: true, providerExternalId: externalPostId };
 }
 
 async function publishToInstagram(
