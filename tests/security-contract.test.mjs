@@ -322,14 +322,10 @@ test("internal inbox alert helpers remain restricted by the existing sensitive R
     "public.upsert_staff_alert(text, text, text, uuid, uuid, uuid, text, jsonb)",
     "public.resolve_staff_alerts_for_conversation(uuid, text[])",
   ]) {
-    const escaped = signature.replace(/[.*+?^\u0024{}()|[\\]\\\\]/g, "\\\\$&");
-    assert.match(
-      migration,
-      new RegExp("REVOKE (?:ALL|EXECUTE) ON FUNCTION " + escaped + "\\\\s+FROM PUBLIC, anon, authenticated;", "i"),
-    );
-    assert.match(
-      migration,
-      new RegExp("GRANT EXECUTE ON FUNCTION " + escaped + "\\\\s+TO service_role;", "i"),
-    );
+    const revokeExecute = `REVOKE EXECUTE ON FUNCTION ${signature} FROM PUBLIC, anon, authenticated;`;
+    const revokeAll = `REVOKE ALL ON FUNCTION ${signature} FROM PUBLIC, anon, authenticated;`;
+    const grant = `GRANT EXECUTE ON FUNCTION ${signature} TO service_role;`;
+    assert.ok(migration.includes(revokeExecute) || migration.includes(revokeAll), `missing execute restriction for ${signature}`);
+    assert.ok(migration.includes(grant), `missing service_role grant for ${signature}`);
   }
 });
