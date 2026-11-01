@@ -341,6 +341,10 @@ async function handlePublish(req: Request): Promise<Response> {
       const recorded = await recordFailure(ctx, "validation_failed", "MEDIA_NOT_READY_FOR_PUBLISH");
       return response({ success: false, code: "MEDIA_NOT_READY_FOR_PUBLISH", recorded, jobId, platform }, 422);
     }
+    if (asset.asset_type !== "image") {
+      const recorded = await recordFailure(ctx, "validation_failed", "MEDIA_TYPE_NOT_SUPPORTED");
+      return response({ success: false, code: "MEDIA_TYPE_NOT_SUPPORTED", recorded, jobId, platform }, 422);
+    }
     media = await signPrimaryImage(asset.storage_path!);
   } catch (error) {
     if (error instanceof Error && error.message === "MEDIA_LOOKUP_FAILED") {
