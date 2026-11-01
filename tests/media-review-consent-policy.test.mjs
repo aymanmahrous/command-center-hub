@@ -57,6 +57,7 @@ test("person-presence review is distinct from consent and applies to uploaded me
   assert.match(personPresenceMigration, /CREATE OR REPLACE FUNCTION public\.attest_media_person_presence/);
   assert.match(personPresenceMigration, /'not_applicable_no_real_person'/);
   assert.match(personPresenceMigration, /'consent_required'/);
+  assert.match(personPresenceMigration, /IS NOT TRUE/);
   assert.match(personPresenceMigration, /'containsRealPerson', p_contains_real_person/);
   assert.match(personPresenceMigration, /'media_person_presence_reviewed'/);
   assert.match(personPresenceMigration, /REVOKE ALL ON FUNCTION public\.attest_media_person_presence\(uuid, boolean\) FROM PUBLIC, anon/);
