@@ -8,7 +8,7 @@ const migration = await readFile(
 );
 const controls = await readFile(new URL("../src/media-library-controls.tsx", import.meta.url), "utf8");
 const personPresenceMigration = await readFile(
-  new URL("../supabase/migrations/20261101053000_add_media_person_presence_attestation.sql", import.meta.url),
+  new URL("../supabase/migrations/20261101053129_add_media_person_presence_attestation.sql", import.meta.url),
   "utf8",
 );
 
