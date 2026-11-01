@@ -19,6 +19,7 @@ export type AiSuitabilityVerdict = "good" | "needs_review" | "unsuitable";
 export type AiAnalysisStatus = "pending" | "analyzed" | "failed" | "skipped";
 export type PublishabilityStatus = "pending" | "cleared" | "blocked" | "review" | "ready_for_review" | null;
 export type MediaWorkflowStatus = "pending" | "ready" | "processing" | "failed";
+export type MediaReviewStatus = "pending_review" | "approved" | "rejected" | "unsuitable";
 export type MediaAssetType = "image" | "video" | "document" | "audio";
 export type MediaSourceKind = "upload" | "generated" | "external" | "stock";
 
@@ -85,14 +86,24 @@ export function canUseInMarketingBatch(
   return asset.publishabilityStatus === "ready_for_review";
 }
 
+export function isSyntheticConsentExempt(
+  source: MediaSourceKind,
+  metadata: Record<string, unknown>,
+): boolean {
+  return source === "generated"
+    && metadata.consentApplicability === "not_applicable_synthetic"
+    && metadata.containsRealPerson === false;
+}
+
 export function derivePublishability(
   category: MediaCategory,
   consentStatus: ConsentStatus,
   mediaStatus: MediaWorkflowStatus,
   suitabilityVerdict?: AiSuitabilityVerdict,
+  consentNotApplicableSynthetic = false,
 ): Exclude<PublishabilityStatus, null> {
   if (MARKETING_BLOCKED_CATEGORIES.has(category)) return "blocked";
   if (mediaStatus !== "ready" || suitabilityVerdict === "unsuitable") return "blocked";
-  if (category === "swimming_business" && consentStatus !== "consent_confirmed") return "blocked";
+  if (category === "swimming_business" && !consentNotApplicableSynthetic && consentStatus !== "consent_confirmed") return "blocked";
   return "ready_for_review";
 }
