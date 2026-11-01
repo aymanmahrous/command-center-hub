@@ -16,6 +16,8 @@
 //   INSTAGRAM_ACCOUNT_ID, INSTAGRAM_ACCESS_TOKEN,
 //   META_APP_SECRET, CONTENT_PUBLISHER_AUTOMATION_SECRET
 
+import { formatHashtags } from "./text.ts";
+
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -166,7 +168,7 @@ async function publishAutomation(req: Request): Promise<Response> {
   if (platform === "instagram" && (!instagramAccountId || !accessToken)) return fail("META_NOT_CONFIGURED", 500);
   const media = await resolveSignedMediaUrl(item.media_asset_id, SUPABASE_SERVICE_ROLE_KEY, true);
   if ((platform === "instagram" || platform === "facebook") && !media) return fail("MEDIA_MISSING", 422);
-  const caption = [item.hook, item.caption, item.cta, (item.hashtags ?? []).map((tag) => `#${tag}`).join(" " )].filter(Boolean).join("\n\n").slice(0, 5000);
+  const caption = [item.hook, item.caption, item.cta, formatHashtags(item.hashtags)].filter(Boolean).join("\n\n").slice(0, 5000);
   let publishResult: PublishOutcome;
   try {
     publishResult = platform === "facebook"
@@ -236,7 +238,7 @@ Deno.serve(async (req) => {
   if (platform === "instagram" && (!instagramAccountId || !accessToken)) return fail("META_NOT_CONFIGURED", 500);
   const media = await resolveSignedMediaUrl(item.media_asset_id, staffJwt, false);
   if ((platform === "instagram" || platform === "facebook") && !media) return fail("MEDIA_MISSING", 422);
-  const caption = [item.hook, item.caption, item.cta, (item.hashtags ?? []).map((tag) => `#${tag}`).join(" " )].filter(Boolean).join("\n\n").slice(0, 5000);
+  const caption = [item.hook, item.caption, item.cta, formatHashtags(item.hashtags)].filter(Boolean).join("\n\n").slice(0, 5000);
   let publishResult: PublishOutcome;
   try {
     publishResult = platform === "facebook"
