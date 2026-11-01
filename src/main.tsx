@@ -65,8 +65,8 @@ type ConversationMode = "ai_active" | "human_required" | "human_takeover" | "pau
 type ContentStatus = "idea" | "draft" | "generated" | "needs_review" | "approved" | "scheduled" | "published" | "failed" | "cancelled";
 type ContentFactoryTab = "overview" | "strategy" | "factory" | "content" | "designs" | "reels" | "campaigns" | "review" | "connections";
 type ContentAction = "approve" | "return_to_review" | "schedule" | "unschedule";
-type MediaAssetType = "image" | "video" | "logo" | "other";
-type MediaSource = "upload" | "ai_generated" | "external";
+type MediaAssetType = "image" | "video" | "document" | "audio";
+type MediaSource = "upload" | "generated" | "external" | "stock";
 type JobStatus = "queued" | "processing" | "completed" | "failed" | "retrying" | "dead";
 
 // `command` is a historical URL alias. ControlTowerV2 is the single owner decision gateway.
@@ -161,8 +161,8 @@ const ContentBatchApprovalSchema = z.object({
   skippedCount: z.number().int().nonnegative().optional(),
 }).passthrough();
 const MediaAssetSchema = z.object({
-  id: z.string().uuid(), createdBy: z.string().uuid(), contentItemId: z.string().uuid().nullable(),
-  assetType: z.enum(["image", "video", "logo", "other"]), source: z.enum(["upload", "ai_generated", "external"]),
+  id: z.string().uuid(), createdBy: z.string().uuid().nullable(), contentItemId: z.string().uuid().nullable(),
+  assetType: z.enum(["image", "video", "document", "audio"]), source: z.enum(["upload", "generated", "external", "stock"]),
   storagePath: z.string().nullable(), provider: z.string().nullable(), providerJobId: z.string().nullable(),
   prompt: z.string().nullable(), metadata: z.record(z.unknown()), createdAt: z.string(),
 }).passthrough();

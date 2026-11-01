@@ -1,11 +1,11 @@
 import { buildFallbackAssetPlan } from "./media-providers";
 import type { GeneratedBatchItem } from "./content-batch-generator";
 import { buildCoachAyman2026BatchItems, type CoachKnowledgeContext } from "./content-batch-generator";
-import { canUseInMarketingBatch, type MediaAssetRecord, type MediaSourceKind } from "./media-types";
+import { canUseInMarketingBatch, type MediaAssetRecord } from "./media-types";
 
 export type BatchMediaAttachment = {
   mediaAssetId: string | null;
-  mediaSource: MediaSourceKind;
+  mediaSource: NonNullable<GeneratedBatchItem["mediaSource"]>;
   mediaPlan: Record<string, unknown> | null;
 };
 

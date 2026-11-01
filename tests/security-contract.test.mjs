@@ -163,8 +163,8 @@ test("Media Library uses staff RPCs and blocks direct table mutation", () => {
 
 test("Media Library validates ownership-shaped records and exposes review controls", () => {
   for (const field of ["createdBy", "contentItemId", "assetType", "source", "storagePath", "providerJobId", "metadata", "createdAt"]) assert.match(mediaView, new RegExp(field));
-  for (const type of ["image", "video", "logo", "other"]) assert.match(mediaView, new RegExp(`"${type}"`));
-  for (const source of ["upload", "ai_generated", "external"]) assert.match(mediaView, new RegExp(`"${source}"`));
+  for (const type of ["image", "video", "document", "audio"]) assert.match(mediaView, new RegExp(`"${type}"`));
+  for (const source of ["upload", "generated", "external", "stock"]) assert.match(mediaView, new RegExp(`"${source}"`));
   assert.match(mediaView, /writeBannerTitle|مكتبة وسائط خاصة للقراءة فقط/);
   assert.match(mediaView, /MediaAssetControls/);
   assert.match(mediaView, /typeFilter/);
