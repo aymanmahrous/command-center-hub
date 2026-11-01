@@ -94,9 +94,10 @@ export function isConsentNotApplicable(
   source: MediaSourceKind,
   metadata: Record<string, unknown>,
 ): boolean {
-  return ["upload", "generated", "external", "stock"].includes(source)
-    && ["not_applicable_synthetic", "not_applicable_no_real_person"].includes(String(metadata.consentApplicability ?? ""))
-    && metadata.containsRealPerson === false;
+  return metadata.containsRealPerson === false && (
+    metadata.consentApplicability === "not_applicable_no_real_person"
+    || (source === "generated" && metadata.consentApplicability === "not_applicable_synthetic")
+  );
 }
 
 export function isSyntheticConsentExempt(
