@@ -87,3 +87,15 @@ test("AI analysis preserves the audited no-real-person consent exemption", () =>
   assert.match(analysisPolicyMigration, /v_publishability := 'ready_for_review'/);
   assert.match(analysisPolicyMigration, /v_publishability := 'blocked'/);
 });
+
+const generatedAttestationMigration = await readFile(
+  new URL("../supabase/migrations/20261101085000_route_generated_media_to_synthetic_attestation.sql", import.meta.url),
+  "utf8",
+);
+
+test("generated assets use their dedicated synthetic attestation and cannot bypass it", () => {
+  assert.match(generatedAttestationMigration, /v_asset\.source = 'generated' AND p_contains_real_person = false/);
+  assert.match(generatedAttestationMigration, /USE_SYNTHETIC_ATTESTATION/);
+  assert.match(controls, /attest_generated_media_synthetic/);
+  assert.match(controls, /asset\.source === "generated" && !containsRealPerson/);
+});
