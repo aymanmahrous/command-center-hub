@@ -15,10 +15,21 @@ for (const name of ["claim_publication_receipt", "complete_publication_receipt",
 }
 
 test("migration admits the statuses used by the worker without deleting rows", () => {
-  assert.match(migration, /'published', 'failed', 'ambiguous'/);
-  assert.match(migration, /'processing', 'retrying'/);
+  for (const status of ["container_created", "published", "ambiguous", "failed"]) {
+    assert.match(migration, new RegExp(`'${status}'`));
+  }
+  assert.doesNotMatch(migration, /drop constraint if exists content_publication_receipts_status_check/i);
+  assert.doesNotMatch(migration, /drop constraint if exists background_jobs_status_check/i);
   assert.doesNotMatch(migration, /delete from public\./i);
   assert.doesNotMatch(migration, /truncate\s/i);
+});
+
+test("migration preserves the existing receipt linkage and provider contract", () => {
+  assert.match(migration, /content_item_id, platform, provider/);
+  assert.match(migration, /content_publication_receipts_content_item_id_platform_key|on conflict \(content_item_id, platform\)/i);
+  assert.match(migration, /PUBLICATION_PROVIDER_MISMATCH/);
+  assert.match(migration, /authorization_id|publish_job_id/);
+  assert.match(migration, /PUBLICATION_RECEIPT_NOT_FOUND/);
 });
 
 test("safe publisher records definite provider failures and preserves ambiguity handling", () => {
