@@ -89,7 +89,7 @@ test("AI analysis preserves the audited no-real-person consent exemption", () =>
 });
 
 const generatedAttestationMigration = await readFile(
-  new URL("../supabase/migrations/20261101085000_route_generated_media_to_synthetic_attestation.sql", import.meta.url),
+  new URL("../supabase/migrations/20261101065004_route_generated_media_to_synthetic_attestation.sql", import.meta.url),
   "utf8",
 );
 
