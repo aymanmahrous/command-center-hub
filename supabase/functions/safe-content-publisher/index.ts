@@ -164,8 +164,10 @@ async function publishAutomation(req: Request): Promise<Response> {
   }
   if (platform === "facebook" && (!pageId || !accessToken)) return fail("META_NOT_CONFIGURED", 500);
   if (platform === "instagram" && (!instagramAccountId || !accessToken)) return fail("META_NOT_CONFIGURED", 500);
-  const media = await resolveSignedMediaUrl(item.media_asset_id, SUPABASE_SERVICE_ROLE_KEY, true);
-  if ((platform === "instagram" || platform === "facebook") && !media) return fail("MEDIA_MISSING", 422);
+  const media = await resolveSignedMediaUrl(item.media_asset_id, item.id, SUPABASE_SERVICE_ROLE_KEY, true);
+  if ((platform === "instagram" || platform === "facebook") && !media) {
+    return fail(item.media_asset_id ? "MEDIA_NOT_READY_FOR_PUBLISH" : "MEDIA_MISSING", 422);
+  }
   const caption = [item.hook, item.caption, item.cta, (item.hashtags ?? []).map((tag) => `#${tag}`).join(" " )].filter(Boolean).join("\n\n").slice(0, 5000);
   let publishResult: PublishOutcome;
   try {
@@ -234,8 +236,10 @@ Deno.serve(async (req) => {
   const accessToken = connectedCredential?.token ?? (platform === "facebook" ? FACEBOOK_PAGE_ACCESS_TOKEN : INSTAGRAM_ACCESS_TOKEN);
   if (platform === "facebook" && (!pageId || !accessToken)) return fail("META_NOT_CONFIGURED", 500);
   if (platform === "instagram" && (!instagramAccountId || !accessToken)) return fail("META_NOT_CONFIGURED", 500);
-  const media = await resolveSignedMediaUrl(item.media_asset_id, staffJwt, false);
-  if ((platform === "instagram" || platform === "facebook") && !media) return fail("MEDIA_MISSING", 422);
+  const media = await resolveSignedMediaUrl(item.media_asset_id, item.id, staffJwt, false);
+  if ((platform === "instagram" || platform === "facebook") && !media) {
+    return fail(item.media_asset_id ? "MEDIA_NOT_READY_FOR_PUBLISH" : "MEDIA_MISSING", 422);
+  }
   const caption = [item.hook, item.caption, item.cta, (item.hashtags ?? []).map((tag) => `#${tag}`).join(" " )].filter(Boolean).join("\n\n").slice(0, 5000);
   let publishResult: PublishOutcome;
   try {
@@ -250,21 +254,59 @@ Deno.serve(async (req) => {
   return new Response(JSON.stringify({ success: true, providerExternalId: publishResult.providerExternalId, platform }), { status: 200, headers: JSON_HEADERS });
 });
 
+type PublishableMediaAsset = {
+  storage_path?: string;
+  asset_type?: string;
+  media_status?: string;
+  publishability_status?: string;
+  consent_status?: string | null;
+  category?: string;
+  source?: string;
+  content_item_id?: string | null;
+  metadata?: Record<string, unknown> | null;
+};
+
+function isMediaAssetApprovedForPublish(asset: PublishableMediaAsset, contentItemId: string): boolean {
+  const metadata = asset.metadata && typeof asset.metadata === "object" ? asset.metadata : {};
+  const noRealPerson = metadata.containsRealPerson === false;
+  const syntheticAttested = asset.source === "generated"
+    && metadata.consentApplicability === "not_applicable_synthetic"
+    && typeof metadata.syntheticAttestedAt === "string"
+    && typeof metadata.syntheticAttestedBy === "string";
+  const personPresenceReviewed = asset.source !== "generated"
+    && metadata.consentApplicability === "not_applicable_no_real_person"
+    && typeof metadata.personPresenceReviewedAt === "string"
+    && typeof metadata.personPresenceReviewedBy === "string";
+  const consentValid = asset.category !== "swimming_business"
+    || asset.consent_status === "consent_confirmed"
+    || (noRealPerson && (syntheticAttested || personPresenceReviewed));
+
+  return asset.content_item_id === contentItemId
+    && Boolean(asset.storage_path?.trim())
+    && ["image", "video"].includes(String(asset.asset_type ?? "").toLowerCase())
+    && asset.media_status === "ready"
+    && asset.publishability_status === "ready_for_review"
+    && ["swimming_business", "other_business"].includes(String(asset.category ?? ""))
+    && metadata.reviewStatus === "approved"
+    && consentValid;
+}
+
 async function resolveSignedMediaUrl(
   mediaAssetId: string | null | undefined,
+  contentItemId: string,
   authToken: string,
   useServiceRole: boolean,
 ): Promise<{ url: string; assetType: "image" | "video" } | null> {
   if (!mediaAssetId) return null;
   const key = useServiceRole ? SUPABASE_SERVICE_ROLE_KEY : SUPABASE_ANON_KEY;
   const response = await fetch(
-    `${SUPABASE_URL}/rest/v1/media_assets?id=eq.${encodeURIComponent(mediaAssetId)}&select=storage_path,asset_type&limit=1`,
+    `${SUPABASE_URL}/rest/v1/media_assets?id=eq.${encodeURIComponent(mediaAssetId)}&select=storage_path,asset_type,media_status,publishability_status,consent_status,category,source,content_item_id,metadata&limit=1`,
     { headers: { apikey: key, Authorization: `Bearer ${authToken}` } },
   );
   if (!response.ok) return null;
   const assets = await response.json().catch(() => []);
-  const asset = assets[0] as { storage_path?: string; asset_type?: string } | undefined;
-  if (!asset?.storage_path) return null;
+  const asset = assets[0] as PublishableMediaAsset | undefined;
+  if (!asset || !isMediaAssetApprovedForPublish(asset, contentItemId)) return null;
   const assetType = String(asset.asset_type ?? "").toLowerCase() === "video" ? "video" : "image";
   const bucket = "relax-fix-media";
   const signResponse = await fetch(
