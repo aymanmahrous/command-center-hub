@@ -6,6 +6,7 @@ import {
   displayMediaWorkflowStatus,
   isMarketingEligibleCategory,
   normalizeMediaCategory,
+  isSyntheticConsentExempt,
 } from "../src/media-types.ts";
 
 test("family/personal and unclassified remain blocked", () => {
@@ -48,4 +49,22 @@ test("displayMediaWorkflowStatus reflects technical file status, not human appro
   assert.equal(displayMediaWorkflowStatus({ mediaStatus: "ready" }), "ready");
   assert.equal(displayMediaWorkflowStatus({ mediaStatus: "processing" }), "processing");
   assert.equal(displayMediaWorkflowStatus({ mediaStatus: "failed" }), "failed");
+});
+
+test("synthetic consent exemption requires explicit generated-source attestation", () => {
+  assert.equal(isSyntheticConsentExempt("generated", {
+    consentApplicability: "not_applicable_synthetic",
+    containsRealPerson: false,
+  }), true);
+  assert.equal(isSyntheticConsentExempt("upload", {
+    consentApplicability: "not_applicable_synthetic",
+    containsRealPerson: false,
+  }), false);
+  assert.equal(isSyntheticConsentExempt("generated", {
+    consentApplicability: "not_applicable_synthetic",
+    containsRealPerson: true,
+  }), false);
+  assert.equal(isSyntheticConsentExempt("generated", {}), false);
+  assert.equal(derivePublishability("swimming_business", null, "ready", undefined, true), "ready_for_review");
+  assert.equal(derivePublishability("swimming_business", null, "ready", undefined, false), "blocked");
 });
