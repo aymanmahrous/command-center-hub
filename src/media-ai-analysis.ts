@@ -152,6 +152,7 @@ export function analysisPublishability(
   category: MediaCategory,
   consentStatus: ConsentStatus,
   mediaStatus: MediaWorkflowStatus,
+  consentNotApplicableSynthetic = false,
 ) {
-  return derivePublishability(category, consentStatus, mediaStatus);
+  return derivePublishability(category, consentStatus, mediaStatus, undefined, consentNotApplicableSynthetic);
 }
