@@ -57,7 +57,7 @@ begin
   v_suitability := coalesce(v_asset.metadata->'analysis'->>'suitabilityVerdict', '');
   if v_category in ('family_personal','other','unclassified')
      or v_status <> 'ready'
-     or (v_category = 'swimming_business' and ((v_asset.metadata->>'consentApplicability' NOT IN ('not_applicable_synthetic','not_applicable_no_real_person')) OR (v_asset.metadata->'containsRealPerson' IS DISTINCT FROM 'false'::jsonb)) and v_consent is distinct from 'consent_confirmed')
+     or (v_category = 'swimming_business' and ((v_asset.metadata->>'consentApplicability' IN ('not_applicable_synthetic','not_applicable_no_real_person') AND v_asset.metadata->'containsRealPerson' = 'false'::jsonb) IS NOT TRUE) and v_consent is distinct from 'consent_confirmed')
      or v_suitability = 'unsuitable' then
     v_publishability := 'blocked';
   else
@@ -142,7 +142,7 @@ begin
   v_suitability := coalesce(v_asset.metadata->'analysis'->>'suitabilityVerdict', '');
   if v_category in ('family_personal','other','unclassified')
      or v_status <> 'ready'
-     or (v_category = 'swimming_business' and ((v_asset.metadata->>'consentApplicability' NOT IN ('not_applicable_synthetic','not_applicable_no_real_person')) OR (v_asset.metadata->'containsRealPerson' IS DISTINCT FROM 'false'::jsonb)) and v_consent is distinct from 'consent_confirmed')
+     or (v_category = 'swimming_business' and ((v_asset.metadata->>'consentApplicability' IN ('not_applicable_synthetic','not_applicable_no_real_person') AND v_asset.metadata->'containsRealPerson' = 'false'::jsonb) IS NOT TRUE) and v_consent is distinct from 'consent_confirmed')
      or v_suitability = 'unsuitable' then
     v_publishability := 'blocked';
   else
@@ -220,7 +220,7 @@ begin
      or coalesce(v_asset.publishability_status, 'blocked') <> 'ready_for_review'
      or v_asset.media_status is distinct from 'ready'
      or (coalesce(v_asset.category, 'unclassified') = 'swimming_business'
-         and ((v_asset.metadata->>'consentApplicability' NOT IN ('not_applicable_synthetic','not_applicable_no_real_person')) OR (v_asset.metadata->'containsRealPerson' IS DISTINCT FROM 'false'::jsonb))
+         and ((v_asset.metadata->>'consentApplicability' IN ('not_applicable_synthetic','not_applicable_no_real_person') AND v_asset.metadata->'containsRealPerson' = 'false'::jsonb) IS NOT TRUE)
          and v_asset.consent_status is distinct from 'consent_confirmed') then
     return jsonb_build_object('success', false, 'code', 'MEDIA_ASSET_NOT_PUBLISHABLE');
   end if;
@@ -294,7 +294,7 @@ BEGIN
     OR v_asset.publishability_status IS DISTINCT FROM 'ready_for_review'
     OR coalesce(v_asset.category, 'unclassified') NOT IN ('swimming_business','other_business')
     OR (coalesce(v_asset.category, 'unclassified') = 'swimming_business'
-        AND ((v_asset.metadata->>'consentApplicability' NOT IN ('not_applicable_synthetic','not_applicable_no_real_person')) OR (v_asset.metadata->'containsRealPerson' IS DISTINCT FROM 'false'::jsonb))
+        AND ((v_asset.metadata->>'consentApplicability' IN ('not_applicable_synthetic','not_applicable_no_real_person') AND v_asset.metadata->'containsRealPerson' = 'false'::jsonb) IS NOT TRUE)
         AND v_asset.consent_status IS DISTINCT FROM 'consent_confirmed')
   ) THEN
     RETURN jsonb_build_object('success', false, 'code', 'MEDIA_ASSET_NOT_READY_FOR_REVIEW');
