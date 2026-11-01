@@ -43,7 +43,7 @@ test("Canva job failures log only fixed stage and error codes", () => {
 
 test("Canva uploaded asset names stay within the provider's 50-character limit", () => {
   const name = buildCanvaAssetName("0c568fd5-97bd-4c47-9295-8596317e0247", "png");
-  assert.equal(name, "coach-8596317e0247.png");
+  assert.equal(name, "swimming-academy-8596317e0247.png");
   assert.ok(name.length <= 50);
   assert.ok(buildCanvaAssetName("very-long-content-id-".repeat(8), "jpeg").length <= 50);
 });
