@@ -84,6 +84,6 @@ test("AI analysis preserves the audited no-real-person consent exemption", () =>
   assert.match(analysisPolicyMigration, /syntheticAttestedBy/);
   assert.match(analysisPolicyMigration, /consent_confirmed/);
   assert.match(analysisPolicyMigration, /suitabilityVerdict/);
-  assert.match(analysisPolicyMigration, /THEN 'ready_for_review'/);
+  assert.match(analysisPolicyMigration, /v_publishability := 'ready_for_review'/);
   assert.match(analysisPolicyMigration, /v_publishability := 'blocked'/);
 });
