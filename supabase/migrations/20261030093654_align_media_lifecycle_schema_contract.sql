@@ -98,31 +98,24 @@ begin
     return jsonb_build_object('success', false, 'code', 'INVALID_CATEGORY');
   end if;
 
-  v_consent := coalesce(
-    nullif(btrim(p_consent_status), ''),
-    CASE v_asset.consent_status
-      WHEN 'unknown' THEN 'pending'
-      WHEN 'consent_required' THEN 'pending'
-      WHEN 'no_consent' THEN 'denied'
-      ELSE v_asset.consent_status
-    END
-  );
+  v_consent := CASE coalesce(nullif(btrim(p_consent_status), ''), v_asset.consent_status)
+    WHEN 'unknown' THEN 'pending'
+    WHEN 'consent_required' THEN 'pending'
+    WHEN 'no_consent' THEN 'denied'
+    ELSE coalesce(nullif(btrim(p_consent_status), ''), v_asset.consent_status)
+  END;
   if v_consent is not null
      and v_consent not in ('pending','granted','denied','expired','consent_confirmed') then
     return jsonb_build_object('success', false, 'code', 'INVALID_CONSENT');
   end if;
 
-  v_status := coalesce(
-    nullif(btrim(p_media_status), ''),
-    CASE v_asset.media_status
-      WHEN 'unclassified' THEN 'pending'
-      WHEN 'approved' THEN 'pending'
-      WHEN 'rejected' THEN 'failed'
-      WHEN 'unsuitable' THEN 'failed'
-      ELSE v_asset.media_status
-    END,
-    'pending'
-  );
+  v_status := CASE coalesce(nullif(btrim(p_media_status), ''), v_asset.media_status, 'pending')
+    WHEN 'unclassified' THEN 'pending'
+    WHEN 'approved' THEN 'pending'
+    WHEN 'rejected' THEN 'failed'
+    WHEN 'unsuitable' THEN 'failed'
+    ELSE coalesce(nullif(btrim(p_media_status), ''), v_asset.media_status, 'pending')
+  END;
   if v_status not in ('pending','ready','processing','failed') then
     return jsonb_build_object('success', false, 'code', 'INVALID_STATUS');
   end if;
@@ -201,31 +194,24 @@ begin
     return jsonb_build_object('success', false, 'code', 'INVALID_CATEGORY');
   end if;
 
-  v_consent := coalesce(
-    nullif(btrim(p_consent_status), ''),
-    CASE v_asset.consent_status
-      WHEN 'unknown' THEN 'pending'
-      WHEN 'consent_required' THEN 'pending'
-      WHEN 'no_consent' THEN 'denied'
-      ELSE v_asset.consent_status
-    END
-  );
+  v_consent := CASE coalesce(nullif(btrim(p_consent_status), ''), v_asset.consent_status)
+    WHEN 'unknown' THEN 'pending'
+    WHEN 'consent_required' THEN 'pending'
+    WHEN 'no_consent' THEN 'denied'
+    ELSE coalesce(nullif(btrim(p_consent_status), ''), v_asset.consent_status)
+  END;
   if v_consent is not null
      and v_consent not in ('pending','granted','denied','expired','consent_confirmed') then
     return jsonb_build_object('success', false, 'code', 'INVALID_CONSENT');
   end if;
 
-  v_status := coalesce(
-    nullif(btrim(p_media_status), ''),
-    CASE v_asset.media_status
-      WHEN 'unclassified' THEN 'pending'
-      WHEN 'approved' THEN 'pending'
-      WHEN 'rejected' THEN 'failed'
-      WHEN 'unsuitable' THEN 'failed'
-      ELSE v_asset.media_status
-    END,
-    'pending'
-  );
+  v_status := CASE coalesce(nullif(btrim(p_media_status), ''), v_asset.media_status, 'pending')
+    WHEN 'unclassified' THEN 'pending'
+    WHEN 'approved' THEN 'pending'
+    WHEN 'rejected' THEN 'failed'
+    WHEN 'unsuitable' THEN 'failed'
+    ELSE coalesce(nullif(btrim(p_media_status), ''), v_asset.media_status, 'pending')
+  END;
   if v_status not in ('pending','ready','processing','failed') then
     return jsonb_build_object('success', false, 'code', 'INVALID_STATUS');
   end if;
