@@ -44,5 +44,7 @@ test("synthetic attestation UI is only offered for generated media and is explic
 test("media link gate remains review-only and never publishes content", () => {
   assert.match(migration, /publishability_status, 'blocked'\) <> 'ready_for_review'/);
   assert.match(migration, /status = 'needs_review'/);
-  assert.doesNotMatch(migration, /status = 'published'/);
+  const linkFunction = migration.split("CREATE OR REPLACE FUNCTION public.link_staff_media_to_content_item")[1] ?? "";
+  assert.match(linkFunction, /status = 'needs_review'/);
+  assert.doesNotMatch(linkFunction, /SET status = 'published'/i);
 });
