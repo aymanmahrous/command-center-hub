@@ -14,6 +14,10 @@ const publisher = await readFile(
   new URL("../supabase/functions/safe-content-publisher/index.ts", import.meta.url),
   "utf8",
 );
+const scheduledPublisher = await readFile(
+  new URL("../supabase/functions/scheduled-authorized-publisher/index.ts", import.meta.url),
+  "utf8",
+);
 
 test("scheduling requires an explicitly reviewed, ready media asset", () => {
   assert.match(migration, /assert_content_media_publish_ready/);
@@ -41,4 +45,25 @@ test("both manual and automation publisher paths validate the linked media befor
   assert.match(publisher, /metadata\.reviewStatus === "approved"/);
   assert.equal((publisher.match(/resolveSignedMediaUrl\(item\.media_asset_id, item\.id/g) ?? []).length, 2);
   assert.match(publisher, /MEDIA_NOT_READY_FOR_PUBLISH/);
+});
+
+test("authorized scheduled publisher validates the exact linked media before reserving a receipt", () => {
+  assert.match(scheduledPublisher, /media_asset_id,caption,hook/);
+  assert.match(scheduledPublisher, /async function readPublishableMediaAsset/);
+  assert.match(scheduledPublisher, /asset\.content_item_id === contentItemId/);
+  assert.match(scheduledPublisher, /metadata\.reviewStatus === "approved"/);
+  assert.match(scheduledPublisher, /syntheticAttestedAt/);
+  assert.match(scheduledPublisher, /personPresenceReviewedAt/);
+  assert.match(scheduledPublisher, /MEDIA_NOT_READY_FOR_PUBLISH/);
+  assert.match(scheduledPublisher, /MEDIA_TYPE_NOT_SUPPORTED/);
+  assert.ok(
+    scheduledPublisher.indexOf("readPublishableMediaAsset(contentItemId, item.media_asset_id)")
+      < scheduledPublisher.indexOf("reserved = await reserveReceipt(ctx)"),
+    "media review must pass before receipt reservation",
+  );
+  assert.ok(
+    scheduledPublisher.indexOf("media = await signPrimaryImage(asset.storage_path!)")
+      < scheduledPublisher.indexOf("reserved = await reserveReceipt(ctx)"),
+    "the exact approved asset must be signed before receipt reservation",
+  );
 });
