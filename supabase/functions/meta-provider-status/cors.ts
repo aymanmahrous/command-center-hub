@@ -1,9 +1,24 @@
-export const CORS_HEADERS: Record<string, string> = {
-  "access-control-allow-origin": "https://hub.relaxfixuae.com",
+export const PRODUCTION_ORIGIN = "https://hub.relaxfixuae.com";
+
+export function allowedOrigin(origin: string | null | undefined): string {
+  const value = (origin ?? "").trim();
+  if (value === PRODUCTION_ORIGIN) return value;
+  // Preview deployments are owned by this Vercel team and use the project
+  // hostname prefix. Never reflect arbitrary origins into CORS headers.
+  if (/^https:\/\/command-center(?:-[a-z0-9-]+)?-swimmingayman-8492s-projects\.vercel\.app$/i.test(value)) return value;
+  return PRODUCTION_ORIGIN;
+}
+
+export function corsHeaders(origin?: string | null): Record<string, string> {
+  return {
+  "access-control-allow-origin": allowedOrigin(origin),
   "access-control-allow-headers": "authorization, apikey, content-type, x-client-info, x-supabase-api-version",
   "access-control-allow-methods": "POST, OPTIONS",
-};
+  };
+}
 
-export function preflightResponse(): Response {
-  return new Response(null, { status: 204, headers: CORS_HEADERS });
+export const CORS_HEADERS = corsHeaders(PRODUCTION_ORIGIN);
+
+export function preflightResponse(origin?: string | null): Response {
+  return new Response(null, { status: 204, headers: corsHeaders(origin) });
 }

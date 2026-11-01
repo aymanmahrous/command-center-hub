@@ -121,6 +121,10 @@ async function markPublicationReceiptAmbiguous(contentItemId: string, platform: 
   return callServiceRpc("mark_publication_receipt_ambiguous", { p_content_item_id: contentItemId, p_platform: platform, p_provider: "meta-graph-publishing", p_error: error });
 }
 
+async function markPublicationReceiptFailed(contentItemId: string, platform: string, error: string) {
+  return callServiceRpc("mark_publication_receipt_failed", { p_content_item_id: contentItemId, p_platform: platform, p_provider: "meta-graph-publishing", p_error: error });
+}
+
 async function publishAutomation(req: Request): Promise<Response> {
   let contentItemId: string;
   let jobId: string;
@@ -155,7 +159,7 @@ async function publishAutomation(req: Request): Promise<Response> {
   const pageId = connectedCredential?.facebookPageId ?? FACEBOOK_PAGE_ID;
   const instagramAccountId = connectedCredential?.instagramAccountId ?? INSTAGRAM_ACCOUNT_ID;
   const accessToken = connectedCredential?.token ?? (platform === "facebook" ? FACEBOOK_PAGE_ACCESS_TOKEN : INSTAGRAM_ACCESS_TOKEN);
-  if (receiptStatus === "published" && receiptExternalPostId) {
+  if ((receiptStatus === "published" || receiptStatus === "confirmed") && receiptExternalPostId) {
     return new Response(JSON.stringify({ success: true, alreadyPublished: true, providerExternalId: receiptExternalPostId, platform, jobId }), { status: 200, headers: JSON_HEADERS });
   }
   if (receiptStatus === "ambiguous") {
@@ -185,6 +189,11 @@ async function publishAutomation(req: Request): Promise<Response> {
     return new Response(JSON.stringify({ success: false, ambiguous: true, code: "AMBIGUOUS_RESULT", jobId, platform }), { status: 504, headers: JSON_HEADERS });
   }
   if (!publishResult.success || !publishResult.providerExternalId) {
+    try {
+      await markPublicationReceiptFailed(contentItemId, platform, publishResult.errorCode ?? "META_API_ERROR");
+    } catch (receiptError) {
+      console.error("safe-content-publisher: failed to mark confirmed Meta failure", { contentItemId, jobId, platform, error: receiptError instanceof Error ? receiptError.name : "RECEIPT_MARK_FAILED" });
+    }
     return new Response(JSON.stringify({ success: false, confirmed: true, code: publishResult.errorCode ?? "META_API_ERROR", jobId, platform }), { status: 502, headers: JSON_HEADERS });
   }
 
