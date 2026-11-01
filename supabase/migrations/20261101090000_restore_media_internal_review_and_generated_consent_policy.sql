@@ -60,7 +60,7 @@ begin
   v_suitability := coalesce(v_asset.metadata->'analysis'->>'suitabilityVerdict', '');
   if v_category in ('family_personal','other','unclassified')
      or v_status <> 'ready'
-     or (v_category = 'swimming_business' and (v_asset.source <> 'generated' or coalesce((v_asset.metadata->>'containsRealPerson')::boolean, false)) and v_consent is distinct from 'consent_confirmed')
+     or (v_category = 'swimming_business' and (v_asset.source <> 'generated' or v_asset.metadata->>'consentApplicability' <> 'not_applicable_synthetic' or coalesce((v_asset.metadata->>'containsRealPerson')::boolean, true)) and v_consent is distinct from 'consent_confirmed')
      or v_suitability = 'unsuitable' then
     v_publishability := 'blocked';
   else
@@ -145,7 +145,7 @@ begin
   v_suitability := coalesce(v_asset.metadata->'analysis'->>'suitabilityVerdict', '');
   if v_category in ('family_personal','other','unclassified')
      or v_status <> 'ready'
-     or (v_category = 'swimming_business' and (v_asset.source <> 'generated' or coalesce((v_asset.metadata->>'containsRealPerson')::boolean, false)) and v_consent is distinct from 'consent_confirmed')
+     or (v_category = 'swimming_business' and (v_asset.source <> 'generated' or v_asset.metadata->>'consentApplicability' <> 'not_applicable_synthetic' or coalesce((v_asset.metadata->>'containsRealPerson')::boolean, true)) and v_consent is distinct from 'consent_confirmed')
      or v_suitability = 'unsuitable' then
     v_publishability := 'blocked';
   else
@@ -223,7 +223,7 @@ begin
      or coalesce(v_asset.publishability_status, 'blocked') <> 'ready_for_review'
      or v_asset.media_status is distinct from 'ready'
      or (coalesce(v_asset.category, 'unclassified') = 'swimming_business'
-         and (v_asset.source <> 'generated' or coalesce((v_asset.metadata->>'containsRealPerson')::boolean, false))
+         and (v_asset.source <> 'generated' or v_asset.metadata->>'consentApplicability' <> 'not_applicable_synthetic' or coalesce((v_asset.metadata->>'containsRealPerson')::boolean, true))
          and v_asset.consent_status is distinct from 'consent_confirmed') then
     return jsonb_build_object('success', false, 'code', 'MEDIA_ASSET_NOT_PUBLISHABLE');
   end if;
@@ -311,6 +311,16 @@ BEGIN
       ),
       publishability_status = CASE
         WHEN v_status IN ('rejected','unsuitable') THEN 'blocked'
+        WHEN v_status = 'pending_review'
+          AND v_asset.media_status = 'ready'
+          AND coalesce(v_asset.category, 'unclassified') IN ('swimming_business','other_business')
+          AND (coalesce(v_asset.category, 'unclassified') <> 'swimming_business'
+            OR (v_asset.source = 'generated'
+              AND v_asset.metadata->>'consentApplicability' = 'not_applicable_synthetic'
+              AND coalesce((v_asset.metadata->>'containsRealPerson')::boolean, true) = false)
+            OR v_asset.consent_status = 'consent_confirmed')
+          AND coalesce(v_asset.metadata->'analysis'->>'suitabilityVerdict', '') <> 'unsuitable'
+          THEN 'ready_for_review'
         ELSE publishability_status
       END,
       updated_at = now()
@@ -331,5 +341,63 @@ BEGIN
     'mediaStatus', v_asset.media_status,
     'publishabilityStatus', v_asset.publishability_status
   );
+END;
+$function$;
+
+
+-- Explicit, auditable staff attestation for synthetic academy-generated assets only.
+-- This is not a person's consent and cannot be used for uploaded/external assets.
+CREATE OR REPLACE FUNCTION public.attest_generated_media_synthetic(
+  p_media_asset_id uuid,
+  p_synthetic_no_real_person boolean
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  v_asset public.media_assets%rowtype;
+BEGIN
+  IF NOT public.is_active_staff(array['super_admin','admin','content_manager']) THEN
+    RAISE EXCEPTION 'STAFF_ACCESS_DENIED' USING errcode = '42501';
+  END IF;
+
+  IF p_synthetic_no_real_person IS DISTINCT FROM true THEN
+    RETURN jsonb_build_object('success', false, 'code', 'SYNTHETIC_ATTESTATION_REQUIRED');
+  END IF;
+
+  SELECT * INTO v_asset
+  FROM public.media_assets
+  WHERE id = p_media_asset_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'code', 'NOT_FOUND');
+  END IF;
+
+  IF v_asset.source <> 'generated' OR v_asset.asset_type NOT IN ('image','video') THEN
+    RETURN jsonb_build_object('success', false, 'code', 'SYNTHETIC_GENERATED_MEDIA_ONLY');
+  END IF;
+
+  UPDATE public.media_assets
+  SET metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object(
+        'consentApplicability', 'not_applicable_synthetic',
+        'containsRealPerson', false,
+        'syntheticAttestedAt', now(),
+        'syntheticAttestedBy', auth.uid()
+      ),
+      updated_at = now()
+  WHERE id = v_asset.id
+  RETURNING * INTO v_asset;
+
+  INSERT INTO public.audit_logs(actor_id, actor_type, action, entity_type, entity_id, detail)
+  VALUES (
+    auth.uid(), 'user', 'generated_media_synthetic_attested', 'media_asset', v_asset.id,
+    jsonb_build_object('consentApplicability', 'not_applicable_synthetic', 'containsRealPerson', false)
+  );
+
+  RETURN jsonb_build_object('success', true, 'mediaAssetId', v_asset.id,
+    'consentApplicability', 'not_applicable_synthetic');
 END;
 $function$;
