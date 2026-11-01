@@ -7,6 +7,10 @@ const migration = await readFile(
   "utf8",
 );
 const controls = await readFile(new URL("../src/media-library-controls.tsx", import.meta.url), "utf8");
+const personPresenceMigration = await readFile(
+  new URL("../supabase/migrations/20261101053000_add_media_person_presence_attestation.sql", import.meta.url),
+  "utf8",
+);
 
 test("uploaded and external real-person media still require explicit consent", () => {
   assert.match(migration, /v_asset\.source <> 'generated'/);
@@ -47,4 +51,17 @@ test("media link gate remains review-only and never publishes content", () => {
   const linkFunction = migration.split("CREATE OR REPLACE FUNCTION public.link_staff_media_to_content_item")[1] ?? "";
   assert.match(linkFunction, /status = 'needs_review'/);
   assert.doesNotMatch(linkFunction, /SET status = 'published'/i);
+});
+
+test("person-presence review is distinct from consent and applies to uploaded media too", () => {
+  assert.match(personPresenceMigration, /CREATE OR REPLACE FUNCTION public\.attest_media_person_presence/);
+  assert.match(personPresenceMigration, /'not_applicable_no_real_person'/);
+  assert.match(personPresenceMigration, /'consent_required'/);
+  assert.match(personPresenceMigration, /'containsRealPerson', p_contains_real_person/);
+  assert.match(personPresenceMigration, /'media_person_presence_reviewed'/);
+  assert.match(personPresenceMigration, /REVOKE ALL ON FUNCTION public\.attest_media_person_presence\(uuid, boolean\) FROM PUBLIC, anon/);
+  assert.match(personPresenceMigration, /GRANT EXECUTE ON FUNCTION public\.attest_media_person_presence\(uuid, boolean\) TO authenticated/);
+  assert.match(controls, /attest_media_person_presence/);
+  assert.match(controls, /No identifiable person/);
+  assert.match(controls, /Person present/);
 });
