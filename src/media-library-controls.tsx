@@ -263,10 +263,17 @@ export function MediaAssetControls({
     if (!canWrite || busy || (asset.assetType !== "image" && asset.assetType !== "video")) return;
     setActionNotice("");
     try {
-      await callRpc(session, "attest_media_person_presence", {
-        p_media_asset_id: asset.id,
-        p_contains_real_person: containsRealPerson,
-      });
+      if (asset.source === "generated" && !containsRealPerson) {
+        await callRpc(session, "attest_generated_media_synthetic", {
+          p_media_asset_id: asset.id,
+          p_synthetic_no_real_person: true,
+        });
+      } else {
+        await callRpc(session, "attest_media_person_presence", {
+          p_media_asset_id: asset.id,
+          p_contains_real_person: containsRealPerson,
+        });
+      }
       onChanged();
     } catch (cause) {
       if (cause instanceof Error && cause.message === "SESSION_EXPIRED") {
