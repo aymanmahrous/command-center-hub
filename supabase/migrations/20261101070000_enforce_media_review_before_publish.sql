@@ -35,27 +35,27 @@ BEGIN
   IF NOT FOUND
      OR v_asset.content_item_id IS DISTINCT FROM p_content_item_id
      OR nullif(btrim(coalesce(v_asset.storage_path, '')), '') IS NULL
-     OR v_asset.asset_type NOT IN ('image', 'video') THEN
+     OR v_asset.asset_type IS NULL OR v_asset.asset_type NOT IN ('image', 'video') THEN
     RAISE EXCEPTION 'MEDIA_ASSET_MISSING_OR_UNLINKED' USING errcode = '23514';
   END IF;
 
   v_metadata := coalesce(v_asset.metadata, '{}'::jsonb);
-  v_no_real_person := v_metadata->'containsRealPerson' = 'false'::jsonb;
-  v_synthetic_attested :=
+  v_no_real_person := coalesce(v_metadata->'containsRealPerson' = 'false'::jsonb, false);
+  v_synthetic_attested := coalesce(
     v_asset.source = 'generated'
     AND v_metadata->>'consentApplicability' = 'not_applicable_synthetic'
     AND nullif(v_metadata->>'syntheticAttestedAt', '') IS NOT NULL
-    AND nullif(v_metadata->>'syntheticAttestedBy', '') IS NOT NULL;
-  v_person_presence_reviewed :=
+    AND nullif(v_metadata->>'syntheticAttestedBy', '') IS NOT NULL, false);
+  v_person_presence_reviewed := coalesce(
     v_asset.source <> 'generated'
     AND v_metadata->>'consentApplicability' = 'not_applicable_no_real_person'
     AND nullif(v_metadata->>'personPresenceReviewedAt', '') IS NOT NULL
-    AND nullif(v_metadata->>'personPresenceReviewedBy', '') IS NOT NULL;
+    AND nullif(v_metadata->>'personPresenceReviewedBy', '') IS NOT NULL, false);
 
   v_consent_valid :=
     coalesce(v_asset.category, 'unclassified') <> 'swimming_business'
     OR v_asset.consent_status = 'consent_confirmed'
-    OR (v_no_real_person AND (v_synthetic_attested OR v_person_presence_reviewed));
+    OR (v_no_real_person AND (coalesce(v_synthetic_attested, false) OR coalesce(v_person_presence_reviewed, false)));
 
   IF v_asset.media_status IS DISTINCT FROM 'ready'
      OR v_asset.publishability_status IS DISTINCT FROM 'ready_for_review'
