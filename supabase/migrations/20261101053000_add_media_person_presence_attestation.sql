@@ -389,6 +389,10 @@ BEGIN
       ),
       publishability_status = CASE
         WHEN p_contains_real_person THEN 'blocked'
+        WHEN v_asset.media_status = 'ready'
+          AND coalesce(v_asset.category, 'unclassified') IN ('swimming_business','other_business')
+          AND coalesce(v_asset.metadata->'analysis'->>'suitabilityVerdict', '') <> 'unsuitable'
+          THEN 'ready_for_review'
         ELSE publishability_status
       END,
       updated_at = now()
