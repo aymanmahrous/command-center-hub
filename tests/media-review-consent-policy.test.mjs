@@ -68,3 +68,22 @@ test("person-presence review is distinct from consent and applies to uploaded me
   assert.match(controls, /No identifiable person/);
   assert.match(controls, /Person present/);
 });
+
+const analysisPolicyMigration = await readFile(
+  new URL("../supabase/migrations/20261101063800_preserve_no_person_media_readiness_after_ai_analysis.sql", import.meta.url),
+  "utf8",
+);
+
+test("AI analysis preserves the audited no-real-person consent exemption", () => {
+  assert.match(analysisPolicyMigration, /CREATE OR REPLACE FUNCTION public\\.save_staff_media_ai_analysis/);
+  assert.match(analysisPolicyMigration, /consentApplicability' = 'not_applicable_no_real_person'/);
+  assert.match(analysisPolicyMigration, /personPresenceReviewedAt/);
+  assert.match(analysisPolicyMigration, /personPresenceReviewedBy/);
+  assert.match(analysisPolicyMigration, /consentApplicability' = 'not_applicable_synthetic'/);
+  assert.match(analysisPolicyMigration, /syntheticAttestedAt/);
+  assert.match(analysisPolicyMigration, /syntheticAttestedBy/);
+  assert.match(analysisPolicyMigration, /consent_confirmed/);
+  assert.match(analysisPolicyMigration, /suitabilityVerdict/);
+  assert.match(analysisPolicyMigration, /THEN 'ready_for_review'/);
+  assert.match(analysisPolicyMigration, /ELSE 'blocked'/);
+});
