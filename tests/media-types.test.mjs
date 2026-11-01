@@ -6,6 +6,7 @@ import {
   displayMediaWorkflowStatus,
   isMarketingEligibleCategory,
   normalizeMediaCategory,
+  isSyntheticConsentExempt,
 } from "../src/media-types.ts";
 
 test("family/personal and unclassified remain blocked", () => {
@@ -32,6 +33,8 @@ test("marketing batch use requires ready status, eligible category, consent, and
     category: "swimming_business",
     mediaStatus: "ready",
     publishabilityStatus: "ready_for_review",
+    source: "upload",
+    metadata: {},
   };
   assert.equal(canUseInMarketingBatch({ ...base, consentStatus: "consent_confirmed" }), true);
   assert.equal(canUseInMarketingBatch({ ...base, consentStatus: "pending" }), false);
@@ -48,4 +51,36 @@ test("displayMediaWorkflowStatus reflects technical file status, not human appro
   assert.equal(displayMediaWorkflowStatus({ mediaStatus: "ready" }), "ready");
   assert.equal(displayMediaWorkflowStatus({ mediaStatus: "processing" }), "processing");
   assert.equal(displayMediaWorkflowStatus({ mediaStatus: "failed" }), "failed");
+});
+
+test("marketing eligibility honors only an explicit generated synthetic attestation", () => {
+  const synthetic = {
+    category: "swimming_business",
+    consentStatus: null,
+    mediaStatus: "ready",
+    publishabilityStatus: "ready_for_review",
+    source: "generated",
+    metadata: { consentApplicability: "not_applicable_synthetic", containsRealPerson: false },
+  };
+  assert.equal(canUseInMarketingBatch(synthetic), true);
+  assert.equal(canUseInMarketingBatch({ ...synthetic, metadata: {} }), false);
+  assert.equal(canUseInMarketingBatch({ ...synthetic, source: "upload" }), false);
+});
+
+test("synthetic consent exemption requires explicit generated-source attestation", () => {
+  assert.equal(isSyntheticConsentExempt("generated", {
+    consentApplicability: "not_applicable_synthetic",
+    containsRealPerson: false,
+  }), true);
+  assert.equal(isSyntheticConsentExempt("upload", {
+    consentApplicability: "not_applicable_synthetic",
+    containsRealPerson: false,
+  }), false);
+  assert.equal(isSyntheticConsentExempt("generated", {
+    consentApplicability: "not_applicable_synthetic",
+    containsRealPerson: true,
+  }), false);
+  assert.equal(isSyntheticConsentExempt("generated", {}), false);
+  assert.equal(derivePublishability("swimming_business", null, "ready", undefined, true), "ready_for_review");
+  assert.equal(derivePublishability("swimming_business", null, "ready", undefined, false), "blocked");
 });

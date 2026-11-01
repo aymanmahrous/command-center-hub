@@ -28,7 +28,12 @@ async function callRpc(session: ControlSession, rpcName: string, body: Record<st
   });
   if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
   if (!response.ok) throw new Error(`RPC_FAILED_${response.status}`);
-  return response.json();
+  const result: unknown = await response.json();
+  if (result && typeof result === "object" && "success" in result && result.success === false) {
+    const code = "code" in result && typeof result.code === "string" ? result.code : "RPC_REJECTED";
+    throw new Error(code);
+  }
+  return result;
 }
 
 export function parseMediaAssetRecords(value: unknown): MediaAssetRecord[] {
@@ -236,6 +241,42 @@ export function MediaAssetControls({
     }
   }
 
+  async function review(reviewStatus: "pending_review" | "approved" | "rejected" | "unsuitable") {
+    if (!canWrite || busy) return;
+    setActionNotice("");
+    try {
+      await callRpc(session, "review_staff_media_asset", {
+        p_media_asset_id: asset.id,
+        p_review_status: reviewStatus,
+      });
+      onChanged();
+    } catch (cause) {
+      if (cause instanceof Error && cause.message === "SESSION_EXPIRED") {
+        onSessionExpired();
+        return;
+      }
+      setActionNotice(genericActionError);
+    }
+  }
+
+  async function attestSynthetic() {
+    if (!canWrite || busy || asset.source !== "generated") return;
+    setActionNotice("");
+    try {
+      await callRpc(session, "attest_generated_media_synthetic", {
+        p_media_asset_id: asset.id,
+        p_synthetic_no_real_person: true,
+      });
+      onChanged();
+    } catch (cause) {
+      if (cause instanceof Error && cause.message === "SESSION_EXPIRED") {
+        onSessionExpired();
+        return;
+      }
+      setActionNotice(genericActionError);
+    }
+  }
+
   function useInFactory() {
     try {
       sessionStorage.setItem(MEDIA_FACTORY_HANDOFF_KEY, JSON.stringify(createMediaFactoryHandoff(asset)));
@@ -248,6 +289,8 @@ export function MediaAssetControls({
   }
 
   const workflowStatus = displayMediaWorkflowStatus(asset);
+  const currentReviewStatus = typeof asset.metadata?.reviewStatus === "string" ? asset.metadata.reviewStatus : "pending_review";
+  const canApproveInternally = asset.mediaStatus === "ready" && asset.publishabilityStatus === "ready_for_review";
   const analysis = readStoredMediaAnalysis(asset.metadata);
 
   return (
@@ -295,7 +338,34 @@ export function MediaAssetControls({
           ))}
         </select>
       </label>
+      <p className="media-status-line">
+        {language === "ar" ? "المراجعة الداخلية" : "Internal review"}: {currentReviewStatus}
+      </p>
+      {asset.source === "generated" && (
+        <button
+          type="button"
+          className="secondary"
+          disabled={!canWrite || busy || asset.metadata?.consentApplicability === "not_applicable_synthetic"}
+          onClick={() => void attestSynthetic()}
+          title={language === "ar"
+            ? "إقرار بأن الأصل مولّد للأكاديمية ولا يستخدم صورة أو شبه شخص حقيقي"
+            : "Attest this academy-generated asset uses no real-person photo or likeness"}
+        >
+          {asset.metadata?.consentApplicability === "not_applicable_synthetic"
+            ? (language === "ar" ? "تم توثيق الأصل الاصطناعي" : "Synthetic asset attested")
+            : (language === "ar" ? "تأكيد أصل اصطناعي بلا شخص حقيقي" : "Attest synthetic / no real person")}
+        </button>
+      )}
       <div className="media-control-actions">
+        <button type="button" disabled={!canWrite || busy || !canApproveInternally || currentReviewStatus === "approved"} onClick={() => void review("approved")}>
+          {language === "ar" ? "اعتماد داخلي" : "Approve internally"}
+        </button>
+        <button type="button" className="secondary" disabled={!canWrite || busy} onClick={() => void review("rejected")}>
+          {language === "ar" ? "رفض داخلي" : "Reject internally"}
+        </button>
+        <button type="button" className="secondary" disabled={!canWrite || busy} onClick={() => void review("pending_review")}>
+          {language === "ar" ? "إعادة للمراجعة" : "Return to review"}
+        </button>
         <button type="button" className="secondary" disabled={!canWrite || busy} onClick={useInFactory}>{labels.useInFactory ?? "Use in Content Factory"}</button>
         <button type="button" disabled={!canWrite || busy || asset.category !== "swimming_business"} onClick={() => void runAnalysis()}>{labels.analyzeMedia}</button>
       </div>
