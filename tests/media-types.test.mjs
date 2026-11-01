@@ -7,6 +7,7 @@ import {
   isMarketingEligibleCategory,
   normalizeMediaCategory,
   isSyntheticConsentExempt,
+  isConsentNotApplicable,
 } from "../src/media-types.ts";
 
 test("family/personal and unclassified remain blocked", () => {
@@ -65,6 +66,9 @@ test("marketing eligibility honors only an explicit generated synthetic attestat
   assert.equal(canUseInMarketingBatch(synthetic), true);
   assert.equal(canUseInMarketingBatch({ ...synthetic, metadata: {} }), false);
   assert.equal(canUseInMarketingBatch({ ...synthetic, source: "upload" }), false);
+  const uploadedNoPerson = { ...synthetic, source: "upload", metadata: { consentApplicability: "not_applicable_no_real_person", containsRealPerson: false } };
+  assert.equal(canUseInMarketingBatch(uploadedNoPerson), true);
+  assert.equal(canUseInMarketingBatch({ ...uploadedNoPerson, metadata: { consentApplicability: "not_applicable_no_real_person", containsRealPerson: true } }), false);
 });
 
 test("synthetic consent exemption requires explicit generated-source attestation", () => {
@@ -83,4 +87,27 @@ test("synthetic consent exemption requires explicit generated-source attestation
   assert.equal(isSyntheticConsentExempt("generated", {}), false);
   assert.equal(derivePublishability("swimming_business", null, "ready", undefined, true), "ready_for_review");
   assert.equal(derivePublishability("swimming_business", null, "ready", undefined, false), "blocked");
+});
+
+test("no-person classification is not consent and is distinct from synthetic-source exemption", () => {
+  assert.equal(isConsentNotApplicable("upload", {
+    consentApplicability: "not_applicable_no_real_person",
+    containsRealPerson: false,
+  }), true);
+  assert.equal(isConsentNotApplicable("external", {
+    consentApplicability: "not_applicable_no_real_person",
+    containsRealPerson: false,
+  }), true);
+  assert.equal(isConsentNotApplicable("upload", {
+    consentApplicability: "not_applicable_synthetic",
+    containsRealPerson: false,
+  }), false);
+  assert.equal(isConsentNotApplicable("generated", {
+    consentApplicability: "not_applicable_synthetic",
+    containsRealPerson: false,
+  }), true);
+  assert.equal(isConsentNotApplicable("upload", {
+    consentApplicability: "not_applicable_no_real_person",
+    containsRealPerson: true,
+  }), false);
 });
