@@ -5,7 +5,7 @@ import { z } from "zod";
 import { useLanguage } from "./i18n";
 import type { Dictionary, Language } from "./i18n";
 import MediaLibraryUploadPanel from "./media-library-upload";
-import { MediaAssetControls, MediaProviderStrip, parseMediaAssetRecords } from "./media-library-controls";
+import { MediaAssetControls, MediaProviderStrip, normalizeLegacyMediaAssetRows, parseMediaAssetRecords } from "./media-library-controls";
 import MediaSourceHubView from "./media-source-hub-view";
 import type { MediaAssetRecord, MediaCategory } from "./media-types";
 import { MEDIA_CATEGORIES } from "./media-types";
@@ -18,7 +18,7 @@ type MediaLibrarySession = { accessToken: string };
 
 const MediaAssetSchema = z.object({
   id: z.string().uuid(), createdBy: z.string().uuid().nullable(), contentItemId: z.string().uuid().nullable(),
-  assetType: z.enum(["image", "video", "document", "audio"]), source: z.enum(["upload", "generated", "external", "stock"]),
+  assetType: z.enum(["image", "video", "document", "audio", "other"]), source: z.enum(["upload", "generated", "external", "stock"]),
   storagePath: z.string().nullable(), provider: z.string().nullable(), providerJobId: z.string().nullable(),
   prompt: z.string().nullable(), metadata: z.record(z.unknown()), createdAt: z.string(),
   category: z.string().optional(),
@@ -30,8 +30,8 @@ const MediaAssetSchema = z.object({
 }).passthrough();
 
 const mediaTypeLabels: Record<Language, Record<MediaAssetType, string>> = {
-  ar: { image: "صورة", video: "فيديو", document: "مستند", audio: "صوت" },
-  en: { image: "Image", video: "Video", document: "Document", audio: "Audio" },
+  ar: { image: "صورة", video: "فيديو", document: "مستند", audio: "صوت", other: "نوع آخر" },
+  en: { image: "Image", video: "Video", document: "Document", audio: "Audio", other: "Other" },
 };
 const mediaSourceLabels: Record<Language, Record<MediaSource, string>> = {
   ar: { upload: "رفع موظف", generated: "مولّد", external: "مصدر خارجي", stock: "مخزون" },
@@ -195,7 +195,8 @@ export default function MediaLibraryView({
   const copy = t("media");
   const typeLabels = mediaTypeLabels[language];
   const sourceLabels = mediaSourceLabels[language];
-  const parsed = useMemo(() => z.array(MediaAssetSchema).safeParse(value), [value]);
+  const normalizedValue = useMemo(() => normalizeLegacyMediaAssetRows(value), [value]);
+  const parsed = useMemo(() => z.array(MediaAssetSchema).safeParse(normalizedValue), [normalizedValue]);
   const records = useMemo(() => parseMediaAssetRecords(value), [value]);
   const recordById = useMemo(() => new Map(records.map((record) => [record.id, record])), [records]);
   const [query, setQuery] = useState("");
@@ -204,7 +205,7 @@ export default function MediaLibraryView({
   const [categoryFilter, setCategoryFilter] = useState<MediaCategory | "all">("all");
   const assets = parsed.success ? parsed.data : [];
   const counts = useMemo(() => {
-    const initial: Record<MediaAssetType, number> = { image: 0, video: 0, document: 0, audio: 0 };
+    const initial: Record<MediaAssetType, number> = { image: 0, video: 0, document: 0, audio: 0, other: 0 };
     for (const asset of assets) initial[asset.assetType] += 1;
     return initial;
   }, [assets]);
