@@ -65,3 +65,14 @@ test("both Media Library parsing paths normalize legacy rows before strict valid
   assert.match(view, /normalizeLegacyMediaAssetRows\(value\)/);
   assert.match(view, /safeParse\(normalizedValue\)/);
 });
+
+test("legacy media updates normalize old persisted states before validation", async () => {
+  const migration = await readFile(new URL("../supabase/migrations/20261030093654_align_media_lifecycle_schema_contract.sql", import.meta.url), "utf8");
+  assert.equal((migration.match(/WHEN 'unknown' THEN 'pending'/g) ?? []).length, 2);
+  assert.equal((migration.match(/WHEN 'consent_required' THEN 'pending'/g) ?? []).length, 2);
+  assert.equal((migration.match(/WHEN 'no_consent' THEN 'denied'/g) ?? []).length, 2);
+  assert.equal((migration.match(/WHEN 'unclassified' THEN 'pending'/g) ?? []).length, 2);
+  assert.equal((migration.match(/WHEN 'approved' THEN 'pending'/g) ?? []).length, 2);
+  assert.equal((migration.match(/WHEN 'rejected' THEN 'failed'/g) ?? []).length, 2);
+  assert.equal((migration.match(/WHEN 'unsuitable' THEN 'failed'/g) ?? []).length, 2);
+});
