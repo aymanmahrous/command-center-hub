@@ -105,7 +105,7 @@ DECLARE
   v_media_asset_id uuid;
   v_platform text;
 BEGIN
-  IF NEW.status IN ('reserved', 'container_created')
+  IF NEW.status IN ('pending', 'reserved', 'container_created')
      AND (
        TG_OP = 'INSERT'
        OR OLD.status IS DISTINCT FROM NEW.status
