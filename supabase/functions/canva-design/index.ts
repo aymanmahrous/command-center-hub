@@ -246,7 +246,12 @@ function buildAutofillDataFromDataset(
     : textFields.find((field) => field !== headlineField && field !== ctaField);
   const cleanHeadline = compactPosterCopy(headline, 90);
   const cleanBody = posterBodyCopy(body);
-  const cleanCta = compactPosterCopy(cta, 90) || "Free initial assessment · WhatsApp 058 821 9130";
+  const isArabicCopy = /[\u0600-\u06FF]/.test([headline, body, cta].join(" "));
+  const baseCta = compactPosterCopy(cta, 30) || (isArabicCopy ? "تقييم مبدئي مجاني" : "Free initial assessment");
+  const contactFooter = isArabicCopy
+    ? "واتساب 058 821 9130 | الإدارة 055 137 8660"
+    : "WhatsApp 058 821 9130 | Admin 055 137 8660";
+  const cleanCta = [baseCta, contactFooter].join("\n").slice(0, 90);
   if (headlineField && bodyField) {
     data[headlineField] = { type: "text", text: cleanHeadline };
     data[bodyField] = { type: "text", text: cleanBody };
