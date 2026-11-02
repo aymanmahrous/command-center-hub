@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLanguage } from "./i18n";
 import { z } from "zod";
-import type { AiSuitabilityVerdict, MediaAssetRecord, MediaCategory, ConsentStatus } from "./media-types";
+import type { AiSuitabilityVerdict, MediaAssetRecord, MediaCategory, ConsentStatus, MediaWorkflowStatus } from "./media-types";
 import { displayMediaWorkflowStatus, resolveMediaAssetName } from "./media-types";
 import { createMediaFactoryHandoff, MEDIA_FACTORY_HANDOFF_KEY } from "./media-factory-handoff";
 import { analyzeMediaWithProvider, fetchGeminiIntegrationStatus, type GeminiIntegrationStatus } from "./media-gemini-adapter";
@@ -9,6 +9,7 @@ import { CANVA_OPEN_URL, canvaConnectErrorMessage, fetchCanvaIntegrationStatus, 
 import { readStoredMediaAnalysis, type MediaAnalysisResult } from "./media-ai-analysis";
 import { displayProviderStatus, readMediaProviderStatuses } from "./media-providers";
 import { normalizeMediaCategory } from "./media-types";
+import { normalizeLegacyMediaAssetRows } from "./media-legacy-compat";
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
 const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
@@ -28,20 +29,27 @@ async function callRpc(session: ControlSession, rpcName: string, body: Record<st
   });
   if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
   if (!response.ok) throw new Error(`RPC_FAILED_${response.status}`);
-  return response.json();
+  const result: unknown = await response.json();
+  if (result && typeof result === "object" && "success" in result && result.success === false) {
+    const code = "code" in result && typeof result.code === "string" ? result.code : "RPC_REJECTED";
+    throw new Error(code);
+  }
+  return result;
 }
 
 export function parseMediaAssetRecords(value: unknown): MediaAssetRecord[] {
+  const normalizedValue = normalizeLegacyMediaAssetRows(value);
+
   const parsed = z.array(z.object({
     id: z.string().uuid(),
-    assetType: z.enum(["image", "video", "logo", "other"]),
-    source: z.enum(["upload", "ai_generated", "external"]),
+    assetType: z.enum(["image", "video", "document", "audio", "other", "logo"]),
+    source: z.enum(["upload", "generated", "external", "stock"]),
     storagePath: z.string().nullable(),
-    category: z.string().optional(),
-    mediaStatus: z.string().optional(),
-    aiAnalysisStatus: z.string().optional(),
-    publishabilityStatus: z.string().optional(),
-    consentStatus: z.string().optional(),
+    category: z.string().nullable().optional(),
+    mediaStatus: z.enum(["pending", "ready", "processing", "failed"]).nullable().optional(),
+    aiAnalysisStatus: z.enum(["pending", "analyzed", "failed", "skipped"]).nullable().optional(),
+    publishabilityStatus: z.enum(["pending", "cleared", "blocked", "review", "ready_for_review"]).nullable().optional(),
+    consentStatus: z.enum(["pending", "granted", "denied", "expired", "consent_confirmed"]).nullable().optional(),
     suggestedPlatforms: z.array(z.string()).optional(),
     suggestedFormats: z.array(z.string()).optional(),
     aiNotes: z.string().optional(),
@@ -49,7 +57,7 @@ export function parseMediaAssetRecords(value: unknown): MediaAssetRecord[] {
     contentItemId: z.string().uuid().nullable().optional(),
     createdAt: z.string(),
     updatedAt: z.string().nullable().optional(),
-  }).passthrough()).safeParse(value);
+  }).passthrough()).safeParse(normalizedValue);
   if (!parsed.success) return [];
   return parsed.data.map((row) => ({
     ...row,
@@ -59,10 +67,10 @@ export function parseMediaAssetRecords(value: unknown): MediaAssetRecord[] {
     previewUrl: typeof row.previewUrl === "string" ? row.previewUrl : null,
     folder: typeof row.folder === "string" ? row.folder : typeof row.metadata?.folder === "string" ? row.metadata.folder : "",
     category: normalizeMediaCategory(row.category),
-    mediaStatus: (row.mediaStatus ?? "unclassified") as MediaAssetRecord["mediaStatus"],
-    aiAnalysisStatus: (row.aiAnalysisStatus ?? "not_started") as MediaAssetRecord["aiAnalysisStatus"],
+    mediaStatus: (row.mediaStatus ?? "pending") as MediaAssetRecord["mediaStatus"],
+    aiAnalysisStatus: (row.aiAnalysisStatus ?? "pending") as MediaAssetRecord["aiAnalysisStatus"],
     publishabilityStatus: (row.publishabilityStatus ?? "blocked") as MediaAssetRecord["publishabilityStatus"],
-    consentStatus: (row.consentStatus ?? "unknown") as ConsentStatus,
+    consentStatus: row.consentStatus ?? null,
     suggestedPlatforms: row.suggestedPlatforms ?? [],
     suggestedFormats: row.suggestedFormats ?? [],
     aiNotes: row.aiNotes ?? "",
@@ -195,7 +203,7 @@ export function MediaAssetControls({
     ? "تعذر إكمال العملية. لم يتم تأكيد حفظ التغيير؛ حاول مرة أخرى."
     : "The action could not be completed. The change was not confirmed as saved; please try again.";
 
-  async function update(fields: { category?: MediaCategory; consent_status?: ConsentStatus; media_status?: MediaAssetRecord["mediaStatus"] }) {
+  async function update(fields: { category?: MediaCategory; consent_status?: ConsentStatus; media_status?: MediaWorkflowStatus }) {
     if (!canWrite || busy) return;
     setActionNotice("");
     try {
@@ -203,7 +211,7 @@ export function MediaAssetControls({
       await callRpc(session, rpcName, {
         p_media_asset_id: asset.id,
         ...(fields.category ? { p_category: fields.category } : {}),
-        ...(fields.consent_status ? { p_consent_status: fields.consent_status } : {}),
+        ...(fields.consent_status !== undefined ? { p_consent_status: fields.consent_status } : {}),
         ...(fields.media_status ? { p_media_status: fields.media_status } : {}),
       });
       onChanged();
@@ -236,6 +244,49 @@ export function MediaAssetControls({
     }
   }
 
+  async function review(reviewStatus: "pending_review" | "approved" | "rejected" | "unsuitable") {
+    if (!canWrite || busy) return;
+    setActionNotice("");
+    try {
+      await callRpc(session, "review_staff_media_asset", {
+        p_media_asset_id: asset.id,
+        p_review_status: reviewStatus,
+      });
+      onChanged();
+    } catch (cause) {
+      if (cause instanceof Error && cause.message === "SESSION_EXPIRED") {
+        onSessionExpired();
+        return;
+      }
+      setActionNotice(genericActionError);
+    }
+  }
+
+  async function reviewPersonPresence(containsRealPerson: boolean) {
+    if (!canWrite || busy || (asset.assetType !== "image" && asset.assetType !== "video")) return;
+    setActionNotice("");
+    try {
+      if (asset.source === "generated" && !containsRealPerson) {
+        await callRpc(session, "attest_generated_media_synthetic", {
+          p_media_asset_id: asset.id,
+          p_synthetic_no_real_person: true,
+        });
+      } else {
+        await callRpc(session, "attest_media_person_presence", {
+          p_media_asset_id: asset.id,
+          p_contains_real_person: containsRealPerson,
+        });
+      }
+      onChanged();
+    } catch (cause) {
+      if (cause instanceof Error && cause.message === "SESSION_EXPIRED") {
+        onSessionExpired();
+        return;
+      }
+      setActionNotice(genericActionError);
+    }
+  }
+
   function useInFactory() {
     try {
       sessionStorage.setItem(MEDIA_FACTORY_HANDOFF_KEY, JSON.stringify(createMediaFactoryHandoff(asset)));
@@ -248,6 +299,8 @@ export function MediaAssetControls({
   }
 
   const workflowStatus = displayMediaWorkflowStatus(asset);
+  const currentReviewStatus = typeof asset.metadata?.reviewStatus === "string" ? asset.metadata.reviewStatus : "pending_review";
+  const canApproveInternally = asset.mediaStatus === "ready" && asset.publishabilityStatus === "ready_for_review";
   const analysis = readStoredMediaAnalysis(asset.metadata);
 
   return (
@@ -272,19 +325,73 @@ export function MediaAssetControls({
       <label>{labels.consentLabel}
         <select
           disabled={!canWrite || busy}
-          value={asset.consentStatus}
-          onChange={(event) => void update({ consent_status: event.target.value as ConsentStatus })}
+          value={asset.consentStatus ?? ""}
+          onChange={(event) => {
+            const value = event.target.value;
+            if (value) void update({ consent_status: value as Exclude<ConsentStatus, null> });
+          }}
         >
-          {(["unknown", "consent_required", "consent_confirmed", "no_consent"] as ConsentStatus[]).map((status) => (
+          <option value="">{labels.consent_not_recorded}</option>
+          {(["pending", "granted", "denied", "expired", "consent_confirmed"] as const).map((status) => (
             <option key={status} value={status}>{labels[`consent_${status}`] ?? status}</option>
           ))}
         </select>
       </label>
+      <label>{labels.mediaStatusLabel}
+        <select
+          disabled={!canWrite || busy}
+          value={asset.mediaStatus}
+          onChange={(event) => void update({ media_status: event.target.value as MediaWorkflowStatus })}
+        >
+          {(["pending", "ready", "processing", "failed"] as const).map((status) => (
+            <option key={status} value={status}>{labels[`workflow_${status}`] ?? status}</option>
+          ))}
+        </select>
+      </label>
+      <p className="media-status-line">
+        {language === "ar" ? "المراجعة الداخلية" : "Internal review"}: {currentReviewStatus}
+      </p>
+      {(asset.assetType === "image" || asset.assetType === "video") && (
+        <>
+          <button
+            type="button"
+            className="secondary"
+            disabled={!canWrite || busy || (asset.metadata?.containsRealPerson === false && asset.metadata?.consentApplicability === "not_applicable_no_real_person")}
+            onClick={() => void reviewPersonPresence(false)}
+            title={language === "ar"
+              ? "تصنيف داخلي فقط: لا يظهر شخص حقيقي يمكن التعرف عليه. هذا ليس موافقة شخص."
+              : "Internal classification only: no identifiable real person is depicted. This is not a person's consent."}
+          >
+            {asset.metadata?.containsRealPerson === false && asset.metadata?.consentApplicability === "not_applicable_no_real_person"
+              ? (language === "ar" ? "تم توثيق عدم وجود شخص" : "No-person review recorded")
+              : (language === "ar" ? "لا يظهر شخص حقيقي" : "No identifiable person")}
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            disabled={!canWrite || busy || (asset.metadata?.containsRealPerson === true && asset.metadata?.consentApplicability === "consent_required")}
+            onClick={() => void reviewPersonPresence(true)}
+            title={language === "ar"
+              ? "تصنيف وجود شخص حقيقي. سيظل الوسيط محظورًا حتى تأكيد الموافقة المطلوبة."
+              : "Mark that a real person is depicted. The asset stays blocked until required consent is confirmed."}
+          >
+            {asset.metadata?.containsRealPerson === true
+              ? (language === "ar" ? "يوجد شخص — الموافقة مطلوبة" : "Person present — consent required")
+              : (language === "ar" ? "يوجد شخص حقيقي" : "Person present")}
+          </button>
+        </>
+      )}
       <div className="media-control-actions">
-        <button type="button" disabled={!canWrite || busy} onClick={() => void update({ media_status: "approved" })}>{labels.approveMedia}</button>
+        <button type="button" disabled={!canWrite || busy || !canApproveInternally || currentReviewStatus === "approved"} onClick={() => void review("approved")}>
+          {language === "ar" ? "اعتماد داخلي" : "Approve internally"}
+        </button>
+        <button type="button" className="secondary" disabled={!canWrite || busy} onClick={() => void review("rejected")}>
+          {language === "ar" ? "رفض داخلي" : "Reject internally"}
+        </button>
+        <button type="button" className="secondary" disabled={!canWrite || busy} onClick={() => void review("pending_review")}>
+          {language === "ar" ? "إعادة للمراجعة" : "Return to review"}
+        </button>
         <button type="button" className="secondary" disabled={!canWrite || busy} onClick={useInFactory}>{labels.useInFactory ?? "Use in Content Factory"}</button>
-        <button type="button" className="secondary" disabled={!canWrite || busy} onClick={() => void update({ media_status: "rejected" })}>{labels.rejectMedia}</button>
-        <button type="button" className="secondary" disabled={!canWrite || busy} onClick={() => void update({ media_status: "unsuitable" })}>{labels.unsuitableMedia}</button>
         <button type="button" disabled={!canWrite || busy || asset.category !== "swimming_business"} onClick={() => void runAnalysis()}>{labels.analyzeMedia}</button>
       </div>
       {analysis && (
