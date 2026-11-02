@@ -42,7 +42,7 @@ export function parseMediaAssetRecords(value: unknown): MediaAssetRecord[] {
 
   const parsed = z.array(z.object({
     id: z.string().uuid(),
-    assetType: z.enum(["image", "video", "document", "audio", "other"]),
+    assetType: z.enum(["image", "video", "document", "audio", "other", "logo"]),
     source: z.enum(["upload", "generated", "external", "stock"]),
     storagePath: z.string().nullable(),
     category: z.string().nullable().optional(),
