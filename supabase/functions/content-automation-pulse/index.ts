@@ -175,7 +175,7 @@ async function processOneAuthorizedPublishJob(supabase: ReturnType<typeof create
     const platform = String(payload.platform ?? "").toLowerCase();
     const dueAt = job.next_retry_at ?? job.created_at;
     if (!contentItemId || !["facebook", "instagram"].includes(platform)) continue;
-    if (String(payload.source ?? "") !== "staff_schedule") continue;
+    if (!["staff_schedule", "batch_approve_scheduled"].includes(String(payload.source ?? ""))) continue;
     if (!dueAt || new Date(String(dueAt)).getTime() > now.getTime()) continue;
 
     const accountId = platform === "facebook" ? FACEBOOK_PAGE_ID : INSTAGRAM_ACCOUNT_ID;
@@ -198,13 +198,16 @@ async function processOneAuthorizedPublishJob(supabase: ReturnType<typeof create
       .order("created_at", { ascending: false }).limit(20);
     if (auditError) throw auditError;
     const scheduleEvent = (transitions ?? []).find(row =>
-      row.detail?.requestedAction === "schedule" && row.detail?.nextStatus === "scheduled"
+      (row.detail?.requestedAction === "schedule" || row.detail?.requestedAction === "approve_and_schedule")
+      && row.detail?.nextStatus === "scheduled"
     );
     if (!scheduleEvent || transitions?.[0]?.id !== scheduleEvent.id) continue;
-    const approvalEvent = (transitions ?? []).find(row =>
-      row.detail?.requestedAction === "approve" && row.detail?.nextStatus === "approved"
-      && row.actor_id && new Date(row.created_at).getTime() <= new Date(scheduleEvent.created_at).getTime()
-    );
+    const approvalEvent = scheduleEvent.detail?.requestedAction === "approve_and_schedule"
+      ? scheduleEvent
+      : (transitions ?? []).find(row =>
+          row.detail?.requestedAction === "approve" && row.detail?.nextStatus === "approved"
+          && row.actor_id && new Date(row.created_at).getTime() <= new Date(scheduleEvent.created_at).getTime()
+        );
     if (!approvalEvent?.actor_id) continue;
     const { data: owner, error: ownerError } = await supabase.from("staff_profiles")
       .select("role,active").eq("id", approvalEvent.actor_id).maybeSingle();
