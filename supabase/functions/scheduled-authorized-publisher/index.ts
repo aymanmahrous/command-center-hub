@@ -318,17 +318,6 @@ async function handlePublish(req: Request): Promise<Response> {
     return response({ success: false, code, recorded, jobId, platform }, 409);
   }
 
-  let reserved: Record<string, unknown>;
-  try { reserved = await reserveReceipt(ctx); }
-  catch {
-    const recorded = await recordFailure(ctx, "ambiguous_result", "RECEIPT_RESERVATION_UNCERTAIN");
-    return response({ success: false, code: "RECEIPT_RESERVATION_UNCERTAIN", recorded, manualReviewRequired: true, jobId, platform }, 504);
-  }
-  if (reserved.success !== true || !["RESERVED", "ALREADY_RESERVED"].includes(String(reserved.code))) {
-    const code = String(reserved.code ?? "PUBLICATION_RECEIPT_RESERVATION_FAILED");
-    return response({ success: false, code, manualReviewRequired: code.includes("AMBIGUOUS") || code.includes("DIFFERENT_ATTEMPT"), jobId, platform }, 409);
-  }
-
   let media: { url: string | null; hasMedia: boolean; assetType: "image" | "video"; errorCode: string | null };
   try { media = await signPrimaryImage(contentItemId, item.media_asset_id); }
   catch {
@@ -339,6 +328,17 @@ async function handlePublish(req: Request): Promise<Response> {
     const code = media.errorCode ?? "MEDIA_MISSING";
     const recorded = await recordFailure(ctx, "validation_failed", code);
     return response({ success: false, code, recorded, jobId, platform }, 422);
+  }
+
+  let reserved: Record<string, unknown>;
+  try { reserved = await reserveReceipt(ctx); }
+  catch {
+    const recorded = await recordFailure(ctx, "ambiguous_result", "RECEIPT_RESERVATION_UNCERTAIN");
+    return response({ success: false, code: "RECEIPT_RESERVATION_UNCERTAIN", recorded, manualReviewRequired: true, jobId, platform }, 504);
+  }
+  if (reserved.success !== true || !["RESERVED", "ALREADY_RESERVED"].includes(String(reserved.code))) {
+    const code = String(reserved.code ?? "PUBLICATION_RECEIPT_RESERVATION_FAILED");
+    return response({ success: false, code, manualReviewRequired: code.includes("AMBIGUOUS") || code.includes("DIFFERENT_ATTEMPT"), jobId, platform }, 409);
   }
 
   const caption = [item.hook, item.caption, item.cta, formatHashtags(item.hashtags)].filter(Boolean).join("\n\n").slice(0, 5000);

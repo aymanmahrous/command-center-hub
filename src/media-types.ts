@@ -14,17 +14,19 @@ export const MARKETING_BLOCKED_CATEGORIES = new Set<MediaCategory>([
   "unclassified",
 ]);
 
-export type ConsentStatus = "unknown" | "consent_required" | "consent_confirmed" | "no_consent";
+export type ConsentStatus = "pending" | "granted" | "denied" | "expired" | "consent_confirmed" | null;
 export type AiSuitabilityVerdict = "good" | "needs_review" | "unsuitable";
-export type AiAnalysisStatus = "not_started" | "pending" | "completed" | "failed";
-export type PublishabilityStatus = "blocked" | "consent_required" | "ready_for_review" | "unsuitable";
-export type MediaWorkflowStatus = "unclassified" | "approved" | "rejected" | "unsuitable";
-export type MediaSourceKind = "real" | "ai_generated" | "pending";
+export type AiAnalysisStatus = "pending" | "analyzed" | "failed" | "skipped";
+export type PublishabilityStatus = "pending" | "cleared" | "blocked" | "review" | "ready_for_review" | null;
+export type MediaWorkflowStatus = "pending" | "ready" | "processing" | "failed";
+export type MediaReviewStatus = "pending_review" | "approved" | "rejected" | "unsuitable";
+export type MediaAssetType = "image" | "video" | "document" | "audio" | "other";
+export type MediaSourceKind = "upload" | "generated" | "external" | "stock";
 
 export type MediaAssetRecord = {
   id: string;
-  assetType: "image" | "video" | "logo" | "other";
-  source: "upload" | "ai_generated" | "external";
+  assetType: MediaAssetType;
+  source: MediaSourceKind;
   storagePath: string | null;
   name?: string;
   webUrl?: string | null;
@@ -70,35 +72,52 @@ export function isMarketingEligibleCategory(category: MediaCategory): boolean {
 }
 
 export function displayMediaWorkflowStatus(
-  asset: Pick<MediaAssetRecord, "mediaStatus" | "aiAnalysisStatus">,
-): "pending_review" | "reviewed" | "approved" | "rejected" | "unsuitable" {
-  if (asset.mediaStatus === "approved") return "approved";
-  if (asset.mediaStatus === "rejected") return "rejected";
-  if (asset.mediaStatus === "unsuitable") return "unsuitable";
-  if (asset.aiAnalysisStatus === "completed") return "reviewed";
-  return "pending_review";
+  asset: Pick<MediaAssetRecord, "mediaStatus">,
+): MediaWorkflowStatus {
+  return asset.mediaStatus;
 }
 
-export function canUseInMarketingBatch(asset: Pick<MediaAssetRecord, "category" | "consentStatus" | "publishabilityStatus" | "mediaStatus">): boolean {
+export function canUseInMarketingBatch(
+  asset: Pick<MediaAssetRecord, "category" | "consentStatus" | "publishabilityStatus" | "mediaStatus" | "source" | "metadata">,
+): boolean {
   if (!isMarketingEligibleCategory(asset.category)) return false;
-  if (asset.category === "swimming_business" && asset.consentStatus !== "consent_confirmed") return false;
-  if (asset.mediaStatus === "unsuitable" || asset.mediaStatus === "rejected") return false;
-  if (asset.publishabilityStatus === "blocked" || asset.publishabilityStatus === "consent_required" || asset.publishabilityStatus === "unsuitable") {
-    return false;
-  }
+  if (asset.mediaStatus !== "ready") return false;
+  if (
+    asset.category === "swimming_business"
+    && asset.consentStatus !== "consent_confirmed"
+    && !isConsentNotApplicable(asset.source, asset.metadata)
+  ) return false;
   return asset.publishabilityStatus === "ready_for_review";
+}
+
+export function isConsentNotApplicable(
+  source: MediaSourceKind,
+  metadata: Record<string, unknown>,
+): boolean {
+  return metadata.containsRealPerson === false && (
+    metadata.consentApplicability === "not_applicable_no_real_person"
+    || (source === "generated" && metadata.consentApplicability === "not_applicable_synthetic")
+  );
+}
+
+export function isSyntheticConsentExempt(
+  source: MediaSourceKind,
+  metadata: Record<string, unknown>,
+): boolean {
+  return source === "generated"
+    && metadata.consentApplicability === "not_applicable_synthetic"
+    && metadata.containsRealPerson === false;
 }
 
 export function derivePublishability(
   category: MediaCategory,
   consentStatus: ConsentStatus,
   mediaStatus: MediaWorkflowStatus,
-): PublishabilityStatus {
+  suitabilityVerdict?: AiSuitabilityVerdict,
+  consentNotApplicableForAsset = false,
+): Exclude<PublishabilityStatus, null> {
   if (MARKETING_BLOCKED_CATEGORIES.has(category)) return "blocked";
-  if (mediaStatus === "unsuitable" || mediaStatus === "rejected") return "unsuitable";
-  if (category === "swimming_business") {
-    if (consentStatus === "consent_required" || consentStatus === "unknown") return "consent_required";
-    if (consentStatus === "no_consent") return "blocked";
-  }
+  if (mediaStatus !== "ready" || suitabilityVerdict === "unsuitable") return "blocked";
+  if (category === "swimming_business" && !consentNotApplicableForAsset && consentStatus !== "consent_confirmed") return "blocked";
   return "ready_for_review";
 }
