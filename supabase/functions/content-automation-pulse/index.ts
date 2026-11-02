@@ -205,7 +205,8 @@ async function processOneAuthorizedPublishJob(supabase: ReturnType<typeof create
     const approvalEvent = scheduleEvent.detail?.requestedAction === "approve_and_schedule"
       ? scheduleEvent
       : (transitions ?? []).find(row =>
-          row.detail?.requestedAction === "approve" && row.detail?.nextStatus === "approved"
+          ((row.detail?.requestedAction === "approve" && row.detail?.nextStatus === "approved")
+            || (row.detail?.requestedAction === "approve_and_schedule" && row.detail?.nextStatus === "scheduled"))
           && row.actor_id && new Date(row.created_at).getTime() <= new Date(scheduleEvent.created_at).getTime()
         );
     if (!approvalEvent?.actor_id) continue;

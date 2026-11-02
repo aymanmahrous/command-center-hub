@@ -35,6 +35,7 @@ test("scheduled worker excludes pre-cutover and non-owner-scheduled jobs", () =>
   assert.match(worker, /approve_and_schedule/);
   assert.match(worker, /content_item_transitioned/);
   assert.match(worker, /requestedAction === "approve"/);
+  assert.match(worker, /requestedAction === "approve_and_schedule" && row\.detail\?\.nextStatus === "scheduled"/);
   assert.match(worker, /role !== "super_admin"/);
   assert.match(worker, /\.length !== 1/);
 });
