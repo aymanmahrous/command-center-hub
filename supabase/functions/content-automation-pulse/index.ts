@@ -20,8 +20,6 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const GEMINI_API_KEY = (Deno.env.get("GEMINI_API_KEY") ?? "").trim();
 const CONTENT_PUBLISHER_AUTOMATION_SECRET = Deno.env.get("CONTENT_PUBLISHER_AUTOMATION_SECRET") ?? "";
-const SAFE_PUBLISHER_TIMEOUT_MS = 45_000;
-const SAFE_PUBLISHER_URL = `${SUPABASE_URL}/functions/v1/safe-content-publisher`;
 const GEMINI_MODEL = "gemini-3.8-flash";
 const LEASE_NAME = "content_automation_pulse";
 const CORS_HEADERS = {
@@ -151,77 +149,136 @@ async function buildBatchItems(batchNonce: string, start: Date) {
   return { items: await buildTemplateBatchItems(batchNonce, start), provider: "template" };
 }
 
-type PublishJobContent = {
-  contentItemId: string;
-  platform: string;
-};
+const PUBLISH_QUEUE_CUTOVER_AT = "2026-11-02T00:00:00.000Z";
+const FACEBOOK_PAGE_ID = "1164107840123575";
+const INSTAGRAM_ACCOUNT_ID = "17841400516801494";
+const AUTHORIZED_PUBLISHER_TIMEOUT_MS = 120_000;
+const AUTHORIZED_PUBLISHER_URL = `${SUPABASE_URL}/functions/v1/scheduled-authorized-publisher`;
 
-async function processOnePublishJob(supabase: ReturnType<typeof createClient>) {
-  const claimed = await supabase.rpc("claim_next_publish_job");
-  if (claimed.error) throw claimed.error;
-  if (!claimed.data?.claimed) return { attempts: 0, processed: 0, outcome: claimed.data ?? { code: "NO_JOB" } };
-
-  const jobId = String(claimed.data.jobId ?? "");
-  const content = claimed.data.content as PublishJobContent | undefined;
-  const contentItemId = String(content?.contentItemId ?? "");
-  const platform = String(content?.platform ?? "").toLowerCase();
-  if (!jobId || !contentItemId || !["facebook", "instagram"].includes(platform)) {
-    return { attempts: 1, processed: 0, outcome: { code: "CLAIM_PAYLOAD_INVALID", jobId, contentItemId, platform } };
-  }
-
+async function processOneAuthorizedPublishJob(supabase: ReturnType<typeof createClient>) {
   if (!CONTENT_PUBLISHER_AUTOMATION_SECRET) {
-    return { attempts: 1, processed: 0, outcome: { code: "PUBLISHER_AUTOMATION_SECRET_MISSING", jobId, ambiguous: true } };
+    return { attempts: 0, processed: 0, outcome: { code: "PUBLISHER_AUTOMATION_SECRET_MISSING" } };
   }
+  const now = new Date();
+  const { data: jobs, error: jobsError } = await supabase.from("background_jobs")
+    .select("id,payload,status,created_at,next_retry_at")
+    .eq("job_type", "publish_content")
+    .in("status", ["queued", "retrying"])
+    .gte("created_at", PUBLISH_QUEUE_CUTOVER_AT)
+    .order("created_at", { ascending: true })
+    .limit(50);
+  if (jobsError) throw jobsError;
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), SAFE_PUBLISHER_TIMEOUT_MS);
-  let response: Response;
-  let body: Record<string, unknown> = {};
-  try {
-    response = await fetch(SAFE_PUBLISHER_URL, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-content-publisher-automation-secret": CONTENT_PUBLISHER_AUTOMATION_SECRET,
-      },
-      body: JSON.stringify({ jobId, contentItemId, platform }),
-      signal: controller.signal,
-    });
-    body = await response.json().catch(() => ({})) as Record<string, unknown>;
-  } catch (cause) {
-    return { attempts: 1, processed: 0, outcome: { code: "AMBIGUOUS_RESULT", jobId, ambiguous: true, detail: cause instanceof Error ? cause.name : "NETWORK_ERROR" } };
-  } finally {
-    clearTimeout(timeout);
-  }
+  for (const job of jobs ?? []) {
+    const payload = (job.payload ?? {}) as Record<string, unknown>;
+    const contentItemId = String(payload.contentItemId ?? "").trim();
+    const platform = String(payload.platform ?? "").toLowerCase();
+    const dueAt = job.next_retry_at ?? job.created_at;
+    if (!contentItemId || !["facebook", "instagram"].includes(platform)) continue;
+    if (String(payload.source ?? "") !== "staff_schedule") continue;
+    if (!dueAt || new Date(String(dueAt)).getTime() > now.getTime()) continue;
 
-  if (body.success === true && typeof body.providerExternalId === "string" && body.providerExternalId.trim()) {
-    const completed = await supabase.rpc("complete_publish_job", {
-      p_job_id: jobId,
-      p_provider_external_id: body.providerExternalId.trim(),
-      p_published_at: new Date().toISOString(),
-    });
-    if (completed.error || !completed.data?.success) {
-      return { attempts: 1, processed: 0, outcome: { code: "COMPLETE_FAILED", jobId, ambiguous: true, detail: completed.error?.message ?? completed.data } };
+    const accountId = platform === "facebook" ? FACEBOOK_PAGE_ID : INSTAGRAM_ACCOUNT_ID;
+    const { data: item, error: itemError } = await supabase.from("content_items")
+      .select("id,status,platform,scheduled_for,published_at,provider_external_id")
+      .eq("id", contentItemId).maybeSingle();
+    if (itemError) throw itemError;
+    if (!item || item.status !== "scheduled" || String(item.platform).toLowerCase() !== platform) continue;
+    if (!item.scheduled_for || new Date(item.scheduled_for).getTime() > now.getTime()) continue;
+    if (item.published_at || item.provider_external_id) continue;
+
+    const { data: receipts, error: receiptError } = await supabase.from("content_publication_receipts")
+      .select("id,status,external_post_id").eq("content_item_id", contentItemId).eq("platform", platform).limit(2);
+    if (receiptError) throw receiptError;
+    if ((receipts ?? []).length > 0) continue;
+
+    const { data: transitions, error: auditError } = await supabase.from("audit_logs")
+      .select("id,actor_id,detail,created_at").eq("action", "content_item_transitioned")
+      .eq("entity_type", "content_item").eq("entity_id", contentItemId)
+      .order("created_at", { ascending: false }).limit(20);
+    if (auditError) throw auditError;
+    const scheduleEvent = (transitions ?? []).find(row =>
+      row.detail?.requestedAction === "schedule" && row.detail?.nextStatus === "scheduled"
+    );
+    if (!scheduleEvent || transitions?.[0]?.id !== scheduleEvent.id) continue;
+    const approvalEvent = (transitions ?? []).find(row =>
+      row.detail?.requestedAction === "approve" && row.detail?.nextStatus === "approved"
+      && row.actor_id && new Date(row.created_at).getTime() <= new Date(scheduleEvent.created_at).getTime()
+    );
+    if (!approvalEvent?.actor_id) continue;
+    const { data: owner, error: ownerError } = await supabase.from("staff_profiles")
+      .select("role,active").eq("id", approvalEvent.actor_id).maybeSingle();
+    if (ownerError) throw ownerError;
+    if (!owner || owner.active !== true || owner.role !== "super_admin") continue;
+
+    const { data: activeJobs, error: activeJobsError } = await supabase.from("background_jobs")
+      .select("id,status,created_at").eq("job_type", "publish_content")
+      .filter("payload->>contentItemId", "eq", contentItemId)
+      .in("status", ["queued", "retrying", "processing"])
+      .order("created_at", { ascending: false }).limit(5);
+    if (activeJobsError) throw activeJobsError;
+    if ((activeJobs ?? []).length !== 1 || activeJobs?.[0]?.id !== job.id) continue;
+
+    const { data: existingAuthorizations, error: authReadError } = await supabase.from("owner_publish_authorizations")
+      .select("id,consumed_at,revoked_at,expires_at,publish_job_id").eq("publish_job_id", job.id).limit(2);
+    if (authReadError) throw authReadError;
+    if ((existingAuthorizations ?? []).length > 1) continue;
+    let authorizationId = "";
+    const existingAuthorization = existingAuthorizations?.[0];
+    if (existingAuthorization) {
+      if (existingAuthorization.consumed_at || existingAuthorization.revoked_at || !existingAuthorization.expires_at
+          || new Date(existingAuthorization.expires_at).getTime() <= now.getTime()) continue;
+      authorizationId = existingAuthorization.id;
+    } else {
+      const createName = platform === "facebook" ? "create_owner_publish_authorization" : "create_owner_instagram_publish_authorization";
+      const createArgs = platform === "facebook"
+        ? { p_content_item_id: contentItemId, p_platform: platform, p_page_id: accountId, p_authorized_by: String(approvalEvent.actor_id), p_approval_reference: String(approvalEvent.id), p_ttl_minutes: 15 }
+        : { p_content_item_id: contentItemId, p_platform: platform, p_account_id: accountId, p_authorized_by: String(approvalEvent.actor_id), p_approval_reference: String(approvalEvent.id), p_ttl_minutes: 15 };
+      const { data: created, error: createError } = await supabase.rpc(createName, createArgs);
+      if (createError) return { attempts: 0, processed: 0, outcome: { code: "OWNER_AUTHORIZATION_CREATE_FAILED", platform } };
+      if (!created?.authorizationId || created.jobId !== job.id || created.contentItemId !== contentItemId) continue;
+      authorizationId = String(created.authorizationId);
     }
-    return { attempts: 1, processed: 1, outcome: { code: "PUBLISH_COMPLETED", jobId, providerExternalId: body.providerExternalId } };
-  }
 
-  if (body.ambiguous === true || body.code === "AMBIGUOUS_RESULT" || response.status === 504) {
-    return { attempts: 1, processed: 0, outcome: { code: "AMBIGUOUS_RESULT", jobId, ambiguous: true } };
-  }
-
-  if (body.confirmed === true || body.success === false) {
-    const failed = await supabase.rpc("fail_publish_job", {
-      p_job_id: jobId,
-      p_error: String(body.code ?? "PUBLISH_FAILED"),
-    });
-    if (failed.error || !failed.data?.success) {
-      return { attempts: 1, processed: 0, outcome: { code: "FAIL_RECORD_FAILED", jobId, ambiguous: true, detail: failed.error?.message ?? failed.data } };
+    const claimName = platform === "facebook" ? "claim_authorized_publish_job" : "claim_authorized_instagram_publish_job";
+    const claimArgs = platform === "facebook"
+      ? { p_content_item_id: contentItemId, p_platform: platform, p_page_id: accountId }
+      : { p_content_item_id: contentItemId, p_platform: platform, p_account_id: accountId };
+    const { data: claimed, error: claimError } = await supabase.rpc(claimName, claimArgs);
+    if (claimError) throw claimError;
+    if (!claimed?.claimed) return { attempts: 0, processed: 0, outcome: { code: claimed?.code ?? "AUTHORIZED_CLAIM_SKIPPED", platform } };
+    if (claimed.jobId !== job.id || claimed.authorizationId !== authorizationId) {
+      return { attempts: 1, processed: 0, outcome: { code: "AUTHORIZED_CLAIM_MISMATCH", jobId: job.id, platform } };
     }
-    return { attempts: 1, processed: 0, outcome: { code: "PUBLISH_FAILED", jobId, failure: body.code ?? "PUBLISH_FAILED" } };
-  }
 
-  return { attempts: 1, processed: 0, outcome: { code: "AMBIGUOUS_RESULT", jobId, ambiguous: true } };
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), AUTHORIZED_PUBLISHER_TIMEOUT_MS);
+    try {
+      const response = await fetch(AUTHORIZED_PUBLISHER_URL, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-content-publisher-automation-secret": CONTENT_PUBLISHER_AUTOMATION_SECRET },
+        body: JSON.stringify({ contentItemId, jobId: job.id, authorizationId, platform, accountId }),
+        signal: controller.signal,
+      });
+      const body = await response.json().catch(() => ({})) as Record<string, unknown>;
+      if (body.success === true && body.code === "PUBLISHED_ATOMIC"
+          && typeof body.providerExternalId === "string" && body.providerExternalId.trim()) {
+        return { attempts: 1, processed: 1, outcome: { code: "PUBLISHED_ATOMIC", jobId: job.id, platform, providerExternalId: body.providerExternalId } };
+      }
+      return { attempts: 1, processed: 0, outcome: {
+        code: String(body.code ?? "AUTHORIZED_PUBLISH_REJECTED"), jobId: job.id, platform,
+        ambiguous: body.manualReviewRequired === true || body.ambiguous === true || response.status === 504,
+      } };
+    } catch (cause) {
+      return { attempts: 1, processed: 0, outcome: {
+        code: "AMBIGUOUS_RESULT", jobId: job.id, platform, ambiguous: true,
+        detail: cause instanceof Error ? cause.name : "NETWORK_ERROR",
+      } };
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+  return { attempts: 0, processed: 0, outcome: { code: "NO_NEW_OWNER_APPROVED_DUE_JOB" } };
 }
 
 async function processOneMediaJob(supabase: ReturnType<typeof createClient>) {
@@ -361,8 +418,9 @@ Deno.serve(async (request) => {
     return json({ success: false, code: verify.data?.code ?? "SCHEDULER_TOKEN_INVALID" }, 401);
   }
 
-  // SAFETY LOCK: keep every invocation in dry-run until a separately reviewed change explicitly re-enables live work.
-  const dryRunRequested = true;
+  // Live publishing requires BOTH explicit switches. This pulse never runs Gemini or Canva generation.
+  const dryRunRequested = Deno.env.get("CONTENT_AUTOMATION_LIVE_ENABLED") !== "true"
+    || Deno.env.get("CONTENT_PUBLISHING_LIVE_ENABLED") !== "true";
 
   const lease = await supabase.rpc("claim_content_automation_lease", {
     p_lease_name: LEASE_NAME,
@@ -419,49 +477,16 @@ Deno.serve(async (request) => {
   }
 
   try {
-    const evaluation = await supabase.rpc("evaluate_content_batch_generation_need");
-    if (evaluation.error) throw evaluation.error;
-    summary = { ...summary, generation: evaluation.data };
-
-    if (evaluation.data?.shouldGenerate) {
-      const cycleKey = String(evaluation.data.cycleKey);
-      const startIso = typeof evaluation.data.suggestedStartIso === "string"
-        ? evaluation.data.suggestedStartIso
-        : new Date().toISOString();
-      const batchNonce = `${cycleKey}:${crypto.randomUUID()}`;
-      const built = await buildBatchItems(batchNonce, new Date(startIso));
-      const saved = await saveBatchWithShift(supabase, built.items, cycleKey);
-      summary = {
-        ...summary,
-        contentBrainGenerationTriggered: true,
-        generationProvider: built.provider,
-        batchId: saved.batchId,
-        generationCode: saved.code,
-      };
-    }
-
-    const media = await processOneMediaJob(supabase);
-    summary = { ...summary, media: [media.outcome] };
-
-    const publishing = await processOnePublishJob(supabase);
-    summary = { ...summary, publishing: [publishing.outcome] };
-
+    // Publishing-only release: generation and media workers remain disabled to avoid unapproved creation or provider spend.
+    const publishing = await processOneAuthorizedPublishJob(supabase);
+    summary = { ...summary, mode: "authorized-publishing-only", contentBrainGenerationTriggered: false, publishing: [publishing.outcome], media: [] };
     await supabase.rpc("complete_content_automation_run", {
-      p_run_id: runId,
-      p_status: "completed",
-      p_media_attempts: media.attempts,
-      p_media_processed: media.processed,
-      p_publish_attempts: publishing.attempts,
-      p_publish_processed: publishing.processed,
-      p_summary: summary,
+      p_run_id: runId, p_status: "completed", p_media_attempts: 0, p_media_processed: 0,
+      p_publish_attempts: publishing.attempts, p_publish_processed: publishing.processed, p_summary: summary,
     });
-
-    await supabase.rpc("release_content_automation_lease", {
-      p_lease_name: LEASE_NAME,
-      p_lease_token: leaseToken,
-    });
-
+    await supabase.rpc("release_content_automation_lease", { p_lease_name: LEASE_NAME, p_lease_token: leaseToken });
     return json({ success: true, runId, summary });
+
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : "CONTENT_AUTOMATION_PULSE_FAILED";
     await supabase.rpc("fail_content_automation_run", {
