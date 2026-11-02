@@ -17,7 +17,7 @@ test("scheduling requires an explicitly reviewed, ready media asset", () => {
 
 test("publication receipt reservation cannot bypass the media readiness gate", () => {
   assert.match(receiptMigration, /publication_receipt_media_ready_before_reserve/);
-  assert.match(receiptMigration, /NEW\.status IN \('reserved', 'container_created'\)/);
+  assert.match(receiptMigration, /NEW\.status IN \('pending', 'reserved', 'container_created'\)/);
   assert.match(receiptMigration, /assert_content_media_publish_ready/);
 });
 

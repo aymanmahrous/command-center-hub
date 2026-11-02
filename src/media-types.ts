@@ -20,7 +20,7 @@ export type AiAnalysisStatus = "pending" | "analyzed" | "failed" | "skipped";
 export type PublishabilityStatus = "pending" | "cleared" | "blocked" | "review" | "ready_for_review" | null;
 export type MediaWorkflowStatus = "pending" | "ready" | "processing" | "failed";
 export type MediaReviewStatus = "pending_review" | "approved" | "rejected" | "unsuitable";
-export type MediaAssetType = "image" | "video" | "document" | "audio" | "other";
+export type MediaAssetType = "image" | "video" | "document" | "audio" | "other" | "logo";
 export type MediaSourceKind = "upload" | "generated" | "external" | "stock";
 
 export type MediaAssetRecord = {
