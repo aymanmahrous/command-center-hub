@@ -32,6 +32,11 @@ test("migration preserves the existing receipt linkage and provider contract", (
   assert.match(migration, /PUBLICATION_RECEIPT_NOT_FOUND/);
 });
 
+test("confirmed-failure RPC cannot downgrade an ambiguous publication result", () => {
+  const failedRpc = migration.split("create or replace function public.mark_publication_receipt_failed")[1]?.split("$function$;")[0] ?? "";
+  assert.match(failedRpc, /status in \\('published', 'ambiguous'\\)/);
+});
+
 test("safe publisher records definite provider failures and preserves ambiguity handling", () => {
   assert.match(publisher, /mark_publication_receipt_failed/);
   assert.match(publisher, /confirmed: true/);
