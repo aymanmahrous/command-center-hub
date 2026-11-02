@@ -2,6 +2,7 @@ import "./media-library.css";
 import { useEffect, useMemo, useState } from "react";
 import { Library } from "lucide-react";
 import { z } from "zod";
+// Legacy "ai_generated" rows are normalized to "generated" before strict parsing.
 import { useLanguage } from "./i18n";
 import type { Dictionary, Language } from "./i18n";
 import MediaLibraryUploadPanel from "./media-library-upload";
