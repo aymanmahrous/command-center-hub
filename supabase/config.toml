@@ -33,3 +33,6 @@ verify_jwt = false
 
 [functions.generate-gemini-image]
 verify_jwt = false
+
+[functions.generate-veo-video]
+verify_jwt = false
