@@ -136,7 +136,7 @@ async function handleAuthorize(supabase: SupabaseClient, staffId: string, origin
   authorization.searchParams.set("state", state);
   authorization.searchParams.set("scope", REQUESTED_SCOPES);
 
-  return json({ success: true, authorizationUrl: authorization.toString() });
+  return json({ success: true, authorizationUrl: authorization.toString() }, 200, origin);
 }
 
 async function consumeState(supabase: SupabaseClient, state: string) {
