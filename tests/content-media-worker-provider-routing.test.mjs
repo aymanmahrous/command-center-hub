@@ -52,7 +52,7 @@ test("scheduled worker uses exact owner authorization and never the legacy queue
 test("scheduled publisher validates approved media before any Meta request", () => {
   assert.match(publisher, /mediaApprovalError/);
   assert.match(publisher, /media_asset_id/);
-  assert.match(publisher, /publishToInstagram\(caption, media.url, media.assetType\)/);
+  assert.match(publisher, /publishInstagram\(caption, media.url, media.assetType\)/);
   const mediaGate = publisher.indexOf("if (media.errorCode || !media.url)");
   const metaCall = publisher.indexOf("await publishFacebook(caption, media.url, media.assetType)");
   assert.notEqual(mediaGate, -1); assert.notEqual(metaCall, -1);
