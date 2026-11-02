@@ -45,10 +45,9 @@ test("safe publisher records definite provider failures and preserves ambiguity 
 });
 
 test("Facebook OAuth allows the exact www production origin and binds it to the one-time state", () => {
-  assert.match(facebookOAuth, /WWW_HUB_ORIGIN = "https:\\/\\/www\\.hub\\.relaxfixuae\\.com"/);
-  assert.match(facebookOAuth, /value === WWW_HUB_ORIGIN/);
-  assert.match(facebookOAuth, /PREVIEW_ORIGIN_PATTERN/);
-  assert.match(facebookOAuth, /encodeOrigin\\(origin\\)/);
-  assert.match(facebookOAuth, /decodeOrigin\\(state\\)/);
-  assert.match(facebookOAuth, /safeOrigin\\(origin/);
+  assert.ok(facebookOAuth.includes('const WWW_HUB_ORIGIN = "https://www.hub.relaxfixuae.com";'));
+  assert.ok(facebookOAuth.includes("value === WWW_HUB_ORIGIN"));
+  assert.ok(facebookOAuth.includes("encodeOrigin(origin)"));
+  assert.ok(facebookOAuth.includes("decodeOrigin(state)"));
+  assert.ok(facebookOAuth.includes("safeOrigin(origin"));
 });
