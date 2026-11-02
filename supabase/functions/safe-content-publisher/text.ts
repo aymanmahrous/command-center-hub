@@ -25,7 +25,9 @@ export function mediaApprovalError(media: PublishableMedia | null | undefined, c
   if (media.content_item_id !== contentItemId) return "MEDIA_NOT_LINKED";
   if (typeof media.storage_path !== "string" || !media.storage_path.trim()) return "MEDIA_MISSING";
   if (media.asset_type !== "image" && media.asset_type !== "video") return "MEDIA_TYPE_UNSUPPORTED";
-  if (media.media_status !== "ready" || media.publishability_status !== "ready_for_review") return "MEDIA_NOT_READY";
+  // The owner-facing Media Library stores an explicit approval as "approved".
+  // "ready" is not a valid media_status in the existing RPC/UI contract.
+  if (media.media_status !== "approved" || media.publishability_status !== "ready_for_review") return "MEDIA_NOT_READY";
   if (media.category !== "swimming_business" && media.category !== "other_business") return "MEDIA_CATEGORY_BLOCKED";
   const metadata = typeof media.metadata === "object" && media.metadata !== null
     ? media.metadata as Record<string, unknown>
