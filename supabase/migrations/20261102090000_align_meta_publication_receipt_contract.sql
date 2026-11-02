@@ -252,8 +252,8 @@ begin
   perform pg_advisory_xact_lock(hashtextextended(p_content_item_id::text || ':' || v_platform, 0));
 
   update public.content_publication_receipts
-  set status = case when status = 'published' then status else 'failed' end,
-      last_error = case when status = 'published' then last_error else v_error end,
+  set status = case when status in ('published', 'ambiguous') then status else 'failed' end,
+      last_error = case when status in ('published', 'ambiguous') then last_error else v_error end,
       updated_at = now()
   where content_item_id = p_content_item_id
     and lower(platform) = v_platform
