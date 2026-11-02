@@ -1,0 +1,38 @@
+[functions.booking-ingress]
+verify_jwt = false
+
+[functions.ai-media-e2e-admin]
+verify_jwt = false
+
+[functions.safe-content-publisher]
+verify_jwt = false
+
+[functions.canva-oauth]
+verify_jwt = false
+
+[functions.canva-design]
+verify_jwt = false
+
+[functions.content-automation-pulse]
+verify_jwt = false
+
+[functions.buffer-content-publisher]
+verify_jwt = false
+
+[functions.facebook-oauth]
+verify_jwt = false
+
+[functions.scheduled-authorized-publisher]
+verify_jwt = false
+
+[functions.google-calendar-oauth]
+verify_jwt = false
+
+[functions.meta-provider-status]
+verify_jwt = false
+
+[functions.generate-gemini-image]
+verify_jwt = false
+
+[functions.generate-veo-video]
+verify_jwt = false

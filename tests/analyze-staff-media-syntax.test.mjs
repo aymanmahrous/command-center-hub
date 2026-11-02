@@ -8,6 +8,8 @@ const edgeFunctionPaths = [
   "../supabase/functions/analyze-staff-media/index.ts",
   "../supabase/functions/generate-content-batch/index.ts",
   "../supabase/functions/content-automation-pulse/index.ts",
+  "../supabase/functions/scheduled-authorized-publisher/index.ts",
+  "../supabase/functions/safe-content-publisher/text.ts",
   "../supabase/functions/generate-gemini-image/index.ts",
 ];
 
