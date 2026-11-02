@@ -16,14 +16,14 @@ test("ignores empty hashtag values", () => {
   assert.equal(formatHashtags(undefined), "");
 });
 
-test("publishing requires linked media, approved review, readiness, and valid consent", () => {
+test("publishing requires linked owner-approved media, readiness, and valid consent", () => {
   const approved = {
     content_item_id: "content-1",
     storage_path: "content-1/asset.png",
     asset_type: "image",
     source: "generated",
     category: "swimming_business",
-    media_status: "ready",
+    media_status: "approved",
     consent_status: "pending",
     publishability_status: "ready_for_review",
     metadata: {
@@ -36,7 +36,8 @@ test("publishing requires linked media, approved review, readiness, and valid co
   };
   assert.equal(mediaApprovalError(approved, "content-1"), null);
   assert.equal(mediaApprovalError({ ...approved, content_item_id: "other-item" }, "content-1"), "MEDIA_NOT_LINKED");
-  assert.equal(mediaApprovalError({ ...approved, media_status: "processing" }, "content-1"), "MEDIA_NOT_READY");
+  assert.equal(mediaApprovalError({ ...approved, media_status: "unclassified" }, "content-1"), "MEDIA_NOT_READY");
+  assert.equal(mediaApprovalError({ ...approved, media_status: "ready" }, "content-1"), "MEDIA_NOT_READY");
   assert.equal(mediaApprovalError({ ...approved, metadata: { ...approved.metadata, reviewStatus: "pending" } }, "content-1"), "MEDIA_NOT_APPROVED");
   assert.equal(mediaApprovalError({ ...approved, category: "family_personal" }, "content-1"), "MEDIA_CATEGORY_BLOCKED");
   assert.equal(mediaApprovalError({ ...approved, metadata: { ...approved.metadata, syntheticAttestedBy: "" } }, "content-1"), "MEDIA_CONSENT_REQUIRED");
