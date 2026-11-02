@@ -272,10 +272,10 @@ begin
 end;
 $function$;
 
-revoke all on function public.claim_publication_receipt(uuid, text, text) from public;
-revoke all on function public.complete_publication_receipt(uuid, text, text, text) from public;
-revoke all on function public.mark_publication_receipt_ambiguous(uuid, text, text, text) from public;
-revoke all on function public.mark_publication_receipt_failed(uuid, text, text, text) from public;
+revoke all on function public.claim_publication_receipt(uuid, text, text) from public, anon, authenticated;
+revoke all on function public.complete_publication_receipt(uuid, text, text, text) from public, anon, authenticated;
+revoke all on function public.mark_publication_receipt_ambiguous(uuid, text, text, text) from public, anon, authenticated;
+revoke all on function public.mark_publication_receipt_failed(uuid, text, text, text) from public, anon, authenticated;
 grant execute on function public.claim_publication_receipt(uuid, text, text) to service_role;
 grant execute on function public.complete_publication_receipt(uuid, text, text, text) to service_role;
 grant execute on function public.mark_publication_receipt_ambiguous(uuid, text, text, text) to service_role;
