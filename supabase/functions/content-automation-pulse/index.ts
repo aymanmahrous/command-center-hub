@@ -223,13 +223,16 @@ async function processOneAuthorizedPublishJob(supabase: ReturnType<typeof create
     if ((activeJobs ?? []).length !== 1 || activeJobs?.[0]?.id !== job.id) continue;
 
     const { data: existingAuthorizations, error: authReadError } = await supabase.from("owner_publish_authorizations")
-      .select("id,consumed_at,revoked_at,expires_at,publish_job_id").eq("publish_job_id", job.id).limit(2);
+      .select("id,consumed_at,revoked_at,expires_at,publish_job_id")
+      .eq("content_item_id", contentItemId).eq("platform", platform)
+      .order("created_at", { ascending: false }).limit(10);
     if (authReadError) throw authReadError;
-    if ((existingAuthorizations ?? []).length > 1) continue;
+    const activeAuthorizations = (existingAuthorizations ?? []).filter(row => !row.consumed_at && !row.revoked_at);
+    if (activeAuthorizations.length > 1) continue;
     let authorizationId = "";
-    const existingAuthorization = existingAuthorizations?.[0];
+    const existingAuthorization = activeAuthorizations[0];
     if (existingAuthorization) {
-      if (existingAuthorization.consumed_at || existingAuthorization.revoked_at || !existingAuthorization.expires_at
+      if (existingAuthorization.publish_job_id !== job.id || !existingAuthorization.expires_at
           || new Date(existingAuthorization.expires_at).getTime() <= now.getTime()) continue;
       authorizationId = existingAuthorization.id;
     } else {
@@ -239,7 +242,7 @@ async function processOneAuthorizedPublishJob(supabase: ReturnType<typeof create
         : { p_content_item_id: contentItemId, p_platform: platform, p_account_id: accountId, p_authorized_by: String(approvalEvent.actor_id), p_approval_reference: String(approvalEvent.id), p_ttl_minutes: 15 };
       const { data: created, error: createError } = await supabase.rpc(createName, createArgs);
       if (createError) return { attempts: 0, processed: 0, outcome: { code: "OWNER_AUTHORIZATION_CREATE_FAILED", platform } };
-      if (!created?.authorizationId || created.jobId !== job.id || created.contentItemId !== contentItemId) continue;
+      if (!created?.authorizationId || created.publishJobId !== job.id || created.contentItemId !== contentItemId) continue;
       authorizationId = String(created.authorizationId);
     }
 

@@ -44,6 +44,8 @@ test("scheduled worker uses exact owner authorization and never the legacy queue
   assert.match(worker, /create_owner_instagram_publish_authorization/);
   assert.match(worker, /claim_authorized_publish_job/);
   assert.match(worker, /claim_authorized_instagram_publish_job/);
+  assert.match(worker, /created\.publishJobId !== job\.id/);
+  assert.match(worker, /\.eq\("content_item_id", contentItemId\)\.eq\("platform", platform\)/);
   assert.match(worker, /scheduled-authorized-publisher/);
   assert.doesNotMatch(worker, /claim_next_publish_job/);
   assert.doesNotMatch(worker, /safe-content-publisher/);
