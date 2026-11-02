@@ -51,4 +51,5 @@ test("Facebook OAuth allows exact www and existing Preview origins and binds the
   assert.ok(facebookOAuth.includes("encodeOrigin(origin)"));
   assert.ok(facebookOAuth.includes("decodeOrigin(state)"));
   assert.ok(facebookOAuth.includes("safeOrigin(origin"));
+  assert.match(facebookOAuth, /return json\(\{ success: true, authorizationUrl: authorization\.toString\(\) \}, 200, origin\);/);
 });
