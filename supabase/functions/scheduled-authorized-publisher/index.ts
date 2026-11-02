@@ -108,7 +108,7 @@ async function signPrimaryImage(contentItemId: string, mediaAssetId: string | nu
   if (errorCode) return { url: null, hasMedia: false, assetType: "image", errorCode };
   const assetType = asset?.asset_type === "video" ? "video" : "image";
   const bucket = "relax-fix-media";
-  const objectPath = String(asset?.storage_path ?? "").replace(/^\\/+/, "");
+  const objectPath = String(asset?.storage_path ?? "").replace(/^\/+/, "");
   const encoded = [bucket, ...objectPath.split("/").map(encodeURIComponent)].join("/");
   const signRes = await fetch(`${SUPABASE_URL}/storage/v1/object/sign/${encoded}`, {
     method: "POST",

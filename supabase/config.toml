@@ -1,0 +1,8 @@
+[functions.content-automation-pulse]
+verify_jwt = false
+
+[functions.safe-content-publisher]
+verify_jwt = false
+
+[functions.scheduled-authorized-publisher]
+verify_jwt = false
