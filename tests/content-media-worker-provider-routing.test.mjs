@@ -4,6 +4,7 @@ import test from "node:test";
 const worker = await readFile(new URL("../supabase/functions/content-automation-pulse/index.ts", import.meta.url), "utf8");
 const publisher = await readFile(new URL("../supabase/functions/scheduled-authorized-publisher/index.ts", import.meta.url), "utf8");
 const mediaPolicy = await readFile(new URL("../supabase/functions/safe-content-publisher/text.ts", import.meta.url), "utf8");
+const ownerMediaApprovalMigration = await readFile(new URL("../supabase/migrations/20261102020000_align_owner_media_approval_contract.sql", import.meta.url), "utf8");
 
 test("Canva media worker blocks Reel jobs before calling the image generator", () => {
   const mediaJob = worker.slice(worker.indexOf("async function processOneMediaJob"), worker.indexOf("async function saveBatchWithShift"));
@@ -68,6 +69,16 @@ test("scheduled publisher validates approved media before any Meta request", () 
   assert.match(publisher, /media_publish/);
   assert.match(publisher, /confirmedExternalPostId\(created as Record<string, unknown>\)/);
   assert.match(publisher, /confirmedExternalPostId\(published as Record<string, unknown>\)/);
+  assert.match(mediaPolicy, /media_status !== "approved"/);
   assert.match(mediaPolicy, /consent_status === "consent_confirmed"/);
   assert.match(mediaPolicy, /metadata.reviewStatus !== "approved"/);
+});
+
+test("owner media approval records the review state required by the publisher", () => {
+  assert.match(ownerMediaApprovalMigration, /p_media_status is not null/);
+  assert.match(ownerMediaApprovalMigration, /'reviewStatus'/);
+  assert.match(ownerMediaApprovalMigration, /when v_status = 'approved' then 'approved'/);
+  assert.match(ownerMediaApprovalMigration, /media_status = v_status/);
+  assert.match(ownerMediaApprovalMigration, /MEDIA_ALREADY_LINKED/);
+  assert.match(ownerMediaApprovalMigration, /public\.command_center_staff_role\(\) <> 'super_admin'/);
 });
