@@ -31,6 +31,7 @@ test("content automation defaults to dry-run unless both master and publishing s
 test("scheduled worker excludes pre-cutover and non-owner-scheduled jobs", () => {
   assert.match(worker, /PUBLISH_QUEUE_CUTOVER_AT = "2026-11-02T00:00:00\.000Z"/);
   assert.match(worker, /\.gte\("created_at", PUBLISH_QUEUE_CUTOVER_AT\)/);
+  assert.match(worker, /\.lte\("next_retry_at", now\.toISOString\(\)\)/);
   assert.match(worker, /batch_approve_scheduled/);
   assert.match(worker, /approve_and_schedule/);
   assert.match(worker, /content_item_transitioned/);

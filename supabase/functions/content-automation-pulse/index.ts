@@ -165,6 +165,7 @@ async function processOneAuthorizedPublishJob(supabase: ReturnType<typeof create
     .eq("job_type", "publish_content")
     .in("status", ["queued", "retrying"])
     .gte("created_at", PUBLISH_QUEUE_CUTOVER_AT)
+    .lte("next_retry_at", now.toISOString())
     .order("created_at", { ascending: true })
     .limit(50);
   if (jobsError) throw jobsError;
