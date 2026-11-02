@@ -8,11 +8,12 @@ const META_APP_SECRET = (Deno.env.get("META_APP_SECRET") ?? "").trim();
 const FACEBOOK_PAGE_ID = "1164107840123575";
 const CALLBACK_URL = `${SUPABASE_URL}/functions/v1/facebook-oauth`;
 const HUB_ORIGIN = "https://hub.relaxfixuae.com";
+const WWW_HUB_ORIGIN = "https://www.hub.relaxfixuae.com";
 const RETURN_BASE = (Deno.env.get("COMMAND_CENTER_RETURN_URL") ?? `${HUB_ORIGIN}/`).trim();
 const PREVIEW_ORIGIN_PATTERN = /^https:\/\/command-center(?:-[a-z0-9-]+)?-swimmingayman-8492s-projects\.vercel\.app$/i;
 function isAllowedOrigin(origin: string | null | undefined) {
   const value = (origin ?? "").trim();
-  return value === HUB_ORIGIN || PREVIEW_ORIGIN_PATTERN.test(value);
+  return value === HUB_ORIGIN || value === WWW_HUB_ORIGIN || PREVIEW_ORIGIN_PATTERN.test(value);
 }
 function safeOrigin(origin: string | null | undefined) {
   return isAllowedOrigin(origin) ? String(origin).trim() : HUB_ORIGIN;
