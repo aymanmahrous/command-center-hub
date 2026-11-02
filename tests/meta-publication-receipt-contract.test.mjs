@@ -8,7 +8,7 @@ const facebookOAuth = await readFile(new URL("../supabase/functions/facebook-oau
 
 for (const name of ["claim_publication_receipt", "complete_publication_receipt", "mark_publication_receipt_ambiguous", "mark_publication_receipt_failed"]) {
   test(`migration defines the idempotent ${name} RPC`, () => {
-    assert.match(migration, new RegExp(`create or replace function public\\\\.${name}`));
+    assert.match(migration, new RegExp(`create or replace function public\\.${name}`));
     assert.match(migration, /pg_advisory_xact_lock/);
     assert.match(migration, /revoke all on function public\./);
   });
