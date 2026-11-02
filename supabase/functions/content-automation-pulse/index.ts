@@ -225,9 +225,10 @@ async function processOneAuthorizedPublishJob(supabase: ReturnType<typeof create
     const { data: existingAuthorizations, error: authReadError } = await supabase.from("owner_publish_authorizations")
       .select("id,consumed_at,revoked_at,expires_at,publish_job_id")
       .eq("content_item_id", contentItemId).eq("platform", platform)
-      .order("created_at", { ascending: false }).limit(10);
+      .is("consumed_at", null).is("revoked_at", null)
+      .order("created_at", { ascending: false }).limit(5);
     if (authReadError) throw authReadError;
-    const activeAuthorizations = (existingAuthorizations ?? []).filter(row => !row.consumed_at && !row.revoked_at);
+    const activeAuthorizations = existingAuthorizations ?? [];
     if (activeAuthorizations.length > 1) continue;
     let authorizationId = "";
     const existingAuthorization = activeAuthorizations[0];
