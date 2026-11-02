@@ -65,6 +65,8 @@ test("scheduled publisher validates approved media before any Meta request", () 
   assert.ok(mediaGate < metaCall, "media approval must pass before Meta publish");
   assert.match(publisher, /media_type: "REELS"/);
   assert.match(publisher, /media_publish/);
+  assert.match(publisher, /confirmedExternalPostId\(created as Record<string, unknown>\)/);
+  assert.match(publisher, /confirmedExternalPostId\(published as Record<string, unknown>\)/);
   assert.match(mediaPolicy, /consent_status === "consent_confirmed"/);
   assert.match(mediaPolicy, /metadata.reviewStatus !== "approved"/);
 });

@@ -168,7 +168,7 @@ async function publishFacebook(caption: string, mediaUrl: string | null, assetTy
     const res = await fetch(`https://graph.facebook.com/${META_GRAPH_VERSION}/${FACEBOOK_PAGE_ID}/videos`, { method: "POST", body: params });
     const data = await res.json().catch(() => ({})) as { id?: string; error?: { code?: number | string } };
     if (!res.ok || data.error) return { success: false, errorCode: data.error?.code ? `META_API_ERROR_${data.error.code}` : "META_VIDEO_API_ERROR" };
-    const id = String(data.id ?? "").trim();
+    const id = confirmedExternalPostId(data as Record<string, unknown>);
     return id ? { success: true, providerExternalId: id } : { success: false, errorCode: "META_RESPONSE_MISSING_POST_ID" };
   }
   const params = new URLSearchParams({ access_token: accessToken, appsecret_proof: proof, url: mediaUrl, caption, published: "true" });
@@ -188,10 +188,10 @@ async function publishInstagram(caption: string, mediaUrl: string | null, assetT
     : new URLSearchParams({ access_token: INSTAGRAM_ACCESS_TOKEN, appsecret_proof: proof, image_url: mediaUrl, caption });
   const createRes = await fetch(`https://graph.facebook.com/${META_GRAPH_VERSION}/${INSTAGRAM_ACCOUNT_ID}/media`, { method: "POST", body: createParams });
   const created = await createRes.json().catch(() => ({})) as { id?: string; error?: { code?: number | string } };
-  if (!createRes.ok || created.error || !created.id) {
+  const containerId = confirmedExternalPostId(created as Record<string, unknown>);
+  if (!createRes.ok || created.error || !containerId) {
     return { success: false, errorCode: created.error?.code ? `META_API_ERROR_${created.error.code}` : "META_CONTAINER_CREATE_FAILED" };
   }
-  const containerId = String(created.id);
   if (assetType === "video") {
     let finished = false;
     for (let attempt = 0; attempt < 12; attempt += 1) {
@@ -208,10 +208,11 @@ async function publishInstagram(caption: string, mediaUrl: string | null, assetT
   const publishParams = new URLSearchParams({ access_token: INSTAGRAM_ACCESS_TOKEN, appsecret_proof: proof, creation_id: containerId });
   const publishRes = await fetch(`https://graph.facebook.com/${META_GRAPH_VERSION}/${INSTAGRAM_ACCOUNT_ID}/media_publish`, { method: "POST", body: publishParams });
   const published = await publishRes.json().catch(() => ({})) as { id?: string; error?: { code?: number | string } };
-  if (!publishRes.ok || published.error || !published.id) {
+  const publishedId = confirmedExternalPostId(published as Record<string, unknown>);
+  if (!publishRes.ok || published.error || !publishedId) {
     return { success: false, errorCode: published.error?.code ? `META_API_ERROR_${published.error.code}` : "META_CONTAINER_PUBLISH_FAILED" };
   }
-  return { success: true, providerExternalId: String(published.id) };
+  return { success: true, providerExternalId: publishedId };
 }
 
 function failureArgs(ctx: PublishContext, outcome: "validation_failed" | "meta_auth_failed" | "ambiguous_result", error: string): { functionName: string; body: Record<string, unknown> } {
