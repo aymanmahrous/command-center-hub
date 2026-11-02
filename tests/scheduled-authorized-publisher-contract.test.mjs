@@ -22,4 +22,7 @@ test("deployment config keeps the three internal endpoints self-authenticated", 
   assert.match(config, /\[functions\.content-automation-pulse\]\s+verify_jwt = false/);
   assert.match(config, /\[functions\.safe-content-publisher\]\s+verify_jwt = false/);
   assert.match(config, /\[functions\.scheduled-authorized-publisher\]\s+verify_jwt = false/);
+  assert.match(config, /\[functions\.canva-design\]\s+verify_jwt = false/);
+  assert.match(config, /\[functions\.facebook-oauth\]\s+verify_jwt = false/);
+  assert.match(config, /\[functions\.meta-provider-status\]\s+verify_jwt = false/);
 });
