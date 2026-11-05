@@ -15,17 +15,19 @@ test("Canva media worker blocks Reel jobs before calling the image generator", (
   assert.match(mediaJob, /VIDEO_PROVIDER_REQUIRES_EXPLICIT_APPROVAL/);
 });
 
-test("content automation defaults to dry-run unless both master and publishing switches are enabled", () => {
+test("content automation stays dry-run until the owner explicitly authorizes publishing and both live switches are enabled", () => {
   const handler = worker.slice(worker.indexOf("Deno.serve"));
+  assert.match(handler, /OWNER_PUBLISHING_LIVE_AUTHORIZED/);
   assert.match(handler, /CONTENT_AUTOMATION_LIVE_ENABLED/);
   assert.match(handler, /CONTENT_PUBLISHING_LIVE_ENABLED/);
-  assert.match(handler, /const dryRunRequested = Deno\.env\.get\("CONTENT_AUTOMATION_LIVE_ENABLED"\) !== "true"\s*\|\|\s*Deno\.env\.get\("CONTENT_PUBLISHING_LIVE_ENABLED"\) !== "true"/);
+  assert.match(handler, /Deno\\.env\\.get\\("OWNER_PUBLISHING_LIVE_AUTHORIZED"\\) !== "true"/);
+  assert.match(handler, /const dryRunRequested = Deno\\.env\\.get\\("OWNER_PUBLISHING_LIVE_AUTHORIZED"\\) !== "true"\\s*\\|\\|\\s*Deno\\.env\\.get\\("CONTENT_AUTOMATION_LIVE_ENABLED"\\) !== "true"\\s*\\|\\|\\s*Deno\\.env\\.get\\("CONTENT_PUBLISHING_LIVE_ENABLED"\\) !== "true"/);
   const dryRunBranch = handler.indexOf("if (dryRunRequested)");
   const livePublishing = handler.indexOf("processOneAuthorizedPublishJob(supabase)");
   assert.notEqual(dryRunBranch, -1); assert.notEqual(livePublishing, -1);
   assert.ok(dryRunBranch < livePublishing, "dry-run must return before the authorized publisher is called");
   assert.doesNotMatch(handler, /evaluate_content_batch_generation_need/);
-  assert.doesNotMatch(handler, /processOneMediaJob\(supabase\)/);
+  assert.doesNotMatch(handler, /processOneMediaJob\\(supabase\\)/);
 });
 
 test("scheduled worker excludes pre-cutover and non-owner-scheduled jobs", () => {
