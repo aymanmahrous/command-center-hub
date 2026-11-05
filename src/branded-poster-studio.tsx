@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Download, Sparkles, Check, Copy, ExternalLink, RefreshCw, Image as ImageIcon, Save } from "lucide-react";
 import type { ContentBatchItem } from "./content-batch";
+import { BRAND } from "./content-strategy";
 
 interface BrandedPosterStudioProps {
   item: ContentBatchItem;
@@ -28,7 +29,7 @@ export function BrandedPosterStudio({ item, language, onClose, onSaveDesign }: B
     : [
         isAr ? "تدريب خاص VIP ومجموعات بحد أقصى 4 أطفال" : "VIP Private & Small Groups (Strict Max 4 Kids)",
         isAr ? "علاج رهبة الماء وتصحيح التكنيك تدريجياً" : "Gentle Aquaphobia & Technique Progression",
-        isAr ? "فروع أبوظبي: المشرف، الفلاح، مدينة خليفة، الدانة" : "Abu Dhabi Pools: Al Mushrif, Al Falah, Khalifa City, Al Danah",
+        isAr ? `الموقع: ${BRAND.locations.join(" · ")}` : `Location: ${BRAND.locations.join(" · ")}`,
       ];
 
   const isReelOrStory = /reel|story|9:16/i.test(item.contentType || item.platform);
@@ -126,11 +127,11 @@ export function BrandedPosterStudio({ item, language, onClose, onSaveDesign }: B
       ctx.textAlign = "center";
       ctx.font = "bold 32px 'Segoe UI', system-ui, sans-serif";
       ctx.fillStyle = "#ffffff";
-      ctx.fillText("RELAX FIX UAE SWIMMING ACADEMY", width / 2, emblemCenterY + 115);
+      ctx.fillText(BRAND.publicLine.toUpperCase(), width / 2, emblemCenterY + 115);
 
       ctx.font = "600 24px 'Segoe UI', system-ui, sans-serif";
       ctx.fillStyle = "#38bdf8";
-      ctx.fillText("أكاديمية كابتن أيمن للسباحة · أبوظبي", width / 2, emblemCenterY + 155);
+      ctx.fillText("أكاديمية ريلاكس فيكس للسباحة · أبوظبي", width / 2, emblemCenterY + 155);
 
       // Badge pill
       const badgeY = emblemCenterY + 205;
@@ -217,7 +218,7 @@ export function BrandedPosterStudio({ item, language, onClose, onSaveDesign }: B
 
       ctx.font = "600 22px 'Segoe UI', system-ui, sans-serif";
       ctx.fillStyle = "#e2e8f0";
-      ctx.fillText("المشرف  •  الفلاح  •  مدينة خليفة  •  الدانة / النجدة", width / 2, branchesY + 38);
+      ctx.fillText(BRAND.locations.join("  •  "), width / 2, branchesY + 38);
 
       // 7. WhatsApp CTA Pill
       const ctaY = height - 150;
@@ -239,7 +240,7 @@ export function BrandedPosterStudio({ item, language, onClose, onSaveDesign }: B
       ctx.font = "bold 28px 'Segoe UI', system-ui, sans-serif";
       ctx.fillStyle = "#ffffff";
       ctx.shadowBlur = 0;
-      ctx.fillText("📱 احجز تقييم طفلك المجاني: 058 821 9130", width / 2, ctaY + 55);
+      ctx.fillText(`📱 احجز تقييمك المجاني: ${BRAND.whatsapp}`, width / 2, ctaY + 55);
       ctx.restore();
 
       canvas.toBlob(async (blob) => {
@@ -282,23 +283,23 @@ export function BrandedPosterStudio({ item, language, onClose, onSaveDesign }: B
     }
   };
 
-  const buildCanvaBrief = () => `[Canva Template Design Brief — Relax Fix UAE / Coach Ayman]
+  const buildCanvaBrief = () => `[Canva Template Design Brief — ${BRAND.publicLine}]
 Platform: ${item.platform}
 Format: ${ratio}
 Headline: ${headline}
 Key points:\n${editableKeyPoints.map((point) => `- ${point}`).join("\n")}
 Colors: Deep Navy (#020617), Cyan (#06B6D4), Gold (#F59E0B), White (#FFFFFF)
-Branches: Al Mushrif, Al Falah, Khalifa City, Al Danah
-Booking CTA: WhatsApp 058 821 9130
+Locations: ${BRAND.locations.join(", ")}
+Booking CTA: WhatsApp ${BRAND.whatsapp}
 Policy: Do not add prices, unsupported claims, or extra contact details.`;
 
   const buildGeminiPrompt = () => [
-    "Create one polished, premium social-media poster for Relax Fix UAE Swimming Academy in Abu Dhabi.",
+    "Create one polished, premium social-media poster for ${BRAND.publicLine} in Abu Dhabi.",
     `Format: ${ratio} for ${item.platform}. Compose the artwork safely inside the crop area.`,
     `Exact headline to render exactly as provided; do not translate or rewrite: «${headline}»`,
     "Supporting points: preserve the original language and wording; use right-to-left layout for Arabic:",
     ...editableKeyPoints.map((point) => `- ${point}`),
-    "Footer: فروع أبوظبي: المشرف • الفلاح • مدينة خليفة • الدانة / النجدة | واتساب: 058 821 9130",
+    "Footer: ${BRAND.locations.join(" • ")} | WhatsApp: ${BRAND.whatsapp}",
     "Visual direction: elegant indoor swimming-pool atmosphere, clear blue water, natural premium lighting, confident and welcoming, safe for families; use deep navy, turquoise/cyan, white and restrained gold accents.",
     typeof item.visualPrompt === "string" && item.visualPrompt.trim() ? `Campaign visual direction: ${item.visualPrompt.trim().slice(0, 800)}` : "",
     typeof item.topic === "string" && item.topic.trim() ? `Campaign topic: ${item.topic.trim().slice(0, 300)}` : "",
