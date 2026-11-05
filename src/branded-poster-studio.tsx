@@ -27,8 +27,8 @@ export function BrandedPosterStudio({ item, language, onClose, onSaveDesign }: B
   const keyPoints = bulletLines.length > 0
     ? bulletLines
     : [
-        isAr ? "تدريب خاص VIP ومجموعات بحد أقصى 4 أطفال" : "VIP Private & Small Groups (Strict Max 4 Kids)",
-        isAr ? "علاج رهبة الماء وتصحيح التكنيك تدريجياً" : "Gentle Aquaphobia & Technique Progression",
+        isAr ? "تدريب خاص ومجموعات صغيرة حتى 4 متدربين" : "Private coaching and small groups up to 4 learners",
+        isAr ? "بناء الثقة في الماء وتطوير التكنيك تدريجيًا" : "Build water confidence and improve technique progressively",
         isAr ? `الموقع: ${BRAND.locations.join(" · ")}` : `Location: ${BRAND.locations.join(" · ")}`,
       ];
 
@@ -214,7 +214,7 @@ export function BrandedPosterStudio({ item, language, onClose, onSaveDesign }: B
       ctx.textAlign = "center";
       ctx.font = "bold 24px 'Segoe UI', system-ui, sans-serif";
       ctx.fillStyle = "#38bdf8";
-      ctx.fillText("📍 فروعنا في أبوظبي:", width / 2, branchesY);
+      ctx.fillText("📍 موقع التدريب:", width / 2, branchesY);
 
       ctx.font = "600 22px 'Segoe UI', system-ui, sans-serif";
       ctx.fillStyle = "#e2e8f0";
