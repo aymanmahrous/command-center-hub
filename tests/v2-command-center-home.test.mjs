@@ -61,3 +61,9 @@ test('Control Tower separates future scheduled content from overdue content', ()
   assert.match(view, /overdueScheduled/);
   assert.match(view, /upcoming content items/);
 });
+
+test('Control Tower presents a seven-day marketing plan by default', () => {
+  assert.match(view, /WEEKLY MARKETING PLAN · 7 DAYS/);
+  assert.match(view, /Weekly marketing plan/);
+  assert.match(view, /DEFAULT_BATCH_MIX\.slice\(0, 7\)/);
+});
