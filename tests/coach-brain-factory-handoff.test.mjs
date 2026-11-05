@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { clearCoachBrainFactoryHandoff, readCoachBrainFactoryHandoff, writeCoachBrainFactoryHandoff } from "../src/coach-brain-factory-handoff.ts";
+
+const contentGrowthHub = await readFile(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
 
 const payload = JSON.stringify({
   question: "خطة سباحة للأطفال",
@@ -57,16 +60,28 @@ test("continues through localStorage when sessionStorage fails", () => {
 
 test("cleanup failure is safe and does not change a successful batch result", () => {
   const saved = { success: true, batchId: "batch-1" };
-  assert.doesNotThrow(() => clearCoachBrainFactoryHandoff({ sessionStorage: failingStorage(), localStorage: failingStorage() }));
-  assert.equal(saved.success, true);
-  assert.equal(saved.batchId, "batch-1");
+  const failedCleanup = () => clearCoachBrainFactoryHandoff({ sessionStorage: failingStorage(), localStorage: failingStorage() });
+  assert.doesNotThrow(failedCleanup);
+  assert.equal(failedCleanup(), false);
+  assert.deepEqual(saved, { success: true, batchId: "batch-1" });
+
+  const saveGuard = contentGrowthHub.indexOf('if (!saved?.success || !saved.batchId) throw new Error(saved?.code ?? "GENERATE_FAILED");');
+  const cleanupCall = contentGrowthHub.indexOf("clearCoachBrainFactoryHandoff();", saveGuard);
+  const outerCatch = contentGrowthHub.lastIndexOf("    } catch (cause) {");
+  assert.ok(saveGuard >= 0, "the production save guard must exist");
+  assert.ok(cleanupCall > saveGuard, "cleanup must follow a successful save guard");
+  assert.ok(cleanupCall < outerCatch, "cleanup must happen before the generation failure catch");
 });
 
 test("handoff remains available when batch creation fails", () => {
   const local = memoryStorage();
   const access = { sessionStorage: null, localStorage: local };
   assert.equal(writeCoachBrainFactoryHandoff(payload, access), true);
-  const generationFailed = true;
-  if (!generationFailed) clearCoachBrainFactoryHandoff(access);
+  const saveGuard = contentGrowthHub.indexOf('if (!saved?.success || !saved.batchId) throw new Error(saved?.code ?? "GENERATE_FAILED");');
+  const cleanupCall = contentGrowthHub.indexOf("clearCoachBrainFactoryHandoff();", saveGuard);
+  const outerCatch = contentGrowthHub.lastIndexOf("    } catch (cause) {");
+  const failurePath = contentGrowthHub.slice(outerCatch);
+  assert.ok(cleanupCall > saveGuard, "cleanup must remain after the save guard");
+  assert.doesNotMatch(failurePath, /clearCoachBrainFactoryHandoff\(\)/, "the generation failure catch must not clear the handoff");
   assert.equal(readCoachBrainFactoryHandoff(access)?.question, "خطة سباحة للأطفال");
 });
