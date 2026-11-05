@@ -23,6 +23,7 @@ import {
 import { ContentBatchReviewPanel } from "./content-batch-review-panel";
 import { fetchCanvaDesignStatus } from "./canva-design-adapter";
 import { assessCanvaReadiness, formatCanvaDiagnosticDetails, type CanvaStatusDiagnostic } from "./canva-readiness";
+import { clearCoachBrainFactoryHandoff, readCoachBrainFactoryHandoff } from "./coach-brain-factory-handoff";
 import { useLanguage } from "./i18n";
 import { MEDIA_FACTORY_HANDOFF_KEY, parseMediaFactoryHandoff, type MediaFactoryHandoff } from "./media-factory-handoff";
 import "./content-growth-hub.css";
@@ -32,13 +33,7 @@ const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || im
 
 type GrowthSession = { accessToken: string };
 
-export const COACH_BRAIN_FACTORY_HANDOFF_KEY = "coach-brain-factory-handoff";
-
-type CoachBrainFactoryHandoff = CoachBrainFactoryContext & {
-  planWindowDays?: number;
-  planMix?: string;
-  planExecution?: string;
-};
+export { COACH_BRAIN_FACTORY_HANDOFF_KEY } from "./coach-brain-factory-handoff";
 
 function readMediaFactoryHandoff(): MediaFactoryHandoff | null {
   try {
@@ -48,35 +43,9 @@ function readMediaFactoryHandoff(): MediaFactoryHandoff | null {
   }
 }
 
-function readCoachBrainFactoryHandoff(): CoachBrainFactoryHandoff | null {
-  for (const storage of [sessionStorage, localStorage]) {
-    try {
-      const raw = storage.getItem(COACH_BRAIN_FACTORY_HANDOFF_KEY);
-      if (!raw) continue;
-      const value = JSON.parse(raw) as Partial<CoachBrainFactoryHandoff>;
-      if (typeof value.question !== "string" || typeof value.answer !== "string") continue;
-      const sources = Array.isArray(value.sources) ? value.sources.filter((source): source is { title: string; url: string } => !!source && typeof source === "object" && typeof source.title === "string" && typeof source.url === "string").slice(0, 5) : [];
-      return {
-        question: value.question.slice(0, 1000),
-        answer: value.answer.slice(0, 4000),
-        sources,
-        planWindowDays: typeof value.planWindowDays === "number" ? value.planWindowDays : undefined,
-        planMix: typeof value.planMix === "string" ? value.planMix : undefined,
-        planExecution: typeof value.planExecution === "string" ? value.planExecution : undefined,
-      };
-    } catch { /* Try the durable fallback storage. */ }
-  }
-  return null;
-}
-
 function readCoachBrainFactoryContext(): CoachBrainFactoryContext | null {
   const handoff = readCoachBrainFactoryHandoff();
   return handoff ? { question: handoff.question, answer: handoff.answer, sources: handoff.sources } : null;
-}
-
-function clearCoachBrainFactoryHandoff() {
-  sessionStorage.removeItem(COACH_BRAIN_FACTORY_HANDOFF_KEY);
-  localStorage.removeItem(COACH_BRAIN_FACTORY_HANDOFF_KEY);
 }
 
 type FactoryGeneratedBatchItem = Awaited<ReturnType<typeof buildCoachAyman30DayBatchWithMedia>>[number];
@@ -385,7 +354,6 @@ export default function ContentGrowthHub({
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("factoryContext") !== "coach-brain") return;
     setCoachBrainContext(readCoachBrainFactoryContext());
-    clearCoachBrainFactoryHandoff();
   }, []);
 
   function fitBatchToPlanWindow<T extends { plannedFor: string }>(batch: T[], days: number, baseStart: Date): T[] {

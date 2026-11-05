@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { AlertTriangle, BookOpen, Brain, Search, ShieldCheck, Sparkles } from "lucide-react";
 import { buildCoachBrainSummaryRequest } from "./coach-brain-conversation";
 import { generateCoachAymanSampleWithProvider, type BatchAiProvider, type GeminiBatchPromptContext, type GeneratedContentSample } from "./gemini-batch-adapter";
+import { writeCoachBrainFactoryHandoff } from "./coach-brain-factory-handoff";
 import "./coach-brain.css";
 
 type Source = { title: string; url: string };
@@ -112,7 +113,7 @@ const copy = {
   },
 };
 
-export const COACH_BRAIN_FACTORY_HANDOFF_KEY = "coach-brain-factory-handoff";
+export { COACH_BRAIN_FACTORY_HANDOFF_KEY } from "./coach-brain-factory-handoff";
 
 function getSessionToken() {
   try {
@@ -178,8 +179,7 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
       } : null,
       createdAt: new Date().toISOString(),
     });
-    sessionStorage.setItem(COACH_BRAIN_FACTORY_HANDOFF_KEY, handoff);
-    try { localStorage.setItem(COACH_BRAIN_FACTORY_HANDOFF_KEY, handoff); } catch { /* Session handoff remains available. */ }
+    writeCoachBrainFactoryHandoff(handoff);
     const url = new URL(window.location.href);
     url.searchParams.set("section", "content");
     url.searchParams.set("factoryContext", "coach-brain");

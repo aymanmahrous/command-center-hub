@@ -26,20 +26,21 @@ test("content factory opens the owner review workspace when reviewable items exi
 });
 
 test("content factory consumes the existing Coach Brain handoff as supporting context", () => {
-  assert.match(hub, /COACH_BRAIN_FACTORY_HANDOFF_KEY = "coach-brain-factory-handoff"/);
+  assert.match(hub, /COACH_BRAIN_FACTORY_HANDOFF_KEY/);
+  assert.match(hub, /coach-brain-factory-handoff/);
   assert.match(hub, /factoryContext.*coach-brain/);
   assert.match(hub, /researchContext: coachBrainContext/);
   assert.match(hub, /canonical Academy Knowledge remains the existing source/);
 });
 
 test("Coach Brain keeps the existing session handoff and adds durable browser recovery", () => {
-  assert.match(coachBrain, /sessionStorage\.setItem\(COACH_BRAIN_FACTORY_HANDOFF_KEY, handoff\)/);
-  assert.match(coachBrain, /localStorage\.setItem\(COACH_BRAIN_FACTORY_HANDOFF_KEY, handoff\)/);
-  assert.match(hub, /for \(const storage of \[sessionStorage, localStorage\]\)/);
+  assert.match(coachBrain, /writeCoachBrainFactoryHandoff\(handoff\)/);
+  assert.match(hub, /readCoachBrainFactoryHandoff/);
   assert.match(hub, /storedCoachBrainHandoff\?\.planWindowDays/);
   assert.match(hub, /storedCoachBrainHandoff\?\.planMix/);
   assert.match(hub, /storedCoachBrainHandoff\?\.planExecution/);
-  assert.match(hub, /clearCoachBrainFactoryHandoff\(\)/);
+  assert.match(hub, /clearCoachBrainFactoryHandoff\(\);/);
+  assert.doesNotMatch(hub, /setCoachBrainContext\(readCoachBrainFactoryContext\(\)\);\s*clearCoachBrainFactoryHandoff\(\);/);
 });
 
 test("batch review panel integrates direct library picker and safe upload registration", () => {
