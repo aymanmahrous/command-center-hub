@@ -318,10 +318,22 @@ async function normalizeItems(rawItems: unknown[], batchNonce: string, start: Da
     const visualPrompt = ensureMediaBrief(rawVisualPrompt, slot, primaryCta);
     const hasArabic = (value: string) => /[\u0600-\u06FF]/.test(value);
     const hasEnglish = (value: string) => /[A-Za-z]/.test(value);
-    for (const [field, value] of [["topic", topic], ["hook", hook], ["captionBody", body], ["visualPrompt", rawVisualPrompt]] as const) {
-      if (!hasArabic(value) || !hasEnglish(value)) {
+    const isArabicFirstBilingual = (value: string) => {
+      const first = value.trim().replace(/^Relax Fix UAE Swimming Academy\\s*/i, "").trimStart();
+      return /^[\u0600-\u06FF]/.test(first) && hasArabic(first) && hasEnglish(first);
+    };
+    for (const [field, value] of [["topic", topic], ["hook", hook], ["captionBody", body]] as const) {
+      if (!isArabicFirstBilingual(value)) {
         throw new Error(`ARABIC_FIRST_BILINGUAL_CONTENT_REQUIRED_${field.toUpperCase()}_${index}`);
       }
+    }
+    const visualCopyLineIsBilingual = (label: string) => {
+      const line = rawVisualPrompt.split(/\\r?\\n/).find((part) => part.trim().toUpperCase().startsWith(label));
+      const copy = line?.slice(line.indexOf(":") + 1).trim() ?? "";
+      return /^[\u0600-\u06FF]/.test(copy) && hasEnglish(copy);
+    };
+    if (!visualCopyLineIsBilingual("HEADLINE:") || !visualCopyLineIsBilingual("SUPPORTING TEXT:")) {
+      throw new Error(`ARABIC_FIRST_BILINGUAL_CONTENT_REQUIRED_VISUAL_COPY_${index}`);
     }
     const fingerprintSeed = `${COACH_AYMAN_PROVIDER_ID}:${batchNonce}:${index}:${slot.platform}:${topic}`;
 
