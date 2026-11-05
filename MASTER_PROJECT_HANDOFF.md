@@ -515,3 +515,11 @@ The Connections / Truthful Status phase has recorded read-only Production and QA
 - The Control Tower home previously showed a ten-slot/ten-day marketing presentation. PR #320 changes the owner-facing summary to a seven-day plan, showing seven plan slots.
 - Coach Brain and direct Factory entry both default to seven days for a new planning session. Saved handoff choices and the existing 2/3/4/7/14/30-day options remain available.
 - This is presentation/default behavior only; it does not create, approve, schedule, or publish content.
+
+
+### PR #320 verification update — latest head 2026-11-06
+- Latest head: `f8bc40dd952c89ece8dec93a694e694af3247272`.
+- GitHub Actions run `42125363677` completed **SUCCESS**: `npm ci`, TypeScript, full `npm test`, and `npm run build` all passed.
+- Targeted source-contract checks also passed 10/10 for the new RPC fields, staff-role gate, no-write migration, overdue warning/action, future-only Upcoming count, and 7-day defaults.
+- Vercel Preview checks remain failed solely with the provider's `build-rate-limit` response. This is a Vercel build quota/rate-limit issue, not a reported TypeScript or app build failure; GitHub's own build passed.
+- PR #320 remains open pending required reviewer approval. Do not merge or apply its migration until the review/release gate is satisfied.
