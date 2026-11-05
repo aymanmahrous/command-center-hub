@@ -27,3 +27,9 @@ test("owner UI routes overdue schedule warnings to Content without mutating item
   assert.match(workflow, /Review timing and receipts before any reschedule/);
   assert.doesNotMatch(view, /update_staff_content_planned_for/);
 });
+
+test("control tower summary retains staff authorization and remains read-only", () => {
+  assert.match(migration, /SECURITY DEFINER/);
+  assert.match(migration, /public\.is_active_staff\(ARRAY\['super_admin','admin','reception','coach','content_manager'\]\)/);
+  assert.doesNotMatch(migration, /\b(?:INSERT INTO|UPDATE public\.|DELETE FROM)\b/i);
+});
