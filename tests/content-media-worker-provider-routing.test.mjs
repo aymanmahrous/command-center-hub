@@ -46,9 +46,10 @@ test("all publishing entry points enforce the independent owner freeze before an
   assert.ok(automationCheck !== -1 && automationCheck < automationFreeze);
   assert.ok(automationFreeze !== -1 && automationFreeze < automationPublish);
 
-  const staffCheck = safeHandler.indexOf("if (!canPublish)");
-  const manualFreeze = safeHandler.indexOf("if (!OWNER_PUBLISHING_LIVE_AUTHORIZED)");
-  const manualPublish = safeHandler.indexOf("await publishToFacebook");
+  const manualHandler = safeHandler.slice(safeHandler.indexOf('const authHeader = req.headers.get("Authorization")'));
+  const staffCheck = manualHandler.indexOf("if (!canPublish)");
+  const manualFreeze = manualHandler.indexOf("if (!OWNER_PUBLISHING_LIVE_AUTHORIZED)");
+  const manualPublish = manualHandler.indexOf("await publishToFacebook");
   assert.ok(staffCheck !== -1 && staffCheck < manualFreeze);
   assert.ok(manualFreeze !== -1 && manualFreeze < manualPublish);
   assert.match(safeHandler, /OWNER_PUBLISHING_FROZEN/);
