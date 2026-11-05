@@ -503,3 +503,9 @@ The Connections / Truthful Status phase has recorded read-only Production and QA
 - Processing overdue jobs: Facebook 5, Instagram 5. Their latest updates are 2026-10-02 and 2026-10-01 respectively, making all 10 stale for more than a month.
 - The remaining three overdue items have no active job: one Facebook item has a failed receipt, one Facebook item has an ambiguous receipt, and one Instagram item has no publication receipt. A second Facebook item has an ambiguous receipt while still associated with an active job.
 - Do not mark stale processing jobs complete, retry, cancel, or delete without per-item reconciliation. Preserve receipts and audit history.
+
+
+### Weekly planning default — PR #320
+- Coach Brain already defaults to 7 days. Direct entry into Content Factory previously fell back to 30 days when no handoff or saved owner choice existed.
+- PR #320 aligns the direct Factory default to 7 days while preserving the existing 2/3/4/7/14/30 choices and any saved handoff selection. No existing schedule or content record is changed.
+- Static source-contract checks for the overdue dashboard payload, staff-gated read-only migration, and weekly default currently pass 7/7. This is a targeted source check, not a substitute for a fresh full GitHub Actions run.
