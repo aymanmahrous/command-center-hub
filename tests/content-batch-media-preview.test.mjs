@@ -5,6 +5,7 @@ import test from "node:test";
 const preview = await readFile(new URL("../src/content-batch-media-preview.tsx", import.meta.url), "utf8");
 const panel = await readFile(new URL("../src/content-batch-review-panel.tsx", import.meta.url), "utf8");
 const hub = await readFile(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
+const coachBrain = await readFile(new URL("../src/coach-brain.tsx", import.meta.url), "utf8");
 
 test("batch review panel renders design preview block", () => {
   assert.match(panel, /ContentBatchMediaPreview/);
@@ -25,10 +26,21 @@ test("content factory opens the owner review workspace when reviewable items exi
 });
 
 test("content factory consumes the existing Coach Brain handoff as supporting context", () => {
-  assert.match(hub, /COACH_BRAIN_FACTORY_HANDOFF_KEY = "coach-brain-factory-handoff"/);
+  assert.match(hub, /COACH_BRAIN_FACTORY_HANDOFF_KEY/);
+  assert.match(hub, /coach-brain-factory-handoff/);
   assert.match(hub, /factoryContext.*coach-brain/);
   assert.match(hub, /researchContext: coachBrainContext/);
   assert.match(hub, /canonical Academy Knowledge remains the existing source/);
+});
+
+test("Coach Brain keeps the existing session handoff and adds durable browser recovery", () => {
+  assert.match(coachBrain, /writeCoachBrainFactoryHandoff\(handoff\)/);
+  assert.match(hub, /readCoachBrainFactoryHandoff/);
+  assert.match(hub, /storedCoachBrainHandoff\?\.planWindowDays/);
+  assert.match(hub, /storedCoachBrainHandoff\?\.planMix/);
+  assert.match(hub, /storedCoachBrainHandoff\?\.planExecution/);
+  assert.match(hub, /clearCoachBrainFactoryHandoff\(\);/);
+  assert.doesNotMatch(hub, /setCoachBrainContext\(readCoachBrainFactoryContext\(\)\);\s*clearCoachBrainFactoryHandoff\(\);/);
 });
 
 test("batch review panel integrates direct library picker and safe upload registration", () => {

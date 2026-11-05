@@ -23,6 +23,7 @@ import {
 import { ContentBatchReviewPanel } from "./content-batch-review-panel";
 import { fetchCanvaDesignStatus } from "./canva-design-adapter";
 import { assessCanvaReadiness, formatCanvaDiagnosticDetails, type CanvaStatusDiagnostic } from "./canva-readiness";
+import { clearCoachBrainFactoryHandoff, readCoachBrainFactoryHandoff } from "./coach-brain-factory-handoff";
 import { useLanguage } from "./i18n";
 import { MEDIA_FACTORY_HANDOFF_KEY, parseMediaFactoryHandoff, type MediaFactoryHandoff } from "./media-factory-handoff";
 import "./content-growth-hub.css";
@@ -32,7 +33,7 @@ const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || im
 
 type GrowthSession = { accessToken: string };
 
-export const COACH_BRAIN_FACTORY_HANDOFF_KEY = "coach-brain-factory-handoff";
+export { COACH_BRAIN_FACTORY_HANDOFF_KEY } from "./coach-brain-factory-handoff";
 
 function readMediaFactoryHandoff(): MediaFactoryHandoff | null {
   try {
@@ -43,14 +44,8 @@ function readMediaFactoryHandoff(): MediaFactoryHandoff | null {
 }
 
 function readCoachBrainFactoryContext(): CoachBrainFactoryContext | null {
-  try {
-    const raw = sessionStorage.getItem(COACH_BRAIN_FACTORY_HANDOFF_KEY);
-    if (!raw) return null;
-    const value = JSON.parse(raw) as Partial<CoachBrainFactoryContext>;
-    if (typeof value.question !== "string" || typeof value.answer !== "string") return null;
-    const sources = Array.isArray(value.sources) ? value.sources.filter((source): source is { title: string; url: string } => !!source && typeof source === "object" && typeof source.title === "string" && typeof source.url === "string").slice(0, 5) : [];
-    return { question: value.question.slice(0, 1000), answer: value.answer.slice(0, 4000), sources };
-  } catch { return null; }
+  const handoff = readCoachBrainFactoryHandoff();
+  return handoff ? { question: handoff.question, answer: handoff.answer, sources: handoff.sources } : null;
 }
 
 type FactoryGeneratedBatchItem = Awaited<ReturnType<typeof buildCoachAyman30DayBatchWithMedia>>[number];
@@ -186,8 +181,10 @@ export default function ContentGrowthHub({
   const [generateNotice, setGenerateNotice] = useState("");
   const [generating, setGenerating] = useState(false);
   const [batchAiProvider, setBatchAiProvider] = useState<BatchAiProvider>("auto");
+  const handoffParams = new URLSearchParams(window.location.search);
+  const storedCoachBrainHandoff = readCoachBrainFactoryHandoff();
   const [coachBrainContext, setCoachBrainContext] = useState<CoachBrainFactoryContext | null>(() => {
-    if (new URLSearchParams(window.location.search).get("factoryContext") !== "coach-brain") return null;
+    if (handoffParams.get("factoryContext") !== "coach-brain" && !storedCoachBrainHandoff) return null;
     return readCoachBrainFactoryContext();
   });
   const [mediaFactoryHandoff, setMediaFactoryHandoff] = useState<MediaFactoryHandoff | null>(() => readMediaFactoryHandoff());
@@ -206,13 +203,12 @@ export default function ContentGrowthHub({
     : null;
   const videoCapabilityState = integrations.find((integration) => integration.key === "runway")?.capabilityState ?? "NOT_CONFIGURED";
   const PLAN_WINDOW_OPTIONS = [2, 3, 4, 7, 14, 30] as const;
-  const handoffParams = new URLSearchParams(window.location.search);
   const [planWindowDays, setPlanWindowDays] = useState<number>(() => {
-    const value = Number(handoffParams.get("planDays"));
+    const value = Number(handoffParams.get("planDays") || storedCoachBrainHandoff?.planWindowDays);
     return [2, 3, 4, 7, 14, 30].includes(value) ? value : 30;
   });
-  const [planFocus] = useState(() => handoffParams.get("planMix") || "varied");
-  const [planExecution] = useState(() => handoffParams.get("planExecution") || "best");
+  const [planFocus] = useState(() => handoffParams.get("planMix") || storedCoachBrainHandoff?.planMix || "varied");
+  const [planExecution] = useState(() => handoffParams.get("planExecution") || storedCoachBrainHandoff?.planExecution || "best");
 
   const [activeFactoryTab, setActiveFactoryTab] = useState<"overview" | "strategy" | "factory" | "content" | "designs" | "reels" | "campaigns" | "review" | "connections">(activeTab || (mediaFactoryHandoff ? "content" : "overview"));
   useEffect(() => {
@@ -358,7 +354,6 @@ export default function ContentGrowthHub({
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("factoryContext") !== "coach-brain") return;
     setCoachBrainContext(readCoachBrainFactoryContext());
-    sessionStorage.removeItem(COACH_BRAIN_FACTORY_HANDOFF_KEY);
   }, []);
 
   function fitBatchToPlanWindow<T extends { plannedFor: string }>(batch: T[], days: number, baseStart: Date): T[] {
@@ -431,6 +426,7 @@ export default function ContentGrowthHub({
       }
 
       if (!saved?.success || !saved.batchId) throw new Error(saved?.code ?? "GENERATE_FAILED");
+      clearCoachBrainFactoryHandoff();
       setGenerateNotice(copy.generateSuccess.replace("{batchId}", saved.batchId));
       setSelectedBatchId(saved.batchId);
       setMediaAssets(assets);

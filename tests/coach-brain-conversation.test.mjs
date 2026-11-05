@@ -34,3 +34,10 @@ test("server bounds summary input and treats the previous question and answer as
   assert.match(edge, /JSON\.stringify\(\{ question, answer: referenceAnswer \}\)/);
   assert.match(edge, /No new research is needed/);
 });
+
+test("real sample request requires provider and cost disclosure with cancellation", () => {
+  assert.match(view, /const providerLabel = provider === "gemini"/);
+  assert.match(view, /Estimated cost: unavailable before the request/);
+  assert.match(view, /لن يتم حفظ دفعة محتوى أو نشر أي شيء تلقائيًا/);
+  assert.match(view, /if \(!window\.confirm\(confirmationMessage\)\) return/);
+});
