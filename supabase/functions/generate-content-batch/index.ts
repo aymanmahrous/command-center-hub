@@ -218,7 +218,7 @@ function buildPrompt(batchNonce: string, startIso: string, context: PromptContex
   }));
 
   return [
-    `You generate an English social content batch for Relax Fix UAE Swimming Academy. Return exactly ${slots.length} item${slots.length === 1 ? "" : "s"}.`,
+    `You generate an ARABIC-FIRST BILINGUAL social content batch for Relax Fix UAE Swimming Academy. Return exactly ${slots.length} item${slots.length === 1 ? "" : "s"}.`,
     `Return strict JSON only: { "items": [ ... ] } with exactly ${slots.length} object${slots.length === 1 ? "" : "s"}.`,
     "Each item keys: topic, hook, captionBody, visualPrompt.",
     "Do NOT output platform/contentType/contentPillar/contentSlot/hashtags/cta — those are assigned server-side.",
@@ -233,8 +233,17 @@ function buildPrompt(batchNonce: string, startIso: string, context: PromptContex
     "Primary CTA per slot is provided — include that exact primary CTA line inside captionBody.",
     "Do not repeat the same primary CTA wording across all 10 items.",
     "Forbidden claims: guaranteed, #1, award-winning, 100% success, Olympic coach, world record, fake testimonials.",
-    "Arabic + English:",
-    "- When arabicHint is present, add one short Arabic parent line inside captionBody (caption-level only).",
+    "MANDATORY ARABIC-FIRST BILINGUAL OUTPUT:",
+    "- Every user-facing field must contain natural, accurate Arabic FIRST, followed by its English equivalent SECOND.",
+    "- topic: Arabic topic first, then English equivalent separated by a newline or ' | '.",
+    "- hook: Arabic hook first, then English equivalent.",
+    "- captionBody: write the complete useful caption in Arabic first; then provide its complete English equivalent. Do not merely add one Arabic sentence to an English caption.",
+    "- visualPrompt: HEADLINE and SUPPORTING TEXT must each show Arabic first and English second; retain production instructions in English if useful.",
+    "- Use clear modern Arabic suitable for parents in the UAE, not literal or awkward translation.",
+    "- Do not return English-only content under any circumstance. The server rejects output without Arabic script in every user-facing field.",
+    "- Brand: Relax Fix UAE Swimming Academy. Service location: Al Mushrif, Abu Dhabi only. Do not mention other branches or locations.",
+    "- Arabic + English:",
+    "- When arabicHint is present, include it naturally in the Arabic-first caption and then its English equivalent.",
     "Media brief rules for visualPrompt:",
     "- Must include lines starting with FORMAT:, VISUAL CONCEPT:, HEADLINE:, SUPPORTING TEXT:, SCENE IDEA:, CTA:, CANVA:, CAPCUT:.",
     "- Add RUNWAY (optional): only for reel/short_video/video slots.",
@@ -305,7 +314,27 @@ async function normalizeItems(rawItems: unknown[], batchNonce: string, start: Da
     const captionBody = brandedBody.includes(primaryCta) ? brandedBody : `${brandedBody}\n\n${primaryCta}`;
     const caption = `${captionBody}\n\n${trackedCta}`;
 
-    const visualPrompt = ensureMediaBrief(String(raw.visualPrompt ?? "").trim(), slot, primaryCta);
+    const rawVisualPrompt = String(raw.visualPrompt ?? "").trim();
+    const visualPrompt = ensureMediaBrief(rawVisualPrompt, slot, primaryCta);
+    const hasArabic = (value: string) => /[\u0600-\u06FF]/.test(value);
+    const hasEnglish = (value: string) => /[A-Za-z]/.test(value);
+    const isArabicFirstBilingual = (value: string) => {
+      const first = value.trim().replace(/^Relax Fix UAE Swimming Academy\s*/i, "").trimStart();
+      return /^[\u0600-\u06FF]/.test(first) && hasArabic(first) && hasEnglish(first);
+    };
+    for (const [field, value] of [["topic", topic], ["hook", hook], ["captionBody", body]] as const) {
+      if (!isArabicFirstBilingual(value)) {
+        throw new Error(`ARABIC_FIRST_BILINGUAL_CONTENT_REQUIRED_${field.toUpperCase()}_${index}`);
+      }
+    }
+    const visualCopyLineIsBilingual = (label: string) => {
+      const line = rawVisualPrompt.split(/\r?\n/).find((part) => part.trim().toUpperCase().startsWith(label));
+      const copy = line?.slice(line.indexOf(":") + 1).trim() ?? "";
+      return /^[\u0600-\u06FF]/.test(copy) && hasEnglish(copy);
+    };
+    if (!visualCopyLineIsBilingual("HEADLINE:") || !visualCopyLineIsBilingual("SUPPORTING TEXT:")) {
+      throw new Error(`ARABIC_FIRST_BILINGUAL_CONTENT_REQUIRED_VISUAL_COPY_${index}`);
+    }
     const fingerprintSeed = `${COACH_AYMAN_PROVIDER_ID}:${batchNonce}:${index}:${slot.platform}:${topic}`;
 
     if (FORBIDDEN_CLAIMS.test(`${topic} ${hook} ${caption}`)) {
@@ -315,7 +344,7 @@ async function normalizeItems(rawItems: unknown[], batchNonce: string, start: Da
     items.push({
       platform: slot.platform,
       contentType: slot.contentType,
-      language: "en",
+      language: "ar",
       contentPillar: slot.contentPillar,
       contentSlot: slot.contentSlot,
       plannedFor: gstSlotUtc(slot.dayOffset, slot.hourGst, start),
