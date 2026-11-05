@@ -509,3 +509,9 @@ The Connections / Truthful Status phase has recorded read-only Production and QA
 - Coach Brain already defaults to 7 days. Direct entry into Content Factory previously fell back to 30 days when no handoff or saved owner choice existed.
 - PR #320 aligns the direct Factory default to 7 days while preserving the existing 2/3/4/7/14/30 choices and any saved handoff selection. No existing schedule or content record is changed.
 - Static source-contract checks for the overdue dashboard payload, staff-gated read-only migration, and weekly default currently pass 7/7. This is a targeted source check, not a substitute for a fresh full GitHub Actions run.
+
+
+### Control Tower weekly presentation — PR #320
+- The Control Tower home previously showed a ten-slot/ten-day marketing presentation. PR #320 changes the owner-facing summary to a seven-day plan, showing seven plan slots.
+- Coach Brain and direct Factory entry both default to seven days for a new planning session. Saved handoff choices and the existing 2/3/4/7/14/30-day options remain available.
+- This is presentation/default behavior only; it does not create, approve, schedule, or publish content.
