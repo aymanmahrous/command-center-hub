@@ -27,6 +27,7 @@ const FACEBOOK_PAGE_ACCESS_TOKEN = Deno.env.get("FACEBOOK_PAGE_ACCESS_TOKEN");
 const INSTAGRAM_ACCOUNT_ID = Deno.env.get("INSTAGRAM_ACCOUNT_ID");
 const INSTAGRAM_ACCESS_TOKEN = Deno.env.get("INSTAGRAM_ACCESS_TOKEN");
 const CONTENT_PUBLISHER_AUTOMATION_SECRET = Deno.env.get("CONTENT_PUBLISHER_AUTOMATION_SECRET");
+const OWNER_PUBLISHING_LIVE_AUTHORIZED = Deno.env.get("OWNER_PUBLISHING_LIVE_AUTHORIZED") === "true";
 
 type MetaCredential = { token: string; facebookPageId?: string; instagramAccountId?: string };
 
@@ -220,6 +221,7 @@ Deno.serve(async (req) => {
   const automationHeader = req.headers.get("x-content-publisher-automation-secret");
   if (automationHeader !== null) {
     if (!CONTENT_PUBLISHER_AUTOMATION_SECRET || !constantTimeEqual(automationHeader, CONTENT_PUBLISHER_AUTOMATION_SECRET)) return fail("UNAUTHORIZED", 401);
+    if (!OWNER_PUBLISHING_LIVE_AUTHORIZED) return fail("OWNER_PUBLISHING_FROZEN", 423);
     return publishAutomation(req);
   }
   const authHeader = req.headers.get("Authorization");
@@ -235,6 +237,7 @@ Deno.serve(async (req) => {
   const profile = profiles[0] as { role?: string; active?: boolean } | undefined;
   const canPublish = profile?.active === true && ["super_admin", "admin", "content_manager"].includes(profile?.role ?? "");
   if (!canPublish) return fail("STAFF_ACCESS_DENIED", 403);
+  if (!OWNER_PUBLISHING_LIVE_AUTHORIZED) return fail("OWNER_PUBLISHING_FROZEN", 423);
   const item = await readContentItem(contentItemId, staffJwt, false);
   if (!item) return fail("NOT_FOUND", 404);
   if (item.status !== "approved") return fail("INVALID_TRANSITION", 409);
