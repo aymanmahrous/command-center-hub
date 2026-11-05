@@ -624,6 +624,49 @@ const ARABIC_TOPIC_COPY: Record<string, string> = {
   "Short Reel: praise effort not speed": "فيديو قصير: شجّع المحاولة لا السرعة",
   "Story sequence: month-end free assessment reminder": "قصص قصيرة: تذكير بنهاية الشهر بالتقييم الأولي المجاني",
 };
+const ARABIC_BODY_COPY: Record<string, string> = {
+  "Short Reel: why kids panic at the pool edge": "قد يرتبط التردد بتجربة سابقة أو صوت الماء أو عدم معرفة ما سيحدث. ابدأوا بخطوة بسيطة خارج الماء، مع إشراف مباشر ومن دون إجبار الطفل.",
+  "3 calm breathing habits before your child enters the pool": "قبل الدخول، توقفوا معًا لملاحظة ما حولكم، وتدرّبوا على تنفس هادئ بعيدًا عن منطقة الرذاذ، ثم اختاروا هدفًا صغيرًا للحصة.",
+  "Short Reel: the rushed kick mistake parents miss": "الركل السريع والمتوتر يستهلك الطاقة ويشتت التنفس. جرّبوا حركة أصغر وأكثر هدوءًا مع دعم المدرب عند حافة المسبح.",
+  "FAQ: how long until my child feels safe in the water?": "لا يوجد وقت واحد يناسب الجميع؛ فالشعور بالأمان يتأثر بالراحة والاستعداد والاستمرارية. ابدأوا بخطوات منظمة ولا تقارنوا طفلًا بآخر.",
+  "Short Reel: pool-edge safety check in 10 seconds": "تأكدوا من وجود إشراف مباشر، ومساحة دخول واضحة، ومكان انتظار آمن. لا تتركوا الطفل قرب الماء دون مراقبة نشطة.",
+  "What to tell a nervous child before lesson one": "طمئنوا الطفل بأن بإمكانه التوقف وطلب المساعدة، وأن التعلم سيكون تدريجيًا. تجنبوا الوعود أو الضغط أو المقارنة.",
+  "Start with a free initial assessment": "يساعد التقييم الأولي على فهم مستوى الراحة والمهارات الحالية واختيار نقطة بداية مناسبة قبل تحديد نوع الحصة.",
+  "Short Reel: bubble line to calm breathing": "ابدأوا قرب الحائط وبإشراف المدرب، مع زفير هادئ وفق قدرة المتعلم. لا تطلبوا حبس النفس أو الاستمرار عند الشعور بعدم الراحة.",
+  "Structured swimming progress parents can track": "تابعوا مهارة واحدة في كل مرة، مثل الاستماع للتعليمات أو التحكم في التنفس أو الحركة عند الحائط. التقدم لا يُقاس بالسرعة وحدها.",
+  "Building water confidence in Abu Dhabi": "الثقة تُبنى بالتدرج والتكرار الهادئ والتواصل الواضح. اختاروا هدفًا يناسب استعداد المتعلم بدلًا من الاستعجال.",
+  "Story sequence: 3 breathing cues before entering the pool": "توقفوا قبل الدخول، خذوا أنفاسًا طبيعية وهادئة، واتفقوا على إشارة بسيطة لطلب التوقف أو المساعدة.",
+  "Short Reel: frantic kick vs calm kick": "قارنوا بين حركة ساقين متوترة وحركة أصغر وأكثر انتظامًا، مع دعم مناسب وعدم إجهاد المتعلم.",
+  "Short Reel: 10-second pool-edge safety check": "راجعوا الإشراف المباشر، ونقطة الانتظار، وطريق الدخول والخروج قبل بدء النشاط.",
+  "Story sequence: free initial assessment reminder": "التقييم الأولي فرصة لمناقشة أهداف المتعلم وراحته وخبرته السابقة، ثم اختيار بداية مناسبة بلا ضغط.",
+  "Story sequence: wait spot builds confidence": "اتفقوا على مكان انتظار واضح بعيدًا عن حافة الماء، وذكّروا الطفل بالعودة إليه عند انتهاء التمرين أو الحاجة إلى استراحة.",
+  "Story sequence: water safety rules for families": "ابقوا قريبين وراقبوا الأطفال باستمرار، واتبعوا تعليمات المسبح، ولا تعتمدوا على العوامات أو وجود أشخاص آخرين بدل الإشراف.",
+  "Why structured swimming lessons beat random pool play": "اللعب ممتع، لكن الحصة المنظمة تضيف هدفًا واضحًا وتدرجًا وملاحظات تساعد على بناء المهارات بأمان.",
+  "Short Reel: splashing is not the same as swimming": "الحركة الكثيرة والرذاذ لا يعنيان إتقان مهارات السباحة. ركزوا على التحكم والتنفس والوضعية المناسبة.",
+  "Story sequence: what to pack for lesson one": "جهزوا ملابس السباحة المناسبة والمنشفة والماء وأي مستلزمات يطلبها المسبح، وتأكدوا من معرفة تعليمات المكان.",
+  "Myth vs fact: younger is always better for swimming": "العمر وحده لا يحدد الاستعداد. راعوا الراحة والقدرة على اتباع التعليمات والخبرة السابقة واحتياجات كل متعلم.",
+  "Short Reel: floating starts with relaxed shoulders": "الاسترخاء والتنفس الطبيعي والدعم المناسب عوامل تساعد على تعلم الطفو تدريجيًا. لا تضغطوا على المتعلم أو تجبروه على وضعية غير مريحة.",
+  "Story sequence: celebrate small swimming wins": "احتفلوا بمحاولة هادئة أو اتباع تعليمات أو تجربة مهارة جديدة، دون مقارنة الطفل بالآخرين.",
+  "Short Reel: the academy's calm coaching approach": "التدرج يعني تقديم إرشاد واضح، والتدرب على مهارة واحدة، ثم تكرارها بهدوء قبل الانتقال إلى خطوة جديدة.",
+  "What happens in a free initial assessment": "نتحدث عن الأهداف والخبرة السابقة والراحة في الماء، ونلاحظ المهارات الأساسية لتحديد نقطة بداية مناسبة.",
+  "Supervision rules every Abu Dhabi parent should know": "الإشراف النشط يعني متابعة الطفل باستمرار والبقاء قريبًا منه، وعدم الانشغال بالهاتف أو افتراض أن شخصًا آخر يراقبه.",
+  "Story sequence: a calm lesson setup": "ابدأوا بتوضيح مكان الانتظار وتعليمات المدرب وخطوة التدريب الأولى، واتركوا وقتًا للتأقلم.",
+  "Short Reel: one skill per session": "التركيز على مهارة واحدة يساعد المتعلم على فهم المطلوب وتكراره دون تشتيت أو استعجال.",
+  "5 signs your child is ready for the next swimming skill": "ابحثوا عن الاستماع للتعليمات والتحكم والراحة وتكرار المهارة بثبات. القرار يعتمد على الملاحظة وليس السرعة.",
+  "Short Reel: comparing siblings slows progress": "قد يتعلم كل طفل بوتيرة مختلفة. ركزوا على تقدمه الشخصي واحتياجاته بدل مقارنته بأخيه أو أخته.",
+  "Story sequence: WhatsApp booking path": "أرسلوا رسالة عبر واتساب للاستفسار عن التقييم الأولي المجاني، واذكروا عمر المتعلم وخبرته وأوقاتكم المناسبة.",
+  "Short Reel: enter the water feet-first": "اتبعوا طريقة الدخول المعتمدة في المسبح وتعليمات المدرب. لا تقفزوا أو تدخلوا الماء إلا في منطقة مسموح بها وتحت إشراف.",
+  "Short Reel: praise effort not speed": "امدحوا التركيز والمحاولة والالتزام بالتعليمات، فهذه السلوكيات تدعم التعلم أكثر من الضغط لتحقيق السرعة.",
+  "Story sequence: month-end free assessment reminder": "ابدأوا بتقييم أولي لمناقشة الأهداف والراحة في الماء واختيار الخطوة التالية المناسبة.",
+};
+const ARABIC_CTA_COPY: Record<string, string> = {
+  "Save this tip for your next pool visit.": "احفظ هذه النصيحة لتجربتها في زيارتك القادمة للمسبح.",
+  "Share this with another Abu Dhabi parent.": "شارك هذه المعلومة مع أحد أولياء الأمور في أبوظبي.",
+  "Follow Relax Fix UAE Swimming Academy for calm swimming guidance.": "تابعوا Relax Fix UAE Swimming Academy للحصول على إرشادات هادئة لتعلم السباحة.",
+  "Ask a swimming question in the comments.": "اكتبوا سؤالكم عن السباحة في التعليقات.",
+  "Send us a WhatsApp message to chat about your child's comfort in the water.": "راسلونا عبر واتساب لمناقشة راحة طفلكم في الماء.",
+  "Book a free initial assessment — no pressure, just clarity.": "احجزوا تقييمًا أوليًا مجانيًا لمعرفة نقطة البداية المناسبة، دون أي ضغط.",
+};
 const ARABIC_HOOK_COPY: Record<string, string> = {
   "Most water fear starts before they even get wet.": "قد يبدأ الخوف من الماء قبل أن يلمس الطفل الماء أصلًا.",
   "Most kids rush into the water before their body is ready.": "يتعجل بعض الأطفال دخول الماء قبل أن يصبحوا مستعدين جسديًا ونفسيًا.",
@@ -656,10 +699,12 @@ const ARABIC_HOOK_COPY: Record<string, string> = {
   "Effort today builds confidence tomorrow.": "المحاولة اليوم تبني الثقة غدًا.",
   "Ready to start structured swimming lessons?": "هل أنت مستعد لبدء دروس سباحة منظمة؟",
 };
-function arabicFirstCopy(topic: string, hook: string) {
+function arabicFirstCopy(topic: string, hook: string, primaryCta: string) {
   const arabicTopic = ARABIC_TOPIC_COPY[topic];
   const arabicHook = ARABIC_HOOK_COPY[hook];
-  if (!arabicTopic || !arabicHook) throw new Error("ARABIC_COPY_MISSING_FOR_TEMPLATE");
+  const arabicBody = ARABIC_BODY_COPY[topic];
+  const arabicCta = ARABIC_CTA_COPY[primaryCta];
+  if (!arabicTopic || !arabicHook || !arabicBody || !arabicCta) throw new Error("ARABIC_COPY_MISSING_FOR_TEMPLATE");
   return {
     topic: arabicTopic + " | " + topic,
     hook: arabicHook + " | " + hook,
@@ -680,7 +725,7 @@ export async function buildCoachAyman2026BatchItems(start = new Date(), batchNon
     const fingerprintSeed = `${COACH_AYMAN_PROVIDER_ID}:${batchNonce}:${index}:${slot.platform}:${slot.topic}`;
     const trackedCta = buildBatchTrackedCta(slot.platform, slot.contentPillar);
     const captionBody = buildCaptionBody(slot);
-    const arabic = arabicFirstCopy(slot.topic, slot.hook);
+    const arabic = arabicFirstCopy(slot.topic, slot.hook, slot.primaryCta);
     items.push({
       platform: slot.platform,
       contentType: slot.contentType,
