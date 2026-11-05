@@ -427,8 +427,11 @@ Deno.serve(async (request) => {
     return json({ success: false, code: verify.data?.code ?? "SCHEDULER_TOKEN_INVALID" }, 401);
   }
 
-  // Live publishing requires BOTH explicit switches. This pulse never runs Gemini or Canva generation.
-  const dryRunRequested = Deno.env.get("CONTENT_AUTOMATION_LIVE_ENABLED") !== "true"
+  // Publishing stays frozen unless the owner explicitly authorizes resumption.
+  // The positive authorization flag defaults to false; both existing live switches are still required.
+  // This pulse never runs Gemini or Canva generation.
+  const dryRunRequested = Deno.env.get("OWNER_PUBLISHING_LIVE_AUTHORIZED") !== "true"
+    || Deno.env.get("CONTENT_AUTOMATION_LIVE_ENABLED") !== "true"
     || Deno.env.get("CONTENT_PUBLISHING_LIVE_ENABLED") !== "true";
 
   const lease = await supabase.rpc("claim_content_automation_lease", {
