@@ -17,7 +17,7 @@ export function BrandedPosterStudio({ item, language, onClose, onSaveDesign }: B
 
   const caption = item.caption || item.topic || "";
   const lines = caption.split("\n").map((l) => l.trim()).filter(Boolean);
-  const hook = item.hook || lines[0] || (isAr ? "أكاديمية ريلاكس فيكس للسباحة — كوتش أيمن" : "Relax Fix Swimming Academy — Coach Ayman");
+  const hook = item.hook || lines[0] || (isAr ? "أكاديمية ريلاكس فيكس للسباحة" : BRAND.publicLine);
 
   const bulletLines = lines
     .filter((l) => l.startsWith("-") || l.startsWith("•") || l.startsWith("🔹") || l.startsWith("*") || /^\d+\)/.test(l))
