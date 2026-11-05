@@ -1,17 +1,17 @@
 export const COACH_AYMAN_PROVIDER_ID = "command-center-coach-ayman-2026";
 export const COACH_AYMAN_BATCH_SIZE = 10;
 
-export const BRAND_WITH_COACH = "Relax Fix UAE Swimming Academy — Coach Ayman";
+export const BRAND_WITH_COACH = "Relax Fix UAE Swimming Academy";
 export const BRAND_LINE = "Relax Fix UAE Swimming Academy";
 export const WHATSAPP = "058 821 9130";
 export const PHONE = "055 137 8660";
 export const WHATSAPP_OPENER =
-  "Hi Relax Fix UAE — I saw Coach Ayman's swimming content and would like a free initial assessment.";
+  "Hi Relax Fix UAE — I saw Relax Fix UAE Swimming Academy's swimming guidance and would like a free initial assessment.";
 
 export const PRIMARY_CTAS = {
   save: "Save this tip for your next pool visit.",
   share: "Share this with another Abu Dhabi parent.",
-  follow: "Follow for calm swimming tips from Coach Ayman.",
+  follow: "Follow Relax Fix UAE Swimming Academy for calm swimming guidance.",
   ask: "Ask a swimming question in the comments.",
   whatsapp: "Send us a WhatsApp message to chat about your child's comfort in the water.",
   book: "Book a free initial assessment — no pressure, just clarity.",
@@ -187,7 +187,7 @@ export const COACH_AYMAN_SLOT_SPEC: CoachAymanSlotSpec[] = [
     contentSlot: "conversion_evening",
     funnel: "conversion",
     strategyLabel: "Trust + Conversion",
-    topicSeed: "Coach Ayman on building water confidence in Abu Dhabi",
+    topicSeed: "Building water confidence in Abu Dhabi",
     hookSeed: "Calm coaching beats pressure every time.",
     topicHashtags: ["#SwimmingCoach", "#AbuDhabiSwimming"],
     primaryCtaKey: "book",
@@ -255,7 +255,7 @@ export function buildVideoBrief(slot: CoachAymanSlotSpec, hook: string, primaryC
     "VIDEO BRIEF:",
     `HOOK: ${hook}`,
     "DURATION: 10 seconds (allowed 5–15 seconds)",
-    `SCENE: ${slot.topicSeed.replace(/^Short Reel:\s*/i, "")} — real Abu Dhabi pool context with Coach Ayman, no staged testimonials.`,
+    `SCENE: ${slot.topicSeed.replace(/^Short Reel:\s*/i, "")} — real Abu Dhabi pool context with a qualified swimming coach, no staged testimonials.`,
     `ON-SCREEN TEXT: ${hook}`,
     `CAPTION LEAD: ${slot.strategyLabel} for kids swimming lessons in Abu Dhabi.`,
     `CTA: ${primaryCta}`,
@@ -268,7 +268,7 @@ export function ensureMediaBrief(visualPrompt: string, slot: CoachAymanSlotSpec,
   const hasStructure = /FORMAT:/i.test(trimmed) && /CANVA:/i.test(trimmed) && /CAPCUT:/i.test(trimmed);
   if (hasStructure) return trimmed;
 
-  const body = trimmed || `Coach Ayman ${slot.contentPillar.replace(/_/g, " ")} content for ${slot.platform}.`;
+  const body = trimmed || `our swimming coach ${slot.contentPillar.replace(/_/g, " ")} content for ${slot.platform}.`;
   const videoBrief = isVideoContentType(slot.contentType)
     ? buildVideoBrief(slot, slot.hookSeed, primaryCta)
     : null;
@@ -278,7 +278,7 @@ export function ensureMediaBrief(visualPrompt: string, slot: CoachAymanSlotSpec,
     `VISUAL CONCEPT: ${body.split("\n")[0]}`,
     `HEADLINE: ${slot.hookSeed}`,
     `SUPPORTING TEXT: Keep copy parent-friendly for kids swimming lessons and water safety in Abu Dhabi.`,
-    `SCENE IDEA: Real pool context with Coach Ayman authority; no fabricated reviews or results.`,
+    `SCENE IDEA: Real pool context with academy coaching expertise; no fabricated reviews or results.`,
     `CTA: ${primaryCta}`,
     videoBrief,
     `CANVA: ${body}`,
