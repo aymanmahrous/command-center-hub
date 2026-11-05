@@ -452,6 +452,16 @@ This section supersedes older status statements where they conflict with the liv
 4. After owner authorization, apply the approved database package; verify RPCs, constraints, and existing data before considering frontend promotion.
 5. Keep publishing frozen. Do not retry, reschedule, or publish any existing item during this work.
 
+
+
+### Additional migration dependency and live-state evidence
+
+- The production media source distribution is: `ai_generated=272`, `external=28`, `upload=9` (309 total). No current row uses `generated`; the current source CHECK is the reason that vocabulary cannot yet be stored.
+- The live trigger inventory contains only the two existing content-media enqueue/prepare triggers. The new scheduling guard and publication-receipt media-readiness guard from the November 1 migration set are absent.
+- The seven missing migrations are not a harmless bookkeeping gap: they add/update review and synthetic-attestation RPCs, introduce real-person review handling, add schedule/receipt readiness guards, and widen the source CHECK to include the new generator vocabulary.
+- The schedule/receipt guards can reject future attempts to schedule or reserve receipts for media that is not fully reviewed. That is intended protection, but it can surface errors if old scheduled jobs are touched. Keep automation in dry-run and do not retry or mutate the existing backlog during rollout.
+- Candidate dependency sequence from the migration contents is: schema/RPC compatibility (20261030093654) → internal review + synthetic attestation RPCs (20261101051009) → real-person attestation refinement (20261101053129) → generated-media attestation routing (20261101065004) → schedule/publication readiness enforcement (20261101092147) → pending-receipt guard refinement (20261101092350) → legacy/generated source CHECK compatibility (20261101104925). This is a review sequence, **not an instruction to apply blindly**. Before rollout, compare each function/trigger definition with the later production migrations already applied and verify the final effective definitions.
+
 ### Protected state
 
 No production database mutation, migration, Edge Function deployment, Vercel Production promotion, OAuth/secret change, job retry, media bulk update, or social publishing was performed during this reconciliation.
