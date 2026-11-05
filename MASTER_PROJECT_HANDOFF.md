@@ -487,3 +487,11 @@ The Connections / Truthful Status phase has recorded read-only Production and QA
 - The proposed migration is read-only with respect to business records: no content rows, receipts, jobs, or dates are changed. It preserves the existing staff-role gate and SECURITY DEFINER contract.
 - PR #320: https://github.com/aymanmahrous/command-center-hub/pull/320. It is open and not merged; migration not applied to Production.
 - The initial GitHub workflow run on the first PR head passed TypeScript but failed one pre-existing static assertion because the UI label was intentionally updated. That assertion was corrected. The latest commit `220976dcc80102eaf25be27c6dc64dec9053f894` has no fresh GitHub Actions run yet; Vercel preview checks returned a build-rate-limit failure. Do not claim the latest head has full CI verification until a fresh run completes.
+
+
+### Overdue publish queue age breakdown — read-only
+- The 51 past-due scheduled items split into 24 Facebook and 27 Instagram.
+- Age buckets: 10 items are 0–7 days overdue, 13 are 8–30 days overdue, and 28 are more than 30 days overdue.
+- All 51 correlate with either an active publish job (48) or an ambiguous publication receipt (2); the remaining one is in the same historical/failed-receipt cohort and must be checked item-by-item. No scheduled item in this snapshot had a published receipt.
+- 21 overdue items also have at least one failed receipt record. Failed receipts and active jobs can coexist; do not interpret the existence of a failed receipt as permission to retry.
+- This strengthens the decision to keep publishing frozen and reconcile by content item, platform, receipts, and owner intent before any cleanup or re-scheduling.
