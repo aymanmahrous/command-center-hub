@@ -748,7 +748,7 @@ export function validateCoachAymanBatch(items: GeneratedBatchItem[]): { valid: b
     if (item.contentPillar === "offer_booking") conversionCount += 1;
     if (!item.cta.includes(WHATSAPP) || !item.cta.includes(PHONE)) errors.push("missing confirmed CTA");
     if (item.language !== "ar") errors.push("content language must be Arabic-first");
-    if (!/[\\u0600-\\u06FF]/.test(item.topic) || !/[\\u0600-\\u06FF]/.test(item.hook) || !/[\\u0600-\\u06FF]/.test(item.caption)) errors.push("missing Arabic-first copy");
+    if (!/[\u0600-\u06FF]/.test(item.topic) || !/[\u0600-\u06FF]/.test(item.hook) || !/[\u0600-\u06FF]/.test(item.caption)) errors.push("missing Arabic-first copy");
     if (!/messages & booking/i.test(item.caption)) errors.push("missing whatsapp role label");
     if (!/phone calls only/i.test(item.caption)) errors.push("missing call role label");
     if (/wa\.me\/971551378660/i.test(item.caption)) errors.push("8660 must not be used as whatsapp link");
