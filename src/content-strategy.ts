@@ -22,7 +22,7 @@ export const BRAND = {
 export const RELAXFIX_WHATSAPP_E164 = "971588219130";
 
 export function ensureRelaxFixBrandLead(caption: string): string {
-  if (/relax fix uae/i.test(caption)) return caption;
+  if (/relax fix(?: uae)?(?: swimming academy)?/i.test(caption)) return caption;
   return `${BRAND.withCoach}\n\n${caption}`;
 }
 
