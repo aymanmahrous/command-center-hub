@@ -319,7 +319,7 @@ async function normalizeItems(rawItems: unknown[], batchNonce: string, start: Da
     const hasArabic = (value: string) => /[\u0600-\u06FF]/.test(value);
     const hasEnglish = (value: string) => /[A-Za-z]/.test(value);
     const isArabicFirstBilingual = (value: string) => {
-      const first = value.trim().replace(/^Relax Fix UAE Swimming Academy\\s*/i, "").trimStart();
+      const first = value.trim().replace(/^Relax Fix UAE Swimming Academy\s*/i, "").trimStart();
       return /^[\u0600-\u06FF]/.test(first) && hasArabic(first) && hasEnglish(first);
     };
     for (const [field, value] of [["topic", topic], ["hook", hook], ["captionBody", body]] as const) {
@@ -328,7 +328,7 @@ async function normalizeItems(rawItems: unknown[], batchNonce: string, start: Da
       }
     }
     const visualCopyLineIsBilingual = (label: string) => {
-      const line = rawVisualPrompt.split(/\\r?\\n/).find((part) => part.trim().toUpperCase().startsWith(label));
+      const line = rawVisualPrompt.split(/\r?\n/).find((part) => part.trim().toUpperCase().startsWith(label));
       const copy = line?.slice(line.indexOf(":") + 1).trim() ?? "";
       return /^[\u0600-\u06FF]/.test(copy) && hasEnglish(copy);
     };
