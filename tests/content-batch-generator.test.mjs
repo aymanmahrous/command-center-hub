@@ -29,6 +29,10 @@ test("batch generation migration assigns one shared batch_id", () => {
 test("coach ayman 2026 batch has 10 platform-specific items", async () => {
   const items = await buildCoachAyman2026BatchItems(new Date("2026-09-11T00:00:00.000Z"), "test-nonce");
   assert.equal(items.length, COACH_AYMAN_BATCH_SIZE);
+  assert.ok(items.every((item) => item.language === "ar"), "all items must be marked Arabic-first");
+  assert.ok(items.every((item) => /[\\u0600-\\u06FF]/.test(item.topic) && /[\\u0600-\\u06FF]/.test(item.hook) && /[\\u0600-\\u06FF]/.test(item.caption)), "topic, hook and caption must contain Arabic");
+  assert.ok(items.every((item) => /[A-Za-z]/.test(item.topic) && /[A-Za-z]/.test(item.hook)), "topic and hook must retain English equivalents");
+  assert.ok(items.every((item) => /ARABIC HEADLINE:/.test(item.visualPrompt) && /[\\u0600-\\u06FF]/.test(item.visualPrompt)), "visual brief must include Arabic-first design copy");
   const summary = summarizeCoachAymanBatch(items);
   assert.equal(summary.total, 10);
   assert.equal(summary.conversion, 1);
@@ -90,6 +94,10 @@ test("content growth hub links media-aware batch generation", async () => {
 test("coach ayman 30-day calendar has full month mix", async () => {
   const items = await buildCoachAyman30DayCalendarItems(new Date("2026-09-11T00:00:00.000Z"), "month-nonce");
   assert.equal(items.length, COACH_AYMAN_MONTH_BATCH_SIZE);
+  assert.ok(items.every((item) => item.language === "ar"), "all 30-day items must be marked Arabic-first");
+  assert.ok(items.every((item) => /[\\u0600-\\u06FF]/.test(item.topic) && /[\\u0600-\\u06FF]/.test(item.hook) && /[\\u0600-\\u06FF]/.test(item.caption)), "all 30-day user-facing fields must contain Arabic");
+  assert.ok(items.every((item) => /[A-Za-z]/.test(item.topic) && /[A-Za-z]/.test(item.hook)), "all 30-day topic and hook fields must retain English");
+  assert.ok(items.every((item) => /ARABIC HEADLINE:/.test(item.visualPrompt) && /[\\u0600-\\u06FF]/.test(item.visualPrompt)), "all 30-day visual briefs must include Arabic copy");
   const summary = summarizeCoachAyman30DayBatch(items);
   assert.equal(summary.total, 30);
   assert.equal(summary.reels, 12);
