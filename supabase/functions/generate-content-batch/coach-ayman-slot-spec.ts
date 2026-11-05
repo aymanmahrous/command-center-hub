@@ -159,7 +159,7 @@ export const COACH_AYMAN_SLOT_SPEC: CoachAymanSlotSpec[] = [
     strategyLabel: "Short Reel — educational",
     topicSeed: "Short Reel: bubble line to calm breathing",
     hookSeed: "Watch the shoulders drop when breathing is calm.",
-    topicHashtags: ["#SwimReel", "#CoachAyman"],
+    topicHashtags: ["#SwimReel", "#RelaxFixUAE"],
     primaryCtaKey: "save",
     briefFormat: "Instagram reel · 9:16 · 10s default (5–15s)",
   },
@@ -268,7 +268,7 @@ export function ensureMediaBrief(visualPrompt: string, slot: CoachAymanSlotSpec,
   const hasStructure = /FORMAT:/i.test(trimmed) && /CANVA:/i.test(trimmed) && /CAPCUT:/i.test(trimmed);
   if (hasStructure) return trimmed;
 
-  const body = trimmed || `our swimming coach ${slot.contentPillar.replace(/_/g, " ")} content for ${slot.platform}.`;
+  const body = trimmed || `academy ${slot.contentPillar.replace(/_/g, " ")} content for ${slot.platform}.`;
   const videoBrief = isVideoContentType(slot.contentType)
     ? buildVideoBrief(slot, slot.hookSeed, primaryCta)
     : null;
