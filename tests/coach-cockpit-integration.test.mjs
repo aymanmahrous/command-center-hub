@@ -38,7 +38,7 @@ test("ControlTowerV2 exposes honest channel navigation shortcuts without fake ha
 test("Coach Brain strategy and poster use canonical academy facts", () => {
   assert.match(strategy, /name: "Relax Fix Swimming Academy"/);
   assert.match(strategy, /locations: \["Al Mushrif · Abu Dhabi"\]/);
-  assert.match(strategy, /whatsapp: "\\+971 58 821 9130"/);
+  assert.match(strategy, /whatsapp: "\+971 58 821 9130"/);
   assert.match(strategy, /if \(\/relax fix/);
   assert.match(poster, /import \{ BRAND \} from "\.\/content-strategy"/);
   assert.match(poster, /BRAND\.locations\.join/);
