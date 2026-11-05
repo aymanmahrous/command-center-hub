@@ -7,6 +7,7 @@ const view = readFileSync(new URL("../src/coach-brain.tsx", import.meta.url), "u
 const style = readFileSync(new URL("../src/coach-brain.css", import.meta.url), "utf8");
 const app = readFileSync(new URL("../src/main.tsx", import.meta.url), "utf8");
 const hub = readFileSync(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
+const handoff = readFileSync(new URL("../src/coach-brain-factory-handoff.ts", import.meta.url), "utf8");
 const edge = readFileSync(new URL("../supabase/functions/coach-brain-research/index.ts", import.meta.url), "utf8");
 
 test("Coach Brain uses bounded business strategy from the existing source only for business/content questions", () => {
@@ -61,15 +62,16 @@ test("Coach Brain protects the no-record workflow", () => {
   assert.match(view, /No swimmer or child profile is created or stored|لا يتم إنشاء ملف للسباح أو حفظ بيانات الأطفال/);
 });
 
-test("Factory consumes Coach Brain handoff only on explicit factory entry", () => {
+test("Factory restores the persistent Coach Brain handoff and clears it through the shared helper after success", () => {
+  assert.match(hub, /readCoachBrainFactoryHandoff\(\)/);
   assert.match(hub, /factoryContext.*coach-brain/);
-  assert.match(hub, /sessionStorage\.removeItem\(COACH_BRAIN_FACTORY_HANDOFF_KEY\)/);
   assert.match(hub, /get\("factoryContext"\).*coach-brain/);
+  assert.match(hub, /clearCoachBrainFactoryHandoff\(\)/);
 });
 
-test("Coach Brain hands research to the existing Factory without direct execution", () => {
-  assert.match(view, /COACH_BRAIN_FACTORY_HANDOFF_KEY = "coach-brain-factory-handoff"/);
-  assert.match(view, /sessionStorage\.setItem\(COACH_BRAIN_FACTORY_HANDOFF_KEY/);
+test("Coach Brain hands research to the existing Factory through the shared persistent handoff without direct execution", () => {
+  assert.match(handoff, /COACH_BRAIN_FACTORY_HANDOFF_KEY = "coach-brain-factory-handoff"/);
+  assert.match(view, /writeCoachBrainFactoryHandoff\(/);
   assert.match(view, /factoryContext.*coach-brain/);
   assert.match(view, /إرسال إلى مصنع المحتوى|Send to Content Factory/);
   assert.doesNotMatch(view, /executeCoachBrainContentGeneration/);
