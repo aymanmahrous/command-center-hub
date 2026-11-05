@@ -95,12 +95,12 @@ export default function ControlTowerV2({ session, onNavigate, onSessionExpired, 
     <section className="v2-coach-cockpit-banner">
       <div className="v2-cockpit-header">
         <div>
-          <span className="v2-kicker">COACH AYMAN COCKPIT · ABU DHABI</span>
-          <h3>{language === "ar" ? "مقصورة كابتن أيمن — مركز القيادة والتحكم" : "Coach Ayman Cockpit — Command & Control"}</h3>
+          <span className="v2-kicker">RELAX FIX SWIMMING ACADEMY · ABU DHABI</span>
+          <h3>{language === "ar" ? "مركز قيادة أكاديمية ريلاكس فيكس للسباحة" : "Relax Fix Swimming Academy — Command Center"}</h3>
           <p className="v2-panel-note">
             {language === "ar"
-              ? "أكاديمية ريلاكس فيكس للسباحة · أبوظبي · فروع المشرف، الفلاح، مدينة خليفة، الدانة"
-              : "Relax Fix Swimming Academy · Abu Dhabi · Al Mushrif, Al Falah, Khalifa City, Al Danah"}
+              ? "أكاديمية ريلاكس فيكس للسباحة · المشرف · أبوظبي"
+              : "Relax Fix Swimming Academy · Al Mushrif · Abu Dhabi"}
           </p>
         </div>
         <div className="v2-cockpit-contacts">
