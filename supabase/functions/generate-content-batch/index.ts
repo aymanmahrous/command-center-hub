@@ -316,7 +316,7 @@ async function normalizeItems(rawItems: unknown[], batchNonce: string, start: Da
 
     const rawVisualPrompt = String(raw.visualPrompt ?? "").trim();
     const visualPrompt = ensureMediaBrief(rawVisualPrompt, slot, primaryCta);
-    const hasArabic = (value: string) => /[\\u0600-\\u06FF]/.test(value);
+    const hasArabic = (value: string) => /[\u0600-\u06FF]/.test(value);
     const hasEnglish = (value: string) => /[A-Za-z]/.test(value);
     for (const [field, value] of [["topic", topic], ["hook", hook], ["captionBody", body], ["visualPrompt", rawVisualPrompt]] as const) {
       if (!hasArabic(value) || !hasEnglish(value)) {
