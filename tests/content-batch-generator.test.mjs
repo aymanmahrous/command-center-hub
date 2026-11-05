@@ -46,8 +46,12 @@ test("coach ayman batch passes safety validation", async () => {
   assert.match(items[0]?.caption ?? "", /055 137 8660 — admin team \(phone calls only\)/);
   assert.match(items[0]?.caption ?? "", /Free initial assessment/);
   assert.match(items.map((item) => item.caption).join("\n"), /Relax Fix UAE/i);
+  assert.doesNotMatch(items.map((item) => item.caption).join("\n"), /Relax Fix UAE Swimming Academy — Coach Ayman/i);
+  assert.doesNotMatch(items.map((item) => item.caption).join("\n"), /Follow for calm swimming tips from Coach Ayman/i);
   assert.equal(items.filter((item) => item.platform === "facebook").every((item) => item.hashtags.length === 1), true);
   assert.equal(items.every((item) => item.hashtags[0] === "#RelaxFixUAE"), true);
+  assert.doesNotMatch(items.flatMap((item) => item.hashtags).join(" "), /#CoachAyman/i);
+  assert.doesNotMatch(items.map((item) => item.caption).join("\n"), /(^|\n)the academy\b/);
   assert.doesNotMatch(items.map((item) => item.caption).join("\n"), /guarantee|testimonial|award-winning/i);
 });
 

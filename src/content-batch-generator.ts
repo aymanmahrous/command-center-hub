@@ -3,9 +3,9 @@ export const COACH_AYMAN_MONTH_BATCH_SIZE = 30;
 export const COACH_AYMAN_PROVIDER_ID = "command-center-coach-ayman-2026";
 
 const BRAND_LINE = "Relax Fix UAE Swimming Academy";
-const BRAND_WITH_COACH = "Relax Fix UAE Swimming Academy — Coach Ayman";
+const BRAND_WITH_COACH = "Relax Fix UAE Swimming Academy";
 const WHATSAPP_OPENER =
-  "Hi Relax Fix UAE — I saw Coach Ayman's swimming content and would like a free initial assessment.";
+  "Hi Relax Fix UAE — I saw Relax Fix UAE Swimming Academy's swimming guidance and would like a free initial assessment.";
 
 const WHATSAPP = "058 821 9130";
 const PHONE = "055 137 8660";
@@ -100,7 +100,7 @@ const FORBIDDEN_CLAIMS = /\b(guarantee|guaranteed|award-winning|#1|testimonial|b
 const PRIMARY_CTAS = {
   save: "Save this tip for your next pool visit.",
   share: "Share this with another Abu Dhabi parent.",
-  follow: "Follow for calm swimming tips from Coach Ayman.",
+  follow: "Follow Relax Fix UAE Swimming Academy for calm swimming guidance.",
   ask: "Ask a swimming question in the comments.",
   whatsapp: "Send us a WhatsApp message to chat about your child's comfort in the water.",
   book: "Book a free initial assessment — no pressure, just clarity.",
@@ -145,7 +145,7 @@ function buildVideoBrief(parts: {
     "VIDEO BRIEF:",
     `HOOK: ${parts.hook}`,
     "DURATION: 10 seconds (allowed 5–15 seconds)",
-    `SCENE: ${parts.scene} — real Abu Dhabi pool context with Coach Ayman, no staged testimonials.`,
+    `SCENE: ${parts.scene} — real Abu Dhabi pool context with a qualified swimming coach, no staged testimonials.`,
     `ON-SCREEN TEXT: ${parts.hook}`,
     `CAPTION LEAD: ${parts.strategyLabel} for kids swimming lessons in Abu Dhabi.`,
     `CTA: ${parts.cta}`,
@@ -212,7 +212,7 @@ const SLOT_TEMPLATES: SlotTemplate[] = [
       cta: PRIMARY_CTAS.follow,
       videoBrief: buildVideoBrief({
         hook: "Most water fear starts before they even get wet.",
-        scene: "Child hesitating at the pool edge while Coach Ayman gives one calm cue",
+        scene: "Child hesitating at the pool edge while a swimming coach gives one calm cue",
         strategyLabel: "Short Reel — common swimming problem",
         cta: PRIMARY_CTAS.follow,
       }),
@@ -460,7 +460,7 @@ const SLOT_TEMPLATES: SlotTemplate[] = [
     primaryCta: PRIMARY_CTAS.save,
     cta: CONFIRMED_CTA,
     hashtags: [],
-    topicHashtags: ["#SwimReel", "#CoachAyman"],
+    topicHashtags: ["#SwimReel", "#RelaxFixUAE"],
     visualPrompt: mediaBrief({
       format: "Instagram reel · 9:16 · 10s default (5–15s)",
       visualConcept: "Educational reel about calm breathing at the wall.",
@@ -524,13 +524,13 @@ const SLOT_TEMPLATES: SlotTemplate[] = [
     contentPillar: "coach_authority",
     contentSlot: "conversion_evening",
     funnel: "conversion",
-    topic: "Coach Ayman on building water confidence in Abu Dhabi",
+    topic: "Building water confidence in Abu Dhabi",
     hook: "Calm coaching beats pressure every time.",
     caption: [
       BRAND_WITH_COACH,
       "",
       "Trust + next step:",
-      "Coach Ayman focuses on structured swimming progress, water safety, and confidence for children in Abu Dhabi.",
+      "Relax Fix UAE Swimming Academy focuses on structured swimming progress, water safety, and confidence for children in Abu Dhabi.",
       "",
       "Start with a free initial assessment — no pressure, just clarity.",
     ].join("\n"),
@@ -540,7 +540,7 @@ const SLOT_TEMPLATES: SlotTemplate[] = [
     topicHashtags: ["#SwimmingCoach", "#AbuDhabiSwimming"],
     visualPrompt: mediaBrief({
       format: "Instagram conversion post · 1080×1350",
-      visualConcept: "Authority + conversion post for Coach Ayman swimming academy.",
+      visualConcept: "Authority + conversion post for the swimming academy.",
       headline: "Calm coaching beats pressure every time",
       supportingText: "Swimming coach Abu Dhabi — structured lessons for kids.",
       sceneIdea: "Coach authority portrait with calm pool context, no fake testimonials.",
@@ -768,7 +768,7 @@ function reelBrief(parts: {
       "VIDEO BRIEF:",
       `HOOK: ${parts.hook}`,
       "DURATION: 10 seconds (allowed 5–15 seconds)",
-      `SCENE: ${parts.scene} — real Abu Dhabi pool context with Coach Ayman, no staged testimonials.`,
+      `SCENE: ${parts.scene} — real Abu Dhabi pool context with a qualified swimming coach, no staged testimonials.`,
       `ON-SCREEN TEXT: ${parts.hook}`,
       `CAPTION LEAD: ${parts.strategyLabel} for kids swimming lessons in Abu Dhabi.`,
       `CTA: ${parts.cta}`,
@@ -800,7 +800,7 @@ function postBrief(parts: {
   ].join("\n");
 }
 
-const BRAND = "Relax Fix UAE Swimming Academy — Coach Ayman";
+const BRAND = "Relax Fix UAE Swimming Academy";
 const CTA_BLOCK = [
   "WhatsApp 058 821 9130 — messages & booking",
   "Call 055 137 8660 — admin team (phone calls only)",
@@ -816,7 +816,7 @@ const COACH_AYMAN_30DAY_SLOT_TEMPLATES: SlotTemplate[] = [
     caption: `${BRAND}\n\nShort Reel (10s): pool-edge hesitation with one calm coach cue.\n\nSave this tip for your next pool visit.`,
     primaryCta: "Save this tip for your next pool visit.",
     cta: CTA_BLOCK, hashtags: [], topicHashtags: ["#KidsSwimming", "#WaterConfidence"],
-    visualPrompt: reelBrief({ format: "Instagram reel · 9:16 · 10s", headline: "Most water fear starts before they get wet", hook: "Most water fear starts before they even get wet.", scene: "Child at pool edge with Coach Ayman nearby", strategyLabel: "Short Reel — water confidence", supportingText: "Kids swimming lessons Abu Dhabi", cta: "Save this tip", canva: "Bold hook on calm pool background", capcut: "10s vertical with burned-in captions" }),
+    visualPrompt: reelBrief({ format: "Instagram reel · 9:16 · 10s", headline: "Most water fear starts before they get wet", hook: "Most water fear starts before they even get wet.", scene: "Child at pool edge with a swimming coach nearby", strategyLabel: "Short Reel — water confidence", supportingText: "Kids swimming lessons Abu Dhabi", cta: "Save this tip", canva: "Bold hook on calm pool background", capcut: "10s vertical with burned-in captions" }),
   },
   {
     dayOffset: 1, slotHourGst: 12, platform: "instagram", contentType: "story", language: "en",
@@ -883,8 +883,8 @@ const COACH_AYMAN_30DAY_SLOT_TEMPLATES: SlotTemplate[] = [
     contentPillar: "confidence", contentSlot: "education_midday", funnel: "engagement",
     topic: "Short Reel: wait spot builds confidence",
     hook: "Confidence starts with knowing where to stand.",
-    caption: `${BRAND}\n\nShort Reel (10s): calm wait spot at the pool edge before skills begin.\n\nFollow for calm swimming tips from Coach Ayman.`,
-    primaryCta: "Follow for calm swimming tips from Coach Ayman.",
+    caption: `${BRAND}\n\nShort Reel (10s): calm wait spot at the pool edge before skills begin.\n\nFollow Relax Fix UAE Swimming Academy for calm swimming guidance.`,
+    primaryCta: "Follow Relax Fix UAE Swimming Academy for calm swimming guidance.",
     cta: CTA_BLOCK, hashtags: [], topicHashtags: ["#WaterConfidence", "#KidsSwimming"],
     visualPrompt: reelBrief({ format: "Instagram reel · 9:16 · 10s", headline: "Wait spot builds confidence", hook: "Confidence starts with knowing where to stand.", scene: "Child at designated wait spot with coach", strategyLabel: "Short Reel — children's confidence", supportingText: "Structured swimming progress", cta: "Follow for calm tips", canva: "Wait spot label on pool deck", capcut: "10s with on-screen wait spot text" }),
   },
@@ -915,7 +915,7 @@ const COACH_AYMAN_30DAY_SLOT_TEMPLATES: SlotTemplate[] = [
     hook: "Watch the shoulders drop when breathing is calm.",
     caption: `${BRAND}\n\nShort Reel (10s): bubble line at the wall → calm exhale.\n\nSave this tip for your next pool visit.`,
     primaryCta: "Save this tip for your next pool visit.",
-    cta: CTA_BLOCK, hashtags: [], topicHashtags: ["#SwimReel", "#CoachAyman"],
+    cta: CTA_BLOCK, hashtags: [], topicHashtags: ["#SwimReel", "#RelaxFixUAE"],
     visualPrompt: reelBrief({ format: "Instagram reel · 9:16 · 10s", headline: "Bubble line to calm breathing", hook: "Watch the shoulders drop when breathing is calm.", scene: "Bubble line drill at pool wall", strategyLabel: "Short Reel — parent education", supportingText: "Swimming skills for kids", cta: "Save this tip", canva: "Hook cover with pool-wall context", capcut: "Educational reel with step captions" }),
   },
   {
@@ -923,8 +923,8 @@ const COACH_AYMAN_30DAY_SLOT_TEMPLATES: SlotTemplate[] = [
     contentPillar: "coach_authority", contentSlot: "trust_morning", funnel: "trust",
     topic: "Why structured swimming lessons beat random pool play",
     hook: "Play is fun — structure builds skills.",
-    caption: `${BRAND}\n\nStructured swimming lessons give children repeatable steps: wait spot, breathing, one skill focus per session.\nCoach Ayman builds water confidence and safety for Abu Dhabi families.\n\nFollow for calm swimming tips from Coach Ayman.`,
-    primaryCta: "Follow for calm swimming tips from Coach Ayman.",
+    caption: `${BRAND}\n\nStructured swimming lessons give children repeatable steps: wait spot, breathing, one skill focus per session.\nRelax Fix UAE Swimming Academy builds water confidence and safety for Abu Dhabi families.\n\nFollow Relax Fix UAE Swimming Academy for calm swimming guidance.`,
+    primaryCta: "Follow Relax Fix UAE Swimming Academy for calm swimming guidance.",
     cta: CTA_BLOCK, hashtags: [], topicHashtags: ["#SwimmingCoach"],
     visualPrompt: postBrief({ format: "Facebook static post · 1200×630", headline: "Structure builds skills", supportingText: "Coach authority — swimming coach Abu Dhabi", sceneIdea: "Coach with structured lesson plan visual", cta: "Follow for calm tips", canva: "Authority post with structured steps graphic" }),
   },
@@ -983,19 +983,19 @@ const COACH_AYMAN_30DAY_SLOT_TEMPLATES: SlotTemplate[] = [
     contentPillar: "confidence", contentSlot: "conversion_evening", funnel: "engagement",
     topic: "Story sequence: celebrate small swimming wins",
     hook: "Small wins build big confidence.",
-    caption: `${BRAND}\n\nStory: celebrate one small swimming win after each session.\n\nFollow for calm swimming tips from Coach Ayman.`,
-    primaryCta: "Follow for calm swimming tips from Coach Ayman.",
+    caption: `${BRAND}\n\nStory: celebrate one small swimming win after each session.\n\nFollow Relax Fix UAE Swimming Academy for calm swimming guidance.`,
+    primaryCta: "Follow Relax Fix UAE Swimming Academy for calm swimming guidance.",
     cta: CTA_BLOCK, hashtags: [], topicHashtags: ["#WaterConfidence"],
     visualPrompt: buildStoryBrief({ hook: "Small wins build big confidence.", frames: ["Text: Name one skill your child tried today", "Text: No comparisons — one skill at a time", "Emoji slider: How proud are you of today's effort?"], cta: "Follow for calm swimming tips" }),
   },
   {
     dayOffset: 18, slotHourGst: 9, platform: "instagram", contentType: "reel", language: "en",
     contentPillar: "coach_authority", contentSlot: "trust_morning", funnel: "trust",
-    topic: "Short Reel: Coach Ayman's calm correction style",
+    topic: "Short Reel: the academy's calm coaching approach",
     hook: "One cue. One skill. One calm repeat.",
-    caption: `${BRAND}\n\nShort Reel (10s): Coach Ayman's one-cue correction at the wall.\n\nFollow for calm swimming tips from Coach Ayman.`,
-    primaryCta: "Follow for calm swimming tips from Coach Ayman.",
-    cta: CTA_BLOCK, hashtags: [], topicHashtags: ["#SwimmingCoach", "#CoachAyman"],
+    caption: `${BRAND}\n\nShort Reel (10s): the academy's one-cue coaching at the wall.\n\nFollow Relax Fix UAE Swimming Academy for calm swimming guidance.`,
+    primaryCta: "Follow Relax Fix UAE Swimming Academy for calm swimming guidance.",
+    cta: CTA_BLOCK, hashtags: [], topicHashtags: ["#SwimmingCoach", "#RelaxFixUAE"],
     visualPrompt: reelBrief({ format: "Instagram reel · 9:16 · 10s", headline: "One cue. One skill. One repeat.", hook: "One cue. One skill. One calm repeat.", scene: "Coach giving single calm correction", strategyLabel: "Short Reel — coach authority", supportingText: "Swimming coach Abu Dhabi", cta: "Follow for calm tips", canva: "Coach authority cover frame", capcut: "10s authority reel" }),
   },
   {
@@ -1003,7 +1003,7 @@ const COACH_AYMAN_30DAY_SLOT_TEMPLATES: SlotTemplate[] = [
     contentPillar: "parent_concerns", contentSlot: "education_midday", funnel: "trust",
     topic: "What happens in a free initial assessment",
     hook: "No pressure — just clarity on where to start.",
-    caption: `${BRAND}\n\nFree initial assessment:\n• Meet Coach Ayman\n• Discuss comfort level and goals\n• Recommend private coaching or small group (up to 4)\nNo pressure — just clarity.\n\nBook a free initial assessment — no pressure, just clarity.`,
+    caption: `${BRAND}\n\nFree initial assessment:\n• Meet a member of our swimming coaching team\n• Discuss comfort level and goals\n• Recommend private coaching or small group (up to 4)\nNo pressure — just clarity.\n\nBook a free initial assessment — no pressure, just clarity.`,
     primaryCta: "Book a free initial assessment — no pressure, just clarity.",
     cta: CTA_BLOCK, hashtags: [], topicHashtags: ["#FreeAssessment"],
     visualPrompt: postBrief({ format: "Facebook static post · 1200×630", headline: "What happens in a free initial assessment", supportingText: "Conversion with trust — no pressure", sceneIdea: "Three-step assessment outline", cta: "Book free assessment", canva: "Assessment steps infographic" }),
@@ -1025,7 +1025,7 @@ const COACH_AYMAN_30DAY_SLOT_TEMPLATES: SlotTemplate[] = [
     hook: "Calm setup before calm swimming.",
     caption: `${BRAND}\n\nBehind the scenes: how a structured lesson starts calmly.\n\nAsk a swimming question in the comments.`,
     primaryCta: "Ask a swimming question in the comments.",
-    cta: CTA_BLOCK, hashtags: [], topicHashtags: ["#CoachAyman"],
+    cta: CTA_BLOCK, hashtags: [], topicHashtags: ["#RelaxFixUAE"],
     visualPrompt: buildStoryBrief({ hook: "Calm setup before calm swimming.", frames: ["BTS photo: pool equipment laid out", "Text: Wait spot marked before learners arrive", "Text: One skill focus written on board"], cta: "Ask a swimming question in comments" }),
   },
   {
@@ -1063,7 +1063,7 @@ const COACH_AYMAN_30DAY_SLOT_TEMPLATES: SlotTemplate[] = [
     contentPillar: "offer_booking", contentSlot: "conversion_evening", funnel: "conversion",
     topic: "Story sequence: WhatsApp booking path",
     hook: "Questions about kids swimming lessons in Abu Dhabi?",
-    caption: `${BRAND}\n\nStory: how to reach Coach Ayman Swimming for a free initial assessment.\n\nSend us a WhatsApp message to chat about your child's comfort in the water.`,
+    caption: `${BRAND}\n\nStory: how to reach the swimming academy for a free initial assessment.\n\nSend us a WhatsApp message to chat about your child's comfort in the water.`,
     primaryCta: "Send us a WhatsApp message to chat about your child's comfort in the water.",
     cta: CTA_BLOCK, hashtags: [], topicHashtags: ["#AbuDhabiSwimming"],
     visualPrompt: buildStoryBrief({ hook: "Questions about kids swimming lessons in Abu Dhabi?", frames: ["Text: WhatsApp 058 821 9130 — messages & booking", "Text: Call 055 137 8660 — admin team only", "Countdown sticker: Free initial assessment"], cta: "WhatsApp for messages and booking" }),
@@ -1081,9 +1081,9 @@ const COACH_AYMAN_30DAY_SLOT_TEMPLATES: SlotTemplate[] = [
   {
     dayOffset: 27, slotHourGst: 12, platform: "facebook", contentType: "post", language: "en",
     contentPillar: "coach_authority", contentSlot: "conversion_evening", funnel: "conversion",
-    topic: "Coach Ayman on building water confidence in Abu Dhabi",
+    topic: "Building water confidence in Abu Dhabi",
     hook: "Calm coaching beats pressure every time.",
-    caption: `${BRAND}\n\nCoach Ayman focuses on structured swimming progress, water safety, and confidence for children in Abu Dhabi.\nStart with a free initial assessment — no pressure, just clarity.\n\nBook a free initial assessment — no pressure, just clarity.`,
+    caption: `${BRAND}\n\nRelax Fix UAE Swimming Academy focuses on structured swimming progress, water safety, and confidence for children in Abu Dhabi.\nStart with a free initial assessment — no pressure, just clarity.\n\nBook a free initial assessment — no pressure, just clarity.`,
     primaryCta: "Book a free initial assessment — no pressure, just clarity.",
     cta: CTA_BLOCK, hashtags: [], topicHashtags: ["#SwimmingCoach", "#AbuDhabiSwimming"],
     visualPrompt: postBrief({ format: "Facebook conversion post · 1200×630", headline: "Calm coaching beats pressure", supportingText: "Coach authority + conversion CTA", sceneIdea: "Coach portrait with assessment CTA", cta: "Book free assessment", canva: "Trust + conversion layout" }),
@@ -1093,9 +1093,9 @@ const COACH_AYMAN_30DAY_SLOT_TEMPLATES: SlotTemplate[] = [
     contentPillar: "confidence", contentSlot: "trust_morning", funnel: "engagement",
     topic: "Short Reel: praise effort not speed",
     hook: "Effort today builds confidence tomorrow.",
-    caption: `${BRAND}\n\nShort Reel (10s): praise calm effort after one skill attempt.\n\nFollow for calm swimming tips from Coach Ayman.`,
-    primaryCta: "Follow for calm swimming tips from Coach Ayman.",
-    cta: CTA_BLOCK, hashtags: [], topicHashtags: ["#WaterConfidence", "#CoachAyman"],
+    caption: `${BRAND}\n\nShort Reel (10s): praise calm effort after one skill attempt.\n\nFollow Relax Fix UAE Swimming Academy for calm swimming guidance.`,
+    primaryCta: "Follow Relax Fix UAE Swimming Academy for calm swimming guidance.",
+    cta: CTA_BLOCK, hashtags: [], topicHashtags: ["#WaterConfidence", "#RelaxFixUAE"],
     visualPrompt: reelBrief({ format: "Instagram reel · 9:16 · 10s", headline: "Praise effort not speed", hook: "Effort today builds confidence tomorrow.", scene: "Coach praising calm effort after one attempt", strategyLabel: "Short Reel — children's confidence", supportingText: "Trust-building coaching", cta: "Follow for calm tips", canva: "Effort-over-speed message card", capcut: "10s encouragement reel" }),
   },
   {
@@ -1103,10 +1103,10 @@ const COACH_AYMAN_30DAY_SLOT_TEMPLATES: SlotTemplate[] = [
     contentPillar: "offer_booking", contentSlot: "conversion_evening", funnel: "conversion",
     topic: "Story sequence: month-end free assessment reminder",
     hook: "Ready to start structured swimming lessons?",
-    caption: `${BRAND}\n\nMonth-end reminder: book your free initial assessment with Coach Ayman Swimming.\n\nBook a free initial assessment — no pressure, just clarity.`,
+    caption: `${BRAND}\n\nMonth-end reminder: book your free initial assessment with the swimming academy.\n\nBook a free initial assessment — no pressure, just clarity.`,
     primaryCta: "Book a free initial assessment — no pressure, just clarity.",
     cta: CTA_BLOCK, hashtags: [], topicHashtags: ["#FreeAssessment", "#KidsSwimming"],
-    visualPrompt: buildStoryBrief({ hook: "Ready to start structured swimming lessons?", frames: ["Text: Kids swimming lessons Abu Dhabi", "Text: Free initial assessment — WhatsApp 058 821 9130", "Link sticker placeholder + Coach Ayman branding"], cta: "Book free initial assessment" }),
+    visualPrompt: buildStoryBrief({ hook: "Ready to start structured swimming lessons?", frames: ["Text: Kids swimming lessons Abu Dhabi", "Text: Free initial assessment — WhatsApp 058 821 9130", "Link sticker placeholder + academy branding"], cta: "Book free initial assessment" }),
   },
 ];
 

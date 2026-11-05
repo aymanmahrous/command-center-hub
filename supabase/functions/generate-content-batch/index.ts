@@ -218,7 +218,7 @@ function buildPrompt(batchNonce: string, startIso: string, context: PromptContex
   }));
 
   return [
-    `You generate an English social content batch for Relax Fix UAE Swimming Academy — Coach Ayman. Return exactly ${slots.length} item${slots.length === 1 ? "" : "s"}.`,
+    `You generate an English social content batch for Relax Fix UAE Swimming Academy. Return exactly ${slots.length} item${slots.length === 1 ? "" : "s"}.`,
     `Return strict JSON only: { "items": [ ... ] } with exactly ${slots.length} object${slots.length === 1 ? "" : "s"}.`,
     "Each item keys: topic, hook, captionBody, visualPrompt.",
     "Do NOT output platform/contentType/contentPillar/contentSlot/hashtags/cta — those are assigned server-side.",
@@ -226,8 +226,8 @@ function buildPrompt(batchNonce: string, startIso: string, context: PromptContex
     JSON.stringify(slotInstructions, null, 2),
     "Brand and audience:",
     "- Parents in Abu Dhabi considering kids swimming, water confidence, safety, and beginner guidance.",
-    "- Coach Ayman authority, real progress, private/group lessons, initial assessment.",
-    "- Lead captionBody with Relax Fix UAE Swimming Academy — Coach Ayman when missing.",
+    "- academy coaching expertise, real progress, private/group lessons, initial assessment.",
+    "- Lead captionBody with Relax Fix UAE Swimming Academy when missing.",
     "Marketing funnel mix (already assigned per slot): attraction, education, trust, engagement, conversion.",
     "Content type mix (already assigned per slot): carousel, story, reel, short_video, video, post.",
     "Primary CTA per slot is provided — include that exact primary CTA line inside captionBody.",
