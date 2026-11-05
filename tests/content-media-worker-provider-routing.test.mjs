@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 const worker = await readFile(new URL("../supabase/functions/content-automation-pulse/index.ts", import.meta.url), "utf8");
 const publisher = await readFile(new URL("../supabase/functions/scheduled-authorized-publisher/index.ts", import.meta.url), "utf8");
+const safePublisher = await readFile(new URL("../supabase/functions/safe-content-publisher/index.ts", import.meta.url), "utf8");
 const mediaPolicy = await readFile(new URL("../supabase/functions/safe-content-publisher/text.ts", import.meta.url), "utf8");
 
 test("Canva media worker blocks Reel jobs before calling the image generator", () => {
@@ -26,6 +27,31 @@ test("content automation stays dry-run until the owner explicitly authorizes pub
   assert.ok(dryRunBranch < livePublishing, "dry-run must return before the authorized publisher is called");
   assert.doesNotMatch(handler, /evaluate_content_batch_generation_need/);
   assert.doesNotMatch(handler, /processOneMediaJob\\(supabase\\)/);
+});
+
+test("all publishing entry points enforce the independent owner freeze before any Meta publish", () => {
+  assert.match(worker, /OWNER_PUBLISHING_LIVE_AUTHORIZED/);
+  const scheduledHandler = publisher.slice(publisher.indexOf("Deno.serve"));
+  const scheduledSecretCheck = scheduledHandler.indexOf("constantTimeEqual(supplied, AUTOMATION_SECRET)");
+  const scheduledFreeze = scheduledHandler.indexOf("OWNER_PUBLISHING_LIVE_AUTHORIZED");
+  const scheduledPublish = scheduledHandler.indexOf("handlePublish(req)");
+  assert.ok(scheduledSecretCheck !== -1 && scheduledSecretCheck < scheduledFreeze);
+  assert.ok(scheduledFreeze !== -1 && scheduledFreeze < scheduledPublish);
+  assert.match(scheduledHandler, /OWNER_PUBLISHING_FROZEN/);
+
+  const safeHandler = safePublisher.slice(safePublisher.indexOf("Deno.serve"));
+  const automationCheck = safeHandler.indexOf("constantTimeEqual(automationHeader, CONTENT_PUBLISHER_AUTOMATION_SECRET)");
+  const automationFreeze = safeHandler.indexOf("OWNER_PUBLISHING_LIVE_AUTHORIZED");
+  const automationPublish = safeHandler.indexOf("return publishAutomation(req)");
+  assert.ok(automationCheck !== -1 && automationCheck < automationFreeze);
+  assert.ok(automationFreeze !== -1 && automationFreeze < automationPublish);
+
+  const staffCheck = safeHandler.indexOf("if (!canPublish)");
+  const manualFreeze = safeHandler.indexOf("if (!OWNER_PUBLISHING_LIVE_AUTHORIZED)");
+  const manualPublish = safeHandler.indexOf("await publishToFacebook");
+  assert.ok(staffCheck !== -1 && staffCheck < manualFreeze);
+  assert.ok(manualFreeze !== -1 && manualFreeze < manualPublish);
+  assert.match(safeHandler, /OWNER_PUBLISHING_FROZEN/);
 });
 
 test("scheduled worker excludes pre-cutover and non-owner-scheduled jobs", () => {
