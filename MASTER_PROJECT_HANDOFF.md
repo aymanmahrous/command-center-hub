@@ -456,14 +456,15 @@ The Connections / Truthful Status phase has recorded read-only Production and QA
   - `rf_whatsapp_automation_enabled()`: returns only the WhatsApp automation-enabled boolean from channel control; it does not expose message contents or secrets.
 - These findings were triaged, not changed. No blanket revoke, policy creation, function rewrite, or migration was applied.
 - Additional WARN/INFO findings remain deferred: 10 mutable search-path warnings, `pg_net` in public schema, leaked-password protection disabled, 27 unindexed foreign keys, 18 unused indexes, and one RLS initplan performance warning. These need targeted review and regression coverage; do not perform a mass security migration.
-- The only confirmed immediate guard improvement in this workstream is PR #319's independent positive owner-authorization switch for the scheduled publishing pulse. Its latest head `e7668b51cc89ceb5f4bb1c40e4c0828d1ce10394` passed TypeScript, tests, and build in workflow run `42123027932`; reviewer approval is still pending. It has not been merged or deployed to Supabase.
+- PR #319 was merged on 2026-11-05 as `f97f7d784bfe4653a060052202dca2e472644451`. Its independent positive owner-authorization gate is deployed to Production Supabase project `nmzxrjdxvmmzzmajrskm` in `content-automation-pulse` v38, `safe-content-publisher` v52, and `scheduled-authorized-publisher` v24. Each deployed source was re-read and verified to contain the gate. No live publish function was manually invoked; no social post was published by this release.
 
 
-### Publishing freeze coverage expansion — in review
-- PR #319 now covers all three outbound Meta publishing entry points: the automation pulse, the internal scheduled publisher, and both manual/automation branches of `safe-content-publisher`.
-- Each entry point requires the independent positive flag `OWNER_PUBLISHING_LIVE_AUTHORIZED=true`; absent/unset defaults to frozen and returns `OWNER_PUBLISHING_FROZEN` (HTTP 423). The pulse additionally requires both existing live switches.
-- This is code-only and has not been merged or deployed to Supabase. The flag has not been set. Do not resume publishing based only on old approvals or queued jobs.
-- The expanded test initially caught a test-scope assertion issue (the test matched the scheduled branch's freeze before the manual branch); the assertion was narrowed to the manual owner path and a new CI run is pending for head `d50b39724774d3615fbbb40abc285a4bd5f6fc07`.
+### Publishing freeze coverage expansion — merged and deployed
+- PR #319 was merged as `f97f7d784bfe4653a060052202dca2e472644451`.
+- The deployed gate covers the automation pulse, the internal scheduled publisher, and both manual/automation branches of `safe-content-publisher`.
+- Each outbound path requires the independent positive flag `OWNER_PUBLISHING_LIVE_AUTHORIZED=true`; absent/unset defaults to frozen. The pulse additionally requires both existing live switches.
+- Production versions verified: `content-automation-pulse` v38, `safe-content-publisher` v52, `scheduled-authorized-publisher` v24. The flag's actual secret value was not read or changed; do not assume it is enabled.
+- The cron remains a 30-minute dry-run pulse. Recent sampled runs show zero media and publish attempts. No live publishing function was manually invoked during deployment verification.
 
 ### Production API log triage — 2026-11-06
 - Last-24-hour Supabase logs include repeated generic PostgREST messages `Warp server error: Thread killed by timeout manager` (84 error-like entries in the grouped query; 69 exact identical message entries plus timestamp-suffixed variants). They report only path `/` and no endpoint/query identifier, so current evidence does **not** tie them to a specific Command Center route or RPC.
@@ -486,7 +487,7 @@ The Connections / Truthful Status phase has recorded read-only Production and QA
 - PR #320 adds `futureScheduled` and `overdueScheduled` to the existing `get_staff_control_tower_summary` payload, adds a high-priority overdue alert, and changes the Control Tower's Upcoming count to future-only. It retains the original total `scheduled` field for compatibility.
 - The proposed migration is read-only with respect to business records: no content rows, receipts, jobs, or dates are changed. It preserves the existing staff-role gate and SECURITY DEFINER contract.
 - PR #320: https://github.com/aymanmahrous/command-center-hub/pull/320. It is open and not merged; migration not applied to Production.
-- The initial GitHub workflow run on the first PR head passed TypeScript but failed one pre-existing static assertion because the UI label was intentionally updated. That assertion was corrected. The latest commit `220976dcc80102eaf25be27c6dc64dec9053f894` has no fresh GitHub Actions run yet; Vercel preview checks returned a build-rate-limit failure. Do not claim the latest head has full CI verification until a fresh run completes.
+- Latest head `f8bc40dd952c89ece8dec93a694e694af3247272` has a successful GitHub Actions run (`42125363677`): install, TypeScript, full tests, and production build passed. Vercel preview checks are blocked by the provider's 24-hour deployment rate limit. The required reviewer approval is still pending; do not merge or apply the migration until the review/release gate is satisfied.
 
 
 ### Overdue publish queue age breakdown — read-only
@@ -523,3 +524,18 @@ The Connections / Truthful Status phase has recorded read-only Production and QA
 - Targeted source-contract checks also passed 10/10 for the new RPC fields, staff-role gate, no-write migration, overdue warning/action, future-only Upcoming count, and 7-day defaults.
 - Vercel Preview checks remain failed solely with the provider's `build-rate-limit` response. This is a Vercel build quota/rate-limit issue, not a reported TypeScript or app build failure; GitHub's own build passed.
 - PR #320 remains open pending required reviewer approval. Do not merge or apply its migration until the review/release gate is satisfied.
+
+
+### Operational publishing verification — 2026-11-06
+- Production currently has 63 scheduled content items: 51 whose operational `scheduled_for` time has passed and 12 with future `scheduled_for` times. The 51 overdue items are 24 Facebook and 27 Instagram.
+- `scheduled_for` is the execution time used by the publishing queue; `planned_for` is the content-calendar planning time. They are not interchangeable. One overdue Instagram item has `scheduled_for=2026-10-28 06:15 UTC` and `planned_for=2026-11-15 08:00 UTC`; its audit event records an explicit staff `schedule` action for 2026-10-28. Treat this as an actual scheduled-time override requiring owner review, not automatically as corrupted data.
+- Six scheduled Facebook rows have no `planned_for` value. This does not erase their operational `scheduled_for` time; keep them visible for reconciliation rather than silently dropping them from the overdue count.
+- Of the 51 overdue items, 38 have active jobs: 17 queued Facebook, 21 queued Instagram, and 10 stale processing jobs (5 per platform). All 10 processing jobs have been unchanged for more than 30 days. One overdue Instagram item has no publish job. Two overdue Facebook items have ambiguous receipts; at least one also has an active job. No overdue item has a published receipt in the current snapshot.
+- Across all publish jobs, counts remain 50 queued, 10 processing, 12 completed, and 53 dead. These job totals span both overdue and future items; do not equate them with overdue-item counts.
+- The cron `content-automation-pulse-dry-run` remains active every 30 minutes. The latest sampled run at 2026-11-05 23:00 UTC completed in `dry-run` with zero media attempts and zero publish attempts. The last eight sampled runs had the same zero-attempt result.
+- No queue, cron, receipt, content status, schedule, secret, or publishing state was changed during this read-only reconciliation. Keep publishing frozen and do not retry, drain, cancel, reschedule, or bulk-clean jobs.
+
+### PR #320 current review gate — 2026-11-06
+- PR #320 head remains `f8bc40dd952c89ece8dec93a694e694af3247272`. GitHub Actions passed; Vercel preview checks remain blocked by a 24-hour deployment rate limit; requested reviewer `pixelreel2026` has not submitted an approval.
+- The proposed RPC replacement preserves the existing function signature and current ACL (`authenticated` and `service_role` execute), the existing SECURITY DEFINER/search_path contract, and the active-staff role check. It adds only read-only counts/alerts; no content, receipt, or job rows are mutated.
+- Production still has the previous RPC definition; PR #320's migration has not been applied. Wait for required approval and release checks before merge or migration.
