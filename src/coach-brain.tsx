@@ -328,6 +328,25 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
               const accessToken = typeof parsed.accessToken === "string" ? parsed.accessToken : "";
               if (!accessToken) throw new Error("AUTH_REQUIRED");
               const provider: BatchAiProvider = planExecution === "value" ? "gemini" : "auto";
+              const providerLabel = provider === "gemini"
+                ? "Gemini"
+                : (language === "ar" ? "يحدده الخادم تلقائيًا" : "selected automatically by the server");
+              const confirmationMessage = language === "ar"
+                ? [
+                    "سيتم طلب عينة محتوى حقيقية من مزود ذكاء اصطناعي.",
+                    `المزود: ${providerLabel}.`,
+                    "التكلفة التقديرية: غير متاحة قبل الطلب؛ لن أخترع سعرًا غير مقدم من النظام.",
+                    "لن يتم حفظ دفعة محتوى أو نشر أي شيء تلقائيًا.",
+                    "يمكنك اختيار إلغاء الآن دون تنفيذ الطلب. هل تريد المتابعة؟",
+                  ].join("\n")
+                : [
+                    "A real content sample will be requested from an AI provider.",
+                    `Provider: ${providerLabel}.`,
+                    "Estimated cost: unavailable before the request; no price is being invented.",
+                    "No content batch will be saved and nothing will be published automatically.",
+                    "You can cancel now without sending the request. Continue?",
+                  ].join("\n");
+              if (!window.confirm(confirmationMessage)) return;
               const promptContext: GeminiBatchPromptContext = {
                 academyKnowledge: [],
                 coachBrainResearch: result ? { question: result.question, answer: result.answer, sources: result.sources } : null,
