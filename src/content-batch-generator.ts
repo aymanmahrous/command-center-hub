@@ -604,6 +604,7 @@ const ARABIC_TOPIC_COPY: Record<string, string> = {
   "Short Reel: 10-second pool-edge safety check": "فيديو قصير: فحص سلامة حافة المسبح خلال ١٠ ثوانٍ",
   "Story sequence: free initial assessment reminder": "قصص قصيرة: تذكير بالتقييم الأولي المجاني",
   "Short Reel: wait spot builds confidence": "فيديو قصير: مكان انتظار واضح يساعد الطفل على بناء الثقة",
+  "Short Reel: wait spot builds confidence": "اتفقوا على مكان انتظار آمن وواضح بعيدًا عن حافة الماء، وذكّروا الطفل بالعودة إليه بين التمارين أو عند الحاجة إلى استراحة.",
   "Story sequence: wait spot builds confidence": "قصص قصيرة: مكان انتظار واضح يساعد الطفل على الشعور بالثقة",
   "Story sequence: water safety rules for families": "قصص قصيرة: قواعد سلامة الماء لكل أفراد الأسرة",
   "Why structured swimming lessons beat random pool play": "لماذا تساعد دروس السباحة المنظمة أكثر من اللعب العشوائي في المسبح؟",
@@ -708,7 +709,7 @@ function arabicFirstCopy(topic: string, hook: string, primaryCta: string) {
   return {
     topic: arabicTopic + " | " + topic,
     hook: arabicHook + " | " + hook,
-    captionLead: arabicTopic + "\n" + arabicHook + "\n\nRelax Fix UAE Swimming Academy — أكاديمية ريلاكس فيكس لتعليم السباحة\nللاستفسار والحجز عبر واتساب: 058 821 9130\nللاتصال الإداري فقط: 055 137 8660\nالتقييم الأولي مجاني.",
+    captionLead: arabicTopic + "\n" + arabicHook + "\n\n" + arabicBody + "\n\n" + arabicCta + "\nالتقييم الأولي مجاني. راسلونا عبر واتساب للحجز، أو اتصلوا بفريق الإدارة للاستفسارات الإدارية.",
     visualLead: "ARABIC HEADLINE: " + arabicHook + "\nARABIC SUPPORTING TEXT: تعليم سباحة هادئ وآمن للأطفال والعائلات في المشرف، أبوظبي.",
   };
 }
