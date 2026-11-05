@@ -410,3 +410,40 @@ Canva live connectivity and design creation/export were not proven. No live Gemi
 
 ### Status
 The Connections / Truthful Status phase has recorded read-only Production and QA evidence. This closes the documentation of that audit only; it does not certify untested external-provider operations or authorize a Production release.
+
+
+---
+
+## 28. Executive Partner Reconciliation — 2026-11-06
+
+### Current repository truth
+- **Current main commit at reconciliation:** `df4df0bab8aa8fe00fd1605d9623823977980034` (PR #317 squash-merged).
+- **PR #316:** merged earlier as `d4869c8de90759bf19f71460e9640bff1caff7e7`; persistent Coach Brain → Factory handoff and confirmation before real AI sample generation were included.
+- **PR #317:** merged as `df4df0bab8aa8fe00fd1605d9623823977980034`; academy-first identity now appears in Control Tower, content strategy, poster studio, and Canva/Gemini briefs. Approved public location is Al Mushrif · Abu Dhabi; contact numbers remain +971 58 821 9130 and +971 55 137 8660.
+- PR #317 had four APPROVED reviews, no review threads, and successful Vercel status checks before merge. Post-merge Vercel checks were still PENDING at the first post-merge read. Do not claim the new main commit is live on Production until a READY Production deployment and domain alias are verified.
+- No Production deployment, database migration, OAuth change, secret change, external AI generation, WhatsApp send, social publication, or schedule activation occurred during this reconciliation.
+
+### Owner navigation and media reality
+- `src/main.tsx` already has a primary navigation and an expandable **More** menu. Do not create another sidebar/navigation system. Core routes include Home, Inbox, Content, Media, and Operations; lower-frequency destinations are already routed through More.
+- `MediaLibraryView` already embeds the cloud-source hub and links to the archive. Keep Media Library as the canonical asset home; do not create a second library or another factory.
+- Content Factory remains the content execution path; Coach Brain is the advice/planning layer. Keep the existing routing and approval gates.
+
+### Production connection evidence (read-only, 2026-11-06)
+- `staff_integrations` contains seven provider rows. Facebook and Instagram are marked connected with `verifiedExternally=true`, last tested 2026-11-03; account labels are Relax Fix one and relaxfixuae. This proves an external account identity check, **not** permission or end-to-end publishing capability.
+- Canva is marked connected and externally verified; its recorded read check was `/users/me` on 2026-10-24. This does not prove design generation/autofill/export is operational.
+- Meta WhatsApp, Google Calendar, Telegram, and the app's AI-provider registry row are currently `not_connected`. The owner's existing n8n WhatsApp route is a separate workflow and must not be treated as the same thing as Meta WhatsApp Cloud API.
+- Current Instagram account ID in the integration metadata is `17841400516801494`; an older handoff record lists `17841439747493221`. Treat this as an unresolved metadata/history discrepancy; do not overwrite either value without a fresh authorized account check.
+- Edge Function inventory reports the existing Meta, Canva, Runway, Gemini image, content-batch, Coach Brain, and WhatsApp functions as ACTIVE. ACTIVE is deployment metadata only, not proof of credentials, provider access, or successful capability execution.
+
+### Publishing and automation safety — current evidence
+- The only active `cron.job` is `content-automation-pulse-dry-run`, every 30 minutes. It is a dry-run pulse, not a publishing scheduler. It had 336 successful runs in the preceding seven days; the latest recorded run was 2026-11-05 22:00 UTC.
+- The latest automation runs recorded zero media attempts and zero publish attempts. No live publishing was initiated.
+- `content_items` currently contains 166 rows: 61 approved, 63 scheduled, 31 published, and 11 cancelled. The scheduled status in the database must not be interpreted as proof of external scheduled delivery.
+- `background_jobs` contains 50 queued `publish_content` jobs (oldest 2026-09-18; newest 2026-11-02), 10 stale `processing` jobs (latest updated 2026-10-02), 12 completed publish jobs, and 53 dead publish jobs. Dead jobs include Meta API error 190, rescheduled/unscheduled content, owner cancellations/rejections, and ambiguous outcomes.
+- Publication receipts currently show 13 published, 24 failed, and 2 ambiguous. Latest published receipt: Facebook 2026-10-14; Instagram 2026-10-07. Historical published receipts are not permission to retry or republish.
+- **Do not retry, drain, clear, reschedule, or mutate queued/processing/dead publishing jobs.** Keep publishing frozen pending explicit owner authorization for a specific item after showing its exact content and target channel. Ambiguous outcomes must never be retried automatically.
+
+### Current safe point and next action
+- Repository identity work is merged; post-merge deployment verification remains pending.
+- Continue with read-only verification of the post-merge Preview/Production state and the owner-facing connection/queue truth. Keep production publishing, OAuth, secrets, database writes, paid generation, and deployment promotion protected.
+- Do not create another navigation, connection, media, automation, or factory system. The objective remains one simple owner workspace over the existing capabilities.
