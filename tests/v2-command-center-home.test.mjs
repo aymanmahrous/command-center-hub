@@ -51,3 +51,13 @@ test('Command Center guidance is derived from current summary data and cannot ex
   assert.match(view, /never executes actions automatically/);
   assert.match(view, /Review All/);
 });
+
+test('Control Tower separates future scheduled content from overdue content', () => {
+  assert.match(view, /futureScheduled\?: number/);
+  assert.match(view, /overdueScheduled\?: number/);
+  assert.match(view, /summary\.content\.futureScheduled \?\? summary\.content\.scheduled/);
+  assert.match(view, /scheduled_content_overdue/);
+  assert.match(view, /overdueScheduled === 0/);
+  assert.match(view, /overdueScheduled/);
+  assert.match(view, /upcoming content items/);
+});
