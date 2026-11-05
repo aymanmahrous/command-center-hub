@@ -587,6 +587,86 @@ function buildBatchTrackedCta(platform: string, pillar: string): string {
   ].join("\n");
 }
 
+
+const ARABIC_TOPIC_COPY: Record<string, string> = {
+  "Short Reel: why kids panic at the pool edge": "فيديو قصير: لماذا يخاف بعض الأطفال عند حافة المسبح؟",
+  "3 calm breathing habits before your child enters the pool": "٣ عادات للتنفس الهادئ قبل دخول طفلك إلى المسبح",
+  "Short Reel: the rushed kick mistake parents miss": "فيديو قصير: خطأ ركلتي الساقين المتسرعتين الذي قد لا ينتبه إليه الأهل",
+  "FAQ: how long until my child feels safe in the water?": "سؤال شائع: كم يحتاج طفلي من الوقت ليشعر بالأمان في الماء؟",
+  "Short Reel: pool-edge safety check in 10 seconds": "فيديو قصير: فحص سريع لسلامة حافة المسبح خلال ١٠ ثوانٍ",
+  "What to tell a nervous child before lesson one": "ماذا نقول للطفل القَلِق قبل أول درس سباحة؟",
+  "Start with a free initial assessment": "ابدأ بتقييم أولي مجاني",
+  "Short Reel: bubble line to calm breathing": "فيديو قصير: فقاعات الماء تساعد على تنظيم التنفس",
+  "Structured swimming progress parents can track": "خطوات تقدم واضحة في السباحة يمكن للأهل متابعتها",
+  "Building water confidence in Abu Dhabi": "بناء الثقة والراحة في الماء في أبوظبي",
+  "Story sequence: 3 breathing cues before entering the pool": "قصص قصيرة: ٣ إرشادات للتنفس قبل دخول المسبح",
+  "Short Reel: frantic kick vs calm kick": "فيديو قصير: مقارنة بين ركل الساقين المتوتر والهادئ",
+  "Short Reel: 10-second pool-edge safety check": "فيديو قصير: فحص سلامة حافة المسبح خلال ١٠ ثوانٍ",
+  "Story sequence: free initial assessment reminder": "قصص قصيرة: تذكير بالتقييم الأولي المجاني",
+  "Story sequence: wait spot builds confidence": "قصص قصيرة: مكان انتظار واضح يساعد الطفل على الشعور بالثقة",
+  "Story sequence: water safety rules for families": "قصص قصيرة: قواعد سلامة الماء لكل أفراد الأسرة",
+  "Why structured swimming lessons beat random pool play": "لماذا تساعد دروس السباحة المنظمة أكثر من اللعب العشوائي في المسبح؟",
+  "Short Reel: splashing is not the same as swimming": "فيديو قصير: الرش بالماء لا يعني إتقان السباحة",
+  "Story sequence: what to pack for lesson one": "قصص قصيرة: ماذا نحضر للدرس الأول؟",
+  "Myth vs fact: younger is always better for swimming": "معلومة أم خرافة: هل البدء في عمر أصغر أفضل دائمًا لتعلم السباحة؟",
+  "Short Reel: floating starts with relaxed shoulders": "فيديو قصير: الطفو يبدأ باسترخاء الكتفين",
+  "Story sequence: celebrate small swimming wins": "قصص قصيرة: احتفل بالإنجازات الصغيرة في تعلم السباحة",
+  "Short Reel: the academy's calm coaching approach": "فيديو قصير: أسلوب الأكاديمية الهادئ في تعليم السباحة",
+  "What happens in a free initial assessment": "ماذا يحدث خلال التقييم الأولي المجاني؟",
+  "Supervision rules every Abu Dhabi parent should know": "قواعد الإشراف على الأطفال التي ينبغي لكل ولي أمر في أبوظبي معرفتها",
+  "Story sequence: a calm lesson setup": "قصص قصيرة: تجهيز هادئ قبل درس السباحة",
+  "Short Reel: one skill per session": "فيديو قصير: مهارة واحدة في كل حصة",
+  "5 signs your child is ready for the next swimming skill": "٥ علامات تدل على استعداد طفلك لتعلم مهارة السباحة التالية",
+  "Short Reel: comparing siblings slows progress": "فيديو قصير: مقارنة الإخوة قد تعطل تقدم كل طفل",
+  "Story sequence: WhatsApp booking path": "قصص قصيرة: خطوات الاستفسار والحجز عبر واتساب",
+  "Short Reel: enter the water feet-first": "فيديو قصير: ادخل الماء بالقدمين أولًا",
+  "Short Reel: praise effort not speed": "فيديو قصير: شجّع المحاولة لا السرعة",
+  "Story sequence: month-end free assessment reminder": "قصص قصيرة: تذكير بنهاية الشهر بالتقييم الأولي المجاني",
+};
+const ARABIC_HOOK_COPY: Record<string, string> = {
+  "Most water fear starts before they even get wet.": "قد يبدأ الخوف من الماء قبل أن يلمس الطفل الماء أصلًا.",
+  "Most kids rush into the water before their body is ready.": "يتعجل بعض الأطفال دخول الماء قبل أن يصبحوا مستعدين جسديًا ونفسيًا.",
+  "If the kick is frantic, the breath will never settle.": "عندما تكون حركة الساقين متوترة، يصعب أن ينتظم التنفس.",
+  "Parents ask this every week in Abu Dhabi.": "يسألنا أولياء الأمور في أبوظبي هذا السؤال باستمرار.",
+  "Safety first does not mean fear — it means clear rules.": "السلامة لا تعني التخويف؛ بل تعني قواعد واضحة.",
+  "Your child does not need bravery — they need a plan.": "طفلك لا يحتاج إلى الضغط عليه ليكون شجاعًا؛ بل يحتاج إلى خطوات واضحة.",
+  "Not sure which lesson format fits your child?": "هل تحتار في اختيار نوع حصة السباحة المناسب لطفلك؟",
+  "Watch the shoulders drop when breathing is calm.": "لاحظ كيف يسترخي الكتفان عندما يصبح التنفس هادئًا.",
+  "Small skills build confidence before speed.": "المهارات الصغيرة تبني الثقة قبل التركيز على السرعة.",
+  "Calm coaching beats pressure every time.": "التعليم الهادئ أفضل من الضغط في كل مرة.",
+  "Calm breath before calm water.": "تنفس هادئ قبل التعامل الهادئ مع الماء.",
+  "Clear rules keep pool time calm.": "القواعد الواضحة تجعل وقت المسبح أكثر هدوءًا وأمانًا.",
+  "Confidence starts with knowing where to stand.": "تبدأ الثقة عندما يعرف الطفل أين يقف وينتظر.",
+  "Play is fun — structure builds skills.": "اللعب ممتع، لكن التدريب المنظم يبني المهارات.",
+  "Splashing looks active — but skills need calm.": "قد يبدو الرش بالماء نشاطًا، لكن تعلم المهارات يحتاج إلى الهدوء.",
+  "Lesson one goes smoother with a simple checklist.": "يسير الدرس الأول بصورة أفضل مع قائمة تجهيز بسيطة.",
+  "Readiness matters more than age alone.": "الاستعداد أهم من العمر وحده.",
+  "Tense shoulders sink — relaxed shoulders float easier.": "توتر الكتفين يصعّب الطفو، واسترخاؤهما يساعد عليه.",
+  "Small wins build big confidence.": "الإنجازات الصغيرة تبني ثقة كبيرة.",
+  "One cue. One skill. One calm repeat.": "إرشاد واحد، ومهارة واحدة، وتكرار هادئ.",
+  "No pressure — just clarity on where to start.": "بلا ضغط؛ فقط نحدد نقطة البداية المناسبة.",
+  "Active supervision beats assumptions.": "المراقبة المباشرة أفضل من الافتراضات.",
+  "Calm setup before calm swimming.": "تجهيز هادئ قبل سباحة هادئة.",
+  "More skills at once means less calm.": "محاولة تعلم مهارات كثيرة دفعة واحدة قد تقلل التركيز والهدوء.",
+  "Readiness shows in calm, not speed.": "يظهر الاستعداد في الهدوء والتحكم، لا في السرعة.",
+  "Every child learns swimming at their own pace.": "لكل طفل وتيرته الخاصة في تعلم السباحة.",
+  "Questions about kids swimming lessons in Abu Dhabi?": "هل لديك أسئلة عن دروس سباحة الأطفال في أبوظبي؟",
+  "Feet-first entry keeps control at the edge.": "الدخول بالقدمين أولًا يساعد على التحكم عند حافة المسبح.",
+  "Effort today builds confidence tomorrow.": "المحاولة اليوم تبني الثقة غدًا.",
+  "Ready to start structured swimming lessons?": "هل أنت مستعد لبدء دروس سباحة منظمة؟",
+};
+function arabicFirstCopy(topic: string, hook: string) {
+  const arabicTopic = ARABIC_TOPIC_COPY[topic];
+  const arabicHook = ARABIC_HOOK_COPY[hook];
+  if (!arabicTopic || !arabicHook) throw new Error("ARABIC_COPY_MISSING_FOR_TEMPLATE");
+  return {
+    topic: arabicTopic + " | " + topic,
+    hook: arabicHook + " | " + hook,
+    captionLead: arabicTopic + "\n" + arabicHook + "\n\nRelax Fix UAE Swimming Academy — أكاديمية ريلاكس فيكس لتعليم السباحة\nللاستفسار والحجز عبر واتساب: 058 821 9130\nللاتصال الإداري فقط: 055 137 8660\nالتقييم الأولي مجاني.",
+    visualLead: "ARABIC HEADLINE: " + arabicHook + "\nARABIC SUPPORTING TEXT: تعليم سباحة هادئ وآمن للأطفال والعائلات في المشرف، أبوظبي.",
+  };
+}
+
 function buildCaptionBody(slot: SlotTemplate): string {
   const branded = ensureRelaxFixBrandLead(slot.caption);
   return `${branded}\n\n${slot.primaryCta}`;
@@ -599,19 +679,20 @@ export async function buildCoachAyman2026BatchItems(start = new Date(), batchNon
     const fingerprintSeed = `${COACH_AYMAN_PROVIDER_ID}:${batchNonce}:${index}:${slot.platform}:${slot.topic}`;
     const trackedCta = buildBatchTrackedCta(slot.platform, slot.contentPillar);
     const captionBody = buildCaptionBody(slot);
+    const arabic = arabicFirstCopy(slot.topic, slot.hook);
     items.push({
       platform: slot.platform,
       contentType: slot.contentType,
-      language: slot.language,
+      language: "ar",
       contentPillar: slot.contentPillar,
       contentSlot: slot.contentSlot,
       plannedFor: gstSlotUtc(slot.dayOffset, slot.slotHourGst, start),
-      topic: slot.topic,
-      hook: slot.hook,
-      caption: `${captionBody}\n\n${trackedCta}`,
+      topic: arabic.topic,
+      hook: arabic.hook,
+      caption: `${arabic.captionLead}\n\n${captionBody}\n\n${trackedCta}`,
       cta: trackedCta,
       hashtags: buildHashtags(slot.platform, slot.contentType, slot.topicHashtags),
-      visualPrompt: slot.visualPrompt,
+      visualPrompt: `${arabic.visualLead}\n${slot.visualPrompt}`,
       contentFingerprint: await contentFingerprint(fingerprintSeed),
       knowledgeContext: knowledgeForSlot(slot, knowledgeContext),
     });
@@ -1127,19 +1208,20 @@ export async function buildCoachAyman30DayCalendarItems(
     const fingerprintSeed = `${COACH_AYMAN_PROVIDER_ID}:month:${batchNonce}:${index}:${slot.platform}:${slot.topic}`;
     const trackedCta = buildBatchTrackedCta(slot.platform, slot.contentPillar);
     const captionBody = buildMonthCaptionBody(slot);
+    const arabic = arabicFirstCopy(slot.topic, slot.hook);
     items.push({
       platform: slot.platform,
       contentType: slot.contentType,
-      language: slot.language,
+      language: "ar",
       contentPillar: slot.contentPillar,
       contentSlot: slot.contentSlot,
       plannedFor: gstSlotUtc(slot.dayOffset, slot.slotHourGst, start),
-      topic: slot.topic,
-      hook: slot.hook,
-      caption: `${captionBody}\n\n${trackedCta}`,
+      topic: arabic.topic,
+      hook: arabic.hook,
+      caption: `${arabic.captionLead}\n\n${captionBody}\n\n${trackedCta}`,
       cta: trackedCta,
       hashtags: buildHashtags(slot.platform, slot.contentType, slot.topicHashtags),
-      visualPrompt: slot.visualPrompt,
+      visualPrompt: `${arabic.visualLead}\n${slot.visualPrompt}`,
       contentFingerprint: await contentFingerprint(fingerprintSeed),
       knowledgeContext: knowledgeForSlot(slot, knowledgeContext),
     });
