@@ -471,3 +471,11 @@ The Connections / Truthful Status phase has recorded read-only Production and QA
 - Cumulative `pg_stat_statements` data did not identify an obvious slow core owner RPC: `get_staff_media_assets` mean ~32 ms (max ~793 ms), `get_staff_content_items` mean ~35 ms (max ~280 ms), and `get_staff_control_tower_summary` mean ~57 ms (max ~263 ms). These are cumulative statistics, not a clean last-24-hour latency measurement.
 - Vercel runtime-error inspection was denied with HTTP 403 for the mapped project, so no claim is made that Vercel application runtime errors were cleared or absent.
 - Decision: do not change PostgREST settings, database timeouts, or query plans based on uncorrelated generic log messages. Preserve this as an infrastructure-level observation until request-level evidence identifies the affected route.
+
+
+### n8n / WhatsApp source-of-truth distinction — 2026-11-06
+- The owner confirms the operational WhatsApp workflow is already running through their existing n8n path; preserve it and do not create a second WhatsApp route.
+- The GitHub-exported workflow JSON files `n8n/workflows/relax-fix-whatsapp-webhook-ingress.json` and `relax-fix-ai-sales-concierge.json` both contain `active: false`. These are repository exports/design artifacts and do **not** prove the live n8n account's current activation state.
+- `get_staff_content_automation_status()` reports queue counts and recent automation runs, not n8n connectivity. `readIntegrationStatuses()` therefore cannot independently prove the n8n route is connected; it leaves that capability unverified when no explicit flag exists.
+- The Connections UI currently models Meta WhatsApp Cloud API separately from the n8n workflow. Keep those concepts distinct: Meta WhatsApp Cloud API is not connected in the app's provider registry, while the owner's existing n8n route is a separate operational path.
+- Do not import, activate, deactivate, or replace any n8n workflow from repository exports. A live n8n account-level verification is still needed before representing the route as app-verified.
