@@ -410,3 +410,47 @@ Canva live connectivity and design creation/export were not proven. No live Gemi
 
 ### Status
 The Connections / Truthful Status phase has recorded read-only Production and QA evidence. This closes the documentation of that audit only; it does not certify untested external-provider operations or authorize a Production release.
+
+
+## 26. Live Production Reconciliation — 2026-11-05 (Read-only)
+
+This section supersedes older status statements where they conflict with the live evidence below. Inspection was performed against GitHub main, Vercel deployment metadata, and the active production Supabase project `nmzxrjdxvmmzzmajrskm`. **Read-only only**: no database writes, migrations, deployments, credential changes, queue repairs, or publishing were performed.
+
+### Verified current state
+
+- GitHub `main` at inspection: `186eee9e58deaa7e269bb8be3aa1a55dcb271e73`.
+- Vercel latest Preview for that commit: READY; it is not Production.
+- Vercel Production commit: `ee46b0d770294b1f7c10cffa2905f16ba0d5bb8b`, 10 commits behind current main.
+- Production Supabase migration ledger contains 213 entries; latest applied version is `20261105100935`.
+- The following media lifecycle migrations present on GitHub main are **not present** in the production migration ledger:
+  - `20261030093654_align_media_lifecycle_schema_contract`
+  - `20261101051009_restore_media_internal_review_and_generated_consent_policy`
+  - `20261101053129_add_media_person_presence_attestation`
+  - `20261101065004_route_generated_media_to_synthetic_attestation`
+  - `20261101092147_enforce_media_review_before_publish`
+  - `20261101104925_align_legacy_media_source_check`
+- Live `media_assets.source` CHECK still permits only `upload`, `ai_generated`, and `external`; current main migration expects compatibility for `generated` and `stock`.
+- Live production does not contain the RPCs `attest_generated_media_synthetic`, `attest_media_person_presence`, or `assert_content_media_publish_ready`. Existing older media RPCs remain present.
+- Current production media inventory at inspection: 309 assets; 271 unclassified; 21 approved; 37 with unknown consent. These are inventory counts, not permission to bulk-change records.
+- Current scheduled content inventory at inspection: 63 scheduled items (51 overdue, 12 future), 60 active publish jobs, 10 stale processing jobs, and 40 scheduled items without a publication receipt. Do not retry or repair these automatically.
+- `content-automation-pulse` remains configured as dry-run; recent runs recorded zero media attempts and zero publish attempts.
+
+### Root-cause assessment
+
+**PROVEN:** Production database is behind the media lifecycle contract now present in GitHub main. The migration ledger, live CHECK constraint, and missing RPCs independently demonstrate the mismatch.
+
+**PROVEN:** Promoting the latest frontend alone would expose media-review actions that call RPCs not yet installed in production.
+
+**NOT AUTHORIZED:** Applying the six migrations, changing production constraints/functions, deploying Edge Functions, promoting Vercel Production, or modifying scheduled jobs. The migration set includes publishing-boundary enforcement and therefore requires ordered preflight and a separately authorized production change window.
+
+### Safe next sequence
+
+1. Reconcile the six migration files in dependency order against live schema and existing functions; identify any overlapping later migrations before applying anything.
+2. Prepare a single ordered migration package and a rollback/verification checklist.
+3. Validate in a known QA Supabase project only if its identity is explicitly verified. Do not use the previously rejected/incorrect project reference.
+4. After owner authorization, apply the approved database package; verify RPCs, constraints, and existing data before considering frontend promotion.
+5. Keep publishing frozen. Do not retry, reschedule, or publish any existing item during this work.
+
+### Protected state
+
+No production database mutation, migration, Edge Function deployment, Vercel Production promotion, OAuth/secret change, job retry, media bulk update, or social publishing was performed during this reconciliation.
