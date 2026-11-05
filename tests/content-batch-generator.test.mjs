@@ -51,6 +51,7 @@ test("coach ayman batch passes safety validation", async () => {
   assert.equal(items.filter((item) => item.platform === "facebook").every((item) => item.hashtags.length === 1), true);
   assert.equal(items.every((item) => item.hashtags[0] === "#RelaxFixUAE"), true);
   assert.doesNotMatch(items.flatMap((item) => item.hashtags).join(" "), /#CoachAyman/i);
+  assert.doesNotMatch(items.map((item) => item.caption).join("\n"), /(^|\n)the academy\b/);
   assert.doesNotMatch(items.map((item) => item.caption).join("\n"), /guarantee|testimonial|award-winning/i);
 });
 
