@@ -447,3 +447,13 @@ The Connections / Truthful Status phase has recorded read-only Production and QA
 - Repository identity work is merged; post-merge deployment verification remains pending.
 - Continue with read-only verification of the post-merge Preview/Production state and the owner-facing connection/queue truth. Keep production publishing, OAuth, secrets, database writes, paid generation, and deployment promotion protected.
 - Do not create another navigation, connection, media, automation, or factory system. The objective remains one simple owner workspace over the existing capabilities.
+
+
+### Security advisor triage — read-only, 2026-11-06
+- Supabase Security Advisor reported 53 tables with RLS enabled and no policies. This is not automatically an exposure: absent policies mean ordinary API roles are denied by RLS; do not add broad policies to silence the linter. Review each table only if an actual app path is blocked.
+- The advisor reported 81 SECURITY DEFINER functions executable by authenticated. A source review found 79 with explicit staff/role/auth checks. The two without a staff guard are:
+  - `rf_schedule_turn(...)`: intentionally callable by the public scheduling/conversation flow; it is read-only in its body and delegates availability reads to existing pool/availability helpers. It does not create or confirm bookings.
+  - `rf_whatsapp_automation_enabled()`: returns only the WhatsApp automation-enabled boolean from channel control; it does not expose message contents or secrets.
+- These findings were triaged, not changed. No blanket revoke, policy creation, function rewrite, or migration was applied.
+- Additional WARN/INFO findings remain deferred: 10 mutable search-path warnings, `pg_net` in public schema, leaked-password protection disabled, 27 unindexed foreign keys, 18 unused indexes, and one RLS initplan performance warning. These need targeted review and regression coverage; do not perform a mass security migration.
+- The only confirmed immediate guard improvement in this workstream is PR #319's independent positive owner-authorization switch for the scheduled publishing pulse. Its latest head `e7668b51cc89ceb5f4bb1c40e4c0828d1ce10394` passed TypeScript, tests, and build in workflow run `42123027932`; reviewer approval is still pending. It has not been merged or deployed to Supabase.
