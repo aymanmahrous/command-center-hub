@@ -294,12 +294,12 @@ Booking CTA: WhatsApp ${BRAND.whatsapp}
 Policy: Do not add prices, unsupported claims, or extra contact details.`;
 
   const buildGeminiPrompt = () => [
-    "Create one polished, premium social-media poster for ${BRAND.publicLine} in Abu Dhabi.",
+    `Create one polished, premium social-media poster for ${BRAND.publicLine} in Abu Dhabi.`,
     `Format: ${ratio} for ${item.platform}. Compose the artwork safely inside the crop area.`,
     `Exact headline to render exactly as provided; do not translate or rewrite: «${headline}»`,
     "Supporting points: preserve the original language and wording; use right-to-left layout for Arabic:",
     ...editableKeyPoints.map((point) => `- ${point}`),
-    "Footer: ${BRAND.locations.join(" • ")} | WhatsApp: ${BRAND.whatsapp}",
+    `Footer: ${BRAND.locations.join(" • ")} | WhatsApp: ${BRAND.whatsapp}`,
     "Visual direction: elegant indoor swimming-pool atmosphere, clear blue water, natural premium lighting, confident and welcoming, safe for families; use deep navy, turquoise/cyan, white and restrained gold accents.",
     typeof item.visualPrompt === "string" && item.visualPrompt.trim() ? `Campaign visual direction: ${item.visualPrompt.trim().slice(0, 800)}` : "",
     typeof item.topic === "string" && item.topic.trim() ? `Campaign topic: ${item.topic.trim().slice(0, 300)}` : "",
