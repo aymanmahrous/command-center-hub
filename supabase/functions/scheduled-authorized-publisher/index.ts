@@ -10,6 +10,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const AUTOMATION_SECRET = Deno.env.get("CONTENT_PUBLISHER_AUTOMATION_SECRET") ?? "";
+const OWNER_PUBLISHING_LIVE_AUTHORIZED = Deno.env.get("OWNER_PUBLISHING_LIVE_AUTHORIZED") === "true";
 const META_GRAPH_VERSION = Deno.env.get("META_GRAPH_VERSION") ?? "v21.0";
 const FACEBOOK_PAGE_ID = Deno.env.get("FACEBOOK_PAGE_ID") ?? "1164107840123575";
 const INSTAGRAM_ACCOUNT_ID = Deno.env.get("INSTAGRAM_ACCOUNT_ID") ?? "17841400516801494";
@@ -372,5 +373,6 @@ Deno.serve(async (req: Request) => {
   if (!AUTOMATION_SECRET) return response({ success: false, code: "PUBLISHER_NOT_CONFIGURED" }, 500);
   const supplied = req.headers.get("x-content-publisher-automation-secret") ?? "";
   if (!constantTimeEqual(supplied, AUTOMATION_SECRET)) return response({ success: false, code: "UNAUTHORIZED" }, 401);
+  if (!OWNER_PUBLISHING_LIVE_AUTHORIZED) return response({ success: false, code: "OWNER_PUBLISHING_FROZEN" }, 423);
   return await handlePublish(req);
 });
