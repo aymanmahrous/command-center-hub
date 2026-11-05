@@ -501,5 +501,5 @@ The Connections / Truthful Status phase has recorded read-only Production and QA
 - The 48 overdue content items with active publish jobs resolve to 38 `queued` jobs and 10 `processing` jobs.
 - Queued overdue jobs: Facebook 17, Instagram 21. Their creation dates begin 2026-09-18; latest updates reach 2026-11-02.
 - Processing overdue jobs: Facebook 5, Instagram 5. Their latest updates are 2026-10-02 and 2026-10-01 respectively, making all 10 stale for more than a month.
-- The remaining three overdue items have no active job: one Facebook item has a failed receipt, and two Facebook items have ambiguous receipts (one of those may still have a queued/processing association only if the data changes; current grouped snapshot shows one ambiguous without an active job and one ambiguous with an active job).
+- The remaining three overdue items have no active job: one Facebook item has a failed receipt, one Facebook item has an ambiguous receipt, and one Instagram item has no publication receipt. A second Facebook item has an ambiguous receipt while still associated with an active job.
 - Do not mark stale processing jobs complete, retry, cancel, or delete without per-item reconciliation. Preserve receipts and audit history.
