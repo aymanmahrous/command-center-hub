@@ -604,7 +604,6 @@ const ARABIC_TOPIC_COPY: Record<string, string> = {
   "Short Reel: 10-second pool-edge safety check": "فيديو قصير: فحص سلامة حافة المسبح خلال ١٠ ثوانٍ",
   "Story sequence: free initial assessment reminder": "قصص قصيرة: تذكير بالتقييم الأولي المجاني",
   "Short Reel: wait spot builds confidence": "فيديو قصير: مكان انتظار واضح يساعد الطفل على بناء الثقة",
-  "Short Reel: wait spot builds confidence": "اتفقوا على مكان انتظار آمن وواضح بعيدًا عن حافة الماء، وذكّروا الطفل بالعودة إليه بين التمارين أو عند الحاجة إلى استراحة.",
   "Story sequence: wait spot builds confidence": "قصص قصيرة: مكان انتظار واضح يساعد الطفل على الشعور بالثقة",
   "Story sequence: water safety rules for families": "قصص قصيرة: قواعد سلامة الماء لكل أفراد الأسرة",
   "Why structured swimming lessons beat random pool play": "لماذا تساعد دروس السباحة المنظمة أكثر من اللعب العشوائي في المسبح؟",
@@ -641,6 +640,7 @@ const ARABIC_BODY_COPY: Record<string, string> = {
   "Short Reel: 10-second pool-edge safety check": "راجعوا الإشراف المباشر، ونقطة الانتظار، وطريق الدخول والخروج قبل بدء النشاط.",
   "Story sequence: free initial assessment reminder": "التقييم الأولي فرصة لمناقشة أهداف المتعلم وراحته وخبرته السابقة، ثم اختيار بداية مناسبة بلا ضغط.",
   "Story sequence: wait spot builds confidence": "اتفقوا على مكان انتظار واضح بعيدًا عن حافة الماء، وذكّروا الطفل بالعودة إليه عند انتهاء التمرين أو الحاجة إلى استراحة.",
+  "Short Reel: wait spot builds confidence": "اتفقوا على مكان انتظار آمن وواضح بعيدًا عن حافة الماء، وذكّروا الطفل بالعودة إليه بين التمارين أو عند الحاجة إلى استراحة.",
   "Story sequence: water safety rules for families": "ابقوا قريبين وراقبوا الأطفال باستمرار، واتبعوا تعليمات المسبح، ولا تعتمدوا على العوامات أو وجود أشخاص آخرين بدل الإشراف.",
   "Why structured swimming lessons beat random pool play": "اللعب ممتع، لكن الحصة المنظمة تضيف هدفًا واضحًا وتدرجًا وملاحظات تساعد على بناء المهارات بأمان.",
   "Short Reel: splashing is not the same as swimming": "الحركة الكثيرة والرذاذ لا يعنيان إتقان مهارات السباحة. ركزوا على التحكم والتنفس والوضعية المناسبة.",
@@ -1257,7 +1257,7 @@ export async function buildCoachAyman30DayCalendarItems(
     const fingerprintSeed = `${COACH_AYMAN_PROVIDER_ID}:month:${batchNonce}:${index}:${slot.platform}:${slot.topic}`;
     const trackedCta = buildBatchTrackedCta(slot.platform, slot.contentPillar);
     const captionBody = buildMonthCaptionBody(slot);
-    const arabic = arabicFirstCopy(slot.topic, slot.hook);
+    const arabic = arabicFirstCopy(slot.topic, slot.hook, slot.primaryCta);
     items.push({
       platform: slot.platform,
       contentType: slot.contentType,
