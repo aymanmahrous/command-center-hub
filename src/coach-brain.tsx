@@ -161,7 +161,7 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
 
   function sendResultToFactory() {
     if (!result && !sample) return;
-    sessionStorage.setItem(COACH_BRAIN_FACTORY_HANDOFF_KEY, JSON.stringify({
+    const handoff = JSON.stringify({
       question: question.trim().slice(0, 1000) || "Coach Brain content plan",
       answer: result?.answer?.slice(0, 4000) || sample?.caption?.slice(0, 4000) || "",
       sources: result?.sources?.slice(0, 5).map((source) => ({ title: source.title, url: source.url })) ?? [],
@@ -177,7 +177,9 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
         contentType: sample.contentType,
       } : null,
       createdAt: new Date().toISOString(),
-    }));
+    });
+    sessionStorage.setItem(COACH_BRAIN_FACTORY_HANDOFF_KEY, handoff);
+    try { localStorage.setItem(COACH_BRAIN_FACTORY_HANDOFF_KEY, handoff); } catch { /* Session handoff remains available. */ }
     const url = new URL(window.location.href);
     url.searchParams.set("section", "content");
     url.searchParams.set("factoryContext", "coach-brain");
