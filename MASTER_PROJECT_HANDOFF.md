@@ -457,3 +457,17 @@ The Connections / Truthful Status phase has recorded read-only Production and QA
 - These findings were triaged, not changed. No blanket revoke, policy creation, function rewrite, or migration was applied.
 - Additional WARN/INFO findings remain deferred: 10 mutable search-path warnings, `pg_net` in public schema, leaked-password protection disabled, 27 unindexed foreign keys, 18 unused indexes, and one RLS initplan performance warning. These need targeted review and regression coverage; do not perform a mass security migration.
 - The only confirmed immediate guard improvement in this workstream is PR #319's independent positive owner-authorization switch for the scheduled publishing pulse. Its latest head `e7668b51cc89ceb5f4bb1c40e4c0828d1ce10394` passed TypeScript, tests, and build in workflow run `42123027932`; reviewer approval is still pending. It has not been merged or deployed to Supabase.
+
+
+### Publishing freeze coverage expansion — in review
+- PR #319 now covers all three outbound Meta publishing entry points: the automation pulse, the internal scheduled publisher, and both manual/automation branches of `safe-content-publisher`.
+- Each entry point requires the independent positive flag `OWNER_PUBLISHING_LIVE_AUTHORIZED=true`; absent/unset defaults to frozen and returns `OWNER_PUBLISHING_FROZEN` (HTTP 423). The pulse additionally requires both existing live switches.
+- This is code-only and has not been merged or deployed to Supabase. The flag has not been set. Do not resume publishing based only on old approvals or queued jobs.
+- The expanded test initially caught a test-scope assertion issue (the test matched the scheduled branch's freeze before the manual branch); the assertion was narrowed to the manual owner path and a new CI run is pending for head `d50b39724774d3615fbbb40abc285a4bd5f6fc07`.
+
+### Production API log triage — 2026-11-06
+- Last-24-hour Supabase logs include repeated generic PostgREST messages `Warp server error: Thread killed by timeout manager` (84 error-like entries in the grouped query; 69 exact identical message entries plus timestamp-suffixed variants). They report only path `/` and no endpoint/query identifier, so current evidence does **not** tie them to a specific Command Center route or RPC.
+- The scheduled automation pulse itself returned HTTP 200 in the sampled run, and its scheduler verification/lease/run-record RPCs returned HTTP 200. The pulse function logs showed normal boot/shutdown and no application exception in the sampled executions.
+- Cumulative `pg_stat_statements` data did not identify an obvious slow core owner RPC: `get_staff_media_assets` mean ~32 ms (max ~793 ms), `get_staff_content_items` mean ~35 ms (max ~280 ms), and `get_staff_control_tower_summary` mean ~57 ms (max ~263 ms). These are cumulative statistics, not a clean last-24-hour latency measurement.
+- Vercel runtime-error inspection was denied with HTTP 403 for the mapped project, so no claim is made that Vercel application runtime errors were cleared or absent.
+- Decision: do not change PostgREST settings, database timeouts, or query plans based on uncorrelated generic log messages. Preserve this as an infrastructure-level observation until request-level evidence identifies the affected route.
