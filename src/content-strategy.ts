@@ -2,20 +2,20 @@ export const CONTENT_CYCLE_DAYS = 10;
 export const REVIEW_REMINDER_DAY = 9;
 
 export const BRAND = {
-  name: "Relax Fix UAE — Swimming Academy",
-  publicLine: "Relax Fix UAE Swimming Academy",
-  withCoach: "Relax Fix UAE Swimming Academy — Coach Ayman",
+  name: "Relax Fix Swimming Academy",
+  publicLine: "Relax Fix Swimming Academy",
+  withCoach: "Relax Fix Swimming Academy",
   coach: "Coach Ayman",
   primaryHashtag: "#RelaxFixUAE",
   whatsappOpener:
-    "Hi Relax Fix UAE — I saw Coach Ayman's swimming content and would like a free initial assessment.",
+    "Hi Relax Fix Swimming Academy. I would like to book a free initial assessment.",
   audience: "Parents in Abu Dhabi",
   experience: "15+ years swimming coaching experience",
   offers: ["Private coaching", "Small groups up to 4 learners", "Free initial assessment"],
-  locations: ["Abu Dhabi", "ICS locations"],
-  whatsapp: "058 821 9130",
+  locations: ["Al Mushrif · Abu Dhabi"],
+  whatsapp: "+971 58 821 9130",
   whatsappRole: "messages & booking",
-  phone: "055 137 8660",
+  phone: "+971 55 137 8660",
   phoneRole: "admin team — phone calls only",
 } as const;
 
@@ -31,9 +31,9 @@ export function hashtagsForPlatform(platform: string, contentType?: string): str
   if (normalized === "facebook") return [BRAND.primaryHashtag];
   if (normalized === "tiktok") return [BRAND.primaryHashtag, "#AbuDhabiSwimming", "#SwimTok"];
   if (contentType?.toLowerCase() === "reel") {
-    return [BRAND.primaryHashtag, "#AbuDhabiSwimming", "#SwimReel", "#CoachAyman"];
+    return [BRAND.primaryHashtag, "#AbuDhabiSwimming", "#SwimReel"];
   }
-  return [BRAND.primaryHashtag, "#AbuDhabiSwimming", "#CoachAyman"];
+  return [BRAND.primaryHashtag, "#AbuDhabiSwimming"];
 }
 
 export type ContentPillar =
