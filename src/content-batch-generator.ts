@@ -603,6 +603,7 @@ const ARABIC_TOPIC_COPY: Record<string, string> = {
   "Short Reel: frantic kick vs calm kick": "فيديو قصير: مقارنة بين ركل الساقين المتوتر والهادئ",
   "Short Reel: 10-second pool-edge safety check": "فيديو قصير: فحص سلامة حافة المسبح خلال ١٠ ثوانٍ",
   "Story sequence: free initial assessment reminder": "قصص قصيرة: تذكير بالتقييم الأولي المجاني",
+  "Short Reel: wait spot builds confidence": "فيديو قصير: مكان انتظار واضح يساعد الطفل على بناء الثقة",
   "Story sequence: wait spot builds confidence": "قصص قصيرة: مكان انتظار واضح يساعد الطفل على الشعور بالثقة",
   "Story sequence: water safety rules for families": "قصص قصيرة: قواعد سلامة الماء لكل أفراد الأسرة",
   "Why structured swimming lessons beat random pool play": "لماذا تساعد دروس السباحة المنظمة أكثر من اللعب العشوائي في المسبح؟",
