@@ -410,3 +410,132 @@ Canva live connectivity and design creation/export were not proven. No live Gemi
 
 ### Status
 The Connections / Truthful Status phase has recorded read-only Production and QA evidence. This closes the documentation of that audit only; it does not certify untested external-provider operations or authorize a Production release.
+
+
+---
+
+## 28. Executive Partner Reconciliation — 2026-11-06
+
+### Current repository truth
+- **Current main commit at reconciliation:** `df4df0bab8aa8fe00fd1605d9623823977980034` (PR #317 squash-merged).
+- **PR #316:** merged earlier as `d4869c8de90759bf19f71460e9640bff1caff7e7`; persistent Coach Brain → Factory handoff and confirmation before real AI sample generation were included.
+- **PR #317:** merged as `df4df0bab8aa8fe00fd1605d9623823977980034`; academy-first identity now appears in Control Tower, content strategy, poster studio, and Canva/Gemini briefs. Approved public location is Al Mushrif · Abu Dhabi; contact numbers remain +971 58 821 9130 and +971 55 137 8660.
+- PR #317 had four APPROVED reviews, no review threads, and successful Vercel status checks before merge. A dedicated Production deployment was then created from the exact merged main SHA `df4df0bab8aa8fe00fd1605d9623823977980034`: deployment `dpl_gHnq8Bong8gMYeugLBGT75tF1FZd`, state `READY`, target `production`, `aliasError: null`. Its deployment alias list includes both `hub.relaxfixuae.com` and `www.hub.relaxfixuae.com`. Therefore the academy identity changes are now deployed to the two Production domains.
+- No database migration, OAuth change, secret change, external AI generation, WhatsApp send, social publication, or schedule activation occurred during this reconciliation. One authorized Vercel Production deployment was performed.
+
+### Owner navigation and media reality
+- `src/main.tsx` already has a primary navigation and an expandable **More** menu. Do not create another sidebar/navigation system. Core routes include Home, Inbox, Content, Media, and Operations; lower-frequency destinations are already routed through More.
+- `MediaLibraryView` already embeds the cloud-source hub and links to the archive. Keep Media Library as the canonical asset home; do not create a second library or another factory.
+- Content Factory remains the content execution path; Coach Brain is the advice/planning layer. Keep the existing routing and approval gates.
+
+### Production connection evidence (read-only, 2026-11-06)
+- `staff_integrations` contains seven provider rows. Facebook and Instagram are marked connected with `verifiedExternally=true`, last tested 2026-11-03; account labels are Relax Fix one and relaxfixuae. This proves an external account identity check, **not** permission or end-to-end publishing capability.
+- Canva is marked connected and externally verified; its recorded read check was `/users/me` on 2026-10-24. This does not prove design generation/autofill/export is operational.
+- Meta WhatsApp, Google Calendar, Telegram, and the app's AI-provider registry row are currently `not_connected`. The owner's existing n8n WhatsApp route is a separate workflow and must not be treated as the same thing as Meta WhatsApp Cloud API.
+- Current Instagram account ID in the integration metadata is `17841400516801494`; an older handoff record lists `17841439747493221`. Treat this as an unresolved metadata/history discrepancy; do not overwrite either value without a fresh authorized account check.
+- Edge Function inventory reports the existing Meta, Canva, Runway, Gemini image, content-batch, Coach Brain, and WhatsApp functions as ACTIVE. ACTIVE is deployment metadata only, not proof of credentials, provider access, or successful capability execution.
+
+### Publishing and automation safety — current evidence
+- The only active `cron.job` is `content-automation-pulse-dry-run`, every 30 minutes. It is a dry-run pulse, not a publishing scheduler. It had 336 successful runs in the preceding seven days; the latest recorded run was 2026-11-05 22:00 UTC.
+- The latest automation runs recorded zero media attempts and zero publish attempts. No live publishing was initiated.
+- `content_items` currently contains 166 rows: 61 approved, 63 scheduled, 31 published, and 11 cancelled. Of the 63 scheduled rows, 51 were past due and 12 future relative to the database clock at 2026-11-06 02:28 Asia/Dubai (3 Facebook and 9 Instagram). A read-only correlation found 48 of the 51 past-due items still have active publish jobs (22 Facebook, 26 Instagram); 2 past-due Facebook items have ambiguous receipts. None of the 63 scheduled items had a published receipt at the time of the check. The scheduled status in the database must not be interpreted as proof of external scheduled delivery. **Keep live publishing disabled**; do not bulk-reschedule, retry, cancel, or mutate these rows/jobs until each item's content, receipt history, and owner intent are reconciled.
+- `background_jobs` contains 50 queued `publish_content` jobs (oldest 2026-09-18; newest 2026-11-02), 10 stale `processing` jobs (latest updated 2026-10-02), 12 completed publish jobs, and 53 dead publish jobs. Dead jobs include Meta API error 190, rescheduled/unscheduled content, owner cancellations/rejections, and ambiguous outcomes.
+- Publication receipts currently show 13 published, 24 failed, and 2 ambiguous. Latest published receipt: Facebook 2026-10-14; Instagram 2026-10-07. Historical published receipts are not permission to retry or republish.
+- **Do not retry, drain, clear, reschedule, or mutate queued/processing/dead publishing jobs.** Keep publishing frozen pending explicit owner authorization for a specific item after showing its exact content and target channel. Ambiguous outcomes must never be retried automatically.
+
+### Current safe point and next action
+- Repository identity work is merged; post-merge deployment verification remains pending.
+- Continue with read-only verification of the post-merge Preview/Production state and the owner-facing connection/queue truth. Keep production publishing, OAuth, secrets, database writes, paid generation, and deployment promotion protected.
+- Do not create another navigation, connection, media, automation, or factory system. The objective remains one simple owner workspace over the existing capabilities.
+
+
+### Security advisor triage — read-only, 2026-11-06
+- Supabase Security Advisor reported 53 tables with RLS enabled and no policies. This is not automatically an exposure: absent policies mean ordinary API roles are denied by RLS; do not add broad policies to silence the linter. Review each table only if an actual app path is blocked.
+- The advisor reported 81 SECURITY DEFINER functions executable by authenticated. A source review found 79 with explicit staff/role/auth checks. The two without a staff guard are:
+  - `rf_schedule_turn(...)`: intentionally callable by the public scheduling/conversation flow; it is read-only in its body and delegates availability reads to existing pool/availability helpers. It does not create or confirm bookings.
+  - `rf_whatsapp_automation_enabled()`: returns only the WhatsApp automation-enabled boolean from channel control; it does not expose message contents or secrets.
+- These findings were triaged, not changed. No blanket revoke, policy creation, function rewrite, or migration was applied.
+- Additional WARN/INFO findings remain deferred: 10 mutable search-path warnings, `pg_net` in public schema, leaked-password protection disabled, 27 unindexed foreign keys, 18 unused indexes, and one RLS initplan performance warning. These need targeted review and regression coverage; do not perform a mass security migration.
+- PR #319 was merged on 2026-11-05 as `f97f7d784bfe4653a060052202dca2e472644451`. Its independent positive owner-authorization gate is deployed to Production Supabase project `nmzxrjdxvmmzzmajrskm` in `content-automation-pulse` v38, `safe-content-publisher` v52, and `scheduled-authorized-publisher` v24. Each deployed source was re-read and verified to contain the gate. No live publish function was manually invoked; no social post was published by this release.
+
+
+### Publishing freeze coverage expansion — merged and deployed
+- PR #319 was merged as `f97f7d784bfe4653a060052202dca2e472644451`.
+- The deployed gate covers the automation pulse, the internal scheduled publisher, and both manual/automation branches of `safe-content-publisher`.
+- Each outbound path requires the independent positive flag `OWNER_PUBLISHING_LIVE_AUTHORIZED=true`; absent/unset defaults to frozen. The pulse additionally requires both existing live switches.
+- Production versions verified: `content-automation-pulse` v38, `safe-content-publisher` v52, `scheduled-authorized-publisher` v24. The flag's actual secret value was not read or changed; do not assume it is enabled.
+- The cron remains a 30-minute dry-run pulse. Recent sampled runs show zero media and publish attempts. No live publishing function was manually invoked during deployment verification.
+
+### Production API log triage — 2026-11-06
+- Last-24-hour Supabase logs include repeated generic PostgREST messages `Warp server error: Thread killed by timeout manager` (84 error-like entries in the grouped query; 69 exact identical message entries plus timestamp-suffixed variants). They report only path `/` and no endpoint/query identifier, so current evidence does **not** tie them to a specific Command Center route or RPC.
+- The scheduled automation pulse itself returned HTTP 200 in the sampled run, and its scheduler verification/lease/run-record RPCs returned HTTP 200. The pulse function logs showed normal boot/shutdown and no application exception in the sampled executions.
+- Cumulative `pg_stat_statements` data did not identify an obvious slow core owner RPC: `get_staff_media_assets` mean ~32 ms (max ~793 ms), `get_staff_content_items` mean ~35 ms (max ~280 ms), and `get_staff_control_tower_summary` mean ~57 ms (max ~263 ms). These are cumulative statistics, not a clean last-24-hour latency measurement.
+- Vercel runtime-error inspection was denied with HTTP 403 for the mapped project, so no claim is made that Vercel application runtime errors were cleared or absent.
+- Decision: do not change PostgREST settings, database timeouts, or query plans based on uncorrelated generic log messages. Preserve this as an infrastructure-level observation until request-level evidence identifies the affected route.
+
+
+### n8n / WhatsApp source-of-truth distinction — 2026-11-06
+- The owner confirms the operational WhatsApp workflow is already running through their existing n8n path; preserve it and do not create a second WhatsApp route.
+- The GitHub-exported workflow JSON files `n8n/workflows/relax-fix-whatsapp-webhook-ingress.json` and `relax-fix-ai-sales-concierge.json` both contain `active: false`. These are repository exports/design artifacts and do **not** prove the live n8n account's current activation state.
+- `get_staff_content_automation_status()` reports queue counts and recent automation runs, not n8n connectivity. `readIntegrationStatuses()` therefore cannot independently prove the n8n route is connected; it leaves that capability unverified when no explicit flag exists.
+- The Connections UI currently models Meta WhatsApp Cloud API separately from the n8n workflow. Keep those concepts distinct: Meta WhatsApp Cloud API is not connected in the app's provider registry, while the owner's existing n8n route is a separate operational path.
+- Do not import, activate, deactivate, or replace any n8n workflow from repository exports. A live n8n account-level verification is still needed before representing the route as app-verified.
+
+
+### Owner dashboard overdue-schedule correction — PR #320
+- Read-only production evidence showed 63 scheduled content items: 51 with `scheduled_for <= now()` and 12 future. The current Control Tower RPC returns only the total scheduled count, and the UI labels that total as "Upcoming". This is why overdue content was not surfaced as an owner alert.
+- PR #320 adds `futureScheduled` and `overdueScheduled` to the existing `get_staff_control_tower_summary` payload, adds a high-priority overdue alert, and changes the Control Tower's Upcoming count to future-only. It retains the original total `scheduled` field for compatibility.
+- The proposed migration is read-only with respect to business records: no content rows, receipts, jobs, or dates are changed. It preserves the existing staff-role gate and SECURITY DEFINER contract.
+- PR #320: https://github.com/aymanmahrous/command-center-hub/pull/320. It is open and not merged; migration not applied to Production.
+- Latest head `f8bc40dd952c89ece8dec93a694e694af3247272` has a successful GitHub Actions run (`42125363677`): install, TypeScript, full tests, and production build passed. Vercel preview checks are blocked by the provider's 24-hour deployment rate limit. The required reviewer approval is still pending; do not merge or apply the migration until the review/release gate is satisfied.
+
+
+### Overdue publish queue age breakdown — read-only
+- The 51 past-due scheduled items split into 24 Facebook and 27 Instagram.
+- Age buckets: 10 items are 0–7 days overdue, 13 are 8–30 days overdue, and 28 are more than 30 days overdue.
+- All 51 correlate with either an active publish job (48) or an ambiguous publication receipt (2); the remaining one is in the same historical/failed-receipt cohort and must be checked item-by-item. No scheduled item in this snapshot had a published receipt.
+- 21 overdue items also have at least one failed receipt record. Failed receipts and active jobs can coexist; do not interpret the existence of a failed receipt as permission to retry.
+- This strengthens the decision to keep publishing frozen and reconcile by content item, platform, receipts, and owner intent before any cleanup or re-scheduling.
+
+
+### Overdue job-state breakdown — 2026-11-06
+- The 48 overdue content items with active publish jobs resolve to 38 `queued` jobs and 10 `processing` jobs.
+- Queued overdue jobs: Facebook 17, Instagram 21. Their creation dates begin 2026-09-18; latest updates reach 2026-11-02.
+- Processing overdue jobs: Facebook 5, Instagram 5. Their latest updates are 2026-10-02 and 2026-10-01 respectively, making all 10 stale for more than a month.
+- The remaining three overdue items have no active job: one Facebook item has a failed receipt, one Facebook item has an ambiguous receipt, and one Instagram item has no publication receipt. A second Facebook item has an ambiguous receipt while still associated with an active job.
+- Do not mark stale processing jobs complete, retry, cancel, or delete without per-item reconciliation. Preserve receipts and audit history.
+
+
+### Weekly planning default — PR #320
+- Coach Brain already defaults to 7 days. Direct entry into Content Factory previously fell back to 30 days when no handoff or saved owner choice existed.
+- PR #320 aligns the direct Factory default to 7 days while preserving the existing 2/3/4/7/14/30 choices and any saved handoff selection. No existing schedule or content record is changed.
+- Static source-contract checks for the overdue dashboard payload, staff-gated read-only migration, and weekly default currently pass 7/7. This is a targeted source check, not a substitute for a fresh full GitHub Actions run.
+
+
+### Control Tower weekly presentation — PR #320
+- The Control Tower home previously showed a ten-slot/ten-day marketing presentation. PR #320 changes the owner-facing summary to a seven-day plan, showing seven plan slots.
+- Coach Brain and direct Factory entry both default to seven days for a new planning session. Saved handoff choices and the existing 2/3/4/7/14/30-day options remain available.
+- This is presentation/default behavior only; it does not create, approve, schedule, or publish content.
+
+
+### PR #320 verification update — latest head 2026-11-06
+- Latest head: `f8bc40dd952c89ece8dec93a694e694af3247272`.
+- GitHub Actions run `42125363677` completed **SUCCESS**: `npm ci`, TypeScript, full `npm test`, and `npm run build` all passed.
+- Targeted source-contract checks also passed 10/10 for the new RPC fields, staff-role gate, no-write migration, overdue warning/action, future-only Upcoming count, and 7-day defaults.
+- Vercel Preview checks remain failed solely with the provider's `build-rate-limit` response. This is a Vercel build quota/rate-limit issue, not a reported TypeScript or app build failure; GitHub's own build passed.
+- PR #320 remains open pending required reviewer approval. Do not merge or apply its migration until the review/release gate is satisfied.
+
+
+### Operational publishing verification — 2026-11-06
+- Production currently has 63 scheduled content items: 51 whose operational `scheduled_for` time has passed and 12 with future `scheduled_for` times. The 51 overdue items are 24 Facebook and 27 Instagram.
+- `scheduled_for` is the execution time used by the publishing queue; `planned_for` is the content-calendar planning time. They are not interchangeable. One overdue Instagram item has `scheduled_for=2026-10-28 06:15 UTC` and `planned_for=2026-11-15 08:00 UTC`; its audit event records an explicit staff `schedule` action for 2026-10-28. Treat this as an actual scheduled-time override requiring owner review, not automatically as corrupted data.
+- Six scheduled Facebook rows have no `planned_for` value. This does not erase their operational `scheduled_for` time; keep them visible for reconciliation rather than silently dropping them from the overdue count.
+- Of the 51 overdue items, 38 have active jobs: 17 queued Facebook, 21 queued Instagram, and 10 stale processing jobs (5 per platform). All 10 processing jobs have been unchanged for more than 30 days. One overdue Instagram item has no publish job. Two overdue Facebook items have ambiguous receipts; at least one also has an active job. No overdue item has a published receipt in the current snapshot.
+- Across all publish jobs, counts remain 50 queued, 10 processing, 12 completed, and 53 dead. These job totals span both overdue and future items; do not equate them with overdue-item counts.
+- The cron `content-automation-pulse-dry-run` remains active every 30 minutes. The latest sampled run at 2026-11-05 23:00 UTC completed in `dry-run` with zero media attempts and zero publish attempts. The last eight sampled runs had the same zero-attempt result.
+- No queue, cron, receipt, content status, schedule, secret, or publishing state was changed during this read-only reconciliation. Keep publishing frozen and do not retry, drain, cancel, reschedule, or bulk-clean jobs.
+
+### PR #320 current review gate — 2026-11-06
+- PR #320 head remains `f8bc40dd952c89ece8dec93a694e694af3247272`. GitHub Actions passed; Vercel preview checks remain blocked by a 24-hour deployment rate limit; requested reviewer `pixelreel2026` has not submitted an approval.
+- The proposed RPC replacement preserves the existing function signature and current ACL (`authenticated` and `service_role` execute), the existing SECURITY DEFINER/search_path contract, and the active-staff role check. It adds only read-only counts/alerts; no content, receipt, or job rows are mutated.
+- Production still has the previous RPC definition; PR #320's migration has not been applied. Wait for required approval and release checks before merge or migration.
