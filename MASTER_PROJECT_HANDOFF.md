@@ -479,3 +479,11 @@ The Connections / Truthful Status phase has recorded read-only Production and QA
 - `get_staff_content_automation_status()` reports queue counts and recent automation runs, not n8n connectivity. `readIntegrationStatuses()` therefore cannot independently prove the n8n route is connected; it leaves that capability unverified when no explicit flag exists.
 - The Connections UI currently models Meta WhatsApp Cloud API separately from the n8n workflow. Keep those concepts distinct: Meta WhatsApp Cloud API is not connected in the app's provider registry, while the owner's existing n8n route is a separate operational path.
 - Do not import, activate, deactivate, or replace any n8n workflow from repository exports. A live n8n account-level verification is still needed before representing the route as app-verified.
+
+
+### Owner dashboard overdue-schedule correction — PR #320
+- Read-only production evidence showed 63 scheduled content items: 51 with `scheduled_for <= now()` and 12 future. The current Control Tower RPC returns only the total scheduled count, and the UI labels that total as "Upcoming". This is why overdue content was not surfaced as an owner alert.
+- PR #320 adds `futureScheduled` and `overdueScheduled` to the existing `get_staff_control_tower_summary` payload, adds a high-priority overdue alert, and changes the Control Tower's Upcoming count to future-only. It retains the original total `scheduled` field for compatibility.
+- The proposed migration is read-only with respect to business records: no content rows, receipts, jobs, or dates are changed. It preserves the existing staff-role gate and SECURITY DEFINER contract.
+- PR #320: https://github.com/aymanmahrous/command-center-hub/pull/320. It is open and not merged; migration not applied to Production.
+- The initial GitHub workflow run on the first PR head passed TypeScript but failed one pre-existing static assertion because the UI label was intentionally updated. That assertion was corrected. The latest commit `220976dcc80102eaf25be27c6dc64dec9053f894` has no fresh GitHub Actions run yet; Vercel preview checks returned a build-rate-limit failure. Do not claim the latest head has full CI verification until a fresh run completes.
