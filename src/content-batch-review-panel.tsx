@@ -183,6 +183,7 @@ export function ContentBatchReviewPanel({
   const [publishNotice, setPublishNotice] = useState("");
   const [videoTargetId, setVideoTargetId] = useState<string | null>(null);
   const [videoDuration, setVideoDuration] = useState<4 | 6 | 8>(8);
+  const [manualVideoDuration, setManualVideoDuration] = useState<3 | 5 | 8>(5);
   const [videoResolution, setVideoResolution] = useState<"720p" | "1080p">("720p");
   const [videoEstimate, setVideoEstimate] = useState<{ costUsd: number; model: string } | null>(null);
   const [videoBusyId, setVideoBusyId] = useState<string | null>(null);
@@ -254,7 +255,10 @@ export function ContentBatchReviewPanel({
 
   async function openExternalBrief(target: "canva" | "gemini" | "runway", item: ContentBatchItem) {
     const destinations = { canva: "https://www.canva.com/", gemini: "https://gemini.google.com/app", runway: "https://app.runwayml.com/" } as const;
-    const prompt = String(item.visualPrompt || item.hook || item.topic || "").trim();
+    const basePrompt = String(item.visualPrompt || item.hook || item.topic || "").trim();
+    const prompt = target === "runway"
+      ? `${basePrompt}\n\nFINAL OUTPUT REQUIREMENT: Create one vertical 9:16 video with an exact target duration of ${manualVideoDuration} seconds. This duration overrides any earlier duration in the brief.`
+      : basePrompt;
     window.open(destinations[target], "_blank", "noopener,noreferrer");
     try {
       if (!prompt || !navigator.clipboard?.writeText) throw new Error("CLIPBOARD_UNAVAILABLE");
@@ -836,7 +840,10 @@ export function ContentBatchReviewPanel({
                         <button type="button" className="secondary" onClick={() => void openExternalBrief("canva", item)}>{language === "ar" ? "فتح Canva ونسخ التعليمات" : "Open Canva + copy brief"}</button>
                         <button type="button" className="secondary" onClick={() => void openExternalBrief("gemini", item)}>{language === "ar" ? "فتح Gemini Pro ونسخ التعليمات" : "Open Gemini Pro + copy brief"}</button>
                       </>}
-                      {/reel|video/i.test(String(item.contentType)) && <button type="button" className="secondary" onClick={() => void openExternalBrief("runway", item)}>{language === "ar" ? "فتح Runway ونسخ برومبت الفيديو" : "Open Runway + copy video prompt"}</button>}
+                      {/reel|video/i.test(String(item.contentType)) && <>
+                        <label><span>{language === "ar" ? "مدة فيديو Runway" : "Runway video length"}</span><select value={manualVideoDuration} onChange={(event) => setManualVideoDuration(Number(event.target.value) as 3 | 5 | 8)}><option value={3}>3 {language === "ar" ? "ثوانٍ" : "seconds"}</option><option value={5}>5 {language === "ar" ? "ثوانٍ" : "seconds"}</option><option value={8}>8 {language === "ar" ? "ثوانٍ" : "seconds"}</option></select></label>
+                        <button type="button" className="secondary" onClick={() => void openExternalBrief("runway", item)}>{language === "ar" ? "فتح Runway ونسخ برومبت الفيديو" : "Open Runway + copy video prompt"}</button>
+                      </>}
                     </div>
                   </div>
                 )}
