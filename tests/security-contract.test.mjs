@@ -192,7 +192,7 @@ test("Analytics validates every metric and preserves the attribution limitation"
 test("Integrations uses the approved operations queue RPC and guarded job commands", () => {
   assert.match(app, /get_staff_operations_queue/);
   assert.match(app, /active === "integrations" \? <Suspense/);
-  assert.match(operations, /retry_staff_publish_job/);
+  assert.doesNotMatch(operations, /retry_staff_publish_job/);
   assert.match(operations, /cancel_staff_background_job/);
   assert.doesNotMatch(operations, /\/rest\/v1\/(follow_up_jobs|background_jobs)[^\n]*(PATCH|PUT|DELETE|POST)/i);
   assert.match(operations, /المهام المنتهية\/المؤرشفة للعرض فقط/);
