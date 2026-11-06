@@ -514,3 +514,27 @@ The proposed App Administration area is subordinate to this operating model. It 
 
 ### Current implementation gate
 This section records the owner's clarified primary objective and corrects the emphasis of section 28; it does not authorize new tables, runtime infrastructure, provider calls, live actions, or Production changes. The current QA limitation remains: the available Supabase connector exposes project/database and Edge Function operations but no Auth Admin invite/create-user operation, and no Preview deployment exists for the administration branch. Continue safe repository-level work and test-contract design; do not use the Production owner identity as a QA fixture or bypass Supabase Auth.
+
+## 30. Coach Brain / Factory as-is implementation baseline — 2026-11-06
+
+### Direct source inspection
+- `src/coach-brain.tsx` currently provides evidence research, ready-made task prompts, a limited content sample request, plan-window/mix/execution choices, and a route into the existing Content Factory. Research calls the `coach-brain-research` Edge Function; that function uses Gemini with Google Search grounding and validates the active staff identity.
+- The current Coach Brain → Factory handoff is implemented in `src/coach-brain-factory-handoff.ts` and is persisted in browser session/local storage. The payload currently carries `question`, `answer`, `sources`, `planWindowDays`, `planMix`, `planExecution`, optional sample fields, and a timestamp.
+- `src/content-growth-hub.tsx` consumes the handoff as supporting research context, combines it with existing Academy Knowledge, strategy, performance guidance, and provider selection, then uses the existing batch-generation and `create_staff_generated_content_batch` path.
+- The batch provider contract already supports `auto`, `gemini`, and `openai` in `src/gemini-batch-adapter.ts`. This is provider routing inside the existing Factory, not proof of three autonomous agents.
+- Canva remains an existing design integration. Runway is currently represented as an integration/capability status in the Factory; the inspected video-generation contract/test identifies Google Veo (`generate-veo-video`) as the actual video-generation path. Do not report Runway as an active autonomous video agent or silently substitute it for Veo.
+- Existing PR #316 and its merged commit `d4869c8de90759bf19f71460e9640bff1caff7e7` already addressed persistent Coach Brain → Factory handoff. Do not recreate that feature.
+- Existing PR #319 and `main` commit `f97f7d784bfe4653a060052202dca2e472644451` enforce the owner publishing freeze/authorization across scheduled, manual, and automation publishing paths. Preserve it.
+
+### Verified gap — orchestration is not yet a complete agent workforce
+- The inspected source shows a useful Coach Brain research-to-Factory workflow, but not a verified multi-agent dispatcher with named task ownership, delegated task IDs, durable execution states, retry/cancel policy, and a unified owner-visible execution history.
+- The current handoff payload does not yet expose the five canonical orchestration fields as a typed contract: `userIntent`, `planStrategy`, `researchContext`, `requestedDuration`, and `contentGoal`. Current equivalents exist under different fields (`question`, `planMix`/`planExecution`, `answer`/`sources`, `planWindowDays`, and sample/action context), so the gap is contract normalization and traceability—not a reason to replace the existing handoff.
+- The browser-storage handoff is a transfer mechanism, not a durable task ledger. Before introducing persistence, inspect existing content batch records, operational/audit records, RPCs, and n8n handoffs to determine whether they already provide the required task lifecycle evidence.
+- No code change to Coach Brain, Factory, provider routing, task persistence, or publishing was made in this documentation step.
+
+### Smallest implementation sequence
+1. Normalize the existing Coach Brain → Factory payload into a typed, backward-compatible task contract while retaining current fields and the existing storage key.
+2. Add contract tests proving all five canonical fields are populated, bounded, validated, and consumed by the existing Factory; preserve old handoff compatibility.
+3. Reuse existing batch IDs, audit records, and execution receipts to display truthful task progress where possible; add no new table/queue until the source audit proves no reusable lifecycle record exists.
+4. Surface the existing provider decision and capability truth in Coach Brain/Factory without duplicating Integrations controls; clearly distinguish OpenAI/Gemini content providers, Canva design, and Veo video generation from Runway's current status-only capability.
+5. Verify in isolated QA and Preview. Keep all publish, schedule, WhatsApp, Meta, OAuth, and Production actions frozen unless separately authorized.
