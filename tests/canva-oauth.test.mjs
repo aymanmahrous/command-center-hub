@@ -41,5 +41,5 @@ test("canva remains optional and non-blocking in provider layer", () => {
   assert.match(controls, /command-center:navigate/);
   assert.doesNotMatch(controls, /startCanvaConnect|connectCanva\(\)/);
   assert.match(controls, /Open Canva/);
-  assert.match(controls, /Canva: \{canvaConnected \? "NEEDS ATTENTION"/);
+  assert.match(controls, /Connected — readiness check needed/);
 });
