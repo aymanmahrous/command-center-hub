@@ -410,3 +410,57 @@ Canva live connectivity and design creation/export were not proven. No live Gemi
 
 ### Status
 The Connections / Truthful Status phase has recorded read-only Production and QA evidence. This closes the documentation of that audit only; it does not certify untested external-provider operations or authorize a Production release.
+
+
+## 28. Owner Administration Capability Audit — 2026-11-06
+
+### Scope and safety
+- Owner-authorized administrative audit of existing application settings, staff roles, module navigation, backend authorization, audit history, Supabase configuration tables, and Production deployment state.
+- Repository baseline inspected: `main` at `f97f7d784bfe4653a060052202dca2e472644451`.
+- Production Vercel deployment observed: READY deployment `dpl_gHnq8Bong8gMYeugLBGT75tF1FZd`, commit `df4df0bab8aa8fe00fd1605d9623823977980034`, aliases `hub.relaxfixuae.com` and `www.hub.relaxfixuae.com`. The latest `main` commit is newer than the observed Production commit; do not infer it is live.
+- No application source, Supabase schema/RLS, credentials, Edge Functions, Production environment, publishing, WhatsApp, OAuth, or deployment state was changed during this audit.
+
+### Confirmed existing capabilities
+- Staff authentication uses Supabase Auth plus exactly one active `staff_profiles` row keyed by `auth.uid()`; restored sessions revalidate the JWT and active profile.
+- Existing fixed roles: `super_admin`, `admin`, `reception`, `coach`, `content_manager`. Database role constraint accepts only these values.
+- Frontend contains role-specific write gates for Inbox, bookings, content, and media. Backend RPCs also enforce role checks for many read/write paths; this is not only UI hiding.
+- Existing language switcher supports Arabic and English.
+- Existing canonical destinations remain: Control Tower, Coach Brain, Content Studio/Factory, Inbox, Media Library, Operations, Integrations/Connections, Automations, Bookings/Planner, CRM, Analytics, Radar, Archive, and Workspace.
+- Integrations already have a dedicated management screen and existing server-side connect/test/disconnect RPCs. Do not create a second integration center.
+- `audit_logs` already records administrative/operational events; observed row count at audit time: 1,115.
+
+### Confirmed gaps / incomplete administration
+- No owner-only application administration destination exists in the current More navigation.
+- No verified staff invitation, staff-role update, or staff deactivation management path was found in the current application source or Production public-schema function inventory. The existing profile table and role model are present, but not an owner-facing CRUD capability.
+- `business_settings` has one primary row and a public-read policy. No current staff-facing update RPC or application editing screen was found. It is the correct existing source for business profile/booking settings; do not create a duplicate business-settings table.
+- `settings` is a legacy generic website-style table (site title/description, WhatsApp, theme color, background URL). It has one row in the direct live count, but no current application consumer or safe admin edit path was identified. Do not repurpose it as Command Center configuration.
+- `rf_schedule_config` has two rows but no verified owner-facing configuration editor.
+- `notification_settings` currently has zero rows and no verified owner-facing management flow.
+- No dedicated module/feature-flag or role-permission configuration table was found among the 64 public tables.
+- No audit-log read policy or owner-facing audit-log reader RPC was found. The audit trail is being written, but is not yet exposed as a safe owner view.
+- The current primary and More navigation lists are static and are not filtered by `session.role`. Backend RPC checks remain the security boundary; the navigation gap is primarily an owner/staff UX inconsistency, not proof of backend authorization bypass.
+
+### Live Supabase security evidence
+- Production project: `nmzxrjdxvmmzzmajrskm`.
+- All 64 public tables have RLS enabled. The Supabase advisor reports 53 RLS-enabled tables with no direct policies. This can be intentional for tables accessible only through guarded SECURITY DEFINER RPCs; do not add broad table policies merely to silence the advisor.
+- The live catalog contains 168 SECURITY DEFINER functions; 81 are executable by authenticated users. The focused grant/definition audit found only two functions executable by anon: `rf_schedule_turn` (public scheduling-assistant turn, with no booking write) and `rf_whatsapp_automation_enabled` (boolean configuration read). The 79 other authenticated-executable functions in that focused set expose staff/identity guards; preserve the existing grant restrictions.
+- The repository already contains migration `20261023160000_restrict_sensitive_rpc_execute_grants.sql`, which revokes anonymous/public execution from selected staff RPCs and service-only routines. Do not blanket-revoke authenticated execution.
+- Advisor warnings observed: 10 mutable function search paths, `pg_net` installed in public, two anon-executable SECURITY DEFINER functions, 81 authenticated-executable SECURITY DEFINER functions, and leaked-password protection disabled. These require scoped review; they are not authorization to perform a broad security migration during the admin UI task.
+- `staff_profiles` currently has one active profile, with role `super_admin`. No other role was present in the live table at audit time.
+- Live configuration row counts: `business_settings` 1, `settings` 1, `rf_schedule_config` 2, `notification_settings` 0, `staff_integrations` 7, `staff_integration_secrets` 2. Secret values were not read or emitted.
+
+### Recommended minimal architecture
+1. Add one owner-only **إدارة التطبيق / App Administration** destination under More. It must not replace Control Tower or duplicate existing workspaces.
+2. Reuse `staff_profiles` and the existing five-role allowlist for staff management. Do not create a second users/roles table or custom roles in the first iteration.
+3. Reuse `business_settings` for the existing business/booking settings. Keep secrets out of this public-readable table.
+4. Expose `audit_logs` through a paginated, read-only, super-admin-only server endpoint; do not add direct client RLS access to the whole audit table.
+5. Keep existing Integrations, Automations, Content, Media, Bookings, CRM, and Analytics destinations canonical; the admin page should link to them and show truthful status rather than copy their controls.
+6. Do not make role/module permissions dynamically editable in the first iteration. The backend currently has explicit role checks across many RPCs and Edge Functions; a dynamic permission editor would require replacing those checks consistently. First centralize and document the existing role-to-module matrix. Any future global module switch must be treated as UX availability only, never as a substitute for backend authorization.
+7. For staff invitation/role changes and business-setting writes, use one authenticated server-side administration endpoint with JWT verification, a fresh active `super_admin` check, strict action/field allowlists, audit logging, and protections against self-lockout or disabling the last active super-admin. Never expose the service/secret key to the browser.
+8. Follow Supabase's current security guidance: keep user JWT verification on user-facing Edge Functions; use privileged server credentials only after validating the caller; for SECURITY DEFINER functions, pin `search_path`, explicitly authorize the caller, and narrow EXECUTE grants.
+
+### Verification and release gates
+- Required tests: unauthenticated denial; inactive staff denial; non-super-admin denial; super-admin success; fixed-role validation; no self-demotion/deactivation; no disabling the last active super-admin; field allowlists; secret redaction; audit record written; pagination bounds; and no effect on existing operational RPCs.
+- Validate with isolated QA identities for each relevant role before considering Production. Do not use the Production owner profile as a test fixture.
+- No Production migration, Edge Function deployment, Vercel Production promotion, staff invitation email, role mutation, module toggle, live publish, or WhatsApp action is authorized by this audit record.
+- Current safe point: diagnosis and architecture decision are complete; implementation is NOT_STARTED. The next bounded step is to implement the owner-only server-side administration contract and UI on a feature branch, then verify against isolated QA before any Production change.
