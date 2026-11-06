@@ -93,6 +93,11 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
 
   useEffect(() => {
     const controller = new AbortController();
+    if (!canWrite) {
+      setAiStatusBusy(false);
+      setAiStatusError("STAFF_ACCESS_DENIED");
+      return () => controller.abort();
+    }
     setAiStatusBusy(true);
     void fetch(`${URL}/functions/v1/generate-content-batch`, {
       method: "POST",
@@ -101,9 +106,9 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
       cache: "no-store",
       signal: controller.signal,
     }).then(async (response) => {
-      if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
+      if (response.status === 401) throw new Error("SESSION_EXPIRED");
       const payload = await response.json().catch(() => ({})) as AiProviderStatus & { success?: boolean };
-      if (!response.ok || payload.success !== true) throw new Error(payload.code ?? "AI_STATUS_UNAVAILABLE");
+      if (!response.ok || payload.success !== true) throw new Error(payload.code ?? (response.status === 403 ? "STAFF_ACCESS_DENIED" : "AI_STATUS_UNAVAILABLE"));
       setAiStatus(payload);
       setAiStatusError("");
     }).catch((cause) => {
@@ -117,7 +122,7 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
       if (!controller.signal.aborted) setAiStatusBusy(false);
     });
     return () => controller.abort();
-  }, [session.accessToken, onSessionExpired]);
+  }, [session.accessToken, session.role, canWrite, onSessionExpired]);
   async function action(name: string, body: Record<string, unknown>) { setBusy(name); setNotice(""); try { const result = await rpc(session, name, body); if (!result.success) throw new Error(result.code ?? "ACTION_REJECTED"); setNotice(message(language, result.code)); setSelected(null); setSecret(""); setAccount(""); onChanged(); } catch (cause) { if (cause instanceof Error && cause.message === "SESSION_EXPIRED") { onSessionExpired(); return; } setNotice(message(language, cause instanceof Error ? cause.message : "ACTION_FAILED")); } finally { setBusy(null); } }
   async function connectOAuth(provider: string) {
     setBusy(provider); setNotice("");
@@ -207,7 +212,7 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
   function open(provider: string) { setSelected(provider); setSecret(""); setAccount(""); setNotice(""); }
   if (!parsed.success) return <div className="error-box">{language === "ar" ? "بيانات التكاملات غير متوافقة؛ لم يتم تنفيذ أي إجراء." : "Integration data is incompatible; no action was performed."}</div>;
   return <div className="integration-center">
-    <div className="integration-intro"><div><p className="eyebrow">{language === "ar" ? "مركز الاتصالات" : "CONNECTION CENTER"}</p><h2>{language === "ar" ? "اربط الخدمات من داخل التطبيق" : "Connect services inside the app"}</h2><p>{language === "ar" ? "القيم السرية تُحفظ في الخادم ولا تظهر كاملة للواجهة. زر الاختبار الحالي يتحقق من الإعداد فقط، ولا ينفذ نشرًا أو رسالة خارجية." : "Secrets are stored server-side and never returned in full. The current test validates configuration only; it does not publish or send externally."}</p></div><span className="integration-safety">{language === "ar" ? "محمية + سجل تدقيق" : "Protected + audited"}</span></div>
+    <div className="integration-intro"><div><p className="eyebrow">{language === "ar" ? "مركز الاتصالات" : "CONNECTION CENTER"}</p><h2>{language === "ar" ? "اربط الخدمات من داخل التطبيق" : "Connect services inside the app"}</h2><p>{language === "ar" ? "القيم السرية تبقى في الخادم. فحوصات الحالة آمنة للقراءة فقط؛ لا تنشر محتوى ولا ترسل رسائل." : "Secrets remain server-side. Status checks are read-only; they do not publish content or send messages."}</p></div><span className="integration-safety">{language === "ar" ? "محمية + سجل تدقيق" : "Protected + audited"}</span></div>
     {notice && <div className="integration-notice" role="status" aria-live="polite">{notice}</div>}
     <section className="integration-card ai-provider-control" aria-labelledby="ai-provider-control-title">
       <header>
