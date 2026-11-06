@@ -547,3 +547,15 @@ This is a **HIGH priority authorization/operational-boundary gap** relative to t
 
 ### No-change confirmation
 This continuation used only catalog reads, function-definition reads, advisor output, and GitHub source inspection. It did not invoke any operational RPC, alter any Production row, create or retry a job, send a message, publish content, change a policy/grant/function/Auth setting, or deploy anything.
+
+### Role allowlist distribution detail
+A follow-up catalog extraction grouped the 55 `is_active_staff(...)` guarded functions by their explicit allowed-role lists:
+- 25: super_admin / admin / content_manager
+- 11: super_admin / admin / reception / coach
+- 10: all five application roles
+- 5: super_admin / admin / content_manager (same set, formatting variant)
+- 2: super_admin / admin / reception
+- 1: super_admin only
+- 1: super_admin / admin / reception / content_manager
+
+The 23 `command_center_staff_role()` guarded functions group into 9 allowing super_admin/admin/coach/content_manager, 9 allowing super_admin/admin/content_manager, and 5 with role checks elsewhere in the body. These are source-level allowlist groupings, not live role-switch tests.
