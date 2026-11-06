@@ -472,10 +472,10 @@ The primary business purpose of Command Center Hub is to let the owner operate t
 
 ### Agreed operating model
 - **Coach Brain is the coordinator/orchestrator**: understands the owner's intent, researches when needed, chooses the next safe workflow, creates the plan, routes work to existing capabilities, compares provider/cost choices, and returns a clear owner decision when required. It is not a second Content Factory or a duplicate agent runtime.
-- **OpenAI**: reasoning, planning, structured decisions, quality review, and orchestration where selected by Coach Brain.
-- **Gemini**: content/media analysis and generation tasks already supported by the existing provider integrations; do not assume a live provider operation is verified merely because credentials exist.
-- **Canva**: design/template population and asset creation through the existing Canva integration.
-- **Runway**: video-generation/editing provider handoff where the existing connection and supported API path permit it; do not claim automatic execution until an end-to-end capability is verified.
+- **OpenAI**: an existing content-generation provider option inside Content Factory where server configuration permits; current Coach Brain research/orchestration is not proven to use OpenAI as its reasoning model.
+- **Gemini**: the verified Coach Brain research path and existing content/media generation integrations; credentials or a successful status check alone do not prove every generation operation works.
+- **Canva**: an existing design integration and `canva-design` execution path; actual readiness depends on valid connection, scopes, and a populated/usable template. Do not claim every design action is currently ready.
+- **Runway**: status/capability entry only in the inspected application state; no end-to-end Runway generation path is proven. Do not describe it as an active video handoff or autonomous video agent.
 - **Content Factory**: the existing execution workspace for content creation; it receives the Coach Brain handoff (userIntent, planStrategy, researchContext, requestedDuration, contentGoal) rather than being rebuilt as another agent.
 - **Media Library / Review / Operations / existing publishing path**: remain the canonical downstream execution stages. Preserve approval and publishing boundaries.
 
@@ -513,7 +513,7 @@ The proposed App Administration area is subordinate to this operating model. It 
 - Tests prove no duplicate task execution, no false success, no unauthorized tool/action, and no loss of the existing workflow.
 
 ### Current implementation gate
-This section records the owner's clarified primary objective and corrects the emphasis of section 28; it does not authorize new tables, runtime infrastructure, provider calls, live actions, or Production changes. The current QA limitation remains: the available Supabase connector exposes project/database and Edge Function operations but no Auth Admin invite/create-user operation, and no Preview deployment exists for the administration branch. Continue safe repository-level work and test-contract design; do not use the Production owner identity as a QA fixture or bypass Supabase Auth.
+This section records the owner's clarified primary objective and corrects the emphasis of section 28; it does not authorize new tables, runtime infrastructure, provider calls, live actions, or Production changes. The current QA limitation remains: the available Supabase connector exposes project/database and Edge Function operations but no Auth Admin invite/create-user operation. Vercel's GitHub bot reported a READY Preview for PR #324 at 13:10 UTC, but the exact deployed commit could not be independently confirmed through the available Vercel read permission; later deployment attempts hit the daily build limit. No authenticated owner-path or role-based QA was performed on that Preview. Do not use the Production owner identity as a QA fixture or bypass Supabase Auth.
 
 ## 30. Coach Brain / Factory as-is implementation baseline — 2026-11-06
 
@@ -612,9 +612,9 @@ The user’s product goal is a coordinated AI workforce with one owner-facing ma
 | Research analyst | Gemini 3.7 Flash + Google Search grounding in `coach-brain-research` | Real research execution path |
 | Marketing strategist | `src/content-strategy.ts`, Coach Brain strategy inputs and plan fields | Embedded strategy logic, not a separate agent process |
 | Content producer | Existing Factory and Gemini/OpenAI provider adapter | Real generation capability through the existing Factory |
-| Visual designer | Existing Canva integration and `canva-design` path | Real connected capability; actual readiness still depends on connection/template diagnostics |
+| Visual designer | Existing Canva integration and `canva-design` path | Integration exists; end-to-end design readiness depends on connection, scopes, template fields, and export verification |
 | Video producer | Existing Google Veo media-generation path and `ai_media_jobs` | Verified provider execution path; not evidence of a separate autonomous agent |
-| Runway video role | Existing Runway capability/status entry | Status-only until a real generation path is demonstrated; do not label active |
+| Runway video role | Existing Runway capability/status entry | Status-only; no verified generation path, so do not label active or claim handoff |
 | Quality reviewer | Existing Factory review flow and `content_items` status `needs_review` | Human review gate; no separate autonomous reviewer proven |
 | Publishing operator | Existing protected publisher/receipts and approval checks | Publishing remains frozen pending new owner authorization; never auto-publish from this task contract |
 | Performance analyst | Existing Radar/Analytics capabilities | Existing analysis surfaces; no general agent execution ledger proven |
