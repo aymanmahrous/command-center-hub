@@ -440,13 +440,42 @@ Deno.serve(async (request) => {
 
   if (body.mode !== "generate" && body.mode !== "sample") return json({ success: false, code: "INVALID_INPUT" }, 400);
   const requestedProvider = body.provider === "openai" || body.provider === "gemini" ? body.provider : "auto";
-  const selectedProvider = requestedProvider === "openai"
+  let autoOpenAIReady = false;
+  let selectedProvider: "gemini" | "openai" | null = requestedProvider === "openai"
     ? (OPENAI_API_KEY ? "openai" : null)
     : requestedProvider === "gemini"
       ? (GEMINI_API_KEY ? "gemini" : null)
-      : (GEMINI_API_KEY ? "gemini" : OPENAI_API_KEY ? "openai" : null);
+      : null;
+  if (requestedProvider === "auto") {
+    const [geminiAvailability, openaiAvailability] = await Promise.all([
+      verifyGeminiCredential(),
+      verifyOpenAICredential(),
+    ]);
+    autoOpenAIReady = openaiAvailability.verified;
+    selectedProvider = geminiAvailability.verified ? "gemini" : openaiAvailability.verified ? "openai" : null;
+    if (!selectedProvider) {
+      return json({
+        success: false,
+        connected: false,
+        code: "AI_PROVIDERS_UNAVAILABLE",
+        detail: "No AI provider passed its read-only availability check.",
+        providers: status.providers,
+        providerChecks: {
+          gemini: { configured: Boolean(GEMINI_API_KEY), externalCheck: geminiAvailability.verified ? "PASSED" : "FAILED" },
+          openai: { configured: Boolean(OPENAI_API_KEY), externalCheck: openaiAvailability.verified ? "PASSED" : "FAILED" },
+        },
+      }, 424);
+    }
+  }
   if (!selectedProvider) {
-    return json({ success: false, connected: false, code: "NEEDS_CREDENTIAL", detail: status.detail, providers: status.providers }, 424);
+    return json({
+      success: false,
+      connected: false,
+      code: "NEEDS_CREDENTIAL",
+      detail: status.detail,
+      provider: requestedProvider,
+      providers: status.providers,
+    }, 424);
   }
 
   const batchNonce = typeof body.batchNonce === "string" && body.batchNonce.trim() ? body.batchNonce.trim() : crypto.randomUUID();
@@ -459,7 +488,7 @@ Deno.serve(async (request) => {
   let actualProvider = selectedProvider;
   let fallbackUsed = false;
   if ("error" in generated && requestedProvider === "auto" && selectedProvider === "gemini"
-    && OPENAI_API_KEY && generated.error.retryable) {
+    && OPENAI_API_KEY && autoOpenAIReady && generated.error.retryable) {
     const primaryError = generated.error;
     const fallback = await callOpenAI(prompt);
     if ("error" in fallback) {
