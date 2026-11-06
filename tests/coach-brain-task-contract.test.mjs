@@ -43,8 +43,9 @@ test("legacy Coach Brain payload is normalized into the canonical task contract"
   assert.equal(normalized?.requestedDuration, 7);
   assert.equal(normalized?.contentGoal, payload.sample.topic);
 
-  // Existing Factory contract remains intact during the migration.
-  assert.equal(normalized?.question, payload.question);
+  // Existing Factory consumes the legacy question field, so the distinct goal
+  // must be carried into that same brief rather than stranded in metadata.
+  assert.equal(normalized?.question, `${payload.question}\nContent goal: ${payload.sample.topic}`);
   assert.equal(normalized?.answer, payload.answer);
   assert.equal(normalized?.planWindowDays, 7);
   assert.equal(normalized?.planMix, "education");
@@ -78,6 +79,7 @@ test("canonical task fields are bounded and malformed handoffs remain rejected",
   assert.equal(normalized?.requestedDuration, 30);
   assert.equal(normalized?.contentGoal.length, 500);
   assert.equal(normalized?.researchContext.summary.length, 4000);
+  assert.ok(normalized?.question.length <= 1600);
 
   assert.equal(writeCoachBrainFactoryHandoff(JSON.stringify({ question: "missing answer" }), {
     sessionStorage: session,
@@ -88,7 +90,6 @@ test("canonical task fields are bounded and malformed handoffs remain rejected",
     localStorage: null,
   }), null);
 });
-
 
 test("canonical-only task contract is adapted into the existing Factory context", () => {
   const session = memoryStorage();
@@ -120,11 +121,31 @@ test("canonical-only task contract is adapted into the existing Factory context"
   assert.equal(normalized?.requestedDuration, 10);
   assert.equal(normalized?.contentGoal, payload.contentGoal);
 
-  // Existing Factory reads these legacy fields; the adapter carries all canonical inputs across.
   assert.equal(normalized?.question, `${payload.userIntent}\nContent goal: ${payload.contentGoal}`);
   assert.equal(normalized?.answer, payload.researchContext.summary);
   assert.deepEqual(normalized?.sources, payload.researchContext.sources);
   assert.equal(normalized?.planWindowDays, 10);
   assert.equal(normalized?.planMix, "education");
   assert.equal(normalized?.planExecution, "best");
+});
+
+test("content goal is not duplicated when already present in the legacy brief", () => {
+  const session = memoryStorage();
+  const payload = {
+    userIntent: "Prepare a swimming campaign",
+    question: "Prepare a swimming campaign\nContent goal: freestyle breathing",
+    answer: "Research summary",
+    contentGoal: "freestyle breathing",
+  };
+
+  assert.equal(writeCoachBrainFactoryHandoff(JSON.stringify(payload), {
+    sessionStorage: session,
+    localStorage: null,
+  }), true);
+  const normalized = readCoachBrainFactoryHandoff({
+    sessionStorage: session,
+    localStorage: null,
+  });
+
+  assert.equal(normalized?.question, payload.question);
 });
