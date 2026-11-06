@@ -441,3 +441,6 @@ Branch: `feat/consolidated-coach-brain-factory-2026-11-06`
 
 ### Current safe point
 Consolidated implementation is prepared on the dedicated branch and awaiting PR-level CI and review. Original PRs #322, #323, and #325 remain unmerged and must not be merged independently.
+
+### Latest CI observation — 2026-11-06
+PR #327 was created successfully and is mergeable at the GitHub metadata level. Both Vercel preview checks currently fail with the explicit `build-rate-limit` account limit; the GitHub Actions workflow-run lookup returned no PR-triggered runs for this head. This is not a code-test pass. PR #327 remains Draft and unmerged. The original #322/#323/#325 now carry explicit comments that they must not be merged independently; #323 was converted back to Draft. Continue with an available independent verification path or wait for the Vercel build quota reset; do not bypass the limit or deploy production.
