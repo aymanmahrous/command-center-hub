@@ -24,6 +24,7 @@ import { ContentBatchReviewPanel } from "./content-batch-review-panel";
 import { fetchCanvaDesignStatus } from "./canva-design-adapter";
 import { assessCanvaReadiness, formatCanvaDiagnosticDetails, type CanvaStatusDiagnostic } from "./canva-readiness";
 import { clearCoachBrainFactoryHandoff, readCoachBrainFactoryHandoff } from "./coach-brain-factory-handoff";
+import { readAiProviderPreference, writeAiProviderPreference } from "./ai-provider-preference";
 import { useLanguage } from "./i18n";
 import { MEDIA_FACTORY_HANDOFF_KEY, parseMediaFactoryHandoff, type MediaFactoryHandoff } from "./media-factory-handoff";
 import "./content-growth-hub.css";
@@ -180,7 +181,7 @@ export default function ContentGrowthHub({
   const [canvaDesignStatus, setCanvaDesignStatus] = useState<CanvaStatusDiagnostic | null>(null);
   const [generateNotice, setGenerateNotice] = useState("");
   const [generating, setGenerating] = useState(false);
-  const [batchAiProvider, setBatchAiProvider] = useState<BatchAiProvider>("auto");
+  const [batchAiProvider, setBatchAiProvider] = useState<BatchAiProvider>(() => readAiProviderPreference());
   const handoffParams = new URLSearchParams(window.location.search);
   const storedCoachBrainHandoff = readCoachBrainFactoryHandoff();
   const [coachBrainContext, setCoachBrainContext] = useState<CoachBrainFactoryContext | null>(() => {
@@ -591,8 +592,12 @@ export default function ContentGrowthHub({
         </p>
         <label className="batch-ai-provider">
           <span>{language === "ar" ? "مزود الذكاء" : "AI provider"}</span>
-          <select value={batchAiProvider} onChange={(event) => setBatchAiProvider(event.target.value as BatchAiProvider)} disabled={generating || panelBusy}>
-            <option value="auto">{language === "ar" ? "تلقائي — الأفضل المتاح" : "Auto — best available"}</option>
+          <select value={batchAiProvider} onChange={(event) => {
+            const next = event.target.value as BatchAiProvider;
+            setBatchAiProvider(next);
+            writeAiProviderPreference(next);
+          }} disabled={generating || panelBusy}>
+            <option value="auto">{language === "ar" ? "تلقائي — الأفضل المتاح" : "Auto — fallback on provider outage"}</option>
             <option value="gemini">Gemini</option>
             <option value="openai">OpenAI</option>
           </select>
