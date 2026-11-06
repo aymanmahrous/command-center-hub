@@ -635,21 +635,14 @@ export default function ContentGrowthHub({
           <p>{copy.integrationsEyebrow}</p>
           <h3 id="integration-status-heading">{copy.integrationsTitle}</h3>
         </header>
-        <div className="integration-grid">
-          {integrations.map((integration) => (
-            <article key={integration.key} className={integration.connected ? "connected" : integration.key === "canva" ? "optional" : "disconnected"}>
-              <strong>{copy.integrationLabels[integration.key]}</strong>
-              <small>{displayCapabilityState(integration.capabilityState, language)} · {integration.key === "canva" ? copy.optionalNotConnected : integration.connected ? copy.connected : copy.notConnected}</small>
-              <small>{integration.detail}</small>
-            </article>
-          ))}
-        </div>
-        <p className="batch-meta">{copy.integrationsNote}</p>
         <p className="batch-meta" role="status">
           {language === "ar"
-            ? "إدارة اتصال Canva ومصادر الوسائط تتم من مكتبة الوسائط فقط؛ هذه الصفحة تعرض الحالة ولا تنشئ نقطة اتصال ثانية."
-            : "Canva and media-source connections are managed only in Media Library; this page shows status without creating a second connection control."}
+            ? "حالة الاتصالات وإدارتها موجودة في مركز الاتصالات الموحد. لن نعرض هنا حالة ثانية مبنية على بيانات تشغيل الأتمتة؛ لأنها ليست مصدر حالة الربط."
+            : "Connection status and management live in the single Connections Center. This screen will not show a second status list derived from automation-run data, which is not a connection source."}
         </p>
+        <button type="button" className="secondary" onClick={() => window.dispatchEvent(new CustomEvent("command-center:navigate", { detail: { section: "connections" } }))}>
+          {language === "ar" ? "فتح مركز الاتصالات" : "Open Connections Center"}
+        </button>
       </section>}
 
       {activeFactoryTab === "strategy" && <section id="content-strategy" className="content-growth-section" aria-labelledby="strategy-mix-heading">
