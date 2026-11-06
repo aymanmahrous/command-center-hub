@@ -117,10 +117,10 @@ function normalizeHandoff(value: unknown): CoachBrainFactoryHandoff | null {
 
   // Keep the legacy Factory fields as an adapter so existing generation stays unchanged.
   // Canonical-only handoffs carry the content goal into the existing Factory brief.
-  const hasCanonicalGoal = typeof raw.contentGoal === "string" && raw.contentGoal.trim().length > 0;
-  const question = hasCanonicalGoal && contentGoal !== userIntent
-    ? `${userIntent}\nContent goal: ${contentGoal}`
+  const questionFallback = contentGoal !== userIntent
+    ? `${userIntent}\\nContent goal: ${contentGoal}`
     : userIntent;
+  const question = boundedString(raw.question, questionFallback, 1000);
   const answer = researchSummary;
 
   return {
