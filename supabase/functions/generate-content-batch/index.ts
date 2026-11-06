@@ -461,8 +461,8 @@ Deno.serve(async (request) => {
         detail: "No AI provider passed its read-only availability check.",
         providers: status.providers,
         providerChecks: {
-          gemini: { configured: Boolean(GEMINI_API_KEY), externalCheck: geminiAvailability.verified ? "PASSED" : "FAILED" },
-          openai: { configured: Boolean(OPENAI_API_KEY), externalCheck: openaiAvailability.verified ? "PASSED" : "FAILED" },
+          gemini: { configured: Boolean(GEMINI_API_KEY), externalCheck: !GEMINI_API_KEY ? "NOT CONFIGURED" : geminiAvailability.verified ? "PASSED" : "FAILED" },
+          openai: { configured: Boolean(OPENAI_API_KEY), externalCheck: !OPENAI_API_KEY ? "NOT CONFIGURED" : openaiAvailability.verified ? "PASSED" : "FAILED" },
         },
       }, 424);
     }
