@@ -27,7 +27,7 @@ test("Auto never selects Gemini as fallback; Canva requires READY and Gemini rem
   assert.match(panel, /resolveDesignProvider\(requestedProvider/);
   assert.match(panel, /designCapabilityState === "AVAILABLE"/);
   assert.match(panel, /if \(provider === "gemini"\)/);
-  assert.match(panel, /label: "Gemini Image", available: !isVideo/);
+  assert.match(panel, /Gemini Image API — separate billing/);
   assert.match(panel, /key: "canva" as const, label: "Canva", available: !isVideo && designCapabilityState === "AVAILABLE"/);
 });
 
@@ -67,7 +67,7 @@ test("generated image is stored as a reviewable asset, not published", () => {
 });
 
 test("Factory exposes Gemini image generation, confirms cost, and links the asset for review", () => {
-  assert.match(panel, /label: "Gemini Image", available: !isVideo/);
+  assert.match(panel, /Gemini Image API — separate billing/);
   assert.match(panel, /window\.confirm\(language === "ar"/);
   assert.match(panel, /generateGeminiImageForContentItem\(session, item\)/);
   assert.match(panel, /await linkMediaToItem\(item\.id, generated\.mediaAssetId\)/);
