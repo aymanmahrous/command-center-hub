@@ -538,3 +538,38 @@ This section records the owner's clarified primary objective and corrects the em
 3. Reuse existing batch IDs, audit records, and execution receipts to display truthful task progress where possible; add no new table/queue until the source audit proves no reusable lifecycle record exists.
 4. Surface the existing provider decision and capability truth in Coach Brain/Factory without duplicating Integrations controls; clearly distinguish OpenAI/Gemini content providers, Canva design, and Veo video generation from Runway's current status-only capability.
 5. Verify in isolated QA and Preview. Keep all publish, schedule, WhatsApp, Meta, OAuth, and Production actions frozen unless separately authorized.
+
+
+## 31. Coach Brain Task Contract — implementation and queue reality check (2026-11-06)
+
+### Implementation delivered on a separate feature branch
+- Feature PR: https://github.com/aymanmahrous/command-center-hub/pull/325
+- Branch: `feat/coach-brain-task-contract-2026-11-06`
+- Latest verified head at handoff update: `0de6683e8bb20de63b53ef456118f73736ef0313`.
+- Files changed: `src/coach-brain-factory-handoff.ts` and `tests/coach-brain-task-contract.test.mjs`.
+- The existing handoff key and session/local storage fallback are preserved.
+- The five canonical fields are now normalized and bounded: `userIntent`, `planStrategy`, `researchContext`, `requestedDuration`, and `contentGoal`.
+- A compatibility adapter maps canonical-only payloads into the legacy fields already consumed by Content Factory. Existing legacy payloads remain readable and retain their prior question/answer/source fields.
+- No Factory generation, provider call, task execution, publish, or schedule is triggered by normalization.
+
+### Verification evidence
+- GitHub Actions — Verify Command Center, run #894: SUCCESS.
+- `npm run typecheck`: PASS.
+- `npm test`: 387/387 PASS.
+- `npm run build`: PASS.
+- Vercel checks remain blocked by the account build-rate limit (`upgradeToPro=build-rate-limit`); no Preview deployment was created. This is not a code-test failure.
+- PR #325 remains Draft and unmerged. No Production deployment or promotion occurred.
+
+### Read-only Production queue inspection — reuse decision
+- `background_jobs` already has durable `queued / processing / completed / failed / retrying / dead` states, JSON payload/result, attempt count, retry time, and timestamps. RLS is enabled; direct table reads have no row policies, while service-role access exists.
+- Its observed live job types are `generate_content_media`, `publish_content`, and `radar_hot_opportunity`. Existing claim/complete/fail/retry functions and workers are purpose-built around content media and publishing; do not insert Coach Brain tasks into this queue without a separately reviewed job type, worker, authorization, and idempotency contract.
+- Read-only live counts at inspection time: 119 completed content-media jobs; publish jobs 12 completed, 53 dead, 10 processing, 50 queued; 4 queued radar jobs. These records were not changed.
+- `content_automation_runs` is the existing automation-pulse run history (7,021 completed, 84 partial at inspection time), not a general per-agent task ledger.
+- `ai_media_jobs` is provider-media-specific (one Google Veo succeeded record at inspection time), not a multi-agent ledger.
+- No general Coach Brain / multi-agent task ledger was identified. Existing batch IDs, media jobs, automation runs, audit logs, and publication receipts each cover narrower operational lifecycles.
+
+### Decision and next safe point
+- Keep the delivered handoff contract; do not create a second handoff, queue, task table, or agent dashboard at this stage.
+- The next implementation design must first define the actual agent responsibilities and permitted actions, then prove whether the existing `background_jobs` queue can safely host a distinct Coach Brain task type without interfering with the protected publishing/media workers. If it cannot, document the smallest isolated alternative before any schema change.
+- Isolated QA identity and Preview remain required before any database/RPC/Edge Function change or Production release.
+- Protected boundaries remain unchanged: publishing freeze, owner approval, WhatsApp, Meta, OAuth, credentials, and Production.
