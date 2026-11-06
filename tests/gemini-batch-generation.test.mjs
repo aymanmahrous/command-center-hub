@@ -145,5 +145,7 @@ test("one owner provider preference is shared by Connections, Factory and Coach 
   assert.match(connections, /ai_provider", "meta_whatsapp", "telegram"/);
   assert.match(hub, /readAiProviderPreference/);
   assert.match(hub, /writeAiProviderPreference/);
+  assert.match(hub, /command-center:navigate/);
+  assert.doesNotMatch(hub, /integrations\.map/);
   assert.match(coachBrain, /readAiProviderPreference/);
 });
