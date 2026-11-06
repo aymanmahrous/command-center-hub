@@ -438,7 +438,7 @@ Deno.serve(async (request) => {
       externalCheck: GEMINI_API_KEY ? (geminiCheck.verified ? "PASSED" : "FAILED") : "NOT RUN",
       functionVerified: false,
       integrationStatus: externallyVerified ? "EXTERNAL CHECK VERIFIED" : status.integrationStatus,
-      detail: `Gemini: ${providerChecks.gemini.externalCheck}. OpenAI: ${providerChecks.openai.externalCheck}. These are read-only credential checks; generation has not been run.`,
+      detail: `Gemini: ${providerChecks.gemini.externalCheck}. OpenAI: ${providerChecks.openai.externalCheck}. These are read-only credential checks. Batch generation has not been run.`,
       code: externallyVerified ? "EXTERNAL_CHECK_PASSED" : status.code,
       credentialEnvVars: ["GEMINI_API_KEY", "OPENAI_API_KEY"],
       provider: geminiCheck.verified ? "gemini" : openaiCheck.verified ? "openai" : status.provider,
