@@ -26,3 +26,11 @@ test("Coach Brain emits the complete canonical task contract at the existing Fac
   assert.match(coachBrain, /planWindowDays: requestedDuration/);
   assert.match(handoff, /COACH_BRAIN_FACTORY_HANDOFF_KEY = "coach-brain-factory-handoff"/);
 });
+
+test("Coach Brain only offers execution choices that have real provider routing", () => {
+  assert.match(coachBrain, /useState<"best" \| "value">\("best"\)/);
+  assert.match(coachBrain, /<option value="best">/);
+  assert.match(coachBrain, /<option value="value">Gemini<\/option>/);
+  assert.doesNotMatch(coachBrain, /<option value="(library|design|manual)">/);
+  assert.match(coachBrain, /planExecution === "value" \? "gemini" : "auto"/);
+});
