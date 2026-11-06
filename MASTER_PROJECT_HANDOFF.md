@@ -545,20 +545,21 @@ This section records the owner's clarified primary objective and corrects the em
 ### Current feature implementation
 - Feature PR: https://github.com/aymanmahrous/command-center-hub/pull/325
 - Branch: `feat/coach-brain-task-contract-2026-11-06`
-- Current reviewed head: `dbec6221df56cd7dfa50449f726da20d23f1d6bd`.
+- Current reviewed head: `ccf00c9f95f0160a66d58f05be123316a9967e63`.
 - Five files are changed: the existing handoff adapter, Coach Brain producer, and three focused test files.
 - The five canonical fields are normalized and bounded: `userIntent`, `planStrategy`, `researchContext`, `requestedDuration`, and `contentGoal`. The producer emits them directly and retains the legacy fields and existing storage key for compatibility.
 - Review found that the Factory reads the legacy `question` field; because the producer also emitted `question`, a distinct `contentGoal` could be stranded in metadata. The adapter now carries the content goal into the bounded Factory brief even when a legacy question is present, without duplicating a goal already included.
-- Review also found that Coach Brain displayed three execution options (`library`, `design`, `manual`) that had no matching provider-routing behavior. Those unsupported choices were removed. The owner now sees only the actual supported choices: automatic provider selection or Gemini. The Factory retains its existing provider selector for Gemini/OpenAI.
+- Review also found that Coach Brain displayed three execution options (`library`, `design`, `manual`) that had no matching provider-routing behavior. Those unsupported choices were removed. The owner now sees only supported choices: automatic routing or Gemini. Both Coach Brain and Factory describe automatic routing truthfully: Gemini is selected when its server key is configured; otherwise OpenAI is selected. This is not a cost-aware comparison or runtime failover.
+- Storage safety was also tightened: a failed write in one browser store removes its stale shadow copy when possible; Coach Brain reads back the handoff timestamp and refuses navigation if the current task was not verified. The owner receives a clear error instead of a false handoff.
 - No new handoff key, task queue, database table, Edge Function, provider invocation, generation, publish, or schedule was added by these fixes.
 
 ### Latest verification — current head
-- GitHub Actions Verify Command Center run #912: SUCCESS.
+- GitHub Actions Verify Command Center run #923: SUCCESS.
 - `npm ci --ignore-scripts --no-audit --no-fund`: PASS.
 - `npm run typecheck`: PASS.
-- `npm test`: **390/390 PASS**, 0 failed.
+- `npm test`: **393/393 PASS**, 0 failed.
 - `npm run build`: PASS, including the existing performance-budget check.
-- CodeQL, Analyze (actions), and Analyze (javascript-typescript): SUCCESS.
+- CodeQL: NEUTRAL (not a failure); Analyze (actions) and Analyze (javascript-typescript) were still completing at the time of this update.
 - Supabase Preview check: SKIPPED because this Git branch is not associated with a Supabase Branch; no Supabase Preview database was created.
 - Vercel's GitHub bot reported READY Preview deployments on PR #325 at 14:27 UTC for the earlier checkpoint before the review-fix commits. The exact deployed SHA could not be independently confirmed with the available Vercel read permission. The current reviewed head `dbec622...` has no confirmed Preview deployment; subsequent Vercel attempts returned the account's daily deployment limit. No authenticated owner-path runtime test has been performed.
 
@@ -643,18 +644,22 @@ The user’s product goal is a coordinated AI workforce with one owner-facing ma
 
 ### Review findings repaired on PR #325
 - The real Factory consumer reads the backward-compatible research fields; a distinct `contentGoal` was not reaching its actual prompt when the producer also supplied `question`. The adapter now includes that goal in the bounded brief and avoids duplication.
-- Coach Brain offered Library, Design, and Manual execution choices although the current execution code only routed Automatic and Gemini. The unsupported choices were removed; the visible choices now match actual behavior.
-- Added regression tests for content-goal propagation, duplicate avoidance, and truthful execution options.
+- Coach Brain previously offered Library, Design, and Manual execution choices although the current execution code only routed Automatic and Gemini. Those unsupported choices were removed.
+- A failed browser-storage write could leave an older session value shadowing a successful local fallback. The writer now removes the stale copy when possible, and Coach Brain verifies the stored task timestamp before navigating to Factory. A failed verification stays on Coach Brain and displays an error.
+- The automatic provider label previously claimed “best available”. Source inspection proves it is a fixed rule: choose Gemini if `GEMINI_API_KEY` is configured; otherwise choose OpenAI. It does not compare provider prices or quality and does not fail over to OpenAI after a configured Gemini request fails. Both owner-facing labels now state the actual configured-key rule.
+- The OpenAI model default `gpt-6-luna` is a valid current OpenAI API model ID. Public pricing checked on 2026-11-06 lists GPT-6 Luna at $0.10 input / $0.50 output per million tokens, while Gemini 3.8 Flash is $0.75 / $3.75 through 2026-12-31 and rises to $1.50 / $7.50 from 2027-01-01. Token prices alone do not prove total task cost or output quality; Search grounding, actual token usage, provider readiness, and quality must be included in a measured comparison. Do not change the provider routing until a bounded, owner-approved QA comparison is run.
+- No live provider request or paid generation was invoked during this review.
 
 ### Verification
-- Current PR #325 head: `dbec6221df56cd7dfa50449f726da20d23f1d6bd`.
-- Verify run #912: `npm ci`, typecheck, 390/390 tests, build, and performance budget all passed.
-- CodeQL and both Analyze jobs passed.
+- Current PR #325 head: `ccf00c9f95f0160a66d58f05be123316a9967e63`.
+- Verify run #923: `npm ci`, typecheck, **393/393 tests**, build, and performance budget passed.
+- CodeQL reported NEUTRAL (not a failure); the two Analyze jobs were still completing at the time of this update.
 - Supabase Preview was skipped because the branch is not attached to a Supabase database branch.
-- Vercel Preview was reported READY for the earlier PR checkpoint only; the current head has no confirmed Preview. Runtime/owner-path QA remains outstanding.
-- PR #325 is still Draft/open/unmerged. PR #324 remains open and unmerged.
+- Vercel Preview was reported READY for an earlier PR checkpoint only; the current head has no confirmed Preview. The daily deployment limit prevents another attempt. Runtime/owner-path QA remains outstanding.
+- PR #325 remains Draft/open/unmerged. PR #324 remains open/unmerged.
 
 ### Boundaries and next safe point
 - No Production deploy, merge, database write/migration, Edge Function deploy, provider generation, Meta/Instagram/Facebook publication, WhatsApp message, OAuth change, or credential change occurred.
-- The current feature is code-verified but not runtime-verified on the latest head.
-- Next safe phase: define the real execution lifecycle for the functional responsibilities using the existing batch ID, review status, media jobs, audit trail, and receipts. Do not create a new queue/table or claim independent agents until the evidence proves a genuine gap and the smallest design is reviewed.
+- The Coach Brain → Factory contract and safeguards are code-verified, not runtime-verified on the latest head.
+- Next safe phase: define the real execution lifecycle for each responsibility using the existing batch ID, review status, media jobs, audit trail, and receipts. Do not create a new queue/table or claim independent agents until evidence proves a genuine gap and the smallest design is reviewed.
+- The provider-cost decision is a separate controlled test: verify which keys are configured without exposing them, compare a small representative content sample on the two providers with a strict spend cap, and assess quality before changing automatic routing.
