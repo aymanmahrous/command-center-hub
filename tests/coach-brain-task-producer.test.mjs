@@ -34,3 +34,11 @@ test("Coach Brain only offers execution choices that have real provider routing"
   assert.doesNotMatch(coachBrain, /<option value="(library|design|manual)">/);
   assert.match(coachBrain, /planExecution === "value" \? "gemini" : "auto"/);
 });
+
+test("Coach Brain verifies the stored handoff before navigating to Factory", () => {
+  assert.match(coachBrain, /const saved = writeCoachBrainFactoryHandoff\(handoff\)/);
+  assert.match(coachBrain, /const restored = readCoachBrainFactoryHandoff\(\)/);
+  assert.match(coachBrain, /restored\.createdAt !== createdAt/);
+  assert.match(coachBrain, /setError\(t\.handoffSaveError\)/);
+  assert.ok(coachBrain.indexOf("restored.createdAt !== createdAt") < coachBrain.indexOf('url.searchParams.set("section", "content")'));
+});
