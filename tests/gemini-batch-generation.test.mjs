@@ -77,8 +77,8 @@ test("Gemini creative output cannot override main slots, CTAs, security checks o
   assert.match(hub, /generated\.contentSlot === canonical\.contentSlot/);
   assert.match(hub, /generated\.cta === canonical\.cta/);
   assert.match(hub, /validateCoachAymanBatch\(merged\)\.valid/);
-  assert.match(hub, /const validatedAiItems = await mergeValidatedGeminiCreativeFields\\(geminiItems, windowedCanonicalItems, batchNonce\\)/);
-  assert.match(hub, /const items = validatedAiItems \\?\\? windowedCanonicalItems/);
+  assert.match(hub, /const validatedAiItems = await mergeValidatedGeminiCreativeFields\(geminiItems, windowedCanonicalItems, batchNonce\)/);
+  assert.match(hub, /const items = validatedAiItems \?\? windowedCanonicalItems/);
   assert.match(hub, /usedAiGeneration = validatedAiItems !== null/);
   assert.match(edge, /context may influence only topic, hook, captionBody, and visualPrompt/i);
 });
