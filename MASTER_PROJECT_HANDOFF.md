@@ -600,3 +600,28 @@ This section records the owner's clarified primary objective and corrects the em
 - Re-read the current Factory consumer and its batch-save RPC before adding task tracking. Current verified path remains Coach Brain → existing browser handoff → Factory → `create_staff_generated_content_batch` → `content_items` with `needs_review`.
 - A new task ledger/queue or an autonomous multi-agent runtime is not authorized by the current evidence. First prove whether existing batch IDs, audit logs, media jobs, and receipts can represent the needed progress without changing the publishing workflow.
 - Latest producer wiring remains Draft pending a fresh CI run and isolated Preview/QA. No merge, Production deployment, provider execution, content publishing, or database mutation occurred.
+
+
+## 33. Functional AI workforce map — implementation target, not a false agent claim (2026-11-06)
+
+The user’s product goal is a coordinated AI workforce with one owner-facing manager. The current repository proves a set of capabilities and handoffs, not a fleet of independently running agents. Implement the following responsibilities behind Coach Brain while preserving that distinction:
+
+| Responsibility | Existing implementation/evidence | Truthful current state |
+|---|---|---|
+| Orchestrator / owner interface | `src/coach-brain.tsx`, `coach-brain-research`, shared Factory handoff | Existing primary interface; no general autonomous agent runtime |
+| Research analyst | Gemini 3.7 Flash + Google Search grounding in `coach-brain-research` | Real research execution path |
+| Marketing strategist | `src/content-strategy.ts`, Coach Brain strategy inputs and plan fields | Embedded strategy logic, not a separate agent process |
+| Content producer | Existing Factory and Gemini/OpenAI provider adapter | Real generation capability through the existing Factory |
+| Visual designer | Existing Canva integration and `canva-design` path | Real connected capability; actual readiness still depends on connection/template diagnostics |
+| Video producer | Existing Google Veo media-generation path and `ai_media_jobs` | Verified provider execution path; not evidence of a separate autonomous agent |
+| Runway video role | Existing Runway capability/status entry | Status-only until a real generation path is demonstrated; do not label active |
+| Quality reviewer | Existing Factory review flow and `content_items` status `needs_review` | Human review gate; no separate autonomous reviewer proven |
+| Publishing operator | Existing protected publisher/receipts and approval checks | Publishing remains frozen pending new owner authorization; never auto-publish from this task contract |
+| Performance analyst | Existing Radar/Analytics capabilities | Existing analysis surfaces; no general agent execution ledger proven |
+
+### Product rule
+- Coach Brain is the single coordinator and owner-facing entry point.
+- Each responsibility may be implemented by a model, tool, existing application logic, or human approval. UI labels must state which one it is; do not market every integration as an autonomous agent.
+- Agent/task tracking must show actual input, responsible capability, output/reference ID, status, and whether owner approval is required.
+- No parallel agent dashboard or duplicate provider/connection center. Surface the role and task state within Coach Brain and link to the existing execution screen when action is required.
+- No background agent execution, new queue, database ledger, publishing automation, or provider invocation is authorized by this documentation map alone.
