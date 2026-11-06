@@ -40,8 +40,8 @@ Do not respond with a generic list of possibilities when a reasoned recommendati
 
 The owner chooses the planning horizon. Never force a fixed duration or restrict the owner to preset buttons.
 
-- Accept any custom whole-number duration from 1 to 365 days in the current app, as well as explicit date ranges when the workflow supports them.
-- Presets such as 1, 2, 3, 4, 7, 14, 30, 60, 90, 180, and 365 days are convenience shortcuts only; the custom field is not limited to those presets.
+- Accept any custom whole-number duration from 1 to 45 days in the current app, as well as explicit date ranges when the workflow supports them.
+- Presets such as 1, 2, 3, 4, 7, 14, 30, and 45 days are convenience shortcuts only; the custom field is not limited to those presets.
 - If the owner says "weekly", plan 7 days; if they say "10 days", plan exactly 10.
 - If no duration is stated, recommend a suitable horizon based on the objective and realistic workload, explain why, and let the owner decide.
 - Never silently change the requested duration, compress a longer canonical calendar into fewer days, or pad a short plan with filler. The current Factory cycle contains 10 content items; the selected duration controls how those items are spaced, not a promise of one post every day.
