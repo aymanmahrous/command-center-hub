@@ -546,7 +546,7 @@ This section records the owner's clarified primary objective and corrects the em
 - Feature PR: https://github.com/aymanmahrous/command-center-hub/pull/325
 - Branch: `feat/coach-brain-task-contract-2026-11-06`
 - Current reviewed head: `3e3bd216f7148521bbeacae10d4686d9db605d04`.
-- Five files are changed: the existing handoff adapter, Coach Brain producer, and three focused test files.
+- Seven files are changed: three source files (handoff adapter, Coach Brain producer, and Factory provider label) plus four focused test files.
 - The five canonical fields are normalized and bounded: `userIntent`, `planStrategy`, `researchContext`, `requestedDuration`, and `contentGoal`. The producer emits them directly and retains the legacy fields and existing storage key for compatibility.
 - Review found that the Factory reads the legacy `question` field; because the producer also emitted `question`, a distinct `contentGoal` could be stranded in metadata. The adapter now carries the content goal into the bounded Factory brief even when a legacy question is present, without duplicating a goal already included.
 - Review also found that Coach Brain displayed three execution options (`library`, `design`, `manual`) that had no matching provider-routing behavior. Those unsupported choices were removed. The owner now sees only supported choices: automatic routing or Gemini. Both Coach Brain and Factory describe automatic routing truthfully: Gemini is selected when its server key is configured; otherwise OpenAI is selected only if its key is configured. If neither key is configured, the request stops with `NEEDS_CREDENTIAL`. This is not a cost-aware comparison or runtime failover.
@@ -559,9 +559,9 @@ This section records the owner's clarified primary objective and corrects the em
 - `npm run typecheck`: PASS.
 - `npm test`: **393/393 PASS**, 0 failed.
 - `npm run build`: PASS, including the existing performance-budget check.
-- CodeQL: NEUTRAL (not a failure); Analyze (actions): SUCCESS; Analyze (javascript-typescript): still running at the time of this update.
+- CodeQL: SUCCESS; Analyze (actions): SUCCESS; Analyze (javascript-typescript): SUCCESS.
 - Supabase Preview check: SKIPPED because this Git branch is not associated with a Supabase Branch; no Supabase Preview database was created.
-- Vercel's GitHub bot reported READY Preview deployments on PR #325 at 14:27 UTC for the earlier checkpoint before the review-fix commits. The exact deployed SHA could not be independently confirmed with the available Vercel read permission. The current reviewed head `dbec622...` has no confirmed Preview deployment; subsequent Vercel attempts returned the account's daily deployment limit. No authenticated owner-path runtime test has been performed.
+- Vercel's deployment inventory confirms a READY Preview for this branch at commit `35078db01f3a6ccbe77cbe32563798a5ea425a27` (deployment `dpl_7AW48fTaZPTwz3qQdhdNJxorLaqK`, 14:25:43 UTC). This is older than current head `3e3bd216...`; a direct lookup for the current head returned zero deployments. Later PR deployment attempts failed with `api-deployments-free-per-day` (more than 100 deployments/day). No authenticated owner-path runtime test has been performed.
 
 ### Read-only Production queue inspection — reuse decision
 - `background_jobs` already has durable `queued / processing / completed / failed / retrying / dead` states, JSON payload/result, attempt count, retry time, and timestamps. RLS is enabled; direct table reads have no row policies, while service-role access exists.
@@ -653,7 +653,7 @@ The user’s product goal is a coordinated AI workforce with one owner-facing ma
 ### Verification
 - Current PR #325 head: `3e3bd216f7148521bbeacae10d4686d9db605d04`.
 - Verify run #926: `npm ci`, typecheck, **393/393 tests**, build, and performance budget passed.
-- CodeQL reported NEUTRAL (not a failure); Analyze (actions) passed and Analyze (javascript-typescript) was still completing at the time of this update.
+- CodeQL: SUCCESS; Analyze (actions): SUCCESS; Analyze (javascript-typescript): SUCCESS.
 - Supabase Preview was skipped because the branch is not attached to a Supabase database branch.
 - Vercel Preview is READY only for the older commit `35078db01f3a6ccbe77cbe32563798a5ea425a27`; the current head has no deployment. Vercel later reported the daily deployment cap (`api-deployments-free-per-day`, more than 100/day). The PR bot also referenced a second project named `command-center-hub-m3s5`, but the current Vercel project inventory lists only `command-center-hub` and the second project lookup returned not found; this discrepancy is unresolved and neither project was changed. Runtime/owner-path QA remains outstanding.
 - PR #325 remains Draft/open/unmerged. PR #324 remains open/unmerged.
