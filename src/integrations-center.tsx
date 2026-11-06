@@ -258,8 +258,8 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
         ? "هذا الاختيار يُحفظ على هذا الجهاز فقط، ولا يحفظ أي مفاتيح. يؤثر على عينات المحتوى ومصنع المحتوى؛ بحث Coach Brain الحالي يستخدم Gemini."
         : "This preference is saved on this device only and stores no keys. It affects content samples and Factory generation; Coach Brain research currently uses Gemini."}</p>
       <p className="batch-meta">{language === "ar"
-        ? "التبديل التلقائي يستخدم البديل عند فشل الشبكة أو عطل الخادم المؤقت. لا يبدّل تلقائيًا عند خطأ المفتاح أو حد الاستخدام؛ لتجنب تكلفة غير متوقعة."
-        : "Automatic fallback is limited to network or temporary server failures. It does not switch on credential or usage-limit errors, avoiding unexpected provider charges."}</p>
+        ? "التبديل التلقائي يستخدم البديل عند فشل الشبكة أو عطل الخادم المؤقت. لا يبدّل تلقائيًا عند خطأ المفتاح أو حد الاستخدام. وقد يرسل محاولة ثانية للمزود البديل؛ وأي استخدام يخضع لفوترة ذلك المزود."
+        : "Automatic fallback is limited to network or temporary server failures. It does not switch on credential or usage-limit errors. A fallback may send a second request, which is subject to the alternate provider's billing."}</p>
       <p className="batch-meta">{language === "ar"
         ? "فحص الاتصال لا يثبت نجاح التوليد الفعلي. لا يتم تشغيل أي توليد من هذه الشاشة."
         : "A connection check does not prove generation works. This screen never starts generation."}</p>
