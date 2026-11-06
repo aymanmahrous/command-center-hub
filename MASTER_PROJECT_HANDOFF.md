@@ -625,3 +625,16 @@ The user’s product goal is a coordinated AI workforce with one owner-facing ma
 - Agent/task tracking must show actual input, responsible capability, output/reference ID, status, and whether owner approval is required.
 - No parallel agent dashboard or duplicate provider/connection center. Surface the role and task state within Coach Brain and link to the existing execution screen when action is required.
 - No background agent execution, new queue, database ledger, publishing automation, or provider invocation is authorized by this documentation map alone.
+
+
+## 34. Latest Coach Brain handoff verification — 2026-11-06 16:00 UTC
+
+- Latest feature head: `6cb303c4d9e5401d2f8bd7c1871a06e2df0b81c6`.
+- GitHub Actions Verify Command Center run #906 completed successfully.
+- `npm ci --ignore-scripts --no-audit --no-fund`: PASS.
+- `npm run typecheck`: PASS.
+- `npm test`: 388/388 PASS, 0 failed.
+- `npm run build`: PASS.
+- The first producer-wiring run #903 exposed one stale source-pattern test that still expected the old inline `answer: result?.answer?.slice(...)` expression. The implementation now names the canonical `researchSummary`; the test was updated to assert the new variable and legacy adapter. The next run #906 passed all checks.
+- Vercel Preview checks still fail at the account build-rate limit (`upgradeToPro=build-rate-limit`); this is external to the successful GitHub code verification. No Preview or Production deployment was created.
+- PR #325 remains Draft, open, and unmerged. The new handoff contract and producer wiring are code-verified but not runtime-verified in Preview/isolated QA.
