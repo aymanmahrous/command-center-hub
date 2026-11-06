@@ -1,16 +1,24 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { useLanguage } from "./i18n";
 import type { Language } from "./i18n";
 import { CANVA_OPEN_URL, canvaConnectErrorMessage, startCanvaConnect } from "./canva-adapter";
 import { googleCalendarConnectErrorMessage, startGoogleCalendarConnect } from "./google-calendar-adapter";
 import { metaOAuthErrorMessage } from "./meta-oauth-error-message";
+import { readAiProviderPreference, writeAiProviderPreference, type AiProviderPreference } from "./ai-provider-preference";
 import "./integrations-center.css";
 
 type Role = "super_admin" | "admin" | "reception" | "coach" | "content_manager";
 type Session = { accessToken: string; displayName: string; role: Role };
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 type CapabilityState = "AVAILABLE" | "LIMITED" | "BLOCKED" | "NOT_CONFIGURED";
+type AiProviderName = "gemini" | "openai";
+type AiProviderStatus = {
+  providers?: Partial<Record<AiProviderName, boolean>>;
+  providerChecks?: Partial<Record<AiProviderName, { configured?: boolean; externalCheck?: string; providerStatus?: number }>>;
+  detail?: string;
+  code?: string;
+};
 const URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
 const KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
 const Item = z.object({ id: z.string().uuid(), provider: z.string(), connectionMethod: z.enum(["oauth", "api_key", "manual"]), status: z.enum(["not_connected", "pending", "connected", "needs_test", "error", "disabled"]), displayName: z.string(), accountLabel: z.string().nullable().optional(), secretHint: z.string().nullable().optional(), lastTestedAt: z.string().nullable().optional(), lastErrorCode: z.string().nullable().optional(), updatedAt: z.string() }).passthrough();
@@ -74,8 +82,42 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
   const [account, setAccount] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
-  const items = parsed.success ? (parsed.data.items ?? []) : [];
+  const [aiStatus, setAiStatus] = useState<AiProviderStatus | null>(null);
+  const [aiStatusBusy, setAiStatusBusy] = useState(true);
+  const [aiStatusError, setAiStatusError] = useState("");
+  const [aiProviderPreference, setAiProviderPreference] = useState<AiProviderPreference>(() => readAiProviderPreference());
+  const items = parsed.success
+    ? (parsed.data.items ?? []).filter((item) => !["ai_provider", "meta_whatsapp", "telegram"].includes(item.provider))
+    : [];
   const canWrite = ["super_admin", "admin", "content_manager"].includes(session.role);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setAiStatusBusy(true);
+    void fetch(`${URL}/functions/v1/generate-content-batch`, {
+      method: "POST",
+      headers: rpcHeaders(session),
+      body: JSON.stringify({ mode: "status" }),
+      cache: "no-store",
+      signal: controller.signal,
+    }).then(async (response) => {
+      if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
+      const payload = await response.json().catch(() => ({})) as AiProviderStatus & { success?: boolean };
+      if (!response.ok || payload.success !== true) throw new Error(payload.code ?? "AI_STATUS_UNAVAILABLE");
+      setAiStatus(payload);
+      setAiStatusError("");
+    }).catch((cause) => {
+      if (controller.signal.aborted) return;
+      if (cause instanceof Error && cause.message === "SESSION_EXPIRED") {
+        onSessionExpired();
+        return;
+      }
+      setAiStatusError(cause instanceof Error ? cause.message : "AI_STATUS_UNAVAILABLE");
+    }).finally(() => {
+      if (!controller.signal.aborted) setAiStatusBusy(false);
+    });
+    return () => controller.abort();
+  }, [session.accessToken, onSessionExpired]);
   async function action(name: string, body: Record<string, unknown>) { setBusy(name); setNotice(""); try { const result = await rpc(session, name, body); if (!result.success) throw new Error(result.code ?? "ACTION_REJECTED"); setNotice(message(language, result.code)); setSelected(null); setSecret(""); setAccount(""); onChanged(); } catch (cause) { if (cause instanceof Error && cause.message === "SESSION_EXPIRED") { onSessionExpired(); return; } setNotice(message(language, cause instanceof Error ? cause.message : "ACTION_FAILED")); } finally { setBusy(null); } }
   async function connectOAuth(provider: string) {
     setBusy(provider); setNotice("");
@@ -167,6 +209,56 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
   return <div className="integration-center">
     <div className="integration-intro"><div><p className="eyebrow">{language === "ar" ? "مركز الاتصالات" : "CONNECTION CENTER"}</p><h2>{language === "ar" ? "اربط الخدمات من داخل التطبيق" : "Connect services inside the app"}</h2><p>{language === "ar" ? "القيم السرية تُحفظ في الخادم ولا تظهر كاملة للواجهة. زر الاختبار الحالي يتحقق من الإعداد فقط، ولا ينفذ نشرًا أو رسالة خارجية." : "Secrets are stored server-side and never returned in full. The current test validates configuration only; it does not publish or send externally."}</p></div><span className="integration-safety">{language === "ar" ? "محمية + سجل تدقيق" : "Protected + audited"}</span></div>
     {notice && <div className="integration-notice" role="status" aria-live="polite">{notice}</div>}
+    <section className="integration-card ai-provider-control" aria-labelledby="ai-provider-control-title">
+      <header>
+        <span className="integration-icon">AI</span>
+        <div>
+          <h3 id="ai-provider-control-title">{language === "ar" ? "محركات الذكاء الاصطناعي" : "AI providers"}</h3>
+          <p>{language === "ar" ? "حالة المفاتيح وفحص اتصال آمن للقراءة فقط؛ لا يتم توليد محتوى أو استهلاك رصيد هنا." : "Credential presence and read-only connection checks; no content is generated and no generation credits are used here."}</p>
+        </div>
+        <span className="integration-status status-needs_test">{aiStatusBusy ? (language === "ar" ? "جارٍ الفحص" : "Checking") : aiStatusError ? (language === "ar" ? "تعذر التحقق" : "Unverified") : (language === "ar" ? "فحص الحالة فقط" : "Status check only")}</span>
+      </header>
+      <div className="integration-grid">
+        {(["gemini", "openai"] as const).map((provider) => {
+          const configured = aiStatus?.providers?.[provider] === true;
+          const external = aiStatus?.providerChecks?.[provider]?.externalCheck;
+          const label = external === "PASSED"
+            ? (language === "ar" ? "الاتصال الخارجي ناجح" : "External check passed")
+            : external === "FAILED"
+              ? (language === "ar" ? "المفتاح موجود لكن الاتصال فشل" : "Credential present; external check failed")
+              : configured
+                ? (language === "ar" ? "المفتاح موجود؛ الفحص غير متاح" : "Credential present; check unavailable")
+                : (language === "ar" ? "غير مهيأ أو غير متاح" : "Not configured or unavailable");
+          return <article className="integration-card" key={provider}>
+            <header><span className="integration-icon">{provider === "gemini" ? "G" : "OAI"}</span><div><h3>{provider === "gemini" ? "Gemini" : "OpenAI"}</h3><p>{label}</p></div></header>
+          </article>;
+        })}
+      </div>
+      <label className="batch-ai-provider">
+        <span>{language === "ar" ? "المزود الافتراضي لتوليد المحتوى" : "Default content-generation provider"}</span>
+        <select value={aiProviderPreference} onChange={(event) => {
+          const next = event.target.value as AiProviderPreference;
+          setAiProviderPreference(next);
+          writeAiProviderPreference(next);
+        }}>
+          <option value="auto">{language === "ar" ? "تلقائي — يستخدم البديل عند تعطل الخدمة" : "Auto — use fallback on provider outage"}</option>
+          <option value="gemini">Gemini</option>
+          <option value="openai">OpenAI</option>
+        </select>
+      </label>
+      {aiStatusError && <p className="integration-notice" role="status">{language === "ar" ? "تعذر قراءة حالة محركات الذكاء الاصطناعي. لم يتم تغيير أي إعداد." : "AI provider status could not be read. No setting was changed."}</p>}
+      <p className="batch-meta">{language === "ar"
+        ? "هذا الاختيار يُحفظ على هذا الجهاز فقط، ولا يحفظ أي مفاتيح. يؤثر على عينات المحتوى ومصنع المحتوى؛ بحث Coach Brain الحالي يستخدم Gemini."
+        : "This preference is saved on this device only and stores no keys. It affects content samples and Factory generation; Coach Brain research currently uses Gemini."}</p>
+      <p className="batch-meta">{language === "ar"
+        ? "فحص الاتصال لا يثبت نجاح التوليد الفعلي. لا يتم تشغيل أي توليد من هذه الشاشة."
+        : "A connection check does not prove generation works. This screen never starts generation."}</p>
+    </section>
+    <div className="integration-notice" role="status">
+      {language === "ar"
+        ? "WhatsApp يعمل عبر مسار n8n القائم خارج هذه الشاشة. لن نحاول ربط Meta WhatsApp Cloud API أو اختبار مسار إرسال بديل من هنا."
+        : "WhatsApp uses the existing n8n path outside this screen. This page will not connect Meta WhatsApp Cloud API or test a second sending route."}
+    </div>
     <div className="integration-grid">{items.map((item) => { const definition = definitions[item.provider] ?? { icon: "?", method: "manual" as const, description: { ar: "تكامل إضافي.", en: "Additional integration." } }; const verified = Boolean(item.lastTestedAt && externallyVerified(item)); const status = verified ? (language === "ar" ? "تم التحقق من الاتصال الخارجي" : "External connection verified") : (statusLabels[language][item.status] ?? item.status); const state = capabilityState(item.status); return <article className="integration-card" key={item.provider}><header><span className="integration-icon">{definition.icon}</span><div><h3>{item.displayName}</h3><p>{definition.description[language]}</p></div><span className={`integration-status status-${item.status}`}>{status}</span></header><div className={`integration-capability capability-${state.toLowerCase()}`}><strong>{capabilityLabels[language][state]}</strong><span>{capabilityDetail(language, state, item.provider)}</span></div><dl><div><dt>{language === "ar" ? "طريقة الربط" : "Method"}</dt><dd>{item.provider === "instagram" || item.provider === "meta_whatsapp" ? "Meta server connection" : item.connectionMethod === "api_key" ? "API Key" : item.connectionMethod === "oauth" ? "OAuth" : language === "ar" ? "إعداد داخلي" : "Internal setup"}</dd></div><div><dt>{language === "ar" ? "الحساب" : "Account"}</dt><dd>{item.accountLabel || (language === "ar" ? "غير محدد" : "Not set")}</dd></div><div><dt>{language === "ar" ? "القيمة" : "Credential"}</dt><dd>{item.secretHint || "—"}</dd></div></dl><footer>{canWrite && ["not_connected", "disabled", "pending"].includes(item.status) && <><button type="button" disabled={busy === item.provider} onClick={() => item.connectionMethod === "oauth" ? void connectOAuth(item.provider) : open(item.provider)}>{busy === item.provider ? (language === "ar" ? "جاري الربط" : "Connecting") : language === "ar" ? (item.status === "disabled" ? "إعادة الربط" : item.provider === "instagram" || item.provider === "meta_whatsapp" ? "فحص وربط" : item.connectionMethod === "oauth" ? "اتصال آمن" : "إعداد") : (item.status === "disabled" ? "Reconnect" : item.provider === "instagram" || item.provider === "meta_whatsapp" ? "Verify & connect" : item.connectionMethod === "oauth" ? "Secure connect" : "Setup")}</button>{item.provider === "canva" && <a className="secondary" href={CANVA_OPEN_URL} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none", padding: "6px 12px", borderRadius: "6px", fontSize: "0.85rem" }}>{language === "ar" ? "فتح Canva يدوياً" : "Open Canva"}</a>}</>}{canWrite && ["connected", "needs_test", "error"].includes(item.status) && <><button type="button" disabled={busy === item.provider} onClick={() => ((item.provider === "facebook" || item.provider === "instagram") ? void connectOAuth(item.provider) : void action("test_staff_integration", { p_provider: item.provider }))}>{item.provider === "facebook" || item.provider === "instagram" ? (language === "ar" ? "فحص الاتصال الخارجي" : "Verify external connection") : (language === "ar" ? "اختبار الإعداد المحلي" : "Test local configuration")}</button><button type="button" className="secondary" onClick={() => open(item.provider)}>{language === "ar" ? "تعديل" : "Edit"}</button><button type="button" className="danger" onClick={() => { if (window.confirm(language === "ar" ? "سيتم حذف سر الربط وتعطيل التكامل. هل تتابع؟" : "The stored credential will be removed and the integration disabled. Continue?")) void action("disconnect_staff_integration", { p_provider: item.provider }); }}>{language === "ar" ? "تعطيل" : "Disable"}</button></>}</footer></article>; })}</div>
     {selected && items.find((item) => item.provider === selected)?.connectionMethod !== "oauth" && <div className="integration-modal" role="dialog" aria-modal="true" aria-labelledby="integration-dialog-title"><div className="integration-modal-card"><header><div><p className="eyebrow">{language === "ar" ? "إعداد آمن" : "SECURE SETUP"}</p><h2 id="integration-dialog-title">{items.find((item) => item.provider === selected)?.displayName}</h2></div><button type="button" className="modal-close" onClick={() => setSelected(null)}>×</button></header><p>{selected === "ai_provider" ? (language === "ar" ? "محرك Gemini مهيأ مركزياً في الخادم لتشغيل Coach Brain ومصنع المحتوى. إدخال مفتاح هنا اختياري لمزود بديل فقط." : "Gemini AI is centrally configured server-side for Coach Brain and Factory. Entering a key here is optional for alternative providers.") : (language === "ar" ? "أدخل القيمة من مزود الخدمة. لن تظهر القيمة بعد الحفظ، وسيظهر آخر أربعة رموز فقط." : "Enter the provider value. It will not be shown after saving; only the last four characters are displayed.")}</p><label>{language === "ar" ? "القيمة السرية / Token" : "Secret value / Token"}<input type="password" autoComplete="off" value={secret} onChange={(event) => setSecret(event.target.value)} placeholder={language === "ar" ? "أدخل القيمة هنا" : "Enter value here"} /></label><label>{language === "ar" ? "اسم الحساب (اختياري)" : "Account label (optional)"}<input value={account} onChange={(event) => setAccount(event.target.value)} placeholder={language === "ar" ? "مثال: Relax Fix UAE" : "e.g. Relax Fix UAE"} /></label><div className="integration-modal-actions"><button type="button" className="secondary" onClick={() => setSelected(null)}>{language === "ar" ? "إلغاء" : "Cancel"}</button><button type="button" disabled={!secret.trim() || busy === selected} onClick={() => void action("connect_staff_integration", { p_provider: selected, p_connection_method: definitions[selected]?.method ?? "manual", p_secret: secret, p_account_label: account })}>{busy === selected ? (language === "ar" ? "جاري الحفظ" : "Saving") : (language === "ar" ? "حفظ الاعتماد" : "Save credential")}</button></div><small>{language === "ar" ? "لا تدخل بيانات تسجيل الدخول أو أسرار مزود الخدمة في هذه الواجهة. OAuth يتم من خلال صفحة المزود عندما يكون الربط مهيأ." : "Do not enter provider login credentials or OAuth secrets here. OAuth runs on the provider page when the connection is configured."}</small></div></div>}
   </div>;
