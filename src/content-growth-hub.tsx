@@ -637,12 +637,17 @@ export default function ContentGrowthHub({
         </header>
         <p className="batch-meta" role="status">
           {language === "ar"
-            ? "حالة الاتصالات وإدارتها موجودة في مركز الاتصالات الموحد. لن نعرض هنا حالة ثانية مبنية على بيانات تشغيل الأتمتة؛ لأنها ليست مصدر حالة الربط."
-            : "Connection status and management live in the single Connections Center. This screen will not show a second status list derived from automation-run data, which is not a connection source."}
+            ? "ربط مصادر الوسائط مثل Google Drive يتم من مكتبة الوسائط فقط. أما Canva وMeta ومحركات الذكاء الاصطناعي فتُدار من مركز الاتصالات الموحد. لن نعرض هنا حالة ثانية مبنية على بيانات تشغيل الأتمتة."
+            : "Media-source connections such as Google Drive are managed only in Media Library. Canva, Meta and AI providers are managed in the single Connections Center. This screen will not show a second status list derived from automation-run data."}
         </p>
-        <button type="button" className="secondary" onClick={() => window.dispatchEvent(new CustomEvent("command-center:navigate", { detail: { section: "connections" } }))}>
-          {language === "ar" ? "فتح مركز الاتصالات" : "Open Connections Center"}
-        </button>
+        <div className="factory-section-action-bar">
+          <button type="button" className="secondary" onClick={() => onOpenMedia()}>
+            {language === "ar" ? "فتح مكتبة الوسائط" : "Open Media Library"}
+          </button>
+          <button type="button" className="secondary" onClick={() => window.dispatchEvent(new CustomEvent("command-center:navigate", { detail: { section: "connections" } }))}>
+            {language === "ar" ? "فتح مركز الاتصالات" : "Open Connections Center"}
+          </button>
+        </div>
       </section>}
 
       {activeFactoryTab === "strategy" && <section id="content-strategy" className="content-growth-section" aria-labelledby="strategy-mix-heading">
