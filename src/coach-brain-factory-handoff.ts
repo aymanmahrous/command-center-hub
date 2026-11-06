@@ -152,6 +152,9 @@ export function writeCoachBrainFactoryHandoff(value: string, access?: StorageAcc
   } catch { /* Preserve the existing safe failure behavior for malformed input. */ }
   const sessionSaved = writeStorageValue("sessionStorage", normalizedValue, COACH_BRAIN_FACTORY_HANDOFF_KEY, storageAccess);
   const localSaved = writeStorageValue("localStorage", normalizedValue, COACH_BRAIN_FACTORY_HANDOFF_KEY, storageAccess);
+  // A failed write must not leave an older copy shadowing the successful fallback.
+  if (!sessionSaved && localSaved) removeStorageValue("sessionStorage", COACH_BRAIN_FACTORY_HANDOFF_KEY, storageAccess);
+  if (!localSaved && sessionSaved) removeStorageValue("localStorage", COACH_BRAIN_FACTORY_HANDOFF_KEY, storageAccess);
   return sessionSaved || localSaved;
 }
 
