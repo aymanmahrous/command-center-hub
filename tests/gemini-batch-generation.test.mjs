@@ -8,6 +8,8 @@ const slotSpec = await readFile(new URL("../supabase/functions/generate-content-
 const generator = await readFile(new URL("../src/content-batch-generator.ts", import.meta.url), "utf8");
 const hub = await readFile(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
 const coachBrain = await readFile(new URL("../src/coach-brain.tsx", import.meta.url), "utf8");
+const connections = await readFile(new URL("../src/integrations-center.tsx", import.meta.url), "utf8");
+const providerPreference = await readFile(new URL("../src/ai-provider-preference.ts", import.meta.url), "utf8");
 
 test("gemini batch adapter calls server edge function only", () => {
   assert.match(adapter, /functions\/v1\/generate-content-batch/);
@@ -53,7 +55,7 @@ test("content growth hub generates 30-day local calendar with media linkage", ()
   assert.match(hub, /buildCoachAyman30DayBatchWithMedia/);
   assert.match(hub, /create_staff_generated_content_batch/);
   assert.match(hub, /batchAiProvider/);
-  assert.match(hub, /Auto — best available/);
+  assert.match(hub, /Auto — fallback on provider outage/);
 });
 
 test("existing Coach Brain, Academy, business and performance context reaches the Gemini prompt", () => {
@@ -104,4 +106,36 @@ test("Coach Brain can generate one real non-persisted sample and carry the owner
   assert.match(hub, /planFocus/);
   assert.match(hub, /get_staff_integrations/);
   assert.match(hub, /canvaIntegration/);
+});
+
+test("provider status checks Gemini and OpenAI using read-only endpoints", () => {
+  assert.match(edge, /verifyGeminiCredential/);
+  assert.match(edge, /verifyOpenAICredential/);
+  assert.match(edge, /api\.openai\.com\/v1\/models/);
+  assert.match(edge, /providerChecks/);
+  assert.match(edge, /anyProviderReady/);
+  assert.match(edge, /mode === "status"/);
+});
+
+test("automatic generation fails over only for retryable Gemini outages", () => {
+  assert.match(edge, /requestedProvider === "auto"/);
+  assert.match(edge, /selectedProvider === "gemini"/);
+  assert.match(edge, /OPENAI_API_KEY && generated\.error\.retryable/);
+  assert.match(edge, /response\.status >= 500/);
+  assert.match(edge, /GEMINI_NETWORK_ERROR/);
+  assert.match(edge, /AI_PROVIDER_FALLBACK_FAILED/);
+  assert.match(edge, /fallbackUsed/);
+});
+
+test("one owner provider preference is shared by Connections, Factory and Coach Brain samples", () => {
+  assert.match(providerPreference, /relaxfix-ai-provider-preference-v1/);
+  assert.match(providerPreference, /localStorage/);
+  assert.doesNotMatch(providerPreference, /API_KEY|secret/i);
+  assert.match(connections, /functions\/v1\/generate-content-batch/);
+  assert.match(connections, /mode: "status"/);
+  assert.match(connections, /writeAiProviderPreference/);
+  assert.match(connections, /ai_provider", "meta_whatsapp", "telegram"/);
+  assert.match(hub, /readAiProviderPreference/);
+  assert.match(hub, /writeAiProviderPreference/);
+  assert.match(coachBrain, /readAiProviderPreference/);
 });
