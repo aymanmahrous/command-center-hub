@@ -464,3 +464,53 @@ The Connections / Truthful Status phase has recorded read-only Production and QA
 - Validate with isolated QA identities for each relevant role before considering Production. Do not use the Production owner profile as a test fixture.
 - No Production migration, Edge Function deployment, Vercel Production promotion, staff invitation email, role mutation, module toggle, live publish, or WhatsApp action is authorized by this audit record.
 - Current safe point: diagnosis and architecture decision are complete; implementation is NOT_STARTED. The next bounded step is to implement the owner-only server-side administration contract and UI on a feature branch, then verify against isolated QA before any Production change.
+
+## 29. AI Agent Operating Model — owner mandate reconciliation (2026-11-06)
+
+### Product purpose — non-negotiable
+The primary business purpose of Command Center Hub is to let the owner operate the academy with a coordinated AI workforce, so the owner can focus on swimming instruction and business decisions instead of manually coordinating tools and repetitive work. Administration is supporting infrastructure; it is not the product's primary outcome.
+
+### Agreed operating model
+- **Coach Brain is the coordinator/orchestrator**: understands the owner's intent, researches when needed, chooses the next safe workflow, creates the plan, routes work to existing capabilities, compares provider/cost choices, and returns a clear owner decision when required. It is not a second Content Factory or a duplicate agent runtime.
+- **OpenAI**: reasoning, planning, structured decisions, quality review, and orchestration where selected by Coach Brain.
+- **Gemini**: content/media analysis and generation tasks already supported by the existing provider integrations; do not assume a live provider operation is verified merely because credentials exist.
+- **Canva**: design/template population and asset creation through the existing Canva integration.
+- **Runway**: video-generation/editing provider handoff where the existing connection and supported API path permit it; do not claim automatic execution until an end-to-end capability is verified.
+- **Content Factory**: the existing execution workspace for content creation; it receives the Coach Brain handoff (userIntent, planStrategy, researchContext, requestedDuration, contentGoal) rather than being rebuilt as another agent.
+- **Media Library / Review / Operations / existing publishing path**: remain the canonical downstream execution stages. Preserve approval and publishing boundaries.
+
+### Required end-to-end operating flow
+Owner command → Coach Brain → research/plan/provider choice → existing Factory → Media → Draft/Review → Owner Approval → Operations → explicitly authorized schedule/publish → external receipt/result → measurement/analysis → next Coach Brain plan.
+
+### Required owner experience
+- The owner sees one simple request/decision surface, not provider settings, raw prompts, tokens, API keys, or technical routing.
+- Coach Brain explains the recommended action, expected output, provider choice and cost/uncertainty in plain Arabic, then routes work to the existing destination.
+- Show each delegated task with truthful states such as queued, working, needs owner decision, completed, blocked, or failed; each completion must have a real artifact/result or execution receipt.
+- Preserve a clear audit trail: who/which agent initiated the task, the task input/output references, provider, time, cost when available, approval, and resulting action.
+- Owner approval remains mandatory for content approval and any real external publishing, activation, or spend.
+
+### Administration scope correction
+The proposed App Administration area is subordinate to this operating model. It must not become a conventional settings portal that distracts from agent execution. Its first release should make the existing workforce understandable and controllable without creating duplicate systems:
+1. An inventory of existing agents/capabilities and their responsibility, current availability, supported actions, and canonical destination.
+2. Coach Brain orchestration visibility: current task, delegated destination, status, blocker, next owner decision, and evidence/result.
+3. Provider readiness and cost visibility for the existing OpenAI/Gemini/Canva/Runway integrations, linking to the canonical Integrations screen rather than duplicating connection controls.
+4. Existing staff/role administration and audit history, only after isolated QA and secure server-side authorization are available.
+
+### Discovery and implementation constraints
+- Before adding any agent registry, task table, queue, scheduler, provider adapter, or dashboard, inspect the current code, Supabase schema/RPCs, Edge Functions, and existing workflow handoffs for reusable equivalents. Reuse first; add only a proven missing capability.
+- Do not label a provider integration as an autonomous agent unless it has a defined task contract, bounded permissions, observable execution, failure handling, and a verified result.
+- Do not create parallel agents for work already owned by Coach Brain, Content Factory, Media, Automations, or Operations.
+- Agent-level permissions must be enforced server-side and scoped to the task; hiding a UI control is not authorization.
+- Preserve least privilege, budget limits, retries/idempotency, cancellation/timeout handling, and human approval gates. No secret is exposed to the browser or to the owner UI.
+- No live publish, schedule, external message, provider spend, account activation, migration, or Production release without the applicable explicit approval.
+
+### Acceptance criteria for the next implementation phase
+- A single owner request can be interpreted by Coach Brain and handed to the existing Factory without re-entering the same brief.
+- The handoff preserves all five agreed context fields and has a visible, truthful status/result.
+- Provider selection is based on task suitability, readiness, and known cost; unknown cost/readiness is shown as unknown, not guessed.
+- The owner can see which existing capability is responsible and what requires their decision.
+- Existing approval, publishing freeze/authorization, WhatsApp, Meta, and production boundaries remain unchanged.
+- Tests prove no duplicate task execution, no false success, no unauthorized tool/action, and no loss of the existing workflow.
+
+### Current implementation gate
+This section records the owner's clarified primary objective and corrects the emphasis of section 28; it does not authorize new tables, runtime infrastructure, provider calls, live actions, or Production changes. The current QA limitation remains: the available Supabase connector exposes project/database and Edge Function operations but no Auth Admin invite/create-user operation, and no Preview deployment exists for the administration branch. Continue safe repository-level work and test-contract design; do not use the Production owner identity as a QA fixture or bypass Supabase Auth.
