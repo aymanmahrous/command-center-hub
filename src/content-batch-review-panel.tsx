@@ -183,6 +183,7 @@ export function ContentBatchReviewPanel({
   const [publishNotice, setPublishNotice] = useState("");
   const [videoTargetId, setVideoTargetId] = useState<string | null>(null);
   const [videoDuration, setVideoDuration] = useState<4 | 6 | 8>(8);
+  const [manualVideoDuration, setManualVideoDuration] = useState<3 | 5 | 8>(5);
   const [videoResolution, setVideoResolution] = useState<"720p" | "1080p">("720p");
   const [videoEstimate, setVideoEstimate] = useState<{ costUsd: number; model: string } | null>(null);
   const [videoBusyId, setVideoBusyId] = useState<string | null>(null);
@@ -244,12 +245,30 @@ export function ContentBatchReviewPanel({
       { key: "canva" as const, label: "Canva", available: !isVideo && designCapabilityState === "AVAILABLE", detail: designCapabilityState === "AVAILABLE"
           ? (language === "ar" ? "Canva متصل وجاهز لتصميم صورة / Carousel" : "Canva is connected and ready for image / carousel design")
           : designCapabilityDetail ?? (language === "ar" ? "Canva غير جاهز للتصميم حاليًا" : "Canva is not ready for design yet") },
-      { key: "gemini" as const, label: "Gemini Image", available: !isVideo, detail: language === "ar" ? "توليد صورة عبر Gemini مع تأكيد التكلفة" : "Gemini image generation; confirm cost first" },
+      { key: "gemini" as const, label: language === "ar" ? "Gemini Image API — تكلفة منفصلة" : "Gemini Image API — separate billing", available: !isVideo, detail: language === "ar" ? "فوترة Gemini API منفصلة عن اشتراك Gemini Pro" : "Gemini API billing is separate from your Gemini Pro subscription" },
       { key: "chatgpt" as const, label: "ChatGPT", available: false, detail: language === "ar" ? "توليد بصري — غير موصول داخل المصنع حاليًا" : "Visual generation — not wired into Factory yet" },
-      { key: "runway" as const, label: "Runway", available: isVideo && videoCapabilityState === "AVAILABLE", detail: language === "ar" ? "توليد فيديو" : "Video generation" },
+      { key: "runway" as const, label: "Runway — فتح يدوي", available: isVideo, detail: language === "ar" ? "يفتح حسابك وينسخ البرومبت؛ لا يحتاج ربط API" : "Opens your account and copies the prompt; no API connection required" },
       { key: "capcut" as const, label: "CapCut", available: isVideo, detail: language === "ar" ? "تحرير فيديو يدوي" : "Manual video editing" },
       { key: "manual" as const, label: language === "ar" ? "يدوي" : "Manual", available: true, detail: language === "ar" ? "استخدم الـBrief الجاهز" : "Use the prepared brief" },
     ];
+  }
+
+  async function openExternalBrief(target: "canva" | "gemini" | "runway", item: ContentBatchItem) {
+    const destinations = { canva: "https://www.canva.com/", gemini: "https://gemini.google.com/app", runway: "https://app.runwayml.com/" } as const;
+    const basePrompt = String(item.visualPrompt || item.hook || item.topic || "").trim();
+    const prompt = target === "runway"
+      ? `${basePrompt}\n\nFINAL OUTPUT REQUIREMENT: Create one vertical 9:16 video with an exact target duration of ${manualVideoDuration} seconds. This duration overrides any earlier duration in the brief.`
+      : basePrompt;
+    window.open(destinations[target], "_blank", "noopener,noreferrer");
+    try {
+      if (!prompt || !navigator.clipboard?.writeText) throw new Error("CLIPBOARD_UNAVAILABLE");
+      await navigator.clipboard.writeText(prompt);
+      setDesignNotice(language === "ar"
+        ? `تم نسخ التعليمات وفتح ${target === "canva" ? "Canva" : target === "gemini" ? "Gemini Pro" : "Runway"}. الصقها داخل حسابك؛ لم يتم استدعاء API مدفوع.`
+        : `The brief was copied and ${target === "canva" ? "Canva" : target === "gemini" ? "Gemini Pro" : "Runway"} was opened. Paste it into your account; no paid API was called.`);
+    } catch {
+      setDesignNotice(language === "ar" ? "تم فتح الأداة، لكن تعذر النسخ التلقائي. انسخ التعليمات من تفاصيل التصميم." : "The tool was opened, but automatic copy failed. Copy the brief from Design details.");
+    }
   }
 
   function selectedDesignProvider(item: ContentBatchItem): DesignProvider {
@@ -283,6 +302,10 @@ export function ContentBatchReviewPanel({
             : "This provider is not ready right now. No operation was started.");
         return;
       }
+      if (provider === "runway") {
+        await openExternalBrief("runway", item);
+        return;
+      }
       if (provider === "gemini") {
         const { estimateGeminiImageGeneration, generateGeminiImageForContentItem } = await import("./gemini-image-design-adapter");
         const estimate = await estimateGeminiImageGeneration(session);
@@ -301,8 +324,8 @@ export function ContentBatchReviewPanel({
       }
       if (provider !== "canva") {
         setDesignNotice(language === "ar"
-          ? provider === "runway" ? "Runway هو اختيار الفيديو، لكن التنفيذ الآلي يتطلب اتصالًا متحققًا به. لا ندّعي توليدًا غير موجود." : provider === "capcut" ? "CapCut متاح هنا كمسار تحرير يدوي؛ الـBrief جاهز." : "تم اختيار المسار اليدوي؛ استخدم الـBrief الجاهز."
-          : provider === "runway" ? "Runway is the video choice, but automated execution requires a verified connection. No unsupported generation is claimed." : provider === "capcut" ? "CapCut is available here as a manual editing path; the brief is ready." : "Manual path selected; use the prepared brief.");
+          ? provider === "capcut" ? "CapCut متاح هنا كمسار تحرير يدوي؛ الـBrief جاهز." : "تم اختيار المسار اليدوي؛ استخدم الـBrief الجاهز."
+          : provider === "capcut" ? "CapCut is available here as a manual editing path; the brief is ready." : "Manual path selected; use the prepared brief.");
         return;
       }
       const generated = await generateCanvaDesignForContentItem(session, item);
@@ -812,6 +835,16 @@ export function ContentBatchReviewPanel({
                         ? copy.generateDesignBusy
                         : language === "ar" ? "إنشاء التصميم" : "Create design"}
                     </button>
+                    <div className="content-manual-tool-actions">
+                      {!/reel|video/i.test(String(item.contentType)) && <>
+                        <button type="button" className="secondary" onClick={() => void openExternalBrief("canva", item)}>{language === "ar" ? "فتح Canva ونسخ التعليمات" : "Open Canva + copy brief"}</button>
+                        <button type="button" className="secondary" onClick={() => void openExternalBrief("gemini", item)}>{language === "ar" ? "فتح Gemini Pro ونسخ التعليمات" : "Open Gemini Pro + copy brief"}</button>
+                      </>}
+                      {/reel|video/i.test(String(item.contentType)) && <>
+                        <label><span>{language === "ar" ? "مدة فيديو Runway" : "Runway video length"}</span><select value={manualVideoDuration} onChange={(event) => setManualVideoDuration(Number(event.target.value) as 3 | 5 | 8)}><option value={3}>3 {language === "ar" ? "ثوانٍ" : "seconds"}</option><option value={5}>5 {language === "ar" ? "ثوانٍ" : "seconds"}</option><option value={8}>8 {language === "ar" ? "ثوانٍ" : "seconds"}</option></select></label>
+                        <button type="button" className="secondary" onClick={() => void openExternalBrief("runway", item)}>{language === "ar" ? "فتح Runway ونسخ برومبت الفيديو" : "Open Runway + copy video prompt"}</button>
+                      </>}
+                    </div>
                   </div>
                 )}
                 {session && /reel|video/i.test(String(item.contentType)) && (!item.mediaAssetId || replacingMediaItemId === item.id) && item.status !== "published" && (
