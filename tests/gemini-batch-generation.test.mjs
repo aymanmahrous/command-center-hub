@@ -112,6 +112,8 @@ test("provider status checks Gemini and OpenAI using read-only endpoints", () =>
   assert.match(edge, /verifyGeminiCredential/);
   assert.match(edge, /verifyOpenAICredential/);
   assert.match(edge, /api\.openai\.com\/v1\/models/);
+  assert.match(edge, /model\.id === OPENAI_MODEL/);
+  assert.match(edge, /model\.name\.endsWith/);
   assert.match(edge, /providerChecks/);
   assert.match(edge, /anyProviderReady/);
   assert.match(edge, /mode === "status"/);
@@ -137,6 +139,8 @@ test("one owner provider preference is shared by Connections, Factory and Coach 
   assert.doesNotMatch(providerPreference, /API_KEY|secret/i);
   assert.match(connections, /functions\/v1\/generate-content-batch/);
   assert.match(connections, /mode: "status"/);
+  assert.match(connections, /if \(!canWrite\)/);
+  assert.match(connections, /response.status === 401/);
   assert.match(connections, /writeAiProviderPreference/);
   assert.match(connections, /ai_provider", "meta_whatsapp", "telegram"/);
   assert.match(hub, /readAiProviderPreference/);
