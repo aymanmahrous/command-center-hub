@@ -110,6 +110,6 @@ test("a failed session write cannot shadow the successful local fallback with st
     sessionStorage: session,
     localStorage: local,
   });
-  assert.equal(restored?.question, "خطة جديدة");
+  assert.equal(restored?.question, "خطة جديدة\nContent goal: تحسين التنفس");
   assert.equal(restored?.contentGoal, "تحسين التنفس");
 });
