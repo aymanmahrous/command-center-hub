@@ -241,7 +241,7 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
           setAiProviderPreference(next);
           writeAiProviderPreference(next);
         }}>
-          <option value="auto">{language === "ar" ? "تلقائي — يستخدم البديل عند تعطل الخدمة" : "Auto — use fallback on provider outage"}</option>
+          <option value="auto">{language === "ar" ? "تلقائي — بديل عند العطل المؤقت" : "Auto — fallback on temporary outage"}</option>
           <option value="gemini">Gemini</option>
           <option value="openai">OpenAI</option>
         </select>
@@ -250,6 +250,9 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
       <p className="batch-meta">{language === "ar"
         ? "هذا الاختيار يُحفظ على هذا الجهاز فقط، ولا يحفظ أي مفاتيح. يؤثر على عينات المحتوى ومصنع المحتوى؛ بحث Coach Brain الحالي يستخدم Gemini."
         : "This preference is saved on this device only and stores no keys. It affects content samples and Factory generation; Coach Brain research currently uses Gemini."}</p>
+      <p className="batch-meta">{language === "ar"
+        ? "التبديل التلقائي يستخدم البديل عند فشل الشبكة أو عطل الخادم المؤقت. لا يبدّل تلقائيًا عند خطأ المفتاح أو حد الاستخدام؛ لتجنب تكلفة غير متوقعة."
+        : "Automatic fallback is limited to network or temporary server failures. It does not switch on credential or usage-limit errors, avoiding unexpected provider charges."}</p>
       <p className="batch-meta">{language === "ar"
         ? "فحص الاتصال لا يثبت نجاح التوليد الفعلي. لا يتم تشغيل أي توليد من هذه الشاشة."
         : "A connection check does not prove generation works. This screen never starts generation."}</p>
