@@ -72,7 +72,7 @@ function capabilityDetail(language: Language, state: CapabilityState, provider: 
   return language === "ar" ? `${name}: الإعداد موجود، لكن التشغيل الخارجي لم يُتحقق منه.` : `${name}: configuration exists, but external operation is not verified.`;
 }
 function rpcHeaders(session: Session) { return { apikey: KEY, Authorization: `Bearer ${session.accessToken}`, "Content-Type": "application/json", Accept: "application/json" }; }
-async function rpc(session: Session, name: string, body: Record<string, unknown> = {}) { const response = await fetch(`${URL}/rest/v1/rpc/${name}`, { method: "POST", headers: rpcHeaders(session), body: JSON.stringify(body), cache: "no-store" }); if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED"); if (!response.ok) throw new Error(`RPC_FAILED_${response.status}`); return Payload.parse(await response.json()); }
+async function rpc(session: Session, name: string, body: Record<string, unknown> = {}) { const response = await fetch(`${URL}/rest/v1/rpc/${name}`, { method: "POST", headers: rpcHeaders(session), body: JSON.stringify(body), cache: "no-store" }); if (response.status === 401) throw new Error("SESSION_EXPIRED"); if (response.status === 403) throw new Error("STAFF_ACCESS_DENIED"); if (!response.ok) throw new Error(`RPC_FAILED_${response.status}`); return Payload.parse(await response.json()); }
 function message(language: Language, code?: string) { const map: Record<string, Record<Language, string>> = { SECRET_TOO_SHORT: { ar: "القيمة قصيرة جدًا. استخدم قيمة صالحة.", en: "The value is too short. Enter a valid credential." }, CREDENTIAL_REQUIRED: { ar: "أدخل قيمة الربط أولًا.", en: "Enter the connection value first." }, STAFF_ACCESS_DENIED: { ar: "ليس لديك صلاحية إدارة التكاملات.", en: "You do not have integration-management access." }, CONNECTION_CONFIGURED: { ar: "تم اختبار الإعداد بنجاح. لم يتم استدعاء مزود خارجي بعد.", en: "Configuration passed the local safety test. No external provider was called." } }; return (code && map[code]?.[language]) || (language === "ar" ? `لم يكتمل الإجراء: ${code ?? "خطأ غير معروف"}` : `Action not completed: ${code ?? "Unknown error"}`); }
 
 export default function IntegrationsCenter({ value, session, onChanged, onSessionExpired }: { value: JsonValue; session: Session; onChanged: () => void; onSessionExpired: () => void }) {
@@ -143,7 +143,7 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
             cache: "no-store",
           });
           const result = await response.json().catch(() => ({}));
-          if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
+          if (response.status === 401) throw new Error("SESSION_EXPIRED");
           if (!response.ok || !result.success) throw new Error(String(result.code ?? "META_EXTERNAL_TEST_FAILED"));
           setNotice(language === "ar" ? `تم التحقق من Facebook خارجيًا: ${result.accountLabel ?? "الصفحة"}.` : `Facebook verified externally: ${result.accountLabel ?? "page"}.`);
           onChanged();
@@ -156,7 +156,7 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
           cache: "no-store",
         });
         const result = await response.json().catch(() => ({}));
-        if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
+        if (response.status === 401) throw new Error("SESSION_EXPIRED");
         if (!response.ok || !result.success || !result.authorizationUrl) throw new Error(String(result.code ?? "FACEBOOK_AUTHORIZE_FAILED"));
         window.location.assign(String(result.authorizationUrl));
         return;
@@ -171,7 +171,7 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
             cache: "no-store",
           });
           const result = await response.json().catch(() => ({}));
-          if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
+          if (response.status === 401) throw new Error("SESSION_EXPIRED");
           if (!response.ok || !result.success || !result.authorizationUrl) throw new Error(String(result.code ?? "FACEBOOK_AUTHORIZE_FAILED"));
           window.location.assign(String(result.authorizationUrl));
           return;
@@ -183,7 +183,7 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
           cache: "no-store",
         });
         const result = await response.json().catch(() => ({}));
-        if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
+        if (response.status === 401) throw new Error("SESSION_EXPIRED");
         if (!response.ok || !result.success) throw new Error(String(result.code ?? "META_EXTERNAL_TEST_FAILED"));
         setNotice(language === "ar" ? `تم التحقق من ${result.accountLabel ?? "Meta"} خارجيًا وربطه بحالة المركز.` : `Meta connection verified externally: ${result.accountLabel ?? "connected"}.`);
         onChanged();
