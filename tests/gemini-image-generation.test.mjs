@@ -72,7 +72,7 @@ test("Factory exposes Gemini image generation, confirms cost, and links the asse
   assert.match(panel, /generateGeminiImageForContentItem\(session, item\)/);
   assert.match(panel, /await linkMediaToItem\(item\.id, generated\.mediaAssetId\)/);
   assert.match(panel, /resolveDesignProvider\(requestedProvider/);
-  assert.match(panel, /label: "Gemini Image", available: !isVideo/);
+  assert.match(panel, /Gemini Image API — separate billing/);
 });
 
 test("Gemini image generation requests the supported JPEG response format", async () => {
