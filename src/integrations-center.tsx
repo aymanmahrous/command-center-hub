@@ -243,7 +243,7 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
       </div>
       <label className="batch-ai-provider">
         <span>{language === "ar" ? "المزود الافتراضي لتوليد المحتوى" : "Default content-generation provider"}</span>
-        <select value={aiProviderPreference} onChange={(event) => {
+        <select value={aiProviderPreference} disabled={!canWrite} onChange={(event) => {
           const next = event.target.value as AiProviderPreference;
           setAiProviderPreference(next);
           writeAiProviderPreference(next);
