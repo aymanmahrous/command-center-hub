@@ -616,3 +616,14 @@ No PR was merged or closed. No Production database, job, flag, policy, grant, Ed
 - Full read-only evidence and exact next-step boundaries are recorded in `docs/OWNER_ADMIN_AUTHORIZATION_CHECK_2026-11-07.md`.
 - **Decision:** do not create a placeholder Administration UI or expose direct table reads. Finish the per-function authorization matrix and frontend caller map first; then design the smallest owner-only server contract. No Production schema/data/RLS/grants/Auth/secrets/functions/Edge Functions changed; no RPC or external side effect was invoked.
 - **QA limit:** only one active `super_admin` exists and there is no second Supabase project, so non-owner role behavior cannot be runtime-tested. Do not use Production to simulate other roles.
+
+
+## 32. Coach Brain / Factory consolidation verification — 2026-11-07
+
+- PRs #322, #323, and #325 remain open and unmerged; owner comments on #322/#323/#325 explicitly direct contributors not to merge them independently. Their accepted changes are consolidated in PR #327.
+- PR #327's previous head failed Verify run #933 only because one legacy test expected the old inline `answer: result?.answer` expression after the canonical handoff refactor. The producer already maps `researchSummary` into the legacy Factory `answer` field and supplies canonical `researchContext.summary`.
+- Corrected only `tests/gemini-batch-generation.test.mjs` to validate the canonical summary, canonical research context, and backward-compatible legacy answer mapping.
+- Latest PR #327 head: `ea4261af7500f16546a1e5a07877fc0701ebd690`. Verify Command Center run **#942** passed dependency installation, TypeScript, **402/402 tests**, production build, and performance budget.
+- Vercel Preview remains unavailable due the daily `build-rate-limit`; no runtime Preview QA is claimed. PR #327 remains draft/open/unmerged.
+- No PR was merged, no Production deploy occurred, and no Supabase migration/function/secret/configuration or external provider operation was triggered.
+- Next safe point: keep #327 as the single consolidated Coach Brain/Factory review candidate; complete the outstanding server-side per-function authorization and frontend caller map before any owner administration UI. Preserve the publishing freeze and WhatsApp no-send boundary.
