@@ -405,7 +405,7 @@ export default function ContentGrowthHub({
       }
       let saved: { success?: boolean; batchId?: string; code?: string } | null = null;
 
-      for (let shiftDays = 0; shiftDays <= 45 && !saved; shiftDays += 1) {
+      for (let shiftDays = 0; shiftDays <= Math.max(0, 45 - planWindowDays) && !saved; shiftDays += 1) {
         const start = new Date(generationStart);
         start.setUTCDate(start.getUTCDate() + shiftDays);
         const batchNonce = shiftDays === 0 ? nonce : `${nonce}-${shiftDays}`;
