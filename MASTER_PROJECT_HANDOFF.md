@@ -598,3 +598,10 @@ The `staff_profiles.role` database constraint explicitly permits only `super_adm
 
 ### Safe point
 No PR was merged or closed. No Production database, job, flag, policy, grant, Edge Function, Auth setting, Vercel setting, or external publishing/messaging operation was changed. PR #324's relevant verified findings are now recorded here; the remaining unmerged documentation overlap is tracked for reconciliation.
+
+### PR #326 documentation CI result — 2026-11-06
+- Latest PR #326 head at verification: `2ad630b0e0540dca507f868ae73eecf615f22896`.
+- GitHub Actions Verify Command Center run **#937** completed SUCCESS.
+- Steps passed: locked dependency install, TypeScript typecheck, full test suite, and production build.
+- Vercel Preview status checks remain failed with the explicit `build-rate-limit` account limit. No repeated Vercel build was attempted.
+- This verifies the documentation branch against the repository's CI workflow; it does not verify live runtime role behavior or authorize merge/deployment.
