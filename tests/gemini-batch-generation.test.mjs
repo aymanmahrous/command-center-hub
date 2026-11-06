@@ -55,7 +55,7 @@ test("content growth hub generates 30-day local calendar with media linkage", ()
   assert.match(hub, /buildCoachAyman30DayBatchWithMedia/);
   assert.match(hub, /create_staff_generated_content_batch/);
   assert.match(hub, /batchAiProvider/);
-  assert.match(hub, /Auto — fallback on provider outage/);
+  assert.match(hub, /Auto — fallback on temporary outage/);
 });
 
 test("existing Coach Brain, Academy, business and performance context reaches the Gemini prompt", () => {
@@ -115,12 +115,16 @@ test("provider status checks Gemini and OpenAI using read-only endpoints", () =>
   assert.match(edge, /providerChecks/);
   assert.match(edge, /anyProviderReady/);
   assert.match(edge, /mode === "status"/);
+  assert.match(edge, /externalCheck: !GEMINI_API_KEY \? "NOT CONFIGURED"/);
+  assert.match(edge, /externalCheck: !OPENAI_API_KEY \? "NOT CONFIGURED"/);
 });
 
 test("automatic generation fails over only for retryable Gemini outages", () => {
   assert.match(edge, /requestedProvider === "auto"/);
+  assert.match(edge, /const \[geminiAvailability, openaiAvailability\] = await Promise\.all/);
+  assert.ok(edge.includes('selectedProvider = geminiAvailability.verified ? "gemini" : openaiAvailability.verified ? "openai" : null;'));
   assert.match(edge, /selectedProvider === "gemini"/);
-  assert.match(edge, /OPENAI_API_KEY && generated\.error\.retryable/);
+  assert.match(edge, /OPENAI_API_KEY && autoOpenAIReady && generated\.error\.retryable/);
   assert.match(edge, /response\.status >= 500/);
   assert.match(edge, /GEMINI_NETWORK_ERROR/);
   assert.match(edge, /AI_PROVIDER_FALLBACK_FAILED/);
