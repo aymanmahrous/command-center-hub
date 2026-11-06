@@ -411,36 +411,228 @@ Canva live connectivity and design creation/export were not proven. No live Gemi
 ### Status
 The Connections / Truthful Status phase has recorded read-only Production and QA evidence. This closes the documentation of that audit only; it does not certify untested external-provider operations or authorize a Production release.
 
-## 29. Consolidated Coach Brain / Factory implementation — 2026-11-06
+## 28. Owner-approved AI Agent Governance Charter — 2026-11-06
 
-### Owner authorization and scope
-Following the owner's instruction to continue the complete safe phase, a dedicated consolidation branch was created from the current head of PR #323. The branch combines the non-overlapping value of PRs #322, #323, and #325 rather than merging the original PRs independently.
+### Owner decision
+The owner explicitly approved a binding operating policy to prevent AI agents and contributors from inventing requirements, creating duplicate systems, stopping after trivial subtasks, or claiming unverified completion.
 
-Branch: `feat/consolidated-coach-brain-factory-2026-11-06`
+The full policy is maintained at **`docs/AI_AGENT_GOVERNANCE_CHARTER.md`**. It applies to A–Z Guardian, Coach Brain, specialist agents, coding agents, research agents, automation agents, and human contributors working on Command Center Hub.
 
-### Reconciled changes
-- Retains PR #323's shared owner provider preference, read-only provider status checks, retryable-outage-only fallback, canonical Connections routing, and view-only treatment for frozen publish jobs.
-- Adds PR #322's Coach Brain strategic/business planning guidance and truthful manual Canva/Gemini Pro/Runway handoffs through the existing Factory review flow.
-- Adds PR #325's canonical Coach Brain → Factory task contract, backward-compatible legacy fields/storage key, storage read-back verification before navigation, and malformed handoff rejection.
-- Preserves the existing ten-item Factory batch; the selected 1–45 day window controls spacing, not one post per day.
-- Keeps Runway as a manual external handoff, not a claimed API integration. Gemini Image API billing is explicitly distinguished from Gemini Pro subscription.
-- Keeps Meta publishing frozen and publish jobs view-only; no live publishing, messages, provider calls, or Supabase operations were executed.
+### Role boundaries
+- **A–Z Guardian:** whole-application executive/technical oversight, architecture and risk governance, routing, quality, cost, evidence, coordination, and delivery.
+- **Coach Brain:** marketing/content strategy, research, planning, and coordination through the existing Content Factory.
+- **Specialist agents:** execute only bounded tasks delegated under the charter; they cannot redefine the project or self-authorize protected operations.
 
-### Defects caught and corrected during reconciliation
-1. PR #322 offered a 60-day preset even though the existing Factory RPC supports a maximum of 45 days. The unsupported 60-day option was removed.
-2. PR #322 allowed the Factory custom duration input to reach 365 days despite the 45-day contract. The input and normalization are now capped at 45.
-3. PR #325 normalized task durations to 2–30 days, silently altering valid 1-day and 31–45-day requests. The canonical handoff normalizer and tests now use 1–45 days.
-4. PR #322's new Coach Brain research prompt had a missing comma between adjacent prompt strings, which would break TypeScript parsing. The separator was corrected.
+### Non-negotiable rules
+- Existing-system-first: keep working capabilities; repair, reconnect, simplify, or consolidate before considering new work.
+- No duplicate dashboards, Action Centers, task managers, Factories, Media Libraries, Inboxes, CRMs, Connections Centers, Coach Brains, databases, notification services, provider registries, or progress systems.
+- Control Tower remains the owner decision surface; existing canonical destinations remain execution surfaces.
+- Evidence precedes claims. Build success, saved credentials, merged PRs, and deployment status must not be misrepresented as proof of runtime or provider success.
+- Complete a whole safe phase continuously; do not interrupt the owner for routine micro-decisions. Stop only for a genuine blocker, authorization, irreversible/destructive action, material cost, or safety/data-integrity risk.
+- A time target (including one hour) is a planning constraint, never permission to skip verification or fabricate completion.
+- Production publishing, outbound messages, production Supabase changes, secrets/OAuth, schedules, live automation, paid credits, PR merges, and production deployments remain protected and require explicit owner authorization.
 
-### Verification state and limits
-- The new consolidation branch contains the reconciled source, documentation, and focused contract tests.
-- The GitHub connector was used to write files and inspect resulting blob SHAs. A local checkout could not be obtained because the execution environment could not resolve github.com; therefore no local npm install, typecheck, or test run is claimed.
-- GitHub CI must run on the consolidated PR before this phase can be marked verified.
-- No PR has been merged, no production deployment has occurred, and no live external side effect has been triggered.
-- PR #326 remains the separate owner-approved governance charter PR. It should not be merged independently from the implementation unless review establishes that separation is preferable.
+### PR reconciliation — fresh GitHub state 2026-11-06
+The following PRs are OPEN and UNMERGED, all targeting `main` at base SHA `f97f7d784bfe4653a060052202dca2e472644451` at the time checked:
+- **#322** `improve/coach-brain-strategic-advisor` — strategic prompt, 1–45 day planning, manual Canva/Gemini/Runway handoffs, and content review improvements.
+- **#323** `fix/owner-connections-truth-and-failover` — provider preference/status/fallback and owner-connection truth, plus frozen publishing controls.
+- **#324** `docs/admin-control-audit-2026-11-06` — documentation-only audit; useful as reference, not a reason to create a generic admin/settings system.
+- **#325** `feat/coach-brain-task-contract-2026-11-06` — canonical Coach Brain → Factory task contract, storage verification, and bounded inputs.
+
+**Do not merge these PRs independently.** #322, #323, and #325 overlap in Coach Brain / Factory source and tests. In particular:
+- #322's accepted planning horizon is **1–45 days**, consistent with the existing Factory RPC limit; #325's normalizer currently clamps to **2–30 days**, which would silently alter valid owner requests.
+- #323 and #325 both touch `src/coach-brain.tsx`, `src/content-growth-hub.tsx`, and related behavior/tests.
+- #322 introduces manual external handoffs; these must remain truthful and must not be represented as API-integrated Runway generation. Existing implementation evidence indicates video generation uses Google Veo, while Runway is a manual external handoff.
+- Preserve the existing Factory workflow, backward-compatible handoff fields/storage key, read-back verification before navigation, and accurate provider/fallback semantics.
 
 ### Current safe point
-Consolidated implementation is prepared on the dedicated branch and awaiting PR-level CI and review. Original PRs #322, #323, and #325 remain unmerged and must not be merged independently.
+- The charter has been added on a dedicated documentation branch: `docs/agent-governance-charter-2026-11-06`.
+- No PR was merged. No production deployment, Supabase change, publishing, messaging, paid provider call, or external side effect was performed.
+- The next implementation phase is to reconcile the overlapping Coach Brain/Factory PR changes into one coherent reviewable change set, using the charter as the governing acceptance criteria. Keep all existing PRs unmerged until reconciliation and verification are complete.
 
-### Latest CI observation — 2026-11-06
-PR #327 was created successfully and is mergeable at the GitHub metadata level. Both Vercel preview checks currently fail with the explicit `build-rate-limit` account limit; the GitHub Actions workflow-run lookup returned no PR-triggered runs for this head. This is not a code-test pass. PR #327 remains Draft and unmerged. The original #322/#323/#325 now carry explicit comments that they must not be merged independently; #323 was converted back to Draft. Continue with an available independent verification path or wait for the Vercel build quota reset; do not bypass the limit or deploy production.
+### Verification limits
+This is a governance/documentation change only. The new charter itself has not yet been through repository CI, and no runtime behavior is claimed as changed or verified. The Vercel daily deployment limit observed in the related PR checks must not be bypassed by repeated build attempts; use GitHub CI and focused local/code checks first.
+
+## 29. Production authorization and RLS audit — 2026-11-06 (read-only)
+
+**Target verified:** Supabase Production project `nmzxrjdxvmmzzmajrskm`, PostgreSQL 17.6.1.105, status ACTIVE_HEALTHY. The separate Bolt project was not queried or modified in this phase.
+
+### Confirmed database state
+- Exactly **64/64 public tables have RLS enabled**. Only **1/64** has FORCE ROW LEVEL SECURITY enabled.
+- **11 tables have 20 RLS policies**; the other **53 tables have RLS enabled but no policies**. No-policy tables deny direct row access to `anon` and `authenticated` by default; this is not itself evidence of public exposure. Many operational reads/writes are intentionally mediated by guarded RPCs.
+- The sensitive tables inspected (`audit_logs`, `background_jobs`, `content_items`, `conversations`, `leads`, `staff_integrations`, `staff_integration_secrets`, OAuth token/state tables, and `owner_publish_authorizations`) have RLS enabled and no direct table policies. `owner_publish_authorizations` is the only table observed with FORCE RLS enabled.
+- `staff_profiles` has one policy: authenticated users may read only their own active profile (`id = auth.uid()` and `active = true`). No direct insert/update/delete policy was found.
+- Live `staff_profiles` inventory contains exactly **one active profile: super_admin**. The five application roles (`super_admin`, `admin`, `reception`, `coach`, `content_manager`) are defined in the frontend type/schema, but the four non-owner roles cannot be behaviorally verified against a live profile in this production dataset.
+- `audit_logs` contains **1,115 rows**, but has no RLS policy and no audit-reading RPC was found by the targeted database function-name inventory. No owner-facing audit-log reader was found in the main navigation. Therefore the history exists but is not yet available as a verified owner-facing audit screen/API.
+
+### RPC authorization findings
+- Production contains **168 SECURITY DEFINER functions** in `public`.
+- **81** are executable by `authenticated`; **2** SECURITY DEFINER functions are executable by `anon`.
+- Among the 81 authenticated-callable SECURITY DEFINER functions, source inspection classified **55** as using `is_active_staff(...)`, **23** as using `command_center_staff_role()`, **1** as using an explicit `auth.uid()` condition, and **2** as having no visible authorization guard in their function bodies.
+- The two public SECURITY DEFINER exceptions are `rf_schedule_turn(...)` and `rf_whatsapp_automation_enabled()`. Their current bodies are read/availability-oriented: the scheduling function explicitly returns `canConfirmSlot=false` and `bookingWriteUsed=false`, and does not write a booking; the WhatsApp function returns only the automation-enabled boolean. These appear consistent with a public-facing chatbot/status contract, but remain intentionally public exposure points and are flagged by Supabase.
+- The helper `is_active_staff(allowed_roles)` checks a matching `staff_profiles.id = auth.uid()`, `active=true`, and (when supplied) membership in the allowed role list. `command_center_staff_role()` likewise resolves only the active caller's role. The majority of inspected staff RPCs use one of these checks.
+- The database advisor's 81 authenticated SECURITY DEFINER warnings are not proof that all 81 functions are exploitable. They are a review list; each function must be assessed for its guard and operation. No broad privilege change is justified from the warning count alone.
+
+### Supabase Security Advisor snapshot
+Observed 2026-11-06:
+- `rls_enabled_no_policy`: INFO, 53 findings — expected for tables intentionally reachable only through RPC/service-role paths; verify each consumer before adding policies.
+- `authenticated_security_definer_function_executable`: WARN, 81 findings — reviewed at aggregate/guard-class level above; per-function role and operation mapping remains a separate detailed review.
+- `anon_security_definer_function_executable`: WARN, 2 findings — the two public functions described above.
+- `function_search_path_mutable`: WARN, 10 functions. The 10 listed functions are helper/concierge functions and were inspected as SECURITY INVOKER (not SECURITY DEFINER); this remains hardening debt, not a demonstrated privilege escalation.
+- `extension_in_public`: WARN, `pg_net` is installed in `public`.
+- `auth_leaked_password_protection`: WARN, leaked-password protection is disabled.
+
+### Application authorization and owner-management gaps
+- `src/main.tsx` authenticates with Supabase Auth, then reads exactly one active own-profile row and validates the role against the five-role schema. Session restore repeats the Auth user check and profile lookup.
+- Navigation currently enumerates application sections and the More menu without a centralized per-role section-access map. Individual screens contain scattered UI capability checks, while the database RPCs provide the authoritative write boundary. UI visibility is therefore not a substitute for server authorization.
+- No dedicated staff-profile management RPC was found by the targeted function inventory; no dedicated audit-log reader RPC was found. The current app therefore does not yet provide verified in-app staff/role administration or owner audit-log browsing.
+- Existing `business_settings`, `rf_schedule_config`, and `notification_settings` remain separate existing data areas. Do not create a generic settings table or feature-flag system based on this audit.
+
+### Decisions and safe next steps
+1. Do **not** mass-create RLS policies for the 53 no-policy tables. First map every direct frontend query and RPC/Edge Function access path; indiscriminate policies could expose private customer, message, credential, job, and publishing data.
+2. Do **not** revoke grants, change SECURITY DEFINER/INVOKER, alter function grants, or modify Auth settings in Production as part of this read-only audit.
+3. Complete a per-function authorization matrix for the 81 authenticated-callable SECURITY DEFINER RPCs: operation (read/write), required roles, owner-only actions, audit behavior, and frontend caller. Prioritize functions that mutate staff profiles, integration secrets, customer conversations, jobs, content lifecycle, or publication authorization.
+4. Review the two public SECURITY DEFINER functions against their public website/chatbot callers and document whether their exposure is required. Preserve public availability behavior unless a proven issue is found.
+5. Review the 10 mutable-search-path helpers and extension placement in a separate hardening plan; do not alter them without dependency analysis.
+6. Design the owner-facing admin surface only after the server-side matrix is complete. Reuse existing RPCs and screens; add only proven missing capabilities. Staff administration and audit-log browsing are confirmed gaps in the current inventory, but require a carefully scoped server-side design and explicit review before any Production change.
+
+### Scope and verification
+This phase was read-only. No Production rows, policies, grants, functions, Auth settings, secrets, Edge Functions, schedules, publishing paths, or Vercel configuration were changed. No role-switching or write-path tests were attempted because Production has only one active `super_admin` profile and the user explicitly protects Production state. The findings are based on live catalog metadata, function definitions, RLS policies, advisor output, and the main-branch application source. A full per-function matrix and non-owner role runtime tests remain open.
+
+## 30. Authorization matrix deepening and publishing-freeze boundary — 2026-11-06
+
+### Server-side role model confirmed from live function definitions
+The database's two central helpers are:
+- `is_active_staff(allowed_roles)`: requires the caller's own `staff_profiles` row, `active=true`, and membership in the supplied role list when a list is provided.
+- `command_center_staff_role()`: returns only the active caller's own role, or NULL.
+
+For the 81 SECURITY DEFINER functions callable by authenticated users, the source scan found:
+- 55 reference `is_active_staff(...)`;
+- 23 reference `command_center_staff_role()`;
+- 1 contains a direct `auth.uid()` check;
+- 2 are the intentionally public-facing RPC exceptions already described in section 29.
+
+This establishes a consistent staff-identity guard pattern, but not that every function grants the correct minimum role. Exact role allowlists vary by operation and need to remain function-specific.
+
+### High-impact RPC role checks inspected
+- `approve_staff_content_batch`: super_admin only. It can approve content and create future `publish_content` jobs for eligible Facebook/Instagram content.
+- `transition_staff_content_item`: initial gate allows super_admin/admin/content_manager; the `approve` action adds a super_admin-only check. Its `schedule` action creates a queued `publish_content` job.
+- `retry_staff_publish_job`: callable by super_admin/admin/content_manager. For a failed/dead eligible future-planned publish job, it can call `enqueue_publish_job` and create a new job.
+- `cancel_staff_background_job`: super_admin/admin/content_manager; only terminal/queued/retrying/failed/dead jobs are accepted according to its state check.
+- `record_staff_content_publish_result`: super_admin/admin/content_manager; records success/failure receipts and changes content status, but does not itself call Meta.
+- `update_owner_media_asset`: super_admin only.
+- `set_staff_conversation_mode`: super_admin/admin/reception.
+- `update_staff_lead_workflow`: super_admin/admin/reception/coach.
+- `update_booking_request_status`: super_admin/admin/reception.
+- `connect_staff_integration` and `set_staff_ai_provider`: super_admin/admin/content_manager.
+- `create_staff_video_generation_job`: super_admin/admin/content_manager; creates a job record, not a provider generation call.
+
+### Important mismatch: publishing freeze is not enforced by the database RPC boundary
+The application may hide retry/scheduling controls, but Production still exposes authenticated RPCs that can prepare/requeue publish jobs:
+- `retry_staff_publish_job` remains executable for super_admin/admin/content_manager.
+- `transition_staff_content_item` still contains a scheduling branch for super_admin/admin/content_manager.
+- `approve_staff_content_batch` remains executable by super_admin and can create future publish jobs.
+
+This is a **HIGH priority authorization/operational-boundary gap** relative to the owner's current instruction that publishing remains frozen pending new authorization. It is not evidence that a post was sent. It means the UI freeze is not a complete server-side freeze: a permitted authenticated caller could still enqueue or re-enqueue work if all function preconditions are met.
+
+**Do not call these functions, test them with real rows, or alter existing jobs.** The production content/job data is protected. A future repair should add a separately reviewed server-side freeze gate that prevents scheduling/retry preparation while preserving safe non-publishing approval/review operations, and should be tested in an isolated environment before any Production change. Do not simply revoke all execute grants: that could break unrelated content workflow paths.
+
+### Additional implementation finding
+`get_staff_integrations()` is named as a read function but performs an idempotent `INSERT ... ON CONFLICT DO NOTHING` to seed seven default provider rows before returning the integration list. It is guarded to super_admin/admin/content_manager. This is a side effect on a read path and is not currently recorded as an audit event. Preserve existing behavior unless a targeted design proves a safe alternative; do not invoke it as part of this audit.
+
+### Authorization review status
+- **Completed:** live RLS/policy inventory, role helper definitions, aggregate 81-function guard classification, and source-level review of the high-impact RPCs listed above.
+- **Still open:** exhaustive per-function minimum-role mapping for all 81 functions; mapping each RPC to every frontend/Edge Function caller; non-owner role behavior tests; safe Preview tests for role-denial paths; review of the 10 mutable-search-path helpers and `pg_net` extension placement.
+- **Owner-facing implications:** do not expose staff-role editing, audit browsing, or feature switches in a new admin screen until their server-side APIs and minimum-role rules are designed and verified. The live Production profile inventory has only one active super_admin, so no employee role should be invented or tested by changing Production data.
+
+### No-change confirmation
+This continuation used only catalog reads, function-definition reads, advisor output, and GitHub source inspection. It did not invoke any operational RPC, alter any Production row, create or retry a job, send a message, publish content, change a policy/grant/function/Auth setting, or deploy anything.
+
+### Role allowlist distribution detail
+A follow-up catalog extraction grouped the 55 `is_active_staff(...)` guarded functions by their explicit allowed-role lists:
+- 25: super_admin / admin / content_manager
+- 11: super_admin / admin / reception / coach
+- 10: all five application roles
+- 5: super_admin / admin / content_manager (same set, formatting variant)
+- 2: super_admin / admin / reception
+- 1: super_admin only
+- 1: super_admin / admin / reception / content_manager
+
+The 23 `command_center_staff_role()` guarded functions group into 9 allowing super_admin/admin/coach/content_manager, 9 allowing super_admin/admin/content_manager, and 5 with role checks elsewhere in the body. These are source-level allowlist groupings, not live role-switch tests.
+
+## 31. Reconciliation with existing administrative audit PR #324 — 2026-11-06
+
+### PR overlap
+- PR #324 (`docs: record owner administration and AI workforce audit`) remains OPEN and UNMERGED and changes the same canonical `MASTER_PROJECT_HANDOFF.md` file as PR #326.
+- PR #324 contains useful earlier audit findings and an owner-admin architecture proposal. Do not merge #324 and #326 independently or in arbitrary order. Reconcile the verified facts into one canonical handoff before any merge decision.
+- The role constraint and live configuration counts stated in #324 were independently rechecked against Production in this continuation.
+
+### Corrected live configuration counts
+Current read-only Production counts:
+- `business_settings`: 1 row
+- legacy `settings`: **1 row** (this supersedes older notes that described it as empty; do not infer that the row is safe or relevant for Command Center administration)
+- `rf_schedule_config`: 2 rows
+- `notification_settings`: 0 rows
+- `staff_integrations`: 7 rows
+- `staff_integration_secrets`: 2 rows (values not read)
+- `staff_profiles`: 1 row
+- `audit_logs`: 1,115 rows
+
+The `staff_profiles.role` database constraint explicitly permits only `super_admin`, `admin`, `reception`, `coach`, and `content_manager`. The one current profile is active `super_admin`.
+
+### Publishing freeze — precise distinction
+- Current `main` source for `src/operations-queue-view.tsx` still contains both retry and cancel job actions for `super_admin`, `admin`, and `content_manager`. It calls `retry_staff_publish_job` for a retry action.
+- Draft PR #323 removes retry controls and makes `publish_content` jobs view-only in the Operations UI. That PR is still unmerged, so this UX protection is not yet on `main`.
+- The Production RPC `retry_staff_publish_job` remains executable by authenticated users and internally permits active `super_admin`, `admin`, and `content_manager`; it can re-enqueue an eligible future-planned publish job. `transition_staff_content_item` can also create scheduled publish jobs, and `approve_staff_content_batch` is super_admin-only and can prepare queued jobs.
+- **Important safety distinction:** the current `safe-content-publisher` Edge Function checks `OWNER_PUBLISHING_LIVE_AUTHORIZED` and returns `OWNER_PUBLISHING_FROZEN` (HTTP 423) before a live publish when that flag is false, for both the automation-secret path and the authenticated staff path. This is the server-side external-publish gate. It does not prevent staff RPCs from preparing/re-queuing jobs in the database.
+- Therefore the confirmed gap is: **queue preparation/retry is still possible, while the external publish path has a separate owner authorization gate**. Do not describe this as proof that a post can be published while the freeze flag is false. Do not test the RPC or mutate jobs. Keep the publisher gate untouched.
+- PR #323's UI-only freeze improvement is useful, but its merge must be reconciled with #322/#325 Coach Brain/Factory changes and verified as one coherent change set.
+
+### Minimal owner-administration design carried forward from PR #324
+- A future owner-only Administration destination may live under More, but it must reuse the existing Control Tower, IntegrationsCenter, CRM/Inbox, bookings, operations, and settings sources rather than copy their workflows.
+- Staff administration must reuse `staff_profiles` and its five-value role constraint; no second users/roles table and no custom roles.
+- Business settings should use the existing `business_settings` row only after reviewing its fields and current consumers. Keep secrets outside it.
+- Audit browsing should be a paginated, read-only, super_admin-only server endpoint over `audit_logs`; do not add broad client read access to the full audit table.
+- Do not build a dynamic role/permission editor or feature-flag system in the first iteration. First document and test the existing server-side role matrix.
+- Any future staff invitation/role/deactivation endpoint must use the caller's verified JWT, re-check an active super_admin server-side, validate a strict field/action allowlist, write an audit event, prevent self-lockout, and prevent disabling the last active super_admin. The currently available Supabase connector does not expose a verified Auth Admin invite/create-user action in this session, so do not claim invitations are implementable through the current toolset.
+
+### Safe point
+No PR was merged or closed. No Production database, job, flag, policy, grant, Edge Function, Auth setting, Vercel setting, or external publishing/messaging operation was changed. PR #324's relevant verified findings are now recorded here; the remaining unmerged documentation overlap is tracked for reconciliation.
+
+### PR #326 documentation CI result — 2026-11-06
+- GitHub Actions Verify Command Center run **#937** completed SUCCESS on commit `2ad630b0e0540dca507f868ae73eecf615f22896`.
+- Steps passed: locked dependency install, TypeScript typecheck, full test suite, and production build.
+- After run #937, one further documentation-only handoff amendment was committed as `60b422a4f83f1cf5bf189ea416297066c82116c2`; that exact latest commit has not been rerun through CI. No application source changed in that amendment.
+- Vercel Preview status checks remain failed with the explicit `build-rate-limit` account limit. No repeated Vercel build was attempted.
+- Run #937 verifies the immediately preceding documentation branch state; it does not verify live runtime role behavior or authorize merge/deployment.
+
+
+## 31. Fresh owner-administration authorization check — 2026-11-07
+
+- Supabase project inventory now returns exactly one project: Production `nmzxrjdxvmmzzmajrskm`, `ACTIVE_HEALTHY`. The former Bolt project is absent from the account project list. No second QA database is currently available.
+- Read-only Production counts: 1 active staff profile, 1 active `super_admin`, 0 other active roles, and 1,115 `audit_logs` rows.
+- Focused current catalog query: 81 SECURITY DEFINER functions executable by authenticated; 2 executable by anon. Source-marker grouping: 55 contain `is_active_staff`, 22 contain `command_center_staff_role`, and 2 helper functions use direct active-profile / `auth.uid()` checks. The two anon functions are `rf_schedule_turn` and `rf_whatsapp_automation_enabled`; the former explicitly reports `canConfirmSlot=false` and `bookingWriteUsed=false`. These aggregate marker counts are not a substitute for the required per-function role/action/caller matrix.
+- Focused schema/policy query reconfirmed: `staff_profiles` has only own-active-profile SELECT; `audit_logs` has no direct policy; `business_settings` permits public SELECT of the primary row and has no update policy. No dedicated staff invitation, role-update, deactivation, staff-roster listing, or audit-reader function was found in the focused public function inventory.
+- Full read-only evidence and exact next-step boundaries are recorded in `docs/OWNER_ADMIN_AUTHORIZATION_CHECK_2026-11-07.md`.
+- **Decision:** do not create a placeholder Administration UI or expose direct table reads. Finish the per-function authorization matrix and frontend caller map first; then design the smallest owner-only server contract. No Production schema/data/RLS/grants/Auth/secrets/functions/Edge Functions changed; no RPC or external side effect was invoked.
+- **QA limit:** only one active `super_admin` exists and there is no second Supabase project, so non-owner role behavior cannot be runtime-tested. Do not use Production to simulate other roles.
+
+
+## 32. Coach Brain / Factory consolidation verification — 2026-11-07
+
+- PRs #322, #323, and #325 remain open and unmerged; owner comments on #322/#323/#325 explicitly direct contributors not to merge them independently. Their accepted changes are consolidated in PR #327.
+- PR #327's previous head failed Verify run #933 only because one legacy test expected the old inline `answer: result?.answer` expression after the canonical handoff refactor. The producer already maps `researchSummary` into the legacy Factory `answer` field and supplies canonical `researchContext.summary`.
+- Corrected only `tests/gemini-batch-generation.test.mjs` to validate the canonical summary, canonical research context, and backward-compatible legacy answer mapping.
+- Latest PR #327 head: `ea4261af7500f16546a1e5a07877fc0701ebd690`. Verify Command Center run **#942** passed dependency installation, TypeScript, **402/402 tests**, production build, and performance budget.
+- Vercel Preview remains unavailable due the daily `build-rate-limit`; no runtime Preview QA is claimed. PR #327 remains draft/open/unmerged.
+- No PR was merged, no Production deploy occurred, and no Supabase migration/function/secret/configuration or external provider operation was triggered.
+- Next safe point: keep #327 as the single consolidated Coach Brain/Factory review candidate; complete the outstanding server-side per-function authorization and frontend caller map before any owner administration UI. Preserve the publishing freeze and WhatsApp no-send boundary.
+
+## 33. PR #327 governance and isolated QA reconciliation — 2026-11-07
+
+- The #327 branch's stale copies of `AGENTS.md` and `MASTER_PROJECT_HANDOFF.md` were reconciled against the current canonical `main` versions; the canonical `docs/AI_AGENT_GOVERNANCE_CHARTER.md` was added to the branch. This preserves the latest owner governance and current project evidence instead of allowing older branch documentation to replace it.
+- PR #327 remains OPEN and DRAFT. No merge, production deployment, Supabase schema/data change, OAuth change, publishing action, or paid provider call was performed.
+- GitHub Verify run #942 on head `ea4261af7500f16546a1e5a07877fc0701ebd690` passed dependency installation, typecheck, 402/402 tests, production build, and performance budget. The documentation reconciliation commits are newer than that tested head and require CI on the updated branch before they can be considered verified.
+- Vercel has a READY Preview deployment for this branch, but it belongs to older commit `381fed6d6e324e07365a35ea08df8b9b9f3acd7c`, not the current #327 head. Current-head Preview remains blocked by the team's Hobby-plan build-rate limit; do not treat the older preview as validation of the current code and do not repeatedly retry builds.
+- Supabase account inventory contains only the Production project `nmzxrjdxvmmzzmajrskm`. Its existing development branch `main` is reported as `MIGRATIONS_FAILED`; it is not a clean QA branch. A new Supabase branch is estimated at USD 0.01344/hour and would start without Production data. Do not create one until migration-history drift and the existing failed branch are reconciled, and the owner separately confirms the recurring cost.
+- Safe next step: verify the documentation-only commits and inspect/reconcile the current #327 branch against latest `main` without merging or releasing. For runtime QA, first establish a clean, isolated Supabase test target and a Preview deployment built from the exact candidate commit.
