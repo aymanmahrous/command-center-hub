@@ -559,3 +559,42 @@ A follow-up catalog extraction grouped the 55 `is_active_staff(...)` guarded fun
 - 1: super_admin / admin / reception / content_manager
 
 The 23 `command_center_staff_role()` guarded functions group into 9 allowing super_admin/admin/coach/content_manager, 9 allowing super_admin/admin/content_manager, and 5 with role checks elsewhere in the body. These are source-level allowlist groupings, not live role-switch tests.
+
+## 31. Reconciliation with existing administrative audit PR #324 — 2026-11-06
+
+### PR overlap
+- PR #324 (`docs: record owner administration and AI workforce audit`) remains OPEN and UNMERGED and changes the same canonical `MASTER_PROJECT_HANDOFF.md` file as PR #326.
+- PR #324 contains useful earlier audit findings and an owner-admin architecture proposal. Do not merge #324 and #326 independently or in arbitrary order. Reconcile the verified facts into one canonical handoff before any merge decision.
+- The role constraint and live configuration counts stated in #324 were independently rechecked against Production in this continuation.
+
+### Corrected live configuration counts
+Current read-only Production counts:
+- `business_settings`: 1 row
+- legacy `settings`: **1 row** (this supersedes older notes that described it as empty; do not infer that the row is safe or relevant for Command Center administration)
+- `rf_schedule_config`: 2 rows
+- `notification_settings`: 0 rows
+- `staff_integrations`: 7 rows
+- `staff_integration_secrets`: 2 rows (values not read)
+- `staff_profiles`: 1 row
+- `audit_logs`: 1,115 rows
+
+The `staff_profiles.role` database constraint explicitly permits only `super_admin`, `admin`, `reception`, `coach`, and `content_manager`. The one current profile is active `super_admin`.
+
+### Publishing freeze — precise distinction
+- Current `main` source for `src/operations-queue-view.tsx` still contains both retry and cancel job actions for `super_admin`, `admin`, and `content_manager`. It calls `retry_staff_publish_job` for a retry action.
+- Draft PR #323 removes retry controls and makes `publish_content` jobs view-only in the Operations UI. That PR is still unmerged, so this UX protection is not yet on `main`.
+- The Production RPC `retry_staff_publish_job` remains executable by authenticated users and internally permits active `super_admin`, `admin`, and `content_manager`; it can re-enqueue an eligible future-planned publish job. `transition_staff_content_item` can also create scheduled publish jobs, and `approve_staff_content_batch` is super_admin-only and can prepare queued jobs.
+- **Important safety distinction:** the current `safe-content-publisher` Edge Function checks `OWNER_PUBLISHING_LIVE_AUTHORIZED` and returns `OWNER_PUBLISHING_FROZEN` (HTTP 423) before a live publish when that flag is false, for both the automation-secret path and the authenticated staff path. This is the server-side external-publish gate. It does not prevent staff RPCs from preparing/re-queuing jobs in the database.
+- Therefore the confirmed gap is: **queue preparation/retry is still possible, while the external publish path has a separate owner authorization gate**. Do not describe this as proof that a post can be published while the freeze flag is false. Do not test the RPC or mutate jobs. Keep the publisher gate untouched.
+- PR #323's UI-only freeze improvement is useful, but its merge must be reconciled with #322/#325 Coach Brain/Factory changes and verified as one coherent change set.
+
+### Minimal owner-administration design carried forward from PR #324
+- A future owner-only Administration destination may live under More, but it must reuse the existing Control Tower, IntegrationsCenter, CRM/Inbox, bookings, operations, and settings sources rather than copy their workflows.
+- Staff administration must reuse `staff_profiles` and its five-value role constraint; no second users/roles table and no custom roles.
+- Business settings should use the existing `business_settings` row only after reviewing its fields and current consumers. Keep secrets outside it.
+- Audit browsing should be a paginated, read-only, super_admin-only server endpoint over `audit_logs`; do not add broad client read access to the full audit table.
+- Do not build a dynamic role/permission editor or feature-flag system in the first iteration. First document and test the existing server-side role matrix.
+- Any future staff invitation/role/deactivation endpoint must use the caller's verified JWT, re-check an active super_admin server-side, validate a strict field/action allowlist, write an audit event, prevent self-lockout, and prevent disabling the last active super_admin. The currently available Supabase connector does not expose a verified Auth Admin invite/create-user action in this session, so do not claim invitations are implementable through the current toolset.
+
+### Safe point
+No PR was merged or closed. No Production database, job, flag, policy, grant, Edge Function, Auth setting, Vercel setting, or external publishing/messaging operation was changed. PR #324's relevant verified findings are now recorded here; the remaining unmerged documentation overlap is tracked for reconciliation.
