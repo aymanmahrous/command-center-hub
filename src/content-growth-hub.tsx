@@ -592,7 +592,7 @@ export default function ContentGrowthHub({
         <label className="batch-ai-provider">
           <span>{language === "ar" ? "مزود الذكاء" : "AI provider"}</span>
           <select value={batchAiProvider} onChange={(event) => setBatchAiProvider(event.target.value as BatchAiProvider)} disabled={generating || panelBusy}>
-            <option value="auto">{language === "ar" ? "تلقائي — الأفضل المتاح" : "Auto — best available"}</option>
+            <option value="auto">{language === "ar" ? "تلقائي — Gemini إن كان مضبوطًا، وإلا OpenAI إن كان مضبوطًا" : "Auto — Gemini if configured; else OpenAI if configured"}</option>
             <option value="gemini">Gemini</option>
             <option value="openai">OpenAI</option>
           </select>

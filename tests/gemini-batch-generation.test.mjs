@@ -53,11 +53,12 @@ test("content growth hub generates 30-day local calendar with media linkage", ()
   assert.match(hub, /buildCoachAyman30DayBatchWithMedia/);
   assert.match(hub, /create_staff_generated_content_batch/);
   assert.match(hub, /batchAiProvider/);
-  assert.match(hub, /Auto — best available/);
+  assert.match(hub, /Auto — Gemini if configured; else OpenAI if configured/);
 });
 
 test("existing Coach Brain, Academy, business and performance context reaches the Gemini prompt", () => {
-  assert.match(coachBrain, /answer: result\?\.answer\?\.slice\(0, 4000\)/);
+  assert.match(coachBrain, /const researchSummary = result\?\.answer\?\.slice\(0, 4000\)/);
+  assert.match(coachBrain, /answer: researchSummary/);
   assert.match(hub, /academyKnowledge: knowledgeContext\.entries/);
   assert.match(hub, /coachBrainResearch: knowledgeContext\.researchContext \?\? null/);
   assert.match(hub, /businessStrategy: \{ brand: BRAND, platformGuidance: PLATFORM_GUIDANCE, strategySummary: \{ \.\.\.strategySummary, currentBatchStrategy: planFocus \} \}/);
