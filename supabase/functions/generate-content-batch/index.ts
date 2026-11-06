@@ -179,8 +179,13 @@ async function verifyGeminiCredential() {
       method: "GET",
       headers: { "x-goog-api-key": GEMINI_API_KEY },
     });
-    if (response.ok) return { verified: true as const };
-    return { verified: false, code: "GEMINI_EXTERNAL_CHECK_FAILED" as const, providerStatus: response.status };
+    if (!response.ok) return { verified: false, code: "GEMINI_EXTERNAL_CHECK_FAILED" as const, providerStatus: response.status };
+    const payload = await response.json().catch(() => null) as JsonObject | null;
+    const models = Array.isArray(payload?.models) ? payload.models as JsonObject[] : [];
+    const modelAvailable = models.some((model) => typeof model.name === "string" && model.name.endsWith(`models/${GEMINI_MODEL}`));
+    return modelAvailable
+      ? { verified: true as const }
+      : { verified: false, code: "GEMINI_MODEL_UNAVAILABLE" as const };
   } catch {
     return { verified: false, code: "GEMINI_EXTERNAL_CHECK_FAILED" as const };
   }
@@ -193,8 +198,13 @@ async function verifyOpenAICredential() {
       method: "GET",
       headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
     });
-    if (response.ok) return { verified: true as const };
-    return { verified: false, code: "OPENAI_EXTERNAL_CHECK_FAILED" as const, providerStatus: response.status };
+    if (!response.ok) return { verified: false, code: "OPENAI_EXTERNAL_CHECK_FAILED" as const, providerStatus: response.status };
+    const payload = await response.json().catch(() => null) as JsonObject | null;
+    const models = Array.isArray(payload?.data) ? payload.data as JsonObject[] : [];
+    const modelAvailable = models.some((model) => model.id === OPENAI_MODEL);
+    return modelAvailable
+      ? { verified: true as const }
+      : { verified: false, code: "OPENAI_MODEL_UNAVAILABLE" as const };
   } catch {
     return { verified: false, code: "OPENAI_EXTERNAL_CHECK_FAILED" as const };
   }
