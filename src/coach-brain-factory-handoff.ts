@@ -87,8 +87,6 @@ function boundedDuration(value: unknown): number | null {
 function normalizeHandoff(value: unknown): CoachBrainFactoryHandoff | null {
   if (!value || typeof value !== "object") return null;
   const raw = value as Record<string, unknown>;
-  if (typeof raw.question !== "string" || typeof raw.answer !== "string") return null;
-
   const suppliedResearch = raw.researchContext && typeof raw.researchContext === "object"
     ? raw.researchContext as Record<string, unknown>
     : {};
@@ -121,7 +119,7 @@ function normalizeHandoff(value: unknown): CoachBrainFactoryHandoff | null {
   // Canonical-only handoffs carry the content goal into the existing Factory brief.
   const hasCanonicalGoal = typeof raw.contentGoal === "string" && raw.contentGoal.trim().length > 0;
   const question = hasCanonicalGoal && contentGoal !== userIntent
-    ? `${userIntent}\\nContent goal: ${contentGoal}`
+    ? `${userIntent}\nContent goal: ${contentGoal}`
     : userIntent;
   const answer = researchSummary;
 
