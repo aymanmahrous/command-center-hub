@@ -42,3 +42,8 @@ test("Coach Brain verifies the stored handoff before navigating to Factory", () 
   assert.match(coachBrain, /setError\(t\.handoffSaveError\)/);
   assert.ok(coachBrain.indexOf("restored.createdAt !== createdAt") < coachBrain.indexOf('url.searchParams.set("section", "content")'));
 });
+
+test("Coach Brain describes the automatic provider route instead of claiming it is best", () => {
+  assert.match(coachBrain, /Automatic — Gemini if configured, otherwise OpenAI/);
+  assert.match(coachBrain, /تلقائي — Gemini إذا كان مضبوطًا، وإلا OpenAI/);
+});
