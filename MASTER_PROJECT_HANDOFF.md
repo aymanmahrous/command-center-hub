@@ -410,3 +410,45 @@ Canva live connectivity and design creation/export were not proven. No live Gemi
 
 ### Status
 The Connections / Truthful Status phase has recorded read-only Production and QA evidence. This closes the documentation of that audit only; it does not certify untested external-provider operations or authorize a Production release.
+
+## 28. Owner-approved AI Agent Governance Charter — 2026-11-06
+
+### Owner decision
+The owner explicitly approved a binding operating policy to prevent AI agents and contributors from inventing requirements, creating duplicate systems, stopping after trivial subtasks, or claiming unverified completion.
+
+The full policy is maintained at **`docs/AI_AGENT_GOVERNANCE_CHARTER.md`**. It applies to A–Z Guardian, Coach Brain, specialist agents, coding agents, research agents, automation agents, and human contributors working on Command Center Hub.
+
+### Role boundaries
+- **A–Z Guardian:** whole-application executive/technical oversight, architecture and risk governance, routing, quality, cost, evidence, coordination, and delivery.
+- **Coach Brain:** marketing/content strategy, research, planning, and coordination through the existing Content Factory.
+- **Specialist agents:** execute only bounded tasks delegated under the charter; they cannot redefine the project or self-authorize protected operations.
+
+### Non-negotiable rules
+- Existing-system-first: keep working capabilities; repair, reconnect, simplify, or consolidate before considering new work.
+- No duplicate dashboards, Action Centers, task managers, Factories, Media Libraries, Inboxes, CRMs, Connections Centers, Coach Brains, databases, notification services, provider registries, or progress systems.
+- Control Tower remains the owner decision surface; existing canonical destinations remain execution surfaces.
+- Evidence precedes claims. Build success, saved credentials, merged PRs, and deployment status must not be misrepresented as proof of runtime or provider success.
+- Complete a whole safe phase continuously; do not interrupt the owner for routine micro-decisions. Stop only for a genuine blocker, authorization, irreversible/destructive action, material cost, or safety/data-integrity risk.
+- A time target (including one hour) is a planning constraint, never permission to skip verification or fabricate completion.
+- Production publishing, outbound messages, production Supabase changes, secrets/OAuth, schedules, live automation, paid credits, PR merges, and production deployments remain protected and require explicit owner authorization.
+
+### PR reconciliation — fresh GitHub state 2026-11-06
+The following PRs are OPEN and UNMERGED, all targeting `main` at base SHA `f97f7d784bfe4653a060052202dca2e472644451` at the time checked:
+- **#322** `improve/coach-brain-strategic-advisor` — strategic prompt, 1–45 day planning, manual Canva/Gemini/Runway handoffs, and content review improvements.
+- **#323** `fix/owner-connections-truth-and-failover` — provider preference/status/fallback and owner-connection truth, plus frozen publishing controls.
+- **#324** `docs/admin-control-audit-2026-11-06` — documentation-only audit; useful as reference, not a reason to create a generic admin/settings system.
+- **#325** `feat/coach-brain-task-contract-2026-11-06` — canonical Coach Brain → Factory task contract, storage verification, and bounded inputs.
+
+**Do not merge these PRs independently.** #322, #323, and #325 overlap in Coach Brain / Factory source and tests. In particular:
+- #322's accepted planning horizon is **1–45 days**, consistent with the existing Factory RPC limit; #325's normalizer currently clamps to **2–30 days**, which would silently alter valid owner requests.
+- #323 and #325 both touch `src/coach-brain.tsx`, `src/content-growth-hub.tsx`, and related behavior/tests.
+- #322 introduces manual external handoffs; these must remain truthful and must not be represented as API-integrated Runway generation. Existing implementation evidence indicates video generation uses Google Veo, while Runway is a manual external handoff.
+- Preserve the existing Factory workflow, backward-compatible handoff fields/storage key, read-back verification before navigation, and accurate provider/fallback semantics.
+
+### Current safe point
+- The charter has been added on a dedicated documentation branch: `docs/agent-governance-charter-2026-11-06`.
+- No PR was merged. No production deployment, Supabase change, publishing, messaging, paid provider call, or external side effect was performed.
+- The next implementation phase is to reconcile the overlapping Coach Brain/Factory PR changes into one coherent reviewable change set, using the charter as the governing acceptance criteria. Keep all existing PRs unmerged until reconciliation and verification are complete.
+
+### Verification limits
+This is a governance/documentation change only. The new charter itself has not yet been through repository CI, and no runtime behavior is claimed as changed or verified. The Vercel daily deployment limit observed in the related PR checks must not be bypassed by repeated build attempts; use GitHub CI and focused local/code checks first.
