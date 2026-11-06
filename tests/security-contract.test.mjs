@@ -14,6 +14,7 @@ const growthHub = await readFile(new URL("../src/content-growth-hub.tsx", import
 const batchReviewPanel = await readFile(new URL("../src/content-batch-review-panel.tsx", import.meta.url), "utf8");
 const growthCopyEn = await readFile(new URL("../src/i18n/en.ts", import.meta.url), "utf8");
 const mediaView = await readFile(new URL("../src/media-library-view.tsx", import.meta.url), "utf8");
+const integrationsCenter = await readFile(new URL("../src/integrations-center.tsx", import.meta.url), "utf8");
 const configGuard = await readFile(new URL("../src/supabase-config.ts", import.meta.url), "utf8");
 
 test("environment example contains the browser-safe configuration contract", () => {
@@ -205,6 +206,13 @@ test("Integrations validates queue records and states operational limits honestl
   assert.match(operations, /حد المصدر 250 سجلًا لكل طابور/);
   assert.match(operations, /bounded/);
   assert.match(operations, /متابعات متأخرة/);
+});
+
+
+test("Connections Center distinguishes expired sessions from role-based access denial", () => {
+  assert.match(integrationsCenter, /response\.status === 401\) throw new Error\("SESSION_EXPIRED"\)/);
+  assert.match(integrationsCenter, /response\.status === 403\) throw new Error\("STAFF_ACCESS_DENIED"\)/);
+  assert.doesNotMatch(integrationsCenter, /status === 401 \|\| response\.status === 403/);
 });
 
 test("deployment configuration fails closed and never embeds a live Supabase project", () => {
