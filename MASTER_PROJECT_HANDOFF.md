@@ -540,25 +540,27 @@ This section records the owner's clarified primary objective and corrects the em
 5. Verify in isolated QA and Preview. Keep all publish, schedule, WhatsApp, Meta, OAuth, and Production actions frozen unless separately authorized.
 
 
-## 31. Coach Brain Task Contract — implementation and queue reality check (2026-11-06)
+## 31. Coach Brain Task Contract — implementation, review fixes, and queue reality (2026-11-06)
 
-### Implementation delivered on a separate feature branch
+### Current feature implementation
 - Feature PR: https://github.com/aymanmahrous/command-center-hub/pull/325
 - Branch: `feat/coach-brain-task-contract-2026-11-06`
-- Latest verified head at handoff update: `0de6683e8bb20de63b53ef456118f73736ef0313`.
-- Files changed: `src/coach-brain-factory-handoff.ts` and `tests/coach-brain-task-contract.test.mjs`.
-- The existing handoff key and session/local storage fallback are preserved.
-- The five canonical fields are now normalized and bounded: `userIntent`, `planStrategy`, `researchContext`, `requestedDuration`, and `contentGoal`.
-- A compatibility adapter maps canonical-only payloads into the legacy fields already consumed by Content Factory. Existing legacy payloads remain readable and retain their prior question/answer/source fields.
-- No Factory generation, provider call, task execution, publish, or schedule is triggered by normalization.
+- Current reviewed head: `dbec6221df56cd7dfa50449f726da20d23f1d6bd`.
+- Five files are changed: the existing handoff adapter, Coach Brain producer, and three focused test files.
+- The five canonical fields are normalized and bounded: `userIntent`, `planStrategy`, `researchContext`, `requestedDuration`, and `contentGoal`. The producer emits them directly and retains the legacy fields and existing storage key for compatibility.
+- Review found that the Factory reads the legacy `question` field; because the producer also emitted `question`, a distinct `contentGoal` could be stranded in metadata. The adapter now carries the content goal into the bounded Factory brief even when a legacy question is present, without duplicating a goal already included.
+- Review also found that Coach Brain displayed three execution options (`library`, `design`, `manual`) that had no matching provider-routing behavior. Those unsupported choices were removed. The owner now sees only the actual supported choices: automatic provider selection or Gemini. The Factory retains its existing provider selector for Gemini/OpenAI.
+- No new handoff key, task queue, database table, Edge Function, provider invocation, generation, publish, or schedule was added by these fixes.
 
-### Verification evidence
-- GitHub Actions — Verify Command Center, run #894: SUCCESS.
+### Latest verification — current head
+- GitHub Actions Verify Command Center run #912: SUCCESS.
+- `npm ci --ignore-scripts --no-audit --no-fund`: PASS.
 - `npm run typecheck`: PASS.
-- `npm test`: 387/387 PASS.
-- `npm run build`: PASS.
-- Vercel checks remain blocked by the account build-rate limit (`upgradeToPro=build-rate-limit`); no Preview deployment was created. This is not a code-test failure.
-- PR #325 remains Draft and unmerged. No Production deployment or promotion occurred.
+- `npm test`: **390/390 PASS**, 0 failed.
+- `npm run build`: PASS, including the existing performance-budget check.
+- CodeQL, Analyze (actions), and Analyze (javascript-typescript): SUCCESS.
+- Supabase Preview check: SKIPPED because this Git branch is not associated with a Supabase Branch; no Supabase Preview database was created.
+- Vercel's GitHub bot reported READY Preview deployments on PR #325 at 14:27 UTC for the earlier checkpoint before the review-fix commits. The exact deployed SHA could not be independently confirmed with the available Vercel read permission. The current reviewed head `dbec622...` has no confirmed Preview deployment; subsequent Vercel attempts returned the account's daily deployment limit. No authenticated owner-path runtime test has been performed.
 
 ### Read-only Production queue inspection — reuse decision
 - `background_jobs` already has durable `queued / processing / completed / failed / retrying / dead` states, JSON payload/result, attempt count, retry time, and timestamps. RLS is enabled; direct table reads have no row policies, while service-role access exists.
@@ -569,38 +571,28 @@ This section records the owner's clarified primary objective and corrects the em
 - No general Coach Brain / multi-agent task ledger was identified. Existing batch IDs, media jobs, automation runs, audit logs, and publication receipts each cover narrower operational lifecycles.
 
 ### Decision and next safe point
-- Keep the delivered handoff contract; do not create a second handoff, queue, task table, or agent dashboard at this stage.
-- The next implementation design must first define the actual agent responsibilities and permitted actions, then prove whether the existing `background_jobs` queue can safely host a distinct Coach Brain task type without interfering with the protected publishing/media workers. If it cannot, document the smallest isolated alternative before any schema change.
-- Isolated QA identity and Preview remain required before any database/RPC/Edge Function change or Production release.
-- Protected boundaries remain unchanged: publishing freeze, owner approval, WhatsApp, Meta, OAuth, credentials, and Production.
-
+- Keep the repaired existing handoff and Factory route; do not create a second handoff, queue, task table, or agent dashboard at this stage.
+- Reuse the existing content batch ID, `content_items.needs_review`, and audit event as the verified content-production milestone.
+- The next design must map each responsibility to its real backend action, permitted scope, observable result, failure handling, and owner approval. Only then decide whether existing lifecycle records suffice or a genuinely missing task record is required.
+- Any database/RPC/Edge Function work still requires isolated QA identity and a verified Preview. Publishing freeze, owner approval, WhatsApp, Meta, OAuth, credentials, and Production remain protected.
 
 ## 32. Coach Brain producer wiring and agent-role truth — 2026-11-06
 
-### Producer now emits the canonical contract directly
-- Feature PR #325 now also updates `src/coach-brain.tsx` so the existing “Send to Content Factory” action explicitly emits all five canonical fields before writing to the same `coach-brain-factory-handoff` storage key.
-- Legacy fields (`question`, `answer`, `sources`, `planWindowDays`, `planMix`, `planExecution`) are emitted alongside canonical fields for compatibility with the current Factory consumer.
-- Added `tests/coach-brain-task-producer.test.mjs` to assert that the real producer emits the contract and retains the existing Factory navigation.
-- Latest feature branch head: `719d6b53cad45fbaf64b3bb7b4e826636ea603d3`.
-- The earlier 387/387, typecheck, and build pass was recorded at commit `0de6683e8bb20de63b53ef456118f73736ef0313`, before these latest producer-wiring changes. The latest head has not yet produced a fresh GitHub Actions run or Vercel Preview; do not describe the latest changes as newly CI-verified.
-
-### Agent roster integrity
-- Prior conversation retrieval confirms Coach Brain is the sole orchestration interface over existing capabilities. It does not recover an exact, previously approved named roster of autonomous agents and individual role assignments.
-- Do not invent or claim a historical owner-approved roster. Keep the existing verified capability boundaries explicit:
+- The existing “Send to Content Factory” action emits the five canonical fields and the legacy Factory fields to the same `coach-brain-factory-handoff` key.
+- The task contract is a typed, bounded handoff, not a durable queue or an autonomous agent runtime.
+- The Factory consumes the backward-compatible `question`, `answer`, `sources`, `planWindowDays`, `planMix`, and `planExecution` fields. The review repair ensures a distinct content goal reaches that actual consumer.
+- The owner-facing execution selector now exposes only the two implemented choices: automatic provider selection and Gemini. The previous Library, Design, and Manual options were not connected to real execution branches and were removed rather than falsely presented as working.
+- No exact previously approved roster of independent autonomous agents was recovered. Do not invent one. The existing responsibilities remain:
   - Coach Brain: research-led owner interface and handoff/orchestration entry point.
-  - Gemini + Google Search grounding: verified research path through `coach-brain-research`; this is a provider/tool path, not a separate autonomous agent runtime.
-  - OpenAI/Gemini content provider routing: existing content-generation capability used by the Factory; providers are not agents.
-  - Canva: existing design integration/capability; not an autonomous agent by itself.
-  - Google Veo: verified video-generation provider path in the existing media capability.
-  - Runway: capability/status integration only until a real execution path is verified; do not mark it as an active video agent.
-  - Factory Review and publishing: existing human approval and protected publishing boundary; do not convert them into unattended agents.
-- Any future role catalog must distinguish a named workflow responsibility from an independently executing agent, identify its actual backend action, and display truthful capability/connection status. The roster should be proposed explicitly before being represented as owner-approved.
-
-### Next safe implementation gate
-- Re-read the current Factory consumer and its batch-save RPC before adding task tracking. Current verified path remains Coach Brain → existing browser handoff → Factory → `create_staff_generated_content_batch` → `content_items` with `needs_review`.
-- A new task ledger/queue or an autonomous multi-agent runtime is not authorized by the current evidence. First prove whether existing batch IDs, audit logs, media jobs, and receipts can represent the needed progress without changing the publishing workflow.
-- Latest producer wiring remains Draft pending a fresh CI run and isolated Preview/QA. No merge, Production deployment, provider execution, content publishing, or database mutation occurred.
-
+  - Gemini + Google Search grounding: verified research path through `coach-brain-research`; a provider/tool path, not an independent agent process.
+  - Marketing strategy: embedded strategy logic and Factory prompt context, not a separately executing agent.
+  - OpenAI/Gemini: existing Factory content-provider options, not agents.
+  - Canva: existing design integration; readiness depends on connection, scopes, template fields, and export.
+  - Google Veo: existing video-generation path; one successful `ai_media_jobs` record is evidence of a provider execution, not a separate autonomous agent.
+  - Runway: status-only; no verified end-to-end generation path.
+  - Review and publishing: existing human approval and protected publishing boundary.
+- Any future role catalog must distinguish workflow responsibility, model, tool/integration, and human approval; identify the real backend action; and show truthful availability and result evidence.
+- No merge, Production deployment, provider execution, content publishing, or database mutation occurred in this documentation/role-truth update.
 
 ## 33. Functional AI workforce map — implementation target, not a false agent claim (2026-11-06)
 
@@ -627,18 +619,14 @@ The user’s product goal is a coordinated AI workforce with one owner-facing ma
 - No background agent execution, new queue, database ledger, publishing automation, or provider invocation is authorized by this documentation map alone.
 
 
-## 34. Latest Coach Brain handoff verification — 2026-11-06 16:00 UTC
+## 34. Coach Brain handoff verification checkpoint — 2026-11-06 16:00 UTC (historical)
 
-- Latest feature head: `6cb303c4d9e5401d2f8bd7c1871a06e2df0b81c6`.
-- GitHub Actions Verify Command Center run #906 completed successfully.
-- `npm ci --ignore-scripts --no-audit --no-fund`: PASS.
-- `npm run typecheck`: PASS.
-- `npm test`: 388/388 PASS, 0 failed.
-- `npm run build`: PASS.
-- The first producer-wiring run #903 exposed one stale source-pattern test that still expected the old inline `answer: result?.answer?.slice(...)` expression. The implementation now names the canonical `researchSummary`; the test was updated to assert the new variable and legacy adapter. The next run #906 passed all checks.
-- Vercel Preview checks still fail at the account build-rate limit (`upgradeToPro=build-rate-limit`); this is external to the successful GitHub code verification. No Preview or Production deployment was created.
-- PR #325 remains Draft, open, and unmerged. The new handoff contract and producer wiring are code-verified but not runtime-verified in Preview/isolated QA.
-
+- Checkpoint head: `6cb303c4d9e5401d2f8bd7c1871a06e2df0b81c6`.
+- GitHub Actions Verify Command Center run #906 completed successfully: typecheck, 388/388 tests, and build passed.
+- The first producer-wiring run #903 exposed one stale source-pattern test; the test was updated to follow the canonical `researchSummary` variable and legacy adapter.
+- Vercel's GitHub bot subsequently reported READY Preview deployments on PR #325 at 14:27 UTC for the earlier checkpoint. The exact deployed SHA was not independently confirmed, and no authenticated owner-path runtime test was performed. Additional Vercel attempts returned the daily deployment limit.
+- This checkpoint is superseded by the current review fixes and run #912 recorded in section 31. Do not use this older commit/test count as the current branch status.
+- PR #325 remains Draft, open, and unmerged. No Production promotion or live side effect occurred.
 
 ## 35. Existing Factory batch lifecycle — read-only RPC proof (2026-11-06)
 
@@ -649,3 +637,24 @@ The user’s product goal is a coordinated AI workforce with one owner-facing ma
 - It does not record per-agent progress, provider-level subtasks, or independent agent execution. Do not overstate it as a complete agent-task ledger.
 - Reuse this batch ID and existing review state for the content-production milestone. Any additional role/task progress should first be derived from existing records and execution receipts; no new persistence or RPC has been added.
 - Production was read only. No RPC invocation, insert, update, schema change, or publishing action occurred.
+
+
+## 36. Owner-authorized focused review and corrective verification — 2026-11-06
+
+### Review findings repaired on PR #325
+- The real Factory consumer reads the backward-compatible research fields; a distinct `contentGoal` was not reaching its actual prompt when the producer also supplied `question`. The adapter now includes that goal in the bounded brief and avoids duplication.
+- Coach Brain offered Library, Design, and Manual execution choices although the current execution code only routed Automatic and Gemini. The unsupported choices were removed; the visible choices now match actual behavior.
+- Added regression tests for content-goal propagation, duplicate avoidance, and truthful execution options.
+
+### Verification
+- Current PR #325 head: `dbec6221df56cd7dfa50449f726da20d23f1d6bd`.
+- Verify run #912: `npm ci`, typecheck, 390/390 tests, build, and performance budget all passed.
+- CodeQL and both Analyze jobs passed.
+- Supabase Preview was skipped because the branch is not attached to a Supabase database branch.
+- Vercel Preview was reported READY for the earlier PR checkpoint only; the current head has no confirmed Preview. Runtime/owner-path QA remains outstanding.
+- PR #325 is still Draft/open/unmerged. PR #324 remains open and unmerged.
+
+### Boundaries and next safe point
+- No Production deploy, merge, database write/migration, Edge Function deploy, provider generation, Meta/Instagram/Facebook publication, WhatsApp message, OAuth change, or credential change occurred.
+- The current feature is code-verified but not runtime-verified on the latest head.
+- Next safe phase: define the real execution lifecycle for the functional responsibilities using the existing batch ID, review status, media jobs, audit trail, and receipts. Do not create a new queue/table or claim independent agents until the evidence proves a genuine gap and the smallest design is reviewed.
