@@ -95,7 +95,7 @@ test("Factory lets the owner choose a scheduling window without creating a secon
   assert.match(hub, /max=\{45\}/);
   assert.match(hub, /45 - planWindowDays/);
   assert.match(coachBrain, /Math.min\(45/);
-  assert.match(coachBrain, /max=\{365\}/);
+  assert.match(coachBrain, /max=\{45\}/);
 });
 
 
