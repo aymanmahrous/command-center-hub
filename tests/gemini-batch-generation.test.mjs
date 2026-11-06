@@ -53,7 +53,7 @@ test("content growth hub generates 30-day local calendar with media linkage", ()
   assert.match(hub, /buildCoachAyman30DayBatchWithMedia/);
   assert.match(hub, /create_staff_generated_content_batch/);
   assert.match(hub, /batchAiProvider/);
-  assert.match(hub, /Auto — Gemini if configured, otherwise OpenAI/);
+  assert.match(hub, /Auto — Gemini if configured; else OpenAI if configured/);
 });
 
 test("existing Coach Brain, Academy, business and performance context reaches the Gemini prompt", () => {
