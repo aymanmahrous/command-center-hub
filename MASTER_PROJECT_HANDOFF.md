@@ -605,3 +605,14 @@ No PR was merged or closed. No Production database, job, flag, policy, grant, Ed
 - After run #937, one further documentation-only handoff amendment was committed as `60b422a4f83f1cf5bf189ea416297066c82116c2`; that exact latest commit has not been rerun through CI. No application source changed in that amendment.
 - Vercel Preview status checks remain failed with the explicit `build-rate-limit` account limit. No repeated Vercel build was attempted.
 - Run #937 verifies the immediately preceding documentation branch state; it does not verify live runtime role behavior or authorize merge/deployment.
+
+
+## 31. Fresh owner-administration authorization check — 2026-11-07
+
+- Supabase project inventory now returns exactly one project: Production `nmzxrjdxvmmzzmajrskm`, `ACTIVE_HEALTHY`. The former Bolt project is absent from the account project list. No second QA database is currently available.
+- Read-only Production counts: 1 active staff profile, 1 active `super_admin`, 0 other active roles, and 1,115 `audit_logs` rows.
+- Focused current catalog query: 81 SECURITY DEFINER functions executable by authenticated; 2 executable by anon. Source-marker grouping: 55 contain `is_active_staff`, 22 contain `command_center_staff_role`, and 2 helper functions use direct active-profile / `auth.uid()` checks. The two anon functions are `rf_schedule_turn` and `rf_whatsapp_automation_enabled`; the former explicitly reports `canConfirmSlot=false` and `bookingWriteUsed=false`. These aggregate marker counts are not a substitute for the required per-function role/action/caller matrix.
+- Focused schema/policy query reconfirmed: `staff_profiles` has only own-active-profile SELECT; `audit_logs` has no direct policy; `business_settings` permits public SELECT of the primary row and has no update policy. No dedicated staff invitation, role-update, deactivation, staff-roster listing, or audit-reader function was found in the focused public function inventory.
+- Full read-only evidence and exact next-step boundaries are recorded in `docs/OWNER_ADMIN_AUTHORIZATION_CHECK_2026-11-07.md`.
+- **Decision:** do not create a placeholder Administration UI or expose direct table reads. Finish the per-function authorization matrix and frontend caller map first; then design the smallest owner-only server contract. No Production schema/data/RLS/grants/Auth/secrets/functions/Edge Functions changed; no RPC or external side effect was invoked.
+- **QA limit:** only one active `super_admin` exists and there is no second Supabase project, so non-owner role behavior cannot be runtime-tested. Do not use Production to simulate other roles.
