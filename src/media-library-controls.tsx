@@ -85,7 +85,6 @@ export function MediaProviderStrip({ session, canWrite = false }: { session?: Co
   const [geminiStatus, setGeminiStatus] = useState<GeminiIntegrationStatus | null>(null);
   const [canvaStatus, setCanvaStatus] = useState<CanvaIntegrationStatus | null>(null);
   const [canvaDetail, setCanvaDetail] = useState("");
-  const [canvaBusy, setCanvaBusy] = useState(false);
   const [canvaNotice, setCanvaNotice] = useState("");
 
   useEffect(() => {
@@ -126,22 +125,6 @@ export function MediaProviderStrip({ session, canWrite = false }: { session?: Co
       .catch(() => setCanvaStatus("NOT CONNECTED"));
   }, [session, language]);
 
-  async function connectCanva() {
-    if (!session || !canWrite || canvaBusy) return;
-    setCanvaBusy(true);
-    setCanvaNotice("");
-    try {
-      const { authorizationUrl } = await startCanvaConnect(session);
-      window.location.assign(authorizationUrl);
-    } catch (cause) {
-      if (cause instanceof Error && cause.message === "SESSION_EXPIRED") throw cause;
-      const code = cause instanceof Error ? cause.message : undefined;
-      setCanvaNotice(canvaConnectErrorMessage(code, language));
-    } finally {
-      setCanvaBusy(false);
-    }
-  }
-
   const canvaConnected = canvaStatus === "CONNECTED";
   const providers = readMediaProviderStatuses({ canva: canvaConnected });
 
@@ -159,21 +142,15 @@ export function MediaProviderStrip({ session, canWrite = false }: { session?: Co
         ))}
       </div>
       <div className="canva-connect-control" aria-label="Canva connection">
-        <span className={canvaConnected ? "optional" : "optional"}>
-          Canva: {canvaConnected ? "NEEDS ATTENTION" : "OPTIONAL / NOT CONNECTED"}
+        <span className="optional">
+          Canva: {canvaConnected ? (language === "ar" ? "متصل — راجع الجاهزية" : "Connected — readiness check needed") : (language === "ar" ? "اختياري — غير مربوط" : "Optional / not connected")}
         </span>
-        {canvaConnected ? (
-          <a className="canva-action" href={CANVA_OPEN_URL} target="_blank" rel="noopener noreferrer">Open Canva</a>
-        ) : (
-          <>
-            <button type="button" className="canva-action" disabled={!session || !canWrite || canvaBusy} onClick={() => void connectCanva()}>
-              Connect Canva
-            </button>
-            <a className="canva-action" href={CANVA_OPEN_URL} target="_blank" rel="noopener noreferrer">
-              {language === "ar" ? "فتح Canva يدوياً" : "Open Canva"}
-            </a>
-          </>
-        )}
+        <button type="button" className="canva-action" onClick={() => window.dispatchEvent(new CustomEvent("command-center:navigate", { detail: { section: "connections" } }))}>
+          {language === "ar" ? "إدارة اتصال Canva" : "Manage Canva connection"}
+        </button>
+        <a className="canva-action" href={CANVA_OPEN_URL} target="_blank" rel="noopener noreferrer">
+          {language === "ar" ? "فتح Canva يدوياً" : "Open Canva manually"}
+        </a>
       </div>
       {canvaNotice && <p className="canva-connect-notice" role="status">{canvaNotice}</p>}
     </div>
