@@ -498,3 +498,52 @@ Observed 2026-11-06:
 
 ### Scope and verification
 This phase was read-only. No Production rows, policies, grants, functions, Auth settings, secrets, Edge Functions, schedules, publishing paths, or Vercel configuration were changed. No role-switching or write-path tests were attempted because Production has only one active `super_admin` profile and the user explicitly protects Production state. The findings are based on live catalog metadata, function definitions, RLS policies, advisor output, and the main-branch application source. A full per-function matrix and non-owner role runtime tests remain open.
+
+## 30. Authorization matrix deepening and publishing-freeze boundary — 2026-11-06
+
+### Server-side role model confirmed from live function definitions
+The database's two central helpers are:
+- `is_active_staff(allowed_roles)`: requires the caller's own `staff_profiles` row, `active=true`, and membership in the supplied role list when a list is provided.
+- `command_center_staff_role()`: returns only the active caller's own role, or NULL.
+
+For the 81 SECURITY DEFINER functions callable by authenticated users, the source scan found:
+- 55 reference `is_active_staff(...)`;
+- 23 reference `command_center_staff_role()`;
+- 1 contains a direct `auth.uid()` check;
+- 2 are the intentionally public-facing RPC exceptions already described in section 29.
+
+This establishes a consistent staff-identity guard pattern, but not that every function grants the correct minimum role. Exact role allowlists vary by operation and need to remain function-specific.
+
+### High-impact RPC role checks inspected
+- `approve_staff_content_batch`: super_admin only. It can approve content and create future `publish_content` jobs for eligible Facebook/Instagram content.
+- `transition_staff_content_item`: initial gate allows super_admin/admin/content_manager; the `approve` action adds a super_admin-only check. Its `schedule` action creates a queued `publish_content` job.
+- `retry_staff_publish_job`: callable by super_admin/admin/content_manager. For a failed/dead eligible future-planned publish job, it can call `enqueue_publish_job` and create a new job.
+- `cancel_staff_background_job`: super_admin/admin/content_manager; only terminal/queued/retrying/failed/dead jobs are accepted according to its state check.
+- `record_staff_content_publish_result`: super_admin/admin/content_manager; records success/failure receipts and changes content status, but does not itself call Meta.
+- `update_owner_media_asset`: super_admin only.
+- `set_staff_conversation_mode`: super_admin/admin/reception.
+- `update_staff_lead_workflow`: super_admin/admin/reception/coach.
+- `update_booking_request_status`: super_admin/admin/reception.
+- `connect_staff_integration` and `set_staff_ai_provider`: super_admin/admin/content_manager.
+- `create_staff_video_generation_job`: super_admin/admin/content_manager; creates a job record, not a provider generation call.
+
+### Important mismatch: publishing freeze is not enforced by the database RPC boundary
+The application may hide retry/scheduling controls, but Production still exposes authenticated RPCs that can prepare/requeue publish jobs:
+- `retry_staff_publish_job` remains executable for super_admin/admin/content_manager.
+- `transition_staff_content_item` still contains a scheduling branch for super_admin/admin/content_manager.
+- `approve_staff_content_batch` remains executable by super_admin and can create future publish jobs.
+
+This is a **HIGH priority authorization/operational-boundary gap** relative to the owner's current instruction that publishing remains frozen pending new authorization. It is not evidence that a post was sent. It means the UI freeze is not a complete server-side freeze: a permitted authenticated caller could still enqueue or re-enqueue work if all function preconditions are met.
+
+**Do not call these functions, test them with real rows, or alter existing jobs.** The production content/job data is protected. A future repair should add a separately reviewed server-side freeze gate that prevents scheduling/retry preparation while preserving safe non-publishing approval/review operations, and should be tested in an isolated environment before any Production change. Do not simply revoke all execute grants: that could break unrelated content workflow paths.
+
+### Additional implementation finding
+`get_staff_integrations()` is named as a read function but performs an idempotent `INSERT ... ON CONFLICT DO NOTHING` to seed seven default provider rows before returning the integration list. It is guarded to super_admin/admin/content_manager. This is a side effect on a read path and is not currently recorded as an audit event. Preserve existing behavior unless a targeted design proves a safe alternative; do not invoke it as part of this audit.
+
+### Authorization review status
+- **Completed:** live RLS/policy inventory, role helper definitions, aggregate 81-function guard classification, and source-level review of the high-impact RPCs listed above.
+- **Still open:** exhaustive per-function minimum-role mapping for all 81 functions; mapping each RPC to every frontend/Edge Function caller; non-owner role behavior tests; safe Preview tests for role-denial paths; review of the 10 mutable-search-path helpers and `pg_net` extension placement.
+- **Owner-facing implications:** do not expose staff-role editing, audit browsing, or feature switches in a new admin screen until their server-side APIs and minimum-role rules are designed and verified. The live Production profile inventory has only one active super_admin, so no employee role should be invented or tested by changing Production data.
+
+### No-change confirmation
+This continuation used only catalog reads, function-definition reads, advisor output, and GitHub source inspection. It did not invoke any operational RPC, alter any Production row, create or retry a job, send a message, publish content, change a policy/grant/function/Auth setting, or deploy anything.
