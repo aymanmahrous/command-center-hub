@@ -597,7 +597,7 @@ export default function ContentGrowthHub({
             setBatchAiProvider(next);
             writeAiProviderPreference(next);
           }} disabled={generating || panelBusy}>
-            <option value="auto">{language === "ar" ? "تلقائي — الأفضل المتاح" : "Auto — fallback on temporary outage"}</option>
+            <option value="auto">{language === "ar" ? "تلقائي — بديل عند العطل المؤقت" : "Auto — fallback on temporary outage"}</option>
             <option value="gemini">Gemini</option>
             <option value="openai">OpenAI</option>
           </select>
