@@ -641,7 +641,7 @@ export default function ContentGrowthHub({
             : "Media-source connections such as Google Drive are managed only in Media Library. Canva, Meta and AI providers are managed in the single Connections Center. This screen will not show a second status list derived from automation-run data."}
         </p>
         <div className="factory-section-action-bar">
-          <button type="button" className="secondary" onClick={() => onOpenMedia()}>
+          <button type="button" className="secondary" onClick={() => onOpenMedia?.()}>
             {language === "ar" ? "فتح مكتبة الوسائط" : "Open Media Library"}
           </button>
           <button type="button" className="secondary" onClick={() => window.dispatchEvent(new CustomEvent("command-center:navigate", { detail: { section: "connections" } }))}>
