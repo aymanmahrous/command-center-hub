@@ -573,3 +573,30 @@ This section records the owner's clarified primary objective and corrects the em
 - The next implementation design must first define the actual agent responsibilities and permitted actions, then prove whether the existing `background_jobs` queue can safely host a distinct Coach Brain task type without interfering with the protected publishing/media workers. If it cannot, document the smallest isolated alternative before any schema change.
 - Isolated QA identity and Preview remain required before any database/RPC/Edge Function change or Production release.
 - Protected boundaries remain unchanged: publishing freeze, owner approval, WhatsApp, Meta, OAuth, credentials, and Production.
+
+
+## 32. Coach Brain producer wiring and agent-role truth — 2026-11-06
+
+### Producer now emits the canonical contract directly
+- Feature PR #325 now also updates `src/coach-brain.tsx` so the existing “Send to Content Factory” action explicitly emits all five canonical fields before writing to the same `coach-brain-factory-handoff` storage key.
+- Legacy fields (`question`, `answer`, `sources`, `planWindowDays`, `planMix`, `planExecution`) are emitted alongside canonical fields for compatibility with the current Factory consumer.
+- Added `tests/coach-brain-task-producer.test.mjs` to assert that the real producer emits the contract and retains the existing Factory navigation.
+- Latest feature branch head: `719d6b53cad45fbaf64b3bb7b4e826636ea603d3`.
+- The earlier 387/387, typecheck, and build pass was recorded at commit `0de6683e8bb20de63b53ef456118f73736ef0313`, before these latest producer-wiring changes. The latest head has not yet produced a fresh GitHub Actions run or Vercel Preview; do not describe the latest changes as newly CI-verified.
+
+### Agent roster integrity
+- Prior conversation retrieval confirms Coach Brain is the sole orchestration interface over existing capabilities. It does not recover an exact, previously approved named roster of autonomous agents and individual role assignments.
+- Do not invent or claim a historical owner-approved roster. Keep the existing verified capability boundaries explicit:
+  - Coach Brain: research-led owner interface and handoff/orchestration entry point.
+  - Gemini + Google Search grounding: verified research path through `coach-brain-research`; this is a provider/tool path, not a separate autonomous agent runtime.
+  - OpenAI/Gemini content provider routing: existing content-generation capability used by the Factory; providers are not agents.
+  - Canva: existing design integration/capability; not an autonomous agent by itself.
+  - Google Veo: verified video-generation provider path in the existing media capability.
+  - Runway: capability/status integration only until a real execution path is verified; do not mark it as an active video agent.
+  - Factory Review and publishing: existing human approval and protected publishing boundary; do not convert them into unattended agents.
+- Any future role catalog must distinguish a named workflow responsibility from an independently executing agent, identify its actual backend action, and display truthful capability/connection status. The roster should be proposed explicitly before being represented as owner-approved.
+
+### Next safe implementation gate
+- Re-read the current Factory consumer and its batch-save RPC before adding task tracking. Current verified path remains Coach Brain → existing browser handoff → Factory → `create_staff_generated_content_batch` → `content_items` with `needs_review`.
+- A new task ledger/queue or an autonomous multi-agent runtime is not authorized by the current evidence. First prove whether existing batch IDs, audit logs, media jobs, and receipts can represent the needed progress without changing the publishing workflow.
+- Latest producer wiring remains Draft pending a fresh CI run and isolated Preview/QA. No merge, Production deployment, provider execution, content publishing, or database mutation occurred.
