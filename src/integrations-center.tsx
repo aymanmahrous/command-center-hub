@@ -18,6 +18,7 @@ type AiProviderStatus = {
   providerChecks?: Partial<Record<AiProviderName, { configured?: boolean; externalCheck?: string; providerStatus?: number }>>;
   detail?: string;
   code?: string;
+  externalCheck?: string;
 };
 const URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
 const KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
@@ -226,7 +227,8 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
       <div className="integration-grid">
         {(["gemini", "openai"] as const).map((provider) => {
           const configured = aiStatus?.providers?.[provider] === true;
-          const external = aiStatus?.providerChecks?.[provider]?.externalCheck;
+          const external = aiStatus?.providerChecks?.[provider]?.externalCheck
+            ?? (provider === "gemini" ? aiStatus?.externalCheck : undefined);
           const label = external === "PASSED"
             ? (language === "ar" ? "الاتصال الخارجي ناجح" : "External check passed")
             : external === "FAILED"
