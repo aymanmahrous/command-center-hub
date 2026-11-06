@@ -162,11 +162,21 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
 
   function sendResultToFactory() {
     if (!result && !sample) return;
+    const userIntent = question.trim().slice(0, 1000) || "Coach Brain content plan";
+    const researchSummary = result?.answer?.slice(0, 4000) || sample?.caption?.slice(0, 4000) || "";
+    const researchSources = result?.sources?.slice(0, 5).map((source) => ({ title: source.title, url: source.url })) ?? [];
+    const requestedDuration = selectedPlanDays();
+    const contentGoal = sample?.topic?.trim().slice(0, 500) || userIntent.slice(0, 500);
     const handoff = JSON.stringify({
-      question: question.trim().slice(0, 1000) || "Coach Brain content plan",
-      answer: result?.answer?.slice(0, 4000) || sample?.caption?.slice(0, 4000) || "",
-      sources: result?.sources?.slice(0, 5).map((source) => ({ title: source.title, url: source.url })) ?? [],
-      planWindowDays: selectedPlanDays(),
+      userIntent,
+      planStrategy: `${planMix}:${planExecution}`,
+      researchContext: { summary: researchSummary, sources: researchSources },
+      requestedDuration,
+      contentGoal,
+      question: userIntent,
+      answer: researchSummary,
+      sources: researchSources,
+      planWindowDays: requestedDuration,
       planMix,
       planExecution,
       sample: sample ? {
