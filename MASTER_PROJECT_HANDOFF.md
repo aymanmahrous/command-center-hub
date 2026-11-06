@@ -410,3 +410,286 @@ Canva live connectivity and design creation/export were not proven. No live Gemi
 
 ### Status
 The Connections / Truthful Status phase has recorded read-only Production and QA evidence. This closes the documentation of that audit only; it does not certify untested external-provider operations or authorize a Production release.
+
+
+## 28. Owner Administration Capability Audit — 2026-11-06
+
+### Scope and safety
+- Owner-authorized administrative audit of existing application settings, staff roles, module navigation, backend authorization, audit history, Supabase configuration tables, and Production deployment state.
+- Repository baseline inspected: `main` at `f97f7d784bfe4653a060052202dca2e472644451`.
+- Production Vercel deployment observed: READY deployment `dpl_gHnq8Bong8gMYeugLBGT75tF1FZd`, commit `df4df0bab8aa8fe00fd1605d9623823977980034`, aliases `hub.relaxfixuae.com` and `www.hub.relaxfixuae.com`. The latest `main` commit is newer than the observed Production commit; do not infer it is live.
+- No application source, Supabase schema/RLS, credentials, Edge Functions, Production environment, publishing, WhatsApp, OAuth, or deployment state was changed during this audit.
+
+### Confirmed existing capabilities
+- Staff authentication uses Supabase Auth plus exactly one active `staff_profiles` row keyed by `auth.uid()`; restored sessions revalidate the JWT and active profile.
+- Existing fixed roles: `super_admin`, `admin`, `reception`, `coach`, `content_manager`. Database role constraint accepts only these values.
+- Frontend contains role-specific write gates for Inbox, bookings, content, and media. Backend RPCs also enforce role checks for many read/write paths; this is not only UI hiding.
+- Existing language switcher supports Arabic and English.
+- Existing canonical destinations remain: Control Tower, Coach Brain, Content Studio/Factory, Inbox, Media Library, Operations, Integrations/Connections, Automations, Bookings/Planner, CRM, Analytics, Radar, Archive, and Workspace.
+- Integrations already have a dedicated management screen and existing server-side connect/test/disconnect RPCs. Do not create a second integration center.
+- `audit_logs` already records administrative/operational events; observed row count at audit time: 1,115.
+
+### Confirmed gaps / incomplete administration
+- No owner-only application administration destination exists in the current More navigation.
+- No verified staff invitation, staff-role update, or staff deactivation management path was found in the current application source or Production public-schema function inventory. The existing profile table and role model are present, but not an owner-facing CRUD capability.
+- `business_settings` has one primary row and a public-read policy. No current staff-facing update RPC or application editing screen was found. It is the correct existing source for business profile/booking settings; do not create a duplicate business-settings table.
+- `settings` is a legacy generic website-style table (site title/description, WhatsApp, theme color, background URL). It has one row in the direct live count, but no current application consumer or safe admin edit path was identified. Do not repurpose it as Command Center configuration.
+- `rf_schedule_config` has two rows but no verified owner-facing configuration editor.
+- `notification_settings` currently has zero rows and no verified owner-facing management flow.
+- No dedicated module/feature-flag or role-permission configuration table was found among the 64 public tables.
+- No audit-log read policy or owner-facing audit-log reader RPC was found. The audit trail is being written, but is not yet exposed as a safe owner view.
+- The current primary and More navigation lists are static and are not filtered by `session.role`. Backend RPC checks remain the security boundary; the navigation gap is primarily an owner/staff UX inconsistency, not proof of backend authorization bypass.
+
+### Live Supabase security evidence
+- Production project: `nmzxrjdxvmmzzmajrskm`.
+- All 64 public tables have RLS enabled. The Supabase advisor reports 53 RLS-enabled tables with no direct policies. This can be intentional for tables accessible only through guarded SECURITY DEFINER RPCs; do not add broad table policies merely to silence the advisor.
+- The live catalog contains 168 SECURITY DEFINER functions; 81 are executable by authenticated users. The focused grant/definition audit found only two functions executable by anon: `rf_schedule_turn` (public scheduling-assistant turn, with no booking write) and `rf_whatsapp_automation_enabled` (boolean configuration read). The 79 other authenticated-executable functions in that focused set expose staff/identity guards; preserve the existing grant restrictions.
+- The repository already contains migration `20261023160000_restrict_sensitive_rpc_execute_grants.sql`, which revokes anonymous/public execution from selected staff RPCs and service-only routines. Do not blanket-revoke authenticated execution.
+- Advisor warnings observed: 10 mutable function search paths, `pg_net` installed in public, two anon-executable SECURITY DEFINER functions, 81 authenticated-executable SECURITY DEFINER functions, and leaked-password protection disabled. These require scoped review; they are not authorization to perform a broad security migration during the admin UI task.
+- `staff_profiles` currently has one active profile, with role `super_admin`. No other role was present in the live table at audit time.
+- Live configuration row counts: `business_settings` 1, `settings` 1, `rf_schedule_config` 2, `notification_settings` 0, `staff_integrations` 7, `staff_integration_secrets` 2. Secret values were not read or emitted.
+
+### Recommended minimal architecture
+1. Add one owner-only **إدارة التطبيق / App Administration** destination under More. It must not replace Control Tower or duplicate existing workspaces.
+2. Reuse `staff_profiles` and the existing five-role allowlist for staff management. Do not create a second users/roles table or custom roles in the first iteration.
+3. Reuse `business_settings` for the existing business/booking settings. Keep secrets out of this public-readable table.
+4. Expose `audit_logs` through a paginated, read-only, super-admin-only server endpoint; do not add direct client RLS access to the whole audit table.
+5. Keep existing Integrations, Automations, Content, Media, Bookings, CRM, and Analytics destinations canonical; the admin page should link to them and show truthful status rather than copy their controls.
+6. Do not make role/module permissions dynamically editable in the first iteration. The backend currently has explicit role checks across many RPCs and Edge Functions; a dynamic permission editor would require replacing those checks consistently. First centralize and document the existing role-to-module matrix. Any future global module switch must be treated as UX availability only, never as a substitute for backend authorization.
+7. For staff invitation/role changes and business-setting writes, use one authenticated server-side administration endpoint with JWT verification, a fresh active `super_admin` check, strict action/field allowlists, audit logging, and protections against self-lockout or disabling the last active super-admin. Never expose the service/secret key to the browser.
+8. Follow Supabase's current security guidance: keep user JWT verification on user-facing Edge Functions; use privileged server credentials only after validating the caller; for SECURITY DEFINER functions, pin `search_path`, explicitly authorize the caller, and narrow EXECUTE grants.
+
+### Verification and release gates
+- Required tests: unauthenticated denial; inactive staff denial; non-super-admin denial; super-admin success; fixed-role validation; no self-demotion/deactivation; no disabling the last active super-admin; field allowlists; secret redaction; audit record written; pagination bounds; and no effect on existing operational RPCs.
+- Validate with isolated QA identities for each relevant role before considering Production. Do not use the Production owner profile as a test fixture.
+- No Production migration, Edge Function deployment, Vercel Production promotion, staff invitation email, role mutation, module toggle, live publish, or WhatsApp action is authorized by this audit record.
+- Current safe point: diagnosis and architecture decision are complete; implementation is NOT_STARTED. The next bounded step is to implement the owner-only server-side administration contract and UI on a feature branch, then verify against isolated QA before any Production change.
+
+## 29. AI Agent Operating Model — owner mandate reconciliation (2026-11-06)
+
+### Product purpose — non-negotiable
+The primary business purpose of Command Center Hub is to let the owner operate the academy with a coordinated AI workforce, so the owner can focus on swimming instruction and business decisions instead of manually coordinating tools and repetitive work. Administration is supporting infrastructure; it is not the product's primary outcome.
+
+### Agreed operating model
+- **Coach Brain is the coordinator/orchestrator**: understands the owner's intent, researches when needed, chooses the next safe workflow, creates the plan, routes work to existing capabilities, compares provider/cost choices, and returns a clear owner decision when required. It is not a second Content Factory or a duplicate agent runtime.
+- **OpenAI**: an existing content-generation provider option inside Content Factory where server configuration permits; current Coach Brain research/orchestration is not proven to use OpenAI as its reasoning model.
+- **Gemini**: the verified Coach Brain research path and existing content/media generation integrations; credentials or a successful status check alone do not prove every generation operation works.
+- **Canva**: an existing design integration and `canva-design` execution path; actual readiness depends on valid connection, scopes, and a populated/usable template. Do not claim every design action is currently ready.
+- **Runway**: status/capability entry only in the inspected application state; no end-to-end Runway generation path is proven. Do not describe it as an active video handoff or autonomous video agent.
+- **Content Factory**: the existing execution workspace for content creation; it receives the Coach Brain handoff (userIntent, planStrategy, researchContext, requestedDuration, contentGoal) rather than being rebuilt as another agent.
+- **Media Library / Review / Operations / existing publishing path**: remain the canonical downstream execution stages. Preserve approval and publishing boundaries.
+
+### Required end-to-end operating flow
+Owner command → Coach Brain → research/plan/provider choice → existing Factory → Media → Draft/Review → Owner Approval → Operations → explicitly authorized schedule/publish → external receipt/result → measurement/analysis → next Coach Brain plan.
+
+### Required owner experience
+- The owner sees one simple request/decision surface, not provider settings, raw prompts, tokens, API keys, or technical routing.
+- Coach Brain explains the recommended action, expected output, provider choice and cost/uncertainty in plain Arabic, then routes work to the existing destination.
+- Show each delegated task with truthful states such as queued, working, needs owner decision, completed, blocked, or failed; each completion must have a real artifact/result or execution receipt.
+- Preserve a clear audit trail: who/which agent initiated the task, the task input/output references, provider, time, cost when available, approval, and resulting action.
+- Owner approval remains mandatory for content approval and any real external publishing, activation, or spend.
+
+### Administration scope correction
+The proposed App Administration area is subordinate to this operating model. It must not become a conventional settings portal that distracts from agent execution. Its first release should make the existing workforce understandable and controllable without creating duplicate systems:
+1. An inventory of existing agents/capabilities and their responsibility, current availability, supported actions, and canonical destination.
+2. Coach Brain orchestration visibility: current task, delegated destination, status, blocker, next owner decision, and evidence/result.
+3. Provider readiness and cost visibility for the existing OpenAI/Gemini/Canva/Runway integrations, linking to the canonical Integrations screen rather than duplicating connection controls.
+4. Existing staff/role administration and audit history, only after isolated QA and secure server-side authorization are available.
+
+### Discovery and implementation constraints
+- Before adding any agent registry, task table, queue, scheduler, provider adapter, or dashboard, inspect the current code, Supabase schema/RPCs, Edge Functions, and existing workflow handoffs for reusable equivalents. Reuse first; add only a proven missing capability.
+- Do not label a provider integration as an autonomous agent unless it has a defined task contract, bounded permissions, observable execution, failure handling, and a verified result.
+- Do not create parallel agents for work already owned by Coach Brain, Content Factory, Media, Automations, or Operations.
+- Agent-level permissions must be enforced server-side and scoped to the task; hiding a UI control is not authorization.
+- Preserve least privilege, budget limits, retries/idempotency, cancellation/timeout handling, and human approval gates. No secret is exposed to the browser or to the owner UI.
+- No live publish, schedule, external message, provider spend, account activation, migration, or Production release without the applicable explicit approval.
+
+### Acceptance criteria for the next implementation phase
+- A single owner request can be interpreted by Coach Brain and handed to the existing Factory without re-entering the same brief.
+- The handoff preserves all five agreed context fields and has a visible, truthful status/result.
+- Provider selection is based on task suitability, readiness, and known cost; unknown cost/readiness is shown as unknown, not guessed.
+- The owner can see which existing capability is responsible and what requires their decision.
+- Existing approval, publishing freeze/authorization, WhatsApp, Meta, and production boundaries remain unchanged.
+- Tests prove no duplicate task execution, no false success, no unauthorized tool/action, and no loss of the existing workflow.
+
+### Current implementation gate
+This section records the owner's clarified primary objective and corrects the emphasis of section 28; it does not authorize new tables, runtime infrastructure, provider calls, live actions, or Production changes. The current QA limitation remains: the available Supabase connector exposes project/database and Edge Function operations but no Auth Admin invite/create-user operation. Vercel's GitHub bot reported a READY Preview for PR #324 at 13:10 UTC, but the exact deployed commit could not be independently confirmed through the available Vercel read permission; later deployment attempts hit the daily build limit. No authenticated owner-path or role-based QA was performed on that Preview. Do not use the Production owner identity as a QA fixture or bypass Supabase Auth.
+
+## 30. Coach Brain / Factory as-is implementation baseline — 2026-11-06
+
+### Direct source inspection
+- `src/coach-brain.tsx` currently provides evidence research, ready-made task prompts, a limited content sample request, plan-window/mix/execution choices, and a route into the existing Content Factory. Research calls the `coach-brain-research` Edge Function; that function uses Gemini with Google Search grounding and validates the active staff identity.
+- The current Coach Brain → Factory handoff is implemented in `src/coach-brain-factory-handoff.ts` and is persisted in browser session/local storage. The payload currently carries `question`, `answer`, `sources`, `planWindowDays`, `planMix`, `planExecution`, optional sample fields, and a timestamp.
+- `src/content-growth-hub.tsx` consumes the handoff as supporting research context, combines it with existing Academy Knowledge, strategy, performance guidance, and provider selection, then uses the existing batch-generation and `create_staff_generated_content_batch` path.
+- The batch provider contract already supports `auto`, `gemini`, and `openai` in `src/gemini-batch-adapter.ts`. This is provider routing inside the existing Factory, not proof of three autonomous agents.
+- Canva remains an existing design integration. Runway is currently represented as an integration/capability status in the Factory; the inspected video-generation contract/test identifies Google Veo (`generate-veo-video`) as the actual video-generation path. Do not report Runway as an active autonomous video agent or silently substitute it for Veo.
+- Existing PR #316 and its merged commit `d4869c8de90759bf19f71460e9640bff1caff7e7` already addressed persistent Coach Brain → Factory handoff. Do not recreate that feature.
+- Existing PR #319 and `main` commit `f97f7d784bfe4653a060052202dca2e472644451` enforce the owner publishing freeze/authorization across scheduled, manual, and automation publishing paths. Preserve it.
+
+### Verified gap — orchestration is not yet a complete agent workforce
+- The inspected source shows a useful Coach Brain research-to-Factory workflow, but not a verified multi-agent dispatcher with named task ownership, delegated task IDs, durable execution states, retry/cancel policy, and a unified owner-visible execution history.
+- The current handoff payload does not yet expose the five canonical orchestration fields as a typed contract: `userIntent`, `planStrategy`, `researchContext`, `requestedDuration`, and `contentGoal`. Current equivalents exist under different fields (`question`, `planMix`/`planExecution`, `answer`/`sources`, `planWindowDays`, and sample/action context), so the gap is contract normalization and traceability—not a reason to replace the existing handoff.
+- The browser-storage handoff is a transfer mechanism, not a durable task ledger. Before introducing persistence, inspect existing content batch records, operational/audit records, RPCs, and n8n handoffs to determine whether they already provide the required task lifecycle evidence.
+- No code change to Coach Brain, Factory, provider routing, task persistence, or publishing was made in this documentation step.
+
+### Smallest implementation sequence
+1. Normalize the existing Coach Brain → Factory payload into a typed, backward-compatible task contract while retaining current fields and the existing storage key.
+2. Add contract tests proving all five canonical fields are populated, bounded, validated, and consumed by the existing Factory; preserve old handoff compatibility.
+3. Reuse existing batch IDs, audit records, and execution receipts to display truthful task progress where possible; add no new table/queue until the source audit proves no reusable lifecycle record exists.
+4. Surface the existing provider decision and capability truth in Coach Brain/Factory without duplicating Integrations controls; clearly distinguish OpenAI/Gemini content providers, Canva design, and Veo video generation from Runway's current status-only capability.
+5. Verify in isolated QA and Preview. Keep all publish, schedule, WhatsApp, Meta, OAuth, and Production actions frozen unless separately authorized.
+
+
+## 31. Coach Brain Task Contract — implementation, review fixes, and queue reality (2026-11-06)
+
+### Current feature implementation
+- Feature PR: https://github.com/aymanmahrous/command-center-hub/pull/325
+- Branch: `feat/coach-brain-task-contract-2026-11-06`
+- Current reviewed head: `3e3bd216f7148521bbeacae10d4686d9db605d04`.
+- Seven files are changed: three source files (handoff adapter, Coach Brain producer, and Factory provider label) plus four focused test files.
+- The five canonical fields are normalized and bounded: `userIntent`, `planStrategy`, `researchContext`, `requestedDuration`, and `contentGoal`. The producer emits them directly and retains the legacy fields and existing storage key for compatibility.
+- Review found that the Factory reads the legacy `question` field; because the producer also emitted `question`, a distinct `contentGoal` could be stranded in metadata. The adapter now carries the content goal into the bounded Factory brief even when a legacy question is present, without duplicating a goal already included.
+- Review also found that Coach Brain displayed three execution options (`library`, `design`, `manual`) that had no matching provider-routing behavior. Those unsupported choices were removed. The owner now sees only supported choices: automatic routing or Gemini. Both Coach Brain and Factory describe automatic routing truthfully: Gemini is selected when its server key is configured; otherwise OpenAI is selected only if its key is configured. If neither key is configured, the request stops with `NEEDS_CREDENTIAL`. This is not a cost-aware comparison or runtime failover.
+- Storage safety was also tightened: a failed write in one browser store removes its stale shadow copy when possible; Coach Brain reads back the handoff timestamp and refuses navigation if the current task was not verified. The owner receives a clear error instead of a false handoff.
+- No new handoff key, task queue, database table, Edge Function, provider invocation, generation, publish, or schedule was added by these fixes.
+
+### Latest verification — current head
+- GitHub Actions Verify Command Center run #926: SUCCESS.
+- `npm ci --ignore-scripts --no-audit --no-fund`: PASS.
+- `npm run typecheck`: PASS.
+- `npm test`: **393/393 PASS**, 0 failed.
+- `npm run build`: PASS, including the existing performance-budget check.
+- CodeQL: SUCCESS; Analyze (actions): SUCCESS; Analyze (javascript-typescript): SUCCESS.
+- Supabase Preview check: SKIPPED because this Git branch is not associated with a Supabase Branch; no Supabase Preview database was created.
+- Vercel's deployment inventory confirms a READY Preview for this branch at commit `35078db01f3a6ccbe77cbe32563798a5ea425a27` (deployment `dpl_7AW48fTaZPTwz3qQdhdNJxorLaqK`, 14:25:43 UTC). This is older than current head `3e3bd216...`; a direct lookup for the current head returned zero deployments. Later PR deployment attempts failed with `api-deployments-free-per-day` (more than 100 deployments/day). No authenticated owner-path runtime test has been performed.
+
+### Read-only Production queue inspection — reuse decision
+- `background_jobs` already has durable `queued / processing / completed / failed / retrying / dead` states, JSON payload/result, attempt count, retry time, and timestamps. RLS is enabled; direct table reads have no row policies, while service-role access exists.
+- Its observed live job types are `generate_content_media`, `publish_content`, and `radar_hot_opportunity`. Existing claim/complete/fail/retry functions and workers are purpose-built around content media and publishing; do not insert Coach Brain tasks into this queue without a separately reviewed job type, worker, authorization, and idempotency contract.
+- Read-only live counts at inspection time: 119 completed content-media jobs; publish jobs 12 completed, 53 dead, 10 processing, 50 queued; 4 queued radar jobs. These records were not changed.
+- `content_automation_runs` is the existing automation-pulse run history (7,021 completed, 84 partial at inspection time), not a general per-agent task ledger.
+- `ai_media_jobs` is provider-media-specific (one Google Veo succeeded record at inspection time), not a multi-agent ledger.
+- No general Coach Brain / multi-agent task ledger was identified. Existing batch IDs, media jobs, automation runs, audit logs, and publication receipts each cover narrower operational lifecycles.
+
+### Decision and next safe point
+- Keep the repaired existing handoff and Factory route; do not create a second handoff, queue, task table, or agent dashboard at this stage.
+- Reuse the existing content batch ID, `content_items.needs_review`, and audit event as the verified content-production milestone.
+- The next design must map each responsibility to its real backend action, permitted scope, observable result, failure handling, and owner approval. Only then decide whether existing lifecycle records suffice or a genuinely missing task record is required.
+- Any database/RPC/Edge Function work still requires isolated QA identity and a verified Preview. Publishing freeze, owner approval, WhatsApp, Meta, OAuth, credentials, and Production remain protected.
+
+## 32. Coach Brain producer wiring and agent-role truth — 2026-11-06
+
+- The existing “Send to Content Factory” action emits the five canonical fields and the legacy Factory fields to the same `coach-brain-factory-handoff` key.
+- The task contract is a typed, bounded handoff, not a durable queue or an autonomous agent runtime.
+- The Factory consumes the backward-compatible `question`, `answer`, `sources`, `planWindowDays`, `planMix`, and `planExecution` fields. The review repair ensures a distinct content goal reaches that actual consumer.
+- The owner-facing execution selector now exposes only the two implemented choices: automatic provider selection and Gemini. The previous Library, Design, and Manual options were not connected to real execution branches and were removed rather than falsely presented as working.
+- No exact previously approved roster of independent autonomous agents was recovered. Do not invent one. The existing responsibilities remain:
+  - Coach Brain: research-led owner interface and handoff/orchestration entry point.
+  - Gemini + Google Search grounding: verified research path through `coach-brain-research`; a provider/tool path, not an independent agent process.
+  - Marketing strategy: embedded strategy logic and Factory prompt context, not a separately executing agent.
+  - OpenAI/Gemini: existing Factory content-provider options, not agents.
+  - Canva: existing design integration; readiness depends on connection, scopes, template fields, and export.
+  - Google Veo: existing video-generation path; one successful `ai_media_jobs` record is evidence of a provider execution, not a separate autonomous agent.
+  - Runway: status-only; no verified end-to-end generation path.
+  - Review and publishing: existing human approval and protected publishing boundary.
+- Any future role catalog must distinguish workflow responsibility, model, tool/integration, and human approval; identify the real backend action; and show truthful availability and result evidence.
+- No merge, Production deployment, provider execution, content publishing, or database mutation occurred in this documentation/role-truth update.
+
+## 33. Functional AI workforce map — implementation target, not a false agent claim (2026-11-06)
+
+The user’s product goal is a coordinated AI workforce with one owner-facing manager. The current repository proves a set of capabilities and handoffs, not a fleet of independently running agents. Implement the following responsibilities behind Coach Brain while preserving that distinction:
+
+| Responsibility | Existing implementation/evidence | Truthful current state |
+|---|---|---|
+| Orchestrator / owner interface | `src/coach-brain.tsx`, `coach-brain-research`, shared Factory handoff | Existing primary interface; no general autonomous agent runtime |
+| Research analyst | Gemini 3.7 Flash + Google Search grounding in `coach-brain-research` | Real research execution path |
+| Marketing strategist | `src/content-strategy.ts`, Coach Brain strategy inputs and plan fields | Embedded strategy logic, not a separate agent process |
+| Content producer | Existing Factory and Gemini/OpenAI provider adapter | Real generation capability through the existing Factory |
+| Visual designer | Existing Canva integration and `canva-design` path | Integration exists; end-to-end design readiness depends on connection, scopes, template fields, and export verification |
+| Video producer | Existing Google Veo media-generation path and `ai_media_jobs` | Verified provider execution path; not evidence of a separate autonomous agent |
+| Runway video role | Existing Runway capability/status entry | Status-only; no verified generation path, so do not label active or claim handoff |
+| Quality reviewer | Existing Factory review flow and `content_items` status `needs_review` | Human review gate; no separate autonomous reviewer proven |
+| Publishing operator | Existing protected publisher/receipts and approval checks | Publishing remains frozen pending new owner authorization; never auto-publish from this task contract |
+| Performance analyst | Existing Radar/Analytics capabilities | Existing analysis surfaces; no general agent execution ledger proven |
+
+### Product rule
+- Coach Brain is the single coordinator and owner-facing entry point.
+- Each responsibility may be implemented by a model, tool, existing application logic, or human approval. UI labels must state which one it is; do not market every integration as an autonomous agent.
+- Agent/task tracking must show actual input, responsible capability, output/reference ID, status, and whether owner approval is required.
+- No parallel agent dashboard or duplicate provider/connection center. Surface the role and task state within Coach Brain and link to the existing execution screen when action is required.
+- No background agent execution, new queue, database ledger, publishing automation, or provider invocation is authorized by this documentation map alone.
+
+
+## 34. Coach Brain handoff verification checkpoint — 2026-11-06 16:00 UTC (historical)
+
+- Checkpoint head: `6cb303c4d9e5401d2f8bd7c1871a06e2df0b81c6`.
+- GitHub Actions Verify Command Center run #906 completed successfully: typecheck, 388/388 tests, and build passed.
+- The first producer-wiring run #903 exposed one stale source-pattern test; the test was updated to follow the canonical `researchSummary` variable and legacy adapter.
+- Vercel's GitHub bot subsequently reported READY Preview deployments on PR #325 at 14:27 UTC for the earlier checkpoint. The exact deployed SHA was not independently confirmed, and no authenticated owner-path runtime test was performed. Additional Vercel attempts returned the daily deployment limit.
+- This checkpoint is superseded by the current review fixes and run #912 recorded in section 31. Do not use this older commit/test count as the current branch status.
+- PR #325 remains Draft, open, and unmerged. No Production promotion or live side effect occurred.
+
+## 35. Existing Factory batch lifecycle — read-only RPC proof (2026-11-06)
+
+- Production RPC `public.create_staff_generated_content_batch(p_items jsonb, p_provider_external_id text)` was inspected read-only.
+- It requires active staff in `super_admin`, `admin`, or `content_manager`; validates item count (1–90), platform, content, language, pillar, slot, fingerprint, media consent/readiness, planned time, duplicate slots, and 90-day content fatigue.
+- It generates one `batch_id`, inserts each content item with status `needs_review`, writes `content_brain_batch_saved_for_review` to `audit_logs`, and returns `batchId`, `contentItemIds`, `count`, and status `needs_review`.
+- This is a concrete, reusable lifecycle boundary for the content-production responsibility: task input → Factory validation/generation → batch ID → items awaiting human review.
+- It does not record per-agent progress, provider-level subtasks, or independent agent execution. Do not overstate it as a complete agent-task ledger.
+- Reuse this batch ID and existing review state for the content-production milestone. Any additional role/task progress should first be derived from existing records and execution receipts; no new persistence or RPC has been added.
+- Production was read only. No RPC invocation, insert, update, schema change, or publishing action occurred.
+
+
+## 36. Owner-authorized focused review and corrective verification — 2026-11-06
+
+### Review findings repaired on PR #325
+- The real Factory consumer reads the backward-compatible research fields; a distinct `contentGoal` was not reaching its actual prompt when the producer also supplied `question`. The adapter now includes that goal in the bounded brief and avoids duplication.
+- Coach Brain previously offered Library, Design, and Manual execution choices although the current execution code only routed Automatic and Gemini. Those unsupported choices were removed.
+- A failed browser-storage write could leave an older session value shadowing a successful local fallback. The writer now removes the stale copy when possible, and Coach Brain verifies the stored task timestamp before navigating to Factory. A failed verification stays on Coach Brain and displays an error.
+- The automatic provider label previously claimed “best available”. Source inspection proves it is a fixed rule: choose Gemini if `GEMINI_API_KEY` is configured; otherwise choose OpenAI only if `OPENAI_API_KEY` is configured; if neither is configured, return `NEEDS_CREDENTIAL`. It does not compare provider prices or quality and does not fail over to OpenAI after a configured Gemini request fails. Both owner-facing labels now state the actual configured-key rule.
+- The OpenAI model default `gpt-6-luna` is a valid current OpenAI API model ID. Public pricing checked on 2026-11-06 lists GPT-6 Luna at $0.10 input / $0.50 output per million tokens, while Gemini 3.8 Flash is $0.75 / $3.75 through 2026-12-31 and rises to $1.50 / $7.50 from 2027-01-01. Token prices alone do not prove total task cost or output quality; Search grounding, actual token usage, provider readiness, and quality must be included in a measured comparison. Do not change the provider routing until a bounded, owner-approved QA comparison is run.
+- No live provider request or paid generation was invoked during this review.
+
+### Verification
+- Current PR #325 head: `3e3bd216f7148521bbeacae10d4686d9db605d04`.
+- Verify run #926: `npm ci`, typecheck, **393/393 tests**, build, and performance budget passed.
+- CodeQL: SUCCESS; Analyze (actions): SUCCESS; Analyze (javascript-typescript): SUCCESS.
+- Supabase Preview was skipped because the branch is not attached to a Supabase database branch.
+- Vercel Preview is READY only for the older commit `35078db01f3a6ccbe77cbe32563798a5ea425a27`; the current head has no deployment. Vercel later reported the daily deployment cap (`api-deployments-free-per-day`, more than 100/day). The PR bot also referenced a second project named `command-center-hub-m3s5`, but the current Vercel project inventory lists only `command-center-hub` and the second project lookup returned not found; this discrepancy is unresolved and neither project was changed. Runtime/owner-path QA remains outstanding.
+- PR #325 remains Draft/open/unmerged. PR #324 remains open/unmerged.
+
+### Boundaries and next safe point
+- No Production deploy, merge, database write/migration, Edge Function deploy, provider generation, Meta/Instagram/Facebook publication, WhatsApp message, OAuth change, or credential change occurred.
+- The Coach Brain → Factory contract and safeguards are code-verified, not runtime-verified on the latest head.
+- Next safe phase: define the real execution lifecycle for each responsibility using the existing batch ID, review status, media jobs, audit trail, and receipts. Do not create a new queue/table or claim independent agents until evidence proves a genuine gap and the smallest design is reviewed.
+- The provider-cost decision is a separate controlled test: verify which keys are configured without exposing them, compare a small representative content sample on the two providers with a strict spend cap, and assess quality before changing automatic routing.
+
+
+## 37. Production integration registry status — read-only snapshot (2026-11-06)
+
+### Current `public.staff_integrations` status
+The following values were read from the Production registry. No secrets or token values were selected.
+
+| Provider | Registry status | Last tested (UTC) | Account label |
+|---|---|---|---|
+| Canva | `connected` | 2026-11-03 02:16:54 | Not supplied |
+| Facebook | `connected` | 2026-11-03 02:17:08 | Relax Fix one |
+| Instagram | `connected` | 2026-11-03 02:17:11 | relaxfixuae |
+| AI Provider | `not_connected` | Not tested | Not supplied |
+| WhatsApp / Meta | `not_connected` | Not tested | Not supplied |
+| Google Calendar | `not_connected` | Not tested | Not supplied |
+| Telegram | `not_connected` | Not tested | Not supplied |
+
+### Secret-presence check — metadata only
+- A read-only join checked whether a row exists in `staff_integration_secrets`; it did not select or expose `secret_value`.
+- Facebook and Instagram each have a server-secret row in that table.
+- Canva is marked connected but has no row in that particular secret table; do not infer disconnection because its OAuth token may be stored through another existing mechanism.
+- AI Provider has no row in that table and its registry status is `not_connected`. This does not prove whether Supabase Edge Function environment secrets `GEMINI_API_KEY` or `OPENAI_API_KEY` exist; those names/values were not queried.
+- WhatsApp / Meta has no row in that secret table and its app registry status is `not_connected`. The user's separate n8n WhatsApp route is not represented by this row and was not tested in this audit.
+
+### Operational interpretation
+- Facebook and Instagram being connected does not authorize or trigger publishing. The owner publishing freeze and explicit approval gate remain in force.
+- Canva's registry status is connected with a recent test timestamp, but this does not prove a current template can be populated and exported end-to-end.
+- AI provider readiness must be reconciled between the app registry and the Edge Function's server-side credential/status path before claiming OpenAI or Gemini is live.
+- The next provider check must use a safe status/read-only path first; do not invoke a paid generation merely to test connectivity.
+- Production was read only. No token, secret value, OAuth state, provider call, message, publish, schedule, write, or schema change was performed.
