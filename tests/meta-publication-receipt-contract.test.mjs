@@ -44,9 +44,12 @@ test("safe publisher records definite provider failures and preserves ambiguity 
   assert.match(publisher, /receiptStatus === "confirmed"/);
 });
 
-test("Facebook OAuth binds an authorized Preview origin to the one-time state", () => {
-  assert.match(facebookOAuth, /PREVIEW_ORIGIN_PATTERN/);
-  assert.match(facebookOAuth, /encodeOrigin\(origin\)/);
-  assert.match(facebookOAuth, /decodeOrigin\(state\)/);
-  assert.match(facebookOAuth, /safeOrigin\(origin/);
+test("Facebook OAuth allows exact www and existing Preview origins and binds them to one-time state", () => {
+  assert.ok(facebookOAuth.includes('const WWW_HUB_ORIGIN = "https://www.hub.relaxfixuae.com";'));
+  assert.ok(facebookOAuth.includes("value === WWW_HUB_ORIGIN"));
+  assert.ok(facebookOAuth.includes("PREVIEW_ORIGIN_PATTERN"));
+  assert.ok(facebookOAuth.includes("encodeOrigin(origin)"));
+  assert.ok(facebookOAuth.includes("decodeOrigin(state)"));
+  assert.ok(facebookOAuth.includes("safeOrigin(origin"));
+  assert.match(facebookOAuth, /return json\(\{ success: true, authorizationUrl: authorization\.toString\(\) \}, 200, origin\);/);
 });
