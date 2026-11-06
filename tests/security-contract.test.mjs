@@ -15,6 +15,8 @@ const batchReviewPanel = await readFile(new URL("../src/content-batch-review-pan
 const growthCopyEn = await readFile(new URL("../src/i18n/en.ts", import.meta.url), "utf8");
 const mediaView = await readFile(new URL("../src/media-library-view.tsx", import.meta.url), "utf8");
 const integrationsCenter = await readFile(new URL("../src/integrations-center.tsx", import.meta.url), "utf8");
+const canvaAdapter = await readFile(new URL("../src/canva-adapter.ts", import.meta.url), "utf8");
+const googleCalendarAdapter = await readFile(new URL("../src/google-calendar-adapter.ts", import.meta.url), "utf8");
 const configGuard = await readFile(new URL("../src/supabase-config.ts", import.meta.url), "utf8");
 
 test("environment example contains the browser-safe configuration contract", () => {
@@ -213,6 +215,10 @@ test("Connections Center distinguishes expired sessions from role-based access d
   assert.match(integrationsCenter, /response\.status === 401\) throw new Error\("SESSION_EXPIRED"\)/);
   assert.match(integrationsCenter, /response\.status === 403\) throw new Error\("STAFF_ACCESS_DENIED"\)/);
   assert.doesNotMatch(integrationsCenter, /status === 401 \|\| response\.status === 403/);
+  assert.match(canvaAdapter, /response\.status === 401\) throw new Error\("SESSION_EXPIRED"\)/);
+  assert.doesNotMatch(canvaAdapter, /response\.status === 401 \|\| response\.status === 403/);
+  assert.match(googleCalendarAdapter, /r\.status===401\)throw new Error\("SESSION_EXPIRED"\)/);
+  assert.doesNotMatch(googleCalendarAdapter, /r\.status===401\|\|r\.status===403/);
 });
 
 test("deployment configuration fails closed and never embeds a live Supabase project", () => {
