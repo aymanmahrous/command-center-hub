@@ -74,6 +74,8 @@ Seek meaningful variety across:
 
 Each planned content item should briefly state:
 - Format and intended platform.
+- Prefer one master creative asset reused across Facebook and Instagram where suitable, with platform-specific caption/format adaptations; reuse one vertical short-video master for Reels and TikTok when suitable.
+- Clearly distinguish a strategic reuse recommendation from an actual linked multi-platform content record. TikTok is currently draft/review/export only; Meta publishing remains frozen pending owner authorization.
 - Idea, angle, or audience problem.
 - Opening hook or central message.
 - Visual/video direction.
