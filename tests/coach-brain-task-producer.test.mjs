@@ -44,6 +44,6 @@ test("Coach Brain verifies the stored handoff before navigating to Factory", () 
 });
 
 test("Coach Brain describes the automatic provider route instead of claiming it is best", () => {
-  assert.match(coachBrain, /Automatic — Gemini if configured, otherwise OpenAI/);
-  assert.match(coachBrain, /تلقائي — Gemini إذا كان مضبوطًا، وإلا OpenAI/);
+  assert.match(coachBrain, /Automatic — Gemini if configured; else OpenAI if configured/);
+  assert.match(coachBrain, /تلقائي — Gemini إن كان مضبوطًا، وإلا OpenAI إن كان مضبوطًا/);
 });
