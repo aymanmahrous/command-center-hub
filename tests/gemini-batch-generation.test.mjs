@@ -88,6 +88,12 @@ test("Factory lets the owner choose a scheduling window without creating a secon
   assert.match(hub, /COACH BRAIN PLAN/);
   assert.match(hub, /DEFAULT_BATCH_MIX\.length/);
   assert.match(hub, /7, 14, 30/);
+  assert.match(hub, /Math.max\(1, Math.min\(365, Math.floor\(days\) \|\| 30\)\)/);
+  assert.match(hub, /Math.floor\(\(index \* safeDays\) \/ Math.max\(batch.length, 1\)\)/);
+  assert.match(hub, /this does not mean one post every day/);
+  assert.match(hub, /max=\{365\}/);
+  assert.match(coachBrain, /Math.min\(365/);
+  assert.match(coachBrain, /max=\{365\}/);
 });
 
 
