@@ -5,7 +5,7 @@ import type { AiSuitabilityVerdict, MediaAssetRecord, MediaCategory, ConsentStat
 import { displayMediaWorkflowStatus, resolveMediaAssetName } from "./media-types";
 import { createMediaFactoryHandoff, MEDIA_FACTORY_HANDOFF_KEY } from "./media-factory-handoff";
 import { analyzeMediaWithProvider, fetchGeminiIntegrationStatus, type GeminiIntegrationStatus } from "./media-gemini-adapter";
-import { CANVA_OPEN_URL, canvaConnectErrorMessage, fetchCanvaIntegrationStatus, readCanvaCallbackNotice, startCanvaConnect, type CanvaIntegrationStatus } from "./canva-adapter";
+import { CANVA_OPEN_URL, canvaConnectErrorMessage, fetchCanvaIntegrationStatus, readCanvaCallbackNotice, type CanvaIntegrationStatus } from "./canva-adapter";
 import { readStoredMediaAnalysis, type MediaAnalysisResult } from "./media-ai-analysis";
 import { displayProviderStatus, readMediaProviderStatuses } from "./media-providers";
 import { normalizeMediaCategory } from "./media-types";
