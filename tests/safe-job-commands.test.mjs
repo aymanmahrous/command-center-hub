@@ -19,11 +19,12 @@ test("retry refuses ambiguous or active publish states", () => {
   assert.match(migration, /PLANNED_FOR_NOT_FUTURE/);
 });
 
-test("operations UI exposes only guarded retry and cancel actions", () => {
-  assert.match(app, /Safe retry/);
+test("operations UI keeps publish jobs view-only while publishing is frozen", () => {
+  assert.doesNotMatch(app, /Safe retry|retry_staff_publish_job/);
   assert.match(app, /Cancel job/);
-  assert.match(app, /retry_staff_publish_job/);
   assert.match(app, /cancel_staff_background_job/);
-  assert.match(app, /job\.status === "failed"/);
+  assert.match(app, /job\.jobType === "publish_content"/);
+  assert.match(app, /job\.jobType !== "publish_content"/);
+  assert.match(app, /publishing is frozen/i);
   assert.doesNotMatch(app, /\["failed", "dead"\]\.includes\(job\.status\)/);
 });

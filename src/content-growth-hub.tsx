@@ -24,6 +24,7 @@ import { ContentBatchReviewPanel } from "./content-batch-review-panel";
 import { fetchCanvaDesignStatus } from "./canva-design-adapter";
 import { assessCanvaReadiness, formatCanvaDiagnosticDetails, type CanvaStatusDiagnostic } from "./canva-readiness";
 import { clearCoachBrainFactoryHandoff, readCoachBrainFactoryHandoff } from "./coach-brain-factory-handoff";
+import { readAiProviderPreference, writeAiProviderPreference } from "./ai-provider-preference";
 import { useLanguage } from "./i18n";
 import { MEDIA_FACTORY_HANDOFF_KEY, parseMediaFactoryHandoff, type MediaFactoryHandoff } from "./media-factory-handoff";
 import "./content-growth-hub.css";
@@ -180,7 +181,7 @@ export default function ContentGrowthHub({
   const [canvaDesignStatus, setCanvaDesignStatus] = useState<CanvaStatusDiagnostic | null>(null);
   const [generateNotice, setGenerateNotice] = useState("");
   const [generating, setGenerating] = useState(false);
-  const [batchAiProvider, setBatchAiProvider] = useState<BatchAiProvider>("auto");
+  const [batchAiProvider, setBatchAiProvider] = useState<BatchAiProvider>(() => readAiProviderPreference());
   const handoffParams = new URLSearchParams(window.location.search);
   const storedCoachBrainHandoff = readCoachBrainFactoryHandoff();
   const [coachBrainContext, setCoachBrainContext] = useState<CoachBrainFactoryContext | null>(() => {
@@ -591,8 +592,12 @@ export default function ContentGrowthHub({
         </p>
         <label className="batch-ai-provider">
           <span>{language === "ar" ? "مزود الذكاء" : "AI provider"}</span>
-          <select value={batchAiProvider} onChange={(event) => setBatchAiProvider(event.target.value as BatchAiProvider)} disabled={generating || panelBusy}>
-            <option value="auto">{language === "ar" ? "تلقائي — الأفضل المتاح" : "Auto — best available"}</option>
+          <select value={batchAiProvider} onChange={(event) => {
+            const next = event.target.value as BatchAiProvider;
+            setBatchAiProvider(next);
+            writeAiProviderPreference(next);
+          }} disabled={generating || panelBusy}>
+            <option value="auto">{language === "ar" ? "تلقائي — بديل عند العطل المؤقت" : "Auto — fallback on temporary outage"}</option>
             <option value="gemini">Gemini</option>
             <option value="openai">OpenAI</option>
           </select>
@@ -630,21 +635,19 @@ export default function ContentGrowthHub({
           <p>{copy.integrationsEyebrow}</p>
           <h3 id="integration-status-heading">{copy.integrationsTitle}</h3>
         </header>
-        <div className="integration-grid">
-          {integrations.map((integration) => (
-            <article key={integration.key} className={integration.connected ? "connected" : integration.key === "canva" ? "optional" : "disconnected"}>
-              <strong>{copy.integrationLabels[integration.key]}</strong>
-              <small>{displayCapabilityState(integration.capabilityState, language)} · {integration.key === "canva" ? copy.optionalNotConnected : integration.connected ? copy.connected : copy.notConnected}</small>
-              <small>{integration.detail}</small>
-            </article>
-          ))}
-        </div>
-        <p className="batch-meta">{copy.integrationsNote}</p>
         <p className="batch-meta" role="status">
           {language === "ar"
-            ? "إدارة اتصال Canva ومصادر الوسائط تتم من مكتبة الوسائط فقط؛ هذه الصفحة تعرض الحالة ولا تنشئ نقطة اتصال ثانية."
-            : "Canva and media-source connections are managed only in Media Library; this page shows status without creating a second connection control."}
+            ? "ربط مصادر الوسائط مثل Google Drive يتم من مكتبة الوسائط فقط. أما Canva وMeta ومحركات الذكاء الاصطناعي فتُدار من مركز الاتصالات الموحد. لن نعرض هنا حالة ثانية مبنية على بيانات تشغيل الأتمتة."
+            : "Media-source connections such as Google Drive are managed only in Media Library. Canva, Meta and AI providers are managed in the single Connections Center. This screen will not show a second status list derived from automation-run data."}
         </p>
+        <div className="factory-section-action-bar">
+          <button type="button" className="secondary" onClick={() => onOpenMedia?.()}>
+            {language === "ar" ? "فتح مكتبة الوسائط" : "Open Media Library"}
+          </button>
+          <button type="button" className="secondary" onClick={() => window.dispatchEvent(new CustomEvent("command-center:navigate", { detail: { section: "connections" } }))}>
+            {language === "ar" ? "فتح مركز الاتصالات" : "Open Connections Center"}
+          </button>
+        </div>
       </section>}
 
       {activeFactoryTab === "strategy" && <section id="content-strategy" className="content-growth-section" aria-labelledby="strategy-mix-heading">

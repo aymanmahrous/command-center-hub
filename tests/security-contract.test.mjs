@@ -14,6 +14,9 @@ const growthHub = await readFile(new URL("../src/content-growth-hub.tsx", import
 const batchReviewPanel = await readFile(new URL("../src/content-batch-review-panel.tsx", import.meta.url), "utf8");
 const growthCopyEn = await readFile(new URL("../src/i18n/en.ts", import.meta.url), "utf8");
 const mediaView = await readFile(new URL("../src/media-library-view.tsx", import.meta.url), "utf8");
+const integrationsCenter = await readFile(new URL("../src/integrations-center.tsx", import.meta.url), "utf8");
+const canvaAdapter = await readFile(new URL("../src/canva-adapter.ts", import.meta.url), "utf8");
+const googleCalendarAdapter = await readFile(new URL("../src/google-calendar-adapter.ts", import.meta.url), "utf8");
 const configGuard = await readFile(new URL("../src/supabase-config.ts", import.meta.url), "utf8");
 
 test("environment example contains the browser-safe configuration contract", () => {
@@ -192,7 +195,7 @@ test("Analytics validates every metric and preserves the attribution limitation"
 test("Integrations uses the approved operations queue RPC and guarded job commands", () => {
   assert.match(app, /get_staff_operations_queue/);
   assert.match(app, /active === "integrations" \? <Suspense/);
-  assert.match(operations, /retry_staff_publish_job/);
+  assert.doesNotMatch(operations, /retry_staff_publish_job/);
   assert.match(operations, /cancel_staff_background_job/);
   assert.doesNotMatch(operations, /\/rest\/v1\/(follow_up_jobs|background_jobs)[^\n]*(PATCH|PUT|DELETE|POST)/i);
   assert.match(operations, /المهام المنتهية\/المؤرشفة للعرض فقط/);
@@ -205,6 +208,17 @@ test("Integrations validates queue records and states operational limits honestl
   assert.match(operations, /حد المصدر 250 سجلًا لكل طابور/);
   assert.match(operations, /bounded/);
   assert.match(operations, /متابعات متأخرة/);
+});
+
+
+test("Connections Center distinguishes expired sessions from role-based access denial", () => {
+  assert.match(integrationsCenter, /response\.status === 401\) throw new Error\("SESSION_EXPIRED"\)/);
+  assert.match(integrationsCenter, /response\.status === 403\) throw new Error\("STAFF_ACCESS_DENIED"\)/);
+  assert.doesNotMatch(integrationsCenter, /status === 401 \|\| response\.status === 403/);
+  assert.match(canvaAdapter, /response\.status === 401\) throw new Error\("SESSION_EXPIRED"\)/);
+  assert.doesNotMatch(canvaAdapter, /response\.status === 401 \|\| response\.status === 403/);
+  assert.match(googleCalendarAdapter, /r\.status===401\)throw new Error\("SESSION_EXPIRED"\)/);
+  assert.doesNotMatch(googleCalendarAdapter, /r\.status===401\|\|r\.status===403/);
 });
 
 test("deployment configuration fails closed and never embeds a live Supabase project", () => {
