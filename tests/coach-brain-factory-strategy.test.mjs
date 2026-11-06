@@ -1,0 +1,48 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+const coachBrain = await readFile(new URL("../src/coach-brain.tsx", import.meta.url), "utf8");
+const handoff = await readFile(new URL("../src/coach-brain-factory-handoff.ts", import.meta.url), "utf8");
+const factory = await readFile(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
+const review = await readFile(new URL("../src/content-batch-review-panel.tsx", import.meta.url), "utf8");
+const research = await readFile(new URL("../supabase/functions/coach-brain-research/index.ts", import.meta.url), "utf8");
+
+test("Coach Brain and Factory accept only the supported 1–45 day planning window", () => {
+  assert.match(coachBrain, /Math\.min\(45/);
+  assert.match(coachBrain, /min=\{1\} max=\{45\}/);
+  assert.doesNotMatch(coachBrain, /value="60"/);
+  assert.match(factory, /PLAN_WINDOW_OPTIONS = \[1, 2, 3, 4, 7, 14, 30, 45\]/);
+  assert.match(factory, /Math\.min\(45/);
+  assert.match(factory, /max=\{45\}/);
+  assert.doesNotMatch(factory, /Math\.min\(365/);
+  assert.match(factory, /45 - planWindowDays/);
+});
+
+test("Factory preserves the existing ten-item batch and spaces it across the selected window", () => {
+  assert.match(factory, /DEFAULT_BATCH_MIX\.length/);
+  assert.match(factory, /safeDays - 1/);
+  assert.match(factory, /this does not mean one post every day/);
+});
+
+test("handoff normalization preserves canonical fields and clamps duration to 45 days", () => {
+  assert.match(handoff, /userIntent: string/);
+  assert.match(handoff, /planStrategy: string/);
+  assert.match(handoff, /researchContext:/);
+  assert.match(handoff, /requestedDuration: number \| null/);
+  assert.match(handoff, /contentGoal: string/);
+  assert.match(handoff, /Math\.max\(1, Math\.min\(45/);
+});
+
+test("Runway is an honest manual handoff, not a claimed API integration", () => {
+  assert.match(review, /openExternalBrief\("runway", item\)/);
+  assert.match(review, /navigator\.clipboard\?\.writeText/);
+  assert.match(review, /no API connection required/);
+  assert.match(review, /Open Runway \+ copy video prompt/);
+});
+
+test("Coach Brain research prompt keeps business strategy guidance syntactically separated", () => {
+  assert.match(research, /buildCoachBrainBusinessContext/);
+  assert.match(research, /not one post per day\.",\s*"Business and marketing planning:/);
+  assert.match(research, /return parts\.join\("\\n\\n"\)/);
+});
