@@ -9,6 +9,7 @@ export type CoachBrainFactoryHandoff = CoachBrainFactoryContext & {
   researchContext: { summary: string; sources: Array<{ title: string; url: string }> };
   requestedDuration: number | null;
   contentGoal: string;
+  createdAt?: string;
   /** Legacy Factory fields remain available during migration. */
   planWindowDays?: number;
   planMix?: string;
