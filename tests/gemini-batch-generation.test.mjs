@@ -8,6 +8,7 @@ const slotSpec = await readFile(new URL("../supabase/functions/generate-content-
 const generator = await readFile(new URL("../src/content-batch-generator.ts", import.meta.url), "utf8");
 const hub = await readFile(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
 const coachBrain = await readFile(new URL("../src/coach-brain.tsx", import.meta.url), "utf8");
+const reviewPanel = await readFile(new URL("../src/content-batch-review-panel.tsx", import.meta.url), "utf8");
 
 test("gemini batch adapter calls server edge function only", () => {
   assert.match(adapter, /functions\/v1\/generate-content-batch/);
@@ -110,4 +111,14 @@ test("Coach Brain can generate one real non-persisted sample and carry the owner
   assert.match(hub, /planFocus/);
   assert.match(hub, /get_staff_integrations/);
   assert.match(hub, /canvaIntegration/);
+});
+
+test("Factory offers manual no-API handoff to existing creative subscriptions", () => {
+  assert.match(reviewPanel, /https:\/\/www\.canva\.com\//);
+  assert.match(reviewPanel, /https:\/\/gemini\.google\.com\/app/);
+  assert.match(reviewPanel, /https:\/\/app\.runwayml\.com\//);
+  assert.match(reviewPanel, /navigator\.clipboard\?\.writeText/);
+  assert.match(reviewPanel, /Gemini Image API — separate billing/);
+  assert.match(reviewPanel, /manualVideoDuration, setManualVideoDuration/);
+  assert.match(reviewPanel, /exact target duration of \$\{manualVideoDuration\} seconds/);
 });
