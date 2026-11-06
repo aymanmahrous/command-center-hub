@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 import { AlertTriangle, BookOpen, Brain, Search, ShieldCheck, Sparkles } from "lucide-react";
 import { buildCoachBrainSummaryRequest } from "./coach-brain-conversation";
+import { readAiProviderPreference } from "./ai-provider-preference";
 import { generateCoachAymanSampleWithProvider, type BatchAiProvider, type GeminiBatchPromptContext, type GeneratedContentSample } from "./gemini-batch-adapter";
 import { writeCoachBrainFactoryHandoff } from "./coach-brain-factory-handoff";
 import "./coach-brain.css";
@@ -329,10 +330,12 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
               const parsed = raw ? JSON.parse(raw) as { accessToken?: unknown } : {};
               const accessToken = typeof parsed.accessToken === "string" ? parsed.accessToken : "";
               if (!accessToken) throw new Error("AUTH_REQUIRED");
-              const provider: BatchAiProvider = planExecution === "value" ? "gemini" : "auto";
+              const provider: BatchAiProvider = planExecution === "value" ? "gemini" : readAiProviderPreference();
               const providerLabel = provider === "gemini"
                 ? "Gemini"
-                : (language === "ar" ? "يحدده الخادم تلقائيًا" : "selected automatically by the server");
+                : provider === "openai"
+                  ? "OpenAI"
+                  : (language === "ar" ? "يحدده الخادم تلقائيًا" : "selected automatically by the server");
               const confirmationMessage = language === "ar"
                 ? [
                     "سيتم طلب عينة محتوى حقيقية من مزود ذكاء اصطناعي.",
