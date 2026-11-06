@@ -663,3 +663,33 @@ The user’s product goal is a coordinated AI workforce with one owner-facing ma
 - The Coach Brain → Factory contract and safeguards are code-verified, not runtime-verified on the latest head.
 - Next safe phase: define the real execution lifecycle for each responsibility using the existing batch ID, review status, media jobs, audit trail, and receipts. Do not create a new queue/table or claim independent agents until evidence proves a genuine gap and the smallest design is reviewed.
 - The provider-cost decision is a separate controlled test: verify which keys are configured without exposing them, compare a small representative content sample on the two providers with a strict spend cap, and assess quality before changing automatic routing.
+
+
+## 37. Production integration registry status — read-only snapshot (2026-11-06)
+
+### Current `public.staff_integrations` status
+The following values were read from the Production registry. No secrets or token values were selected.
+
+| Provider | Registry status | Last tested (UTC) | Account label |
+|---|---|---|---|
+| Canva | `connected` | 2026-11-03 02:16:54 | Not supplied |
+| Facebook | `connected` | 2026-11-03 02:17:08 | Relax Fix one |
+| Instagram | `connected` | 2026-11-03 02:17:11 | relaxfixuae |
+| AI Provider | `not_connected` | Not tested | Not supplied |
+| WhatsApp / Meta | `not_connected` | Not tested | Not supplied |
+| Google Calendar | `not_connected` | Not tested | Not supplied |
+| Telegram | `not_connected` | Not tested | Not supplied |
+
+### Secret-presence check — metadata only
+- A read-only join checked whether a row exists in `staff_integration_secrets`; it did not select or expose `secret_value`.
+- Facebook and Instagram each have a server-secret row in that table.
+- Canva is marked connected but has no row in that particular secret table; do not infer disconnection because its OAuth token may be stored through another existing mechanism.
+- AI Provider has no row in that table and its registry status is `not_connected`. This does not prove whether Supabase Edge Function environment secrets `GEMINI_API_KEY` or `OPENAI_API_KEY` exist; those names/values were not queried.
+- WhatsApp / Meta has no row in that secret table and its app registry status is `not_connected`. The user's separate n8n WhatsApp route is not represented by this row and was not tested in this audit.
+
+### Operational interpretation
+- Facebook and Instagram being connected does not authorize or trigger publishing. The owner publishing freeze and explicit approval gate remain in force.
+- Canva's registry status is connected with a recent test timestamp, but this does not prove a current template can be populated and exported end-to-end.
+- AI provider readiness must be reconciled between the app registry and the Edge Function's server-side credential/status path before claiming OpenAI or Gemini is live.
+- The next provider check must use a safe status/read-only path first; do not invoke a paid generation merely to test connectivity.
+- Production was read only. No token, secret value, OAuth state, provider call, message, publish, schedule, write, or schema change was performed.
