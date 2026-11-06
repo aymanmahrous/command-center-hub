@@ -410,3 +410,34 @@ Canva live connectivity and design creation/export were not proven. No live Gemi
 
 ### Status
 The Connections / Truthful Status phase has recorded read-only Production and QA evidence. This closes the documentation of that audit only; it does not certify untested external-provider operations or authorize a Production release.
+
+## 29. Consolidated Coach Brain / Factory implementation — 2026-11-06
+
+### Owner authorization and scope
+Following the owner's instruction to continue the complete safe phase, a dedicated consolidation branch was created from the current head of PR #323. The branch combines the non-overlapping value of PRs #322, #323, and #325 rather than merging the original PRs independently.
+
+Branch: `feat/consolidated-coach-brain-factory-2026-11-06`
+
+### Reconciled changes
+- Retains PR #323's shared owner provider preference, read-only provider status checks, retryable-outage-only fallback, canonical Connections routing, and view-only treatment for frozen publish jobs.
+- Adds PR #322's Coach Brain strategic/business planning guidance and truthful manual Canva/Gemini Pro/Runway handoffs through the existing Factory review flow.
+- Adds PR #325's canonical Coach Brain → Factory task contract, backward-compatible legacy fields/storage key, storage read-back verification before navigation, and malformed handoff rejection.
+- Preserves the existing ten-item Factory batch; the selected 1–45 day window controls spacing, not one post per day.
+- Keeps Runway as a manual external handoff, not a claimed API integration. Gemini Image API billing is explicitly distinguished from Gemini Pro subscription.
+- Keeps Meta publishing frozen and publish jobs view-only; no live publishing, messages, provider calls, or Supabase operations were executed.
+
+### Defects caught and corrected during reconciliation
+1. PR #322 offered a 60-day preset even though the existing Factory RPC supports a maximum of 45 days. The unsupported 60-day option was removed.
+2. PR #322 allowed the Factory custom duration input to reach 365 days despite the 45-day contract. The input and normalization are now capped at 45.
+3. PR #325 normalized task durations to 2–30 days, silently altering valid 1-day and 31–45-day requests. The canonical handoff normalizer and tests now use 1–45 days.
+4. PR #322's new Coach Brain research prompt had a missing comma between adjacent prompt strings, which would break TypeScript parsing. The separator was corrected.
+
+### Verification state and limits
+- The new consolidation branch contains the reconciled source, documentation, and focused contract tests.
+- The GitHub connector was used to write files and inspect resulting blob SHAs. A local checkout could not be obtained because the execution environment could not resolve github.com; therefore no local npm install, typecheck, or test run is claimed.
+- GitHub CI must run on the consolidated PR before this phase can be marked verified.
+- No PR has been merged, no production deployment has occurred, and no live external side effect has been triggered.
+- PR #326 remains the separate owner-approved governance charter PR. It should not be merged independently from the implementation unless review establishes that separation is preferable.
+
+### Current safe point
+Consolidated implementation is prepared on the dedicated branch and awaiting PR-level CI and review. Original PRs #322, #323, and #325 remain unmerged and must not be merged independently.
