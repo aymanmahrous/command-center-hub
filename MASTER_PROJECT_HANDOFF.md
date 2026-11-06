@@ -638,3 +638,14 @@ The user’s product goal is a coordinated AI workforce with one owner-facing ma
 - The first producer-wiring run #903 exposed one stale source-pattern test that still expected the old inline `answer: result?.answer?.slice(...)` expression. The implementation now names the canonical `researchSummary`; the test was updated to assert the new variable and legacy adapter. The next run #906 passed all checks.
 - Vercel Preview checks still fail at the account build-rate limit (`upgradeToPro=build-rate-limit`); this is external to the successful GitHub code verification. No Preview or Production deployment was created.
 - PR #325 remains Draft, open, and unmerged. The new handoff contract and producer wiring are code-verified but not runtime-verified in Preview/isolated QA.
+
+
+## 35. Existing Factory batch lifecycle — read-only RPC proof (2026-11-06)
+
+- Production RPC `public.create_staff_generated_content_batch(p_items jsonb, p_provider_external_id text)` was inspected read-only.
+- It requires active staff in `super_admin`, `admin`, or `content_manager`; validates item count (1–90), platform, content, language, pillar, slot, fingerprint, media consent/readiness, planned time, duplicate slots, and 90-day content fatigue.
+- It generates one `batch_id`, inserts each content item with status `needs_review`, writes `content_brain_batch_saved_for_review` to `audit_logs`, and returns `batchId`, `contentItemIds`, `count`, and status `needs_review`.
+- This is a concrete, reusable lifecycle boundary for the content-production responsibility: task input → Factory validation/generation → batch ID → items awaiting human review.
+- It does not record per-agent progress, provider-level subtasks, or independent agent execution. Do not overstate it as a complete agent-task ledger.
+- Reuse this batch ID and existing review state for the content-production milestone. Any additional role/task progress should first be derived from existing records and execution receipts; no new persistence or RPC has been added.
+- Production was read only. No RPC invocation, insert, update, schema change, or publishing action occurred.
