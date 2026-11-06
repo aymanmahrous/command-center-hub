@@ -655,7 +655,7 @@ The user’s product goal is a coordinated AI workforce with one owner-facing ma
 - Verify run #926: `npm ci`, typecheck, **393/393 tests**, build, and performance budget passed.
 - CodeQL reported NEUTRAL (not a failure); Analyze (actions) passed and Analyze (javascript-typescript) was still completing at the time of this update.
 - Supabase Preview was skipped because the branch is not attached to a Supabase database branch.
-- Vercel Preview was reported READY for an earlier PR checkpoint only; the current head has no confirmed Preview. The daily deployment limit prevents another attempt. Runtime/owner-path QA remains outstanding.
+- Vercel Preview is READY only for the older commit `35078db01f3a6ccbe77cbe32563798a5ea425a27`; the current head has no deployment. Vercel later reported the daily deployment cap (`api-deployments-free-per-day`, more than 100/day). The PR bot also referenced a second project named `command-center-hub-m3s5`, but the current Vercel project inventory lists only `command-center-hub` and the second project lookup returned not found; this discrepancy is unresolved and neither project was changed. Runtime/owner-path QA remains outstanding.
 - PR #325 remains Draft/open/unmerged. PR #324 remains open/unmerged.
 
 ### Boundaries and next safe point
