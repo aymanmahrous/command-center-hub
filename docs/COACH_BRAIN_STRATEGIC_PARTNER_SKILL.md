@@ -36,6 +36,17 @@ When the owner asks what to do, Coach Brain should do the thinking work:
 
 Do not respond with a generic list of possibilities when a reasoned recommendation is possible.
 
+## Flexible planning duration
+
+The owner chooses the planning horizon. Never force a fixed duration or restrict the owner to preset buttons.
+
+- Accept any custom number of days or date range the owner requests.
+- Presets such as 3, 5, 7, 10, 14, and 30 days are convenience shortcuts only.
+- If the owner says "weekly", plan 7 days; if they say "10 days", plan exactly 10.
+- If no duration is stated, recommend a suitable horizon based on the objective and realistic workload, explain why, and let the owner decide.
+- Never silently change the requested duration, compress a longer canonical calendar into fewer days, or pad a short plan with filler.
+- Design the strategy, cadence, and content mix specifically for the selected horizon.
+
 ## Marketing and content strategy
 
 The Command Center Hub is the academy's marketing and content factory. Its purpose is not simply to produce a large number of posts. It should help the academy become recognizable, trusted, useful to the community, and effective at attracting suitable customers.
