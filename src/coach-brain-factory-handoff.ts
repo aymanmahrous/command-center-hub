@@ -89,52 +89,55 @@ function normalizeHandoff(value: unknown): CoachBrainFactoryHandoff | null {
   const raw = value as Record<string, unknown>;
   if (typeof raw.question !== "string" || typeof raw.answer !== "string") return null;
 
-  const question = raw.question.trim().slice(0, 1000);
-  const answer = raw.answer.trim().slice(0, 4000);
-  if (!question || !answer) return null;
+  const suppliedResearch = raw.researchContext && typeof raw.researchContext === "object"
+    ? raw.researchContext as Record<string, unknown>
+    : {};
+  const sample = raw.sample && typeof raw.sample === "object" ? raw.sample as Record<string, unknown> : {};
+  const userIntent = boundedString(raw.userIntent, boundedString(raw.question, "", 1000), 1000);
+  const researchSummary = boundedString(suppliedResearch.summary, boundedString(raw.answer, "", 4000), 4000);
+  if (!userIntent || !researchSummary) return null;
 
-  const sources = Array.isArray(raw.sources)
-    ? raw.sources.flatMap((source) => {
+  const contentGoal = boundedString(raw.contentGoal, boundedString(sample.topic, userIntent, 500), 500);
+  const canonicalStrategy = boundedString(raw.planStrategy, "", 160);
+  const strategyParts = canonicalStrategy.split(":");
+  const planMix = boundedString(raw.planMix, strategyParts[0] || "varied", 80);
+  const planExecution = boundedString(raw.planExecution, strategyParts[1] || "best", 40);
+  const requestedDuration = boundedDuration(raw.requestedDuration) ?? boundedDuration(raw.planWindowDays);
+  const planWindowDays = boundedDuration(raw.planWindowDays) ?? requestedDuration;
+
+  const parseSources = (value: unknown) => Array.isArray(value)
+    ? value.flatMap((source) => {
       if (!source || typeof source !== "object") return [];
       const item = source as Record<string, unknown>;
       if (typeof item.title !== "string" || typeof item.url !== "string") return [];
       return [{ title: item.title.trim().slice(0, 300), url: item.url.trim().slice(0, 2000) }];
     }).filter((source) => source.title && source.url).slice(0, 5)
     : [];
+  const researchSources = parseSources(suppliedResearch.sources);
+  const sources = parseSources(raw.sources);
+  const normalizedSources = researchSources.length ? researchSources : sources;
 
-  const planWindowDays = boundedDuration(raw.planWindowDays);
-  const requestedDuration = boundedDuration(raw.requestedDuration) ?? planWindowDays;
-  const planMix = boundedString(raw.planMix, "varied", 80);
-  const planExecution = boundedString(raw.planExecution, "best", 40);
-  const suppliedResearch = raw.researchContext && typeof raw.researchContext === "object"
-    ? raw.researchContext as Record<string, unknown>
-    : {};
-
-  const researchSources = Array.isArray(suppliedResearch.sources)
-    ? suppliedResearch.sources.flatMap((source) => {
-      if (!source || typeof source !== "object") return [];
-      const item = source as Record<string, unknown>;
-      if (typeof item.title !== "string" || typeof item.url !== "string") return [];
-      return [{ title: item.title.trim().slice(0, 300), url: item.url.trim().slice(0, 2000) }];
-    }).filter((source) => source.title && source.url).slice(0, 5)
-    : sources;
-
-  const sample = raw.sample && typeof raw.sample === "object" ? raw.sample as Record<string, unknown> : {};
-  const contentGoal = boundedString(raw.contentGoal, boundedString(sample.topic, question, 500), 500);
+  // Keep the legacy Factory fields as an adapter so existing generation stays unchanged.
+  // Canonical-only handoffs carry the content goal into the existing Factory brief.
+  const hasCanonicalGoal = typeof raw.contentGoal === "string" && raw.contentGoal.trim().length > 0;
+  const question = hasCanonicalGoal && contentGoal !== userIntent
+    ? `${userIntent}\\nContent goal: ${contentGoal}`
+    : userIntent;
+  const answer = researchSummary;
 
   return {
     ...raw,
     question,
     answer,
-    sources,
+    sources: normalizedSources,
     planWindowDays: planWindowDays ?? undefined,
     planMix,
     planExecution,
-    userIntent: boundedString(raw.userIntent, question, 1000),
-    planStrategy: boundedString(raw.planStrategy, `${planMix}:${planExecution}`, 160),
+    userIntent,
+    planStrategy: canonicalStrategy || `${planMix}:${planExecution}`,
     researchContext: {
-      summary: boundedString(suppliedResearch.summary, answer, 4000),
-      sources: researchSources,
+      summary: researchSummary,
+      sources: normalizedSources,
     },
     requestedDuration,
     contentGoal,
