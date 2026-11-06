@@ -88,3 +88,43 @@ test("canonical task fields are bounded and malformed handoffs remain rejected",
     localStorage: null,
   }), null);
 });
+
+
+test("canonical-only task contract is adapted into the existing Factory context", () => {
+  const session = memoryStorage();
+  const payload = {
+    userIntent: "جهز حملة تعليمية للسباحة",
+    planStrategy: "education:best",
+    researchContext: {
+      summary: "أدلة حديثة حول تعليم السباحة",
+      sources: [{ title: "Research", url: "https://example.test/research" }],
+    },
+    requestedDuration: 10,
+    contentGoal: "تصحيح أخطاء التنفس في السباحة",
+  };
+
+  assert.equal(writeCoachBrainFactoryHandoff(JSON.stringify(payload), {
+    sessionStorage: session,
+    localStorage: null,
+  }), true);
+
+  const normalized = readCoachBrainFactoryHandoff({
+    sessionStorage: session,
+    localStorage: null,
+  });
+
+  assert.equal(normalized?.userIntent, payload.userIntent);
+  assert.equal(normalized?.planStrategy, payload.planStrategy);
+  assert.equal(normalized?.researchContext.summary, payload.researchContext.summary);
+  assert.deepEqual(normalized?.researchContext.sources, payload.researchContext.sources);
+  assert.equal(normalized?.requestedDuration, 10);
+  assert.equal(normalized?.contentGoal, payload.contentGoal);
+
+  // Existing Factory reads these legacy fields; the adapter carries all canonical inputs across.
+  assert.equal(normalized?.question, `${payload.userIntent}\nContent goal: ${payload.contentGoal}`);
+  assert.equal(normalized?.answer, payload.researchContext.summary);
+  assert.deepEqual(normalized?.sources, payload.researchContext.sources);
+  assert.equal(normalized?.planWindowDays, 10);
+  assert.equal(normalized?.planMix, "education");
+  assert.equal(normalized?.planExecution, "best");
+});
