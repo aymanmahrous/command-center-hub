@@ -2,7 +2,7 @@ import { FormEvent, useState } from "react";
 import { AlertTriangle, BookOpen, Brain, Search, ShieldCheck, Sparkles } from "lucide-react";
 import { buildCoachBrainSummaryRequest } from "./coach-brain-conversation";
 import { generateCoachAymanSampleWithProvider, type BatchAiProvider, type GeminiBatchPromptContext, type GeneratedContentSample } from "./gemini-batch-adapter";
-import { writeCoachBrainFactoryHandoff } from "./coach-brain-factory-handoff";
+import { readCoachBrainFactoryHandoff, writeCoachBrainFactoryHandoff } from "./coach-brain-factory-handoff";
 import "./coach-brain.css";
 
 type Source = { title: string; url: string };
@@ -58,6 +58,7 @@ const copy = {
     actions: ["جهز لي خطة محتوى 10 أيام", "أعطني أفكارًا متنوعة لمحتوى السباحة", "جهز لي تصميم صورة", "جهز لي تصميم فيديو", "راجع هذا النص وحسّنه", "لخّص هذه المحادثة واقترح الخطوة التالية"],
     summaryPrompt: "لخّص إجابة البحث الأخيرة واقترح خطوة عملية تالية.", designImagePrompt: "أريد تصميم صورة تسويقية للسباحة. جهز لي Brief واضحًا للتصميم واقترح أفضل مزود متصل ومتحقق، ثم أعطني بدائل حقيقية يمكنني اختيارها بحرية.", designVideoPrompt: "أريد تصميم فيديو قصير للسباحة. جهز لي Brief واضحًا للفيديو واقترح أفضل مزود متصل ومتحقق، ثم أعطني بدائل حقيقية يمكنني اختيارها بحرية.",
     error: "تعذر تنفيذ البحث الآن. لم يتم حفظ السؤال أو إنشاء أي بيانات.",
+    handoffSaveError: "تعذر نقل المهمة بأمان إلى مصنع المحتوى. لم يتم إنشاء دفعة أو نشر أي شيء. حاول مرة أخرى.",
     privacyNote: "البحث يتم عبر خادم آمن، ومفتاح Gemini لا يصل إلى الهاتف.",
     examples: [
       "طفل يخاف من الماء وعنده صعوبات انتباه، كيف أبدأ تدريبه تدريجيًا؟",
@@ -99,6 +100,7 @@ const copy = {
     actions: ["Prepare a 10-day content plan", "Give me varied swimming content ideas", "Prepare an image design", "Prepare a video design", "Review and improve this copy", "Summarize this conversation and suggest the next step"],
     summaryPrompt: "Summarize the latest research answer and suggest one practical next step.", designImagePrompt: "I want a swimming marketing image. Prepare a clear design brief, recommend the best connected and verified provider, and show real alternatives I can freely choose.", designVideoPrompt: "I want a short swimming video. Prepare a clear video brief, recommend the best connected and verified provider, and show real alternatives I can freely choose.",
     error: "The research could not be completed. The question was not saved and no swimmer record was created.",
+    handoffSaveError: "The task could not be safely transferred to Content Factory. Nothing was generated or published. Please retry.",
     privacyNote: "Research runs through a secure server; the Gemini key never reaches the phone.",
     examples: [
       "A child has water fear and attention difficulties. How to begin step by step?",
@@ -166,6 +168,7 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
     const researchSummary = result?.answer?.slice(0, 4000) || sample?.caption?.slice(0, 4000) || "";
     const researchSources = result?.sources?.slice(0, 5).map((source) => ({ title: source.title, url: source.url })) ?? [];
     const requestedDuration = selectedPlanDays();
+    const createdAt = new Date().toISOString();
     const contentGoal = sample?.topic?.trim().slice(0, 500) || userIntent.slice(0, 500);
     const handoff = JSON.stringify({
       userIntent,
@@ -187,9 +190,14 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
         platform: sample.platform,
         contentType: sample.contentType,
       } : null,
-      createdAt: new Date().toISOString(),
+      createdAt,
     });
-    writeCoachBrainFactoryHandoff(handoff);
+    const saved = writeCoachBrainFactoryHandoff(handoff);
+    const restored = readCoachBrainFactoryHandoff();
+    if (!saved || !restored || restored.createdAt !== createdAt) {
+      setError(t.handoffSaveError);
+      return;
+    }
     const url = new URL(window.location.href);
     url.searchParams.set("section", "content");
     url.searchParams.set("factoryContext", "coach-brain");
