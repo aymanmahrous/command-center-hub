@@ -452,3 +452,49 @@ The following PRs are OPEN and UNMERGED, all targeting `main` at base SHA `f97f7
 
 ### Verification limits
 This is a governance/documentation change only. The new charter itself has not yet been through repository CI, and no runtime behavior is claimed as changed or verified. The Vercel daily deployment limit observed in the related PR checks must not be bypassed by repeated build attempts; use GitHub CI and focused local/code checks first.
+
+## 29. Production authorization and RLS audit — 2026-11-06 (read-only)
+
+**Target verified:** Supabase Production project `nmzxrjdxvmmzzmajrskm`, PostgreSQL 17.6.1.105, status ACTIVE_HEALTHY. The separate Bolt project was not queried or modified in this phase.
+
+### Confirmed database state
+- Exactly **64/64 public tables have RLS enabled**. Only **1/64** has FORCE ROW LEVEL SECURITY enabled.
+- **11 tables have 20 RLS policies**; the other **53 tables have RLS enabled but no policies**. No-policy tables deny direct row access to `anon` and `authenticated` by default; this is not itself evidence of public exposure. Many operational reads/writes are intentionally mediated by guarded RPCs.
+- The sensitive tables inspected (`audit_logs`, `background_jobs`, `content_items`, `conversations`, `leads`, `staff_integrations`, `staff_integration_secrets`, OAuth token/state tables, and `owner_publish_authorizations`) have RLS enabled and no direct table policies. `owner_publish_authorizations` is the only table observed with FORCE RLS enabled.
+- `staff_profiles` has one policy: authenticated users may read only their own active profile (`id = auth.uid()` and `active = true`). No direct insert/update/delete policy was found.
+- Live `staff_profiles` inventory contains exactly **one active profile: super_admin**. The five application roles (`super_admin`, `admin`, `reception`, `coach`, `content_manager`) are defined in the frontend type/schema, but the four non-owner roles cannot be behaviorally verified against a live profile in this production dataset.
+- `audit_logs` contains **1,115 rows**, but has no RLS policy and no audit-reading RPC was found by the targeted database function-name inventory. No owner-facing audit-log reader was found in the main navigation. Therefore the history exists but is not yet available as a verified owner-facing audit screen/API.
+
+### RPC authorization findings
+- Production contains **168 SECURITY DEFINER functions** in `public`.
+- **81** are executable by `authenticated`; **2** SECURITY DEFINER functions are executable by `anon`.
+- Among the 81 authenticated-callable SECURITY DEFINER functions, source inspection classified **55** as using `is_active_staff(...)`, **23** as using `command_center_staff_role()`, **1** as using an explicit `auth.uid()` condition, and **2** as having no visible authorization guard in their function bodies.
+- The two public SECURITY DEFINER exceptions are `rf_schedule_turn(...)` and `rf_whatsapp_automation_enabled()`. Their current bodies are read/availability-oriented: the scheduling function explicitly returns `canConfirmSlot=false` and `bookingWriteUsed=false`, and does not write a booking; the WhatsApp function returns only the automation-enabled boolean. These appear consistent with a public-facing chatbot/status contract, but remain intentionally public exposure points and are flagged by Supabase.
+- The helper `is_active_staff(allowed_roles)` checks a matching `staff_profiles.id = auth.uid()`, `active=true`, and (when supplied) membership in the allowed role list. `command_center_staff_role()` likewise resolves only the active caller's role. The majority of inspected staff RPCs use one of these checks.
+- The database advisor's 81 authenticated SECURITY DEFINER warnings are not proof that all 81 functions are exploitable. They are a review list; each function must be assessed for its guard and operation. No broad privilege change is justified from the warning count alone.
+
+### Supabase Security Advisor snapshot
+Observed 2026-11-06:
+- `rls_enabled_no_policy`: INFO, 53 findings — expected for tables intentionally reachable only through RPC/service-role paths; verify each consumer before adding policies.
+- `authenticated_security_definer_function_executable`: WARN, 81 findings — reviewed at aggregate/guard-class level above; per-function role and operation mapping remains a separate detailed review.
+- `anon_security_definer_function_executable`: WARN, 2 findings — the two public functions described above.
+- `function_search_path_mutable`: WARN, 10 functions. The 10 listed functions are helper/concierge functions and were inspected as SECURITY INVOKER (not SECURITY DEFINER); this remains hardening debt, not a demonstrated privilege escalation.
+- `extension_in_public`: WARN, `pg_net` is installed in `public`.
+- `auth_leaked_password_protection`: WARN, leaked-password protection is disabled.
+
+### Application authorization and owner-management gaps
+- `src/main.tsx` authenticates with Supabase Auth, then reads exactly one active own-profile row and validates the role against the five-role schema. Session restore repeats the Auth user check and profile lookup.
+- Navigation currently enumerates application sections and the More menu without a centralized per-role section-access map. Individual screens contain scattered UI capability checks, while the database RPCs provide the authoritative write boundary. UI visibility is therefore not a substitute for server authorization.
+- No dedicated staff-profile management RPC was found by the targeted function inventory; no dedicated audit-log reader RPC was found. The current app therefore does not yet provide verified in-app staff/role administration or owner audit-log browsing.
+- Existing `business_settings`, `rf_schedule_config`, and `notification_settings` remain separate existing data areas. Do not create a generic settings table or feature-flag system based on this audit.
+
+### Decisions and safe next steps
+1. Do **not** mass-create RLS policies for the 53 no-policy tables. First map every direct frontend query and RPC/Edge Function access path; indiscriminate policies could expose private customer, message, credential, job, and publishing data.
+2. Do **not** revoke grants, change SECURITY DEFINER/INVOKER, alter function grants, or modify Auth settings in Production as part of this read-only audit.
+3. Complete a per-function authorization matrix for the 81 authenticated-callable SECURITY DEFINER RPCs: operation (read/write), required roles, owner-only actions, audit behavior, and frontend caller. Prioritize functions that mutate staff profiles, integration secrets, customer conversations, jobs, content lifecycle, or publication authorization.
+4. Review the two public SECURITY DEFINER functions against their public website/chatbot callers and document whether their exposure is required. Preserve public availability behavior unless a proven issue is found.
+5. Review the 10 mutable-search-path helpers and extension placement in a separate hardening plan; do not alter them without dependency analysis.
+6. Design the owner-facing admin surface only after the server-side matrix is complete. Reuse existing RPCs and screens; add only proven missing capabilities. Staff administration and audit-log browsing are confirmed gaps in the current inventory, but require a carefully scoped server-side design and explicit review before any Production change.
+
+### Scope and verification
+This phase was read-only. No Production rows, policies, grants, functions, Auth settings, secrets, Edge Functions, schedules, publishing paths, or Vercel configuration were changed. No role-switching or write-path tests were attempted because Production has only one active `super_admin` profile and the user explicitly protects Production state. The findings are based on live catalog metadata, function definitions, RLS policies, advisor output, and the main-branch application source. A full per-function matrix and non-owner role runtime tests remain open.
