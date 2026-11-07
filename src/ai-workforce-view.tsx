@@ -1,13 +1,14 @@
-import { Bot, BrainCircuit, ClipboardCheck, Factory, Image, LockKeyhole, SearchCheck, ShieldCheck, Video, Workflow } from "lucide-react";
+import { Bot, BrainCircuit, ClipboardCheck, Factory, Image, LockKeyhole, MessageCircle, SearchCheck, ShieldCheck, Video, Workflow } from "lucide-react";
 import "./ai-workforce.css";
 
 type Language = "ar" | "en";
-type Destination = "brain" | "content" | "media" | "connections" | "integrations";
+type Destination = "brain" | "content" | "media" | "connections" | "integrations" | "inbox";
+type Category = "governance" | "coordinator" | "conversation-assistant" | "specialist-capability" | "embedded-logic" | "workflow" | "integration-capability" | "provider-and-handoff" | "human-gate" | "protected-service";
 type Entry = {
   id: string;
   name: string;
-  category: string;
-  status: "governance" | "in_app" | "embedded" | "unverified" | "historical" | "manual" | "human" | "frozen";
+  category: Category;
+  status: "governance" | "in_app" | "embedded" | "unverified" | "historical" | "manual" | "human" | "frozen" | "draft_only";
   responsibility: string;
   handoff: string;
   boundary: string;
@@ -36,6 +37,17 @@ const entries: Entry[] = [
     boundary: "منسق داخل التطبيق، وليس فريقًا مستقلًا يعمل ذاتيًا في الخلفية.",
     destination: "brain",
     icon: BrainCircuit,
+  },
+  {
+    id: "concierge",
+    name: "AI Sales Concierge",
+    category: "conversation-assistant",
+    status: "draft_only",
+    responsibility: "يفهم رسائل العملاء ويجهز ردودًا مقترحة عبر مسار WhatsApp وn8n الحالي.",
+    handoff: "Webhook → process_ai_sales_concierge_turn → مسودة رد تظهر في صندوق المحادثات للمراجعة البشرية.",
+    boundary: "يعمل من الخادم فقط، ويجهز مسودات لا رسائل صادرة؛ لا يُستدعى RPC مباشرة من المتصفح ولا يرسل ردًا تلقائيًا.",
+    destination: "inbox",
+    icon: MessageCircle,
   },
   {
     id: "research",
@@ -110,10 +122,37 @@ const entries: Entry[] = [
     status: "frozen",
     responsibility: "التوزيع عبر مسار النشر الحالي بعد وجود تفويض مالك صالح.",
     handoff: "لا يستقبل إلا محتوى اجتاز المراجعة والتفويض المطلوب.",
-    boundary: "النشر والجدولة وإعادة المحاولة محمية ومجمّدة حاليًا؛ لا تنفيذ أو تفعيل من هذه الشاشة.",
+    boundary: "الإرسال الخارجي محمي ببوابة تفويض المالك. تجهيز الطابور والجدولة وإعادة المحاولة لها صلاحيات منفصلة على الخادم ولم تُعطّل بالكامل؛ لا تستخدم هذه الصفحة لتنفيذها.",
     icon: LockKeyhole,
   },
 ];
+
+const categoryLabels: Record<Language, Record<Category, string>> = {
+  ar: {
+    governance: "حوكمة",
+    coordinator: "تنسيق",
+    "conversation-assistant": "مساعد محادثات",
+    "specialist-capability": "قدرة متخصصة",
+    "embedded-logic": "منطق مدمج",
+    workflow: "سير عمل",
+    "integration-capability": "تكامل",
+    "provider-and-handoff": "أداة وتسليم",
+    "human-gate": "مراجعة بشرية",
+    "protected-service": "خدمة محمية",
+  },
+  en: {
+    governance: "Governance",
+    coordinator: "Coordinator",
+    "conversation-assistant": "Conversation assistant",
+    "specialist-capability": "Specialist capability",
+    "embedded-logic": "Embedded logic",
+    workflow: "Workflow",
+    "integration-capability": "Integration",
+    "provider-and-handoff": "Tool and handoff",
+    "human-gate": "Human review",
+    "protected-service": "Protected service",
+  },
+};
 
 const copy = {
   ar: {
@@ -130,6 +169,7 @@ const copy = {
     manual: "تسليم يدوي",
     human: "قرار بشري",
     frozen: "محمي / مجمّد",
+    draft_only: "مسودة فقط — مراجعة بشرية",
     flowTitle: "مسار العمل المعتمد",
     flow: [
       ["1", "A–Z Guardian", "يحدد المهمة والمسؤول والحدود"],
@@ -160,6 +200,7 @@ const copy = {
     manual: "Manual handoff",
     human: "Human decision",
     frozen: "Protected / frozen",
+    draft_only: "Draft only — human review",
     flowTitle: "Approved work path",
     flow: [
       ["1", "A–Z Guardian", "Defines task, owner, and boundaries"],
@@ -192,6 +233,7 @@ export default function AIWorkforceView({ language, onNavigate }: {
     manual: t.manual,
     human: t.human,
     frozen: t.frozen,
+    draft_only: t.draft_only,
   };
 
   return <div className="ai-workforce">
@@ -216,11 +258,12 @@ export default function AIWorkforceView({ language, onNavigate }: {
               <span className={`ai-workforce-status status-${entry.status}`}>{statusLabel[entry.status]}</span>
             </div>
             <h4>{entry.name}</h4>
-            <p className="ai-workforce-category">{entry.category.replaceAll("-", " ")}</p>
+            <p className="ai-workforce-category">{categoryLabels[language][entry.category]}</p>
             <dl>
               <div><dt>{language === "ar" ? "المسؤولية" : "Responsibility"}</dt><dd>{language === "ar" ? entry.responsibility : ({
                 guardian: "Whole-app technical and executive oversight, delegation, anti-duplication, and evidence review.",
                 "coach-brain": "Understands marketing goals, researches, plans strategy, and prepares a task brief for Factory.",
+                concierge: "Understands customer conversations and prepares suggested replies through the existing WhatsApp and n8n path.",
                 research: "Runs research through the existing Coach Brain path and returns sources and context.",
                 strategy: "Defines audience, messaging, content mix, and campaign goals inside Coach Brain.",
                 factory: "Turns the strategy into content items, spaces them over the chosen horizon, and prepares review.",
@@ -232,6 +275,7 @@ export default function AIWorkforceView({ language, onNavigate }: {
               <div><dt>{language === "ar" ? "التسليم" : "Handoff"}</dt><dd>{language === "ar" ? entry.handoff : ({
                 guardian: "Receives the owner's goal and assigns an accountable capability.",
                 "coach-brain": "Hands a structured brief to the existing Content Factory path.",
+                concierge: "WhatsApp/n8n webhook → process_ai_sales_concierge_turn → draft reply in the shared Inbox for human review.",
                 research: "Returns a research summary and sources to Coach Brain.",
                 strategy: "Guides Coach Brain without creating a separate queue or ledger.",
                 factory: "Coach Brain brief → existing content batch → Review.",
@@ -243,13 +287,14 @@ export default function AIWorkforceView({ language, onNavigate }: {
               <div><dt>{language === "ar" ? "الحدود" : "Boundary"}</dt><dd>{language === "ar" ? entry.boundary : ({
                 guardian: "Governance role outside app execution; not a separate in-app agent runtime.",
                 "coach-brain": "In-app coordinator, not an autonomous background team.",
+                concierge: "The server-side RPC prepares drafts only; authenticated browser users cannot call it directly and it does not send external replies automatically.",
                 research: "Existing execution capability; server credential readiness and live operation are not currently proven.",
                 strategy: "Embedded logic, not an independent agent.",
                 factory: "Existing production workflow, not a general-purpose agent runtime.",
                 design: "A connected Canva registry entry does not prove end-to-end design creation and export. No paid operation is triggered.",
                 video: "One prior Veo job succeeded, but its linked asset was blocked from review because consent was unknown. Runway is not API-connected.",
                 review: "Human gate, not an AI agent.",
-                publisher: "Publishing, scheduling, and retry are protected and frozen; this page cannot trigger them.",
+                publisher: "External publishing remains behind the owner-authorization gate. Queue preparation, scheduling, and retry are separate server operations and are not fully disabled; this directory does not expose them.",
               } as Record<string, string>)[entry.id]}</dd></div>
             </dl>
             {entry.destination && <button type="button" className="ai-workforce-open" onClick={() => onNavigate(entry.destination!)}>{t.open}</button>}
