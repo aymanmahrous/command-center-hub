@@ -7,7 +7,7 @@ const view = await readFile(new URL("../src/ai-workforce-view.tsx", import.meta.
 
 test("AI Workforce is reachable from More and is excluded from non-owner roles", () => {
   assert.match(main, /\["agents", Bot, "x"\]/);
-  assert.match(main, /session\\.role === "super_admin" && <button key="agents"/);
+  assert.match(main, /session\.role === "super_admin" && <button key="agents"/);
   assert.match(main, /session\.role === "super_admin"/);
   assert.match(main, /active === "agents"/);
   assert.match(main, /nav\.aiWorkforce/);
