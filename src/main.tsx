@@ -795,6 +795,10 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
 
   async function requestBatchChanges(item: ContentBatchItem, kind: ChangeRequestKind, note: string) {
     if (!canWrite || busyId || batchBusy || item.status === "needs_review") return;
+    if (OWNER_PUBLISHING_FROZEN && item.status === "scheduled") {
+      setNotice(language === "ar" ? "المحتوى المجدول للعرض فقط أثناء تجميد النشر؛ لم يتم تعديل الطابور." : "Scheduled content is view-only while publishing is frozen; the queue was not changed.");
+      return;
+    }
     const confirmMessage = language === "ar"
       ? `تأكيد طلب تعديل «${item.topic || "محتوى بدون عنوان"}» وإعادته للمراجعة؟`
       : `Request changes and return "${item.topic || copy.untitled}" to review?`;
@@ -816,6 +820,10 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
 
   async function editBatchItem(item: ContentBatchItem, visualPrompt: string, scheduledFor: string | null) {
     if (!canWrite || busyId || batchBusy || item.status === "published") return;
+    if (OWNER_PUBLISHING_FROZEN && item.status === "scheduled") {
+      setNotice(language === "ar" ? "المحتوى المجدول للعرض فقط أثناء تجميد النشر؛ لم يتم تعديل الطابور." : "Scheduled content is view-only while publishing is frozen; the queue was not changed.");
+      return;
+    }
     const contentChanged = visualPrompt !== String(item.visualPrompt ?? "");
     const scheduleWasRequested = scheduledFor !== item.scheduledFor;
     const scheduleChanged = !OWNER_PUBLISHING_FROZEN && scheduleWasRequested;
