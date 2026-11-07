@@ -184,7 +184,6 @@ export function ContentBatchReviewPanel({
   const [videoTargetId, setVideoTargetId] = useState<string | null>(null);
   const [videoDuration, setVideoDuration] = useState<4 | 6 | 8>(8);
   const [manualVideoDuration, setManualVideoDuration] = useState<3 | 5 | 8>(5);
-  const [manualRunwayPrompt, setManualRunwayPrompt] = useState<{ itemId: string; text: string } | null>(null);
   const [videoResolution, setVideoResolution] = useState<"720p" | "1080p">("720p");
   const [videoEstimate, setVideoEstimate] = useState<{ costUsd: number; model: string } | null>(null);
   const [videoBusyId, setVideoBusyId] = useState<string | null>(null);
@@ -255,7 +254,11 @@ export function ContentBatchReviewPanel({
   }
 
   async function copyDesignPrompt(item: ContentBatchItem) {
-    const prompt = String(item.visualPrompt ?? "").trim();
+    const basePrompt = String(item.visualPrompt ?? "").trim();
+    const isVideo = /reel|video/i.test(String(item.contentType));
+    const prompt = basePrompt
+      ? `${basePrompt}${isVideo ? `\n\nFINAL OUTPUT REQUIREMENT: Create one vertical 9:16 video with an exact target duration of ${manualVideoDuration} seconds. This duration overrides any earlier duration in the brief.` : ""}`.trim()
+      : "";
     if (!prompt) {
       setDesignNotice(language === "ar" ? "لا يوجد برومبت تصميم محفوظ لهذا المحتوى. لن نرسل عنوانًا أو نصًا ناقصًا بدلًا منه." : "No saved design prompt exists for this item. A title or incomplete text will not be substituted.");
       return;
@@ -293,17 +296,6 @@ export function ContentBatchReviewPanel({
     } catch {
       if (target === "runway") setManualRunwayPrompt({ itemId: item.id, text: prompt });
       setDesignNotice(language === "ar" ? "تم فتح الأداة، لكن تعذر النسخ التلقائي. البرومبت ظاهر في مربع النص ويمكن تحديده ونسخه يدويًا." : "The tool was opened, but automatic copy failed. The prompt is visible in the text box and can be selected and copied manually.");
-    }
-  }
-
-  async function copyManualRunwayPrompt() {
-    if (!manualRunwayPrompt) return;
-    try {
-      if (!navigator.clipboard?.writeText) throw new Error("CLIPBOARD_UNAVAILABLE");
-      await navigator.clipboard.writeText(manualRunwayPrompt.text);
-      setDesignNotice(language === "ar" ? "تم نسخ برومبت Runway كاملًا. الصقه داخل Runway." : "The complete Runway prompt was copied. Paste it into Runway.");
-    } catch {
-      setDesignNotice(language === "ar" ? "تعذر النسخ التلقائي. اضغط داخل مربع النص، وحدد الكل، ثم انسخ يدويًا." : "Automatic copy is unavailable. Focus the text box, select all, and copy manually.");
     }
   }
 
@@ -699,8 +691,11 @@ export function ContentBatchReviewPanel({
           const platformReceipt = latestReceiptForPlatform(item, item.platform);
           const postLink = buildExternalPostLink(item.platform, platformReceipt?.externalPostId);
           const itemDisabledReason = !canWrite ? copy.actionDisabledReadOnly : busy ? copy.actionDisabledBusy : undefined;
-          const itemDesignPrompt = String(item.visualPrompt ?? "").trim();
+          const itemBaseDesignPrompt = String(item.visualPrompt ?? "").trim();
           const itemIsVideo = /reel|video/i.test(String(item.contentType));
+          const itemDesignPrompt = itemBaseDesignPrompt
+            ? `${itemBaseDesignPrompt}${itemIsVideo ? `\n\nFINAL OUTPUT REQUIREMENT: Create one vertical 9:16 video with an exact target duration of ${manualVideoDuration} seconds. This duration overrides any earlier duration in the brief.` : ""}`.trim()
+            : "";
           const linkedMediaAssetId = typeof item.mediaAssetId === "string" ? item.mediaAssetId : "";
           const linkedMediaAsset = assetById.get(linkedMediaAssetId);
           const canRegenerateDesign = Boolean(linkedMediaAsset && !canUseInMarketingBatch(linkedMediaAsset));
@@ -721,28 +716,22 @@ export function ContentBatchReviewPanel({
               {session && (
                 <section className="content-daily-design-prompt" aria-label={language === "ar" ? "برومبت التصميم لهذا اليوم" : "Daily design prompt"}>
                   <div className="content-daily-design-heading">
-                    <strong>{language === "ar" ? "برومبت التصميم لهذا المحتوى" : "Design prompt for this content"}</strong>
+                    <strong>{itemIsVideo ? (language === "ar" ? "برومبت الفيديو الكامل لـRunway" : "Complete Runway video prompt") : (language === "ar" ? "برومبت التصميم لهذا المحتوى" : "Design prompt for this content")}</strong>
                     <small>{formatWhen(language, item.scheduledFor)}</small>
                   </div>
+                  {itemIsVideo && <label className="content-video-duration"><span>{language === "ar" ? "مدة فيديو Runway" : "Runway video length"}</span><select value={manualVideoDuration} onChange={(event) => setManualVideoDuration(Number(event.target.value) as 3 | 5 | 8)} disabled={item.status === "published"}><option value={3}>3 {language === "ar" ? "ثوانٍ" : "seconds"}</option><option value={5}>5 {language === "ar" ? "ثوانٍ" : "seconds"}</option><option value={8}>8 {language === "ar" ? "ثوانٍ" : "seconds"}</option></select></label>}
                   {itemDesignPrompt
-                    ? <textarea readOnly rows={5} value={itemDesignPrompt} onFocus={(event) => event.currentTarget.select()} aria-label={language === "ar" ? "برومبت التصميم الكامل" : "Complete design prompt"} />
+                    ? <textarea readOnly rows={5} value={itemDesignPrompt} onFocus={(event) => event.currentTarget.select()} aria-label={itemIsVideo ? (language === "ar" ? "برومبت Runway الكامل مع المدة" : "Complete Runway prompt with duration") : (language === "ar" ? "برومبت التصميم الكامل" : "Complete design prompt")} />
                     : <p className="content-daily-design-missing" role="status">{language === "ar" ? "لا يوجد برومبت تصميم محفوظ لهذا العنصر. يلزم إصلاح المحتوى قبل إرساله إلى أداة تصميم." : "No design prompt is saved for this item. Repair the content before sending it to a design tool."}</p>}
                   <div className="content-manual-tool-actions">
-                    <button type="button" className="secondary" disabled={!itemDesignPrompt} onClick={() => void copyDesignPrompt(item)}>{language === "ar" ? "نسخ برومبت التصميم" : "Copy design prompt"}</button>
+                    <button type="button" className="secondary" disabled={!itemDesignPrompt} onClick={() => void copyDesignPrompt(item)}>{itemIsVideo ? (language === "ar" ? "نسخ برومبت Runway" : "Copy Runway prompt") : (language === "ar" ? "نسخ برومبت التصميم" : "Copy design prompt")}</button>
                     {!itemIsVideo && <>
                       <button type="button" className="secondary" disabled={!itemDesignPrompt || item.status === "published"} onClick={() => void openExternalBrief("canva", item)}>{language === "ar" ? "فتح Canva ونسخ البرومبت" : "Open Canva + copy prompt"}</button>
                       <button type="button" className="secondary" disabled={!itemDesignPrompt || item.status === "published"} onClick={() => void openExternalBrief("gemini", item)}>{language === "ar" ? "فتح Gemini Pro ونسخ البرومبت" : "Open Gemini Pro + copy prompt"}</button>
                     </>}
                     {itemIsVideo && <>
-                      <label><span>{language === "ar" ? "مدة فيديو Runway" : "Runway video length"}</span><select value={manualVideoDuration} onChange={(event) => setManualVideoDuration(Number(event.target.value) as 3 | 5 | 8)} disabled={item.status === "published"}><option value={3}>3 {language === "ar" ? "ثوانٍ" : "seconds"}</option><option value={5}>5 {language === "ar" ? "ثوانٍ" : "seconds"}</option><option value={8}>8 {language === "ar" ? "ثوانٍ" : "seconds"}</option></select></label>
                       <button type="button" className="secondary" disabled={!itemDesignPrompt || item.status === "published"} onClick={() => void openExternalBrief("runway", item)}>{language === "ar" ? "فتح Runway ونسخ برومبت الفيديو" : "Open Runway + copy video prompt"}</button>
-                      {manualRunwayPrompt?.itemId === item.id && <div className="content-manual-runway-fallback">
-                        <label>
-                          <span>{language === "ar" ? "البرومبت الكامل مع المدة — انسخه يدويًا إذا تعذرت الحافظة" : "Complete duration-specific prompt — copy manually if clipboard access is unavailable"}</span>
-                          <textarea readOnly rows={6} value={manualRunwayPrompt.text} onFocus={(event) => event.currentTarget.select()} aria-label={language === "ar" ? "برومبت Runway الكامل" : "Complete Runway prompt"} />
-                        </label>
-                        <button type="button" className="secondary" onClick={() => void copyManualRunwayPrompt()}>{language === "ar" ? "إعادة نسخ البرومبت" : "Copy prompt again"}</button>
-                      </div>}
+
                     </>}
                   </div>
                 </section>
