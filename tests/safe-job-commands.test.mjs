@@ -6,6 +6,8 @@ const migration = await readFile(new URL("../supabase/migrations/20260920120000_
 const app = await readFile(new URL("../src/operations-queue-view.tsx", import.meta.url), "utf8");
 const css = await readFile(new URL("../src/integrations.css", import.meta.url), "utf8");
 const reviewPanel = await readFile(new URL("../src/content-batch-review-panel.tsx", import.meta.url), "utf8");
+const main = await readFile(new URL("../src/main.tsx", import.meta.url), "utf8");
+const publishing = await readFile(new URL("../src/content-publishing.ts", import.meta.url), "utf8");
 
  test("safe job commands are audited and never delete rows", () => {
   assert.match(migration, /retry_staff_publish_job/);
@@ -42,10 +44,13 @@ test("overdue follow-up filter includes both queued and retrying overdue items a
 });
 
 
-test("owner publishing freeze blocks direct send from Content Factory while preserving review", () => {
-  assert.match(reviewPanel, /const PUBLISHING_FROZEN = true/);
-  assert.match(reviewPanel, /if \(PUBLISHING_FROZEN\)/);
+test("owner publishing freeze blocks direct send and scheduling while preserving review", () => {
+  assert.match(publishing, /export const OWNER_PUBLISHING_FROZEN = true/);
+  assert.match(reviewPanel, /if \(OWNER_PUBLISHING_FROZEN\)/);
   assert.match(reviewPanel, /Publishing is frozen by owner authorization/);
   assert.match(reviewPanel, /النشر مجمّد بتفويض المالك/);
-  assert.match(reviewPanel, /Review and preparation remain available; sending is disabled/);
+  assert.match(main, /OWNER_PUBLISHING_FROZEN && \(action === "schedule" \|\| action === "unschedule"\)/);
+  assert.match(main, /approved without scheduling or publishing/);
+  assert.doesNotMatch(main, /approve_staff_content_batch|approve_and_schedule_staff_content_item/);
+  assert.match(main, /Scheduling is frozen by owner authorization/);
 });
