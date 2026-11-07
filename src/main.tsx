@@ -31,6 +31,7 @@ const OperationsQueueView = lazy(() => import("./operations-queue-view"));
 const IntegrationsCenter = lazy(() => import("./integrations-center"));
 const AutomationsView = lazy(() => import("./automations-view"));
 const MarketingCompanyView = lazy(() => import("./marketing-company-view"));
+const AIWorkforceView = lazy(() => import("./ai-workforce-view"));
 
 const sections = [
   ["dashboard", LayoutDashboard, "get_staff_command_center"],
@@ -49,6 +50,7 @@ const sections = [
   ["radar", ShieldAlert, "get_staff_radar_opportunities"],
   ["brain", Bot, "x"],
   ["workspace", Library, "x"],
+  ["agents", Bot, "x"],
 ] as const;
 
 type SectionId = (typeof sections)[number][0];
@@ -1278,13 +1280,14 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   const current = useMemo(() => sections.find(([id]) => id === active)!, [active]);
 
   useEffect(() => {
-    document.title = `${nav[current[0]]} · ${nav.dashboard}`;
-  }, [current, nav]);
+    const sectionTitle = current[0] === "agents" ? (language === "ar" ? "فريق الذكاء الاصطناعي" : "AI Workforce") : nav[current[0]];
+    document.title = `${sectionTitle} · ${nav.dashboard}`;
+  }, [current, language, nav]);
 
   useEffect(() => {
     const controller = new AbortController();
     const section = current[0];
-    if (["archive", "dashboard", "today", "command", "brain", "workspace"].includes(section)) {
+    if (["archive", "dashboard", "today", "command", "brain", "workspace", "agents"].includes(section)) {
       setStatus("ready");
       loadedSectionRef.current = section;
       return () => controller.abort();
@@ -1324,12 +1327,12 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   };
 
   // One owner-facing system: core destinations stay visible; lower-frequency tools live under More.
-  const moreIds = ["automations", "today", "planner", "crm", "connections", "analytics", "radar", "archive", "workspace"] as const;
+  const moreIds = ["automations", "today", "planner", "crm", "connections", "analytics", "radar", "archive", "workspace", "agents"] as const;
   const moreLabel = language === "ar" ? "المزيد" : "More";
   const toggleMore = () => setMoreOpen(!moreOpen);
   const morePanel = <div className="more-panel">
-    {moreIds.map((id) => <button key={id} onClick={() => go(id)}>
-      {nav[id]}
+    {moreIds.filter((id) => id !== "agents" || session.role === "super_admin").map((id) => <button key={id} onClick={() => go(id)}>
+      {id === "agents" ? (language === "ar" ? "فريق الذكاء الاصطناعي" : "AI Workforce") : nav[id]}
     </button>)}
   </div>;
 
@@ -1406,6 +1409,9 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
           active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "brain" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><CoachBrain language={language} onNavigate={(section) => { if (sections.some(([id]) => id === section)) go(section as SectionId); }} /></Suspense> :
           active === "workspace" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><RealProductFoundation session={session} language={language} /></Suspense> :
+          active === "agents" ? (session.role === "super_admin"
+            ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><AIWorkforceView language={language} onNavigate={go} /></Suspense>
+            : <p className="muted" role="alert">{language === "ar" ? "هذه الصفحة متاحة للمالك فقط." : "This page is available to the owner only."}</p>) :
           null
         )}
       </section>
