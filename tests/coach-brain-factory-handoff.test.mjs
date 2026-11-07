@@ -113,3 +113,13 @@ test("a failed session write cannot shadow the successful local fallback with st
   assert.equal(restored?.question, "خطة جديدة\nContent goal: تحسين التنفس");
   assert.equal(restored?.contentGoal, "تحسين التنفس");
 });
+
+
+test("successful batch generation and media linking open the daily prompt review workspace", () => {
+  const savedBatch = contentGrowthHub.indexOf("setSelectedBatchId(saved.batchId);");
+  const batchReview = contentGrowthHub.indexOf('selectFactoryTab("review");', savedBatch);
+  const mediaLinked = contentGrowthHub.indexOf("Media is now linked to the content.");
+  const mediaReview = contentGrowthHub.indexOf('selectFactoryTab("review");', mediaLinked);
+  assert.ok(savedBatch >= 0 && batchReview > savedBatch, "newly generated batches must open Review automatically");
+  assert.ok(mediaLinked >= 0 && mediaReview > mediaLinked, "after media linking, return to Review where the daily prompt is visible");
+});
