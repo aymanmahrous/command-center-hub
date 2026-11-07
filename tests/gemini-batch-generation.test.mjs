@@ -4,6 +4,8 @@ import test from "node:test";
 
 const adapter = await readFile(new URL("../src/gemini-batch-adapter.ts", import.meta.url), "utf8");
 const edge = await readFile(new URL("../supabase/functions/generate-content-batch/index.ts", import.meta.url), "utf8");
+const providerKeys = await readFile(new URL("../supabase/functions/_shared/ai-provider-keys.ts", import.meta.url), "utf8");
+const coachResearch = await readFile(new URL("../supabase/functions/coach-brain-research/index.ts", import.meta.url), "utf8");
 const slotSpec = await readFile(new URL("../supabase/functions/generate-content-batch/coach-ayman-slot-spec.ts", import.meta.url), "utf8");
 const generator = await readFile(new URL("../src/content-batch-generator.ts", import.meta.url), "utf8");
 const hub = await readFile(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
@@ -164,4 +166,20 @@ test("Coach Brain sample always shows a selectable design prompt with copy and m
   assert.match(coachBrain, /sampleVideoDuration/);
   assert.match(coachBrain, /const sampleBasePrompt = String\(sample\?\.visualPrompt \?\? ""\)\.trim\(\)/);
   assert.match(coachBrain, /const sampleDesignPrompt = sampleBasePrompt/);
+});
+
+
+test("AI provider keys are saved through the existing protected integration and resolved server-side", () => {
+  assert.match(connections, /Manage API keys/);
+  assert.match(connections, /p_provider: "ai_provider"/);
+  assert.match(connections, /p_secret: JSON\.stringify\(\{ gemini, openai \}\)/);
+  assert.match(connections, /Gemini API Key/);
+  assert.match(connections, /OpenAI API Key/);
+  assert.match(providerKeys, /staff_integrations/);
+  assert.match(providerKeys, /staff_integration_secrets/);
+  assert.match(providerKeys, /JSON\.parse/);
+  assert.match(edge, /loadAiProviderKeys\(supabase, GEMINI_ENV_API_KEY, OPENAI_ENV_API_KEY\)/);
+  assert.match(coachResearch, /loadAiProviderKeys\(supabase, GEMINI_ENV_API_KEY, ""\)/);
+  assert.match(providerKeys, /protected staff_integration_secrets/);
+  assert.doesNotMatch(providerKeys, /console\.(log|info|debug)/);
 });
