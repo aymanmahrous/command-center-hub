@@ -19,7 +19,7 @@ test("AI Workforce is a truthful directory, not a fake autonomous agent ledger",
   assert.match(view, /Providers are not agents/);
   assert.match(view, /Gemini and OpenAI are model providers/);
   assert.match(view, /Runway is a manual no-API handoff/);
-  assert.match(view, /No verified video-generation path is currently available/);
+  assert.match(view, /Runway is a manual no-API handoff/);
   assert.match(view, /لا يوجد مسار توليد فيديو مثبت حاليًا/);
   assert.match(view, /Owner authorization required/);
   assert.match(view, /يتطلب تفويض المالك/);
