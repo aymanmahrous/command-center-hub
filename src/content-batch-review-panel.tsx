@@ -294,7 +294,6 @@ export function ContentBatchReviewPanel({
         ? `تم نسخ التعليمات وفتح ${target === "canva" ? "Canva" : target === "gemini" ? "Gemini Pro" : "Runway"}. الصقها داخل حسابك؛ لم يتم استدعاء API مدفوع.`
         : `The brief was copied and ${target === "canva" ? "Canva" : target === "gemini" ? "Gemini Pro" : "Runway"} was opened. Paste it into your account; no paid API was called.`);
     } catch {
-      if (target === "runway") setManualRunwayPrompt({ itemId: item.id, text: prompt });
       setDesignNotice(language === "ar" ? "تم فتح الأداة، لكن تعذر النسخ التلقائي. البرومبت ظاهر في مربع النص ويمكن تحديده ونسخه يدويًا." : "The tool was opened, but automatic copy failed. The prompt is visible in the text box and can be selected and copied manually.");
     }
   }
