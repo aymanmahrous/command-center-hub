@@ -74,5 +74,6 @@ test("selecting a populated calendar day filters the review workspace to that da
   assert.match(review, /item\.scheduledFor && new Date\(item\.scheduledFor\)\.toDateString\(\) === focusDate/);
   assert.match(review, /onClearFocusDate/);
   assert.match(review, /Clear the day filter before approving the entire batch/);
+  assert.match(review, /!focusDate && approveAllWouldChange\(batch\.items\)/);
   assert.match(review, /content-daily-design-prompt/);
 });
