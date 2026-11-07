@@ -184,6 +184,7 @@ export function ContentBatchReviewPanel({
   const [videoTargetId, setVideoTargetId] = useState<string | null>(null);
   const [videoDuration, setVideoDuration] = useState<4 | 6 | 8>(8);
   const [manualVideoDuration, setManualVideoDuration] = useState<3 | 5 | 8>(5);
+  const [manualRunwayPrompt, setManualRunwayPrompt] = useState<{ itemId: string; text: string } | null>(null);
   const [videoResolution, setVideoResolution] = useState<"720p" | "1080p">("720p");
   const [videoEstimate, setVideoEstimate] = useState<{ costUsd: number; model: string } | null>(null);
   const [videoBusyId, setVideoBusyId] = useState<string | null>(null);
@@ -267,7 +268,19 @@ export function ContentBatchReviewPanel({
         ? `تم نسخ التعليمات وفتح ${target === "canva" ? "Canva" : target === "gemini" ? "Gemini Pro" : "Runway"}. الصقها داخل حسابك؛ لم يتم استدعاء API مدفوع.`
         : `The brief was copied and ${target === "canva" ? "Canva" : target === "gemini" ? "Gemini Pro" : "Runway"} was opened. Paste it into your account; no paid API was called.`);
     } catch {
-      setDesignNotice(language === "ar" ? "تم فتح الأداة، لكن تعذر النسخ التلقائي. انسخ التعليمات من تفاصيل التصميم." : "The tool was opened, but automatic copy failed. Copy the brief from Design details.");
+      if (target === "runway") setManualRunwayPrompt({ itemId: item.id, text: prompt });
+      setDesignNotice(language === "ar" ? "تم فتح الأداة، لكن تعذر النسخ التلقائي. استخدم مربع النص الظاهر أدناه لنسخ برومبت Runway كاملًا بالمدة المختارة." : "The tool was opened, but automatic copy failed. Use the text box below to copy the complete Runway prompt with the selected duration.");
+    }
+  }
+
+  async function copyManualRunwayPrompt() {
+    if (!manualRunwayPrompt) return;
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("CLIPBOARD_UNAVAILABLE");
+      await navigator.clipboard.writeText(manualRunwayPrompt.text);
+      setDesignNotice(language === "ar" ? "تم نسخ برومبت Runway كاملًا. الصقه داخل Runway." : "The complete Runway prompt was copied. Paste it into Runway.");
+    } catch {
+      setDesignNotice(language === "ar" ? "تعذر النسخ التلقائي. اضغط داخل مربع النص، وحدد الكل، ثم انسخ يدويًا." : "Automatic copy is unavailable. Focus the text box, select all, and copy manually.");
     }
   }
 
@@ -843,6 +856,13 @@ export function ContentBatchReviewPanel({
                       {/reel|video/i.test(String(item.contentType)) && <>
                         <label><span>{language === "ar" ? "مدة فيديو Runway" : "Runway video length"}</span><select value={manualVideoDuration} onChange={(event) => setManualVideoDuration(Number(event.target.value) as 3 | 5 | 8)}><option value={3}>3 {language === "ar" ? "ثوانٍ" : "seconds"}</option><option value={5}>5 {language === "ar" ? "ثوانٍ" : "seconds"}</option><option value={8}>8 {language === "ar" ? "ثوانٍ" : "seconds"}</option></select></label>
                         <button type="button" className="secondary" onClick={() => void openExternalBrief("runway", item)}>{language === "ar" ? "فتح Runway ونسخ برومبت الفيديو" : "Open Runway + copy video prompt"}</button>
+                        {manualRunwayPrompt?.itemId === item.id && <div className="content-manual-runway-fallback">
+                          <label>
+                            <span>{language === "ar" ? "البرومبت الكامل — انسخه يدويًا إذا لم تعمل الحافظة" : "Complete prompt — copy manually if clipboard access is unavailable"}</span>
+                            <textarea readOnly rows={6} value={manualRunwayPrompt.text} onFocus={(event) => event.currentTarget.select()} aria-label={language === "ar" ? "برومبت Runway الكامل" : "Complete Runway prompt"} />
+                          </label>
+                          <button type="button" className="secondary" onClick={() => void copyManualRunwayPrompt()}>{language === "ar" ? "إعادة نسخ البرومبت" : "Copy prompt again"}</button>
+                        </div>}
                       </>}
                     </div>
                   </div>
