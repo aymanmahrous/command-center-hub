@@ -151,3 +151,15 @@ test("one owner provider preference is shared by Connections, Factory and Coach 
   assert.doesNotMatch(hub, /integrations\.map/);
   assert.match(coachBrain, /readAiProviderPreference/);
 });
+
+
+test("Coach Brain sample always shows a selectable design prompt with copy and manual Canva/Runway handoff", () => {
+  assert.match(coachBrain, /sampleDesignPrompt/);
+  assert.match(coachBrain, /coach-brain__sample-design/);
+  assert.match(coachBrain, /value=\{sampleDesignPrompt\}/);
+  assert.match(coachBrain, /copySampleDesignPrompt/);
+  assert.match(coachBrain, /openSampleDesignTool/);
+  assert.match(coachBrain, /https:\/\/app\.runwayml\.com\//);
+  assert.match(coachBrain, /https:\/\/www\.canva\.com\//);
+  assert.match(coachBrain, /sampleVideoDuration/);
+});
