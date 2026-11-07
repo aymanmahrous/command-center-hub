@@ -10,9 +10,9 @@ const research = await readFile(new URL("../supabase/functions/coach-brain-resea
 const slotSpec = await readFile(new URL("../supabase/functions/generate-content-batch/coach-ayman-slot-spec.ts", import.meta.url), "utf8");
 const batchGenerator = await readFile(new URL("../supabase/functions/generate-content-batch/index.ts", import.meta.url), "utf8");
 
-test("Coach Brain and Factory accept only the supported 1–30 day planning window", () => {
+test("Coach Brain and Factory accept only the supported 1–10 day planning window", () => {
   assert.match(coachBrain, /Math\.min\(30/);
-  assert.match(coachBrain, /min=\{1\} max=\{30\}/);
+  assert.match(coachBrain, /min=\{1\} max=\{10\}/);
   assert.doesNotMatch(coachBrain, /value="60"/);
   assert.match(factory, /PLAN_WINDOW_OPTIONS = \[1, 2, 3, 4, 7, 14, 30\]/);
   assert.match(factory, /Math\.min\(30/);
@@ -24,10 +24,10 @@ test("Coach Brain and Factory accept only the supported 1–30 day planning wind
 test("Factory preserves the existing ten-item batch and spaces it across the selected window", () => {
   assert.match(factory, /DEFAULT_BATCH_MIX\.length/);
   assert.match(factory, /safeDays - 1/);
-  assert.match(factory, /covers every day in this 1–30 day window/);
+  assert.match(factory, /covers every day in this 1–10 day window/);
 });
 
-test("handoff normalization preserves canonical fields and clamps duration to 30 days", () => {
+test("handoff normalization preserves canonical fields and clamps duration to 10 days", () => {
   assert.match(handoff, /userIntent: string/);
   assert.match(handoff, /planStrategy: string/);
   assert.match(handoff, /researchContext:/);
