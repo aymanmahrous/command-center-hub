@@ -18,7 +18,7 @@ test("AI Workforce is a truthful directory, not a fake autonomous agent ledger",
   assert.match(view, /لا يوجد حتى الآن سجل عام موحد/);
   assert.match(view, /Providers are not agents/);
   assert.match(view, /Gemini and OpenAI are model providers/);
-  assert.match(view, /Runway has no verified generation or handoff path/);
+  assert.match(view, /Runway is a manual no-API handoff/);
   assert.match(view, /No verified video-generation path is currently available/);
   assert.match(view, /لا يوجد مسار توليد فيديو مثبت حاليًا/);
   assert.match(view, /Owner authorization required/);
@@ -26,8 +26,10 @@ test("AI Workforce is a truthful directory, not a fake autonomous agent ledger",
   assert.match(view, /owner_authorization_required: t\.owner_authorization_required/);
   assert.doesNotMatch(view, /frozen: t\.frozen/);
   assert.doesNotMatch(view, /Protected \/ frozen|محمي \/ مجمّد|Uses the existing Google Veo path when available/);
-  assert.doesNotMatch(view, /Runway is currently a manual handoff|Runway تسليم يدوي حاليًا/);
-  assert.match(view, /Runway is status-only with no verified generation or handoff path/);
+  assert.doesNotMatch(view, /Runway is status-only|Runway حالة اتصال فقط/);
+  assert.match(view, /manual no-API handoff prepared in PR #327/);
+  assert.match(view, /مسار التسليم اليدوي موجود في PR #327 ولم يُدمج بعد/);
+  assert.match(view, /destination: "content"/);
   assert.match(view, /External publishing remains behind the owner-authorization gate/);
   assert.match(view, /الإرسال الخارجي محمي ببوابة تفويض المالك/);
   assert.match(view, /AI Sales Concierge/);
