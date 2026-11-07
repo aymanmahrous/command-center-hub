@@ -203,10 +203,10 @@ export default function ContentGrowthHub({
     ? `${language === "ar" ? "اتصال Canva" : "Canva connection"}: ${canvaReadiness.connectionLabel} · ${language === "ar" ? "جاهزية التصميم" : "Design readiness"}: ${canvaReadiness.readinessLabel}. ${canvaReadiness.detail}${canvaDiagnosticDetails.length ? ` · ${canvaDiagnosticDetails.join(" · ")}` : ""}`
     : null;
   const videoCapabilityState = integrations.find((integration) => integration.key === "runway")?.capabilityState ?? "NOT_CONFIGURED";
-  const PLAN_WINDOW_OPTIONS = [1, 2, 3, 4, 7, 14, 30] as const;
+  const PLAN_WINDOW_OPTIONS = [1, 2, 3, 4, 7, 10] as const;
   const [planWindowDays, setPlanWindowDays] = useState<number>(() => {
     const value = Number(handoffParams.get("planDays") || storedCoachBrainHandoff?.planWindowDays);
-    return Number.isFinite(value) && value > 0 ? Math.max(1, Math.min(30, Math.floor(value))) : 30;
+    return Number.isFinite(value) && value > 0 ? Math.max(1, Math.min(10, Math.floor(value))) : 10;
   });
   const [planFocus] = useState(() => handoffParams.get("planMix") || storedCoachBrainHandoff?.planMix || "varied");
   const [planExecution] = useState(() => handoffParams.get("planExecution") || storedCoachBrainHandoff?.planExecution || "best");
@@ -359,7 +359,7 @@ export default function ContentGrowthHub({
   }, []);
 
   function fitBatchToPlanWindow<T extends { plannedFor: string }>(batch: T[], days: number, baseStart: Date): T[] {
-    const safeDays = Math.max(1, Math.min(30, Math.floor(days) || 30));
+    const safeDays = Math.max(1, Math.min(10, Math.floor(days) || 10));
     const start = new Date(baseStart);
     start.setUTCHours(0, 0, 0, 0);
     start.setUTCDate(start.getUTCDate() + 1);
@@ -473,8 +473,8 @@ export default function ContentGrowthHub({
         <section className="factory-30-day-plan" aria-labelledby="factory-30-day-title">
           <header><div><span>{language === "ar" ? "خطة Coach Brain" : "COACH BRAIN PLAN"}</span><h3 id="factory-30-day-title">{language === "ar" ? "حدد المدة ودع Coach Brain يبني التوزيع" : "Choose the window and let Coach Brain shape the mix"}</h3></div><small>{language === "ar" ? "نفس المصنع والبنية الحالية؛ المدة تحدد نافذة الجدولة فقط." : "Same Factory and existing infrastructure; the window controls scheduling only."}</small></header>
           <div className="factory-plan-controls">
-            <label className="batch-ai-provider"><span>{language === "ar" ? "اختيار سريع للمدة" : "Quick duration"}</span><select value={PLAN_WINDOW_OPTIONS.includes(planWindowDays as (typeof PLAN_WINDOW_OPTIONS)[number]) ? planWindowDays : "custom"} onChange={(event) => { if (event.target.value !== "custom") setPlanWindowDays(Number(event.target.value)); }} disabled={panelBusy}>{PLAN_WINDOW_OPTIONS.map((days) => <option key={days} value={days}>{language === "ar" ? days + " يوم" : days + " days"}</option>)}<option value="custom">{language === "ar" ? "مدة مخصصة" : "Custom duration"}</option></select><span>{language === "ar" ? "أو أدخل أي عدد أيام (1–30)" : "Or enter any number of days (1–30)"}</span><input type="number" min={1} max={30} value={planWindowDays} onChange={(event) => { const value = Number(event.target.value); if (Number.isFinite(value) && value > 0) setPlanWindowDays(Math.min(30, Math.floor(value))); }} disabled={panelBusy} /></label>
-            <div className="factory-plan-summary"><strong>{language === "ar" ? "سنوزع " + DEFAULT_BATCH_MIX.length + " قطعة على " + planWindowDays + " يومًا؛ لكل يوم محتوى على الأقل، ولكل قطعة برومبت تصميم مستقل." : "The " + DEFAULT_BATCH_MIX.length + "-item batch covers every day in this 1–30 day window; every item has its own design prompt."}</strong><span>{language === "ar" ? "تعليم · أمان · ثقة بالماء · أسئلة الأهل · سلطة الكوتش · محلي أبوظبي · ريلز · تحويل." : "Education · safety · water confidence · parent FAQs · coach authority · Abu Dhabi local · Reels · conversion."}</span></div>
+            <label className="batch-ai-provider"><span>{language === "ar" ? "اختيار سريع للمدة" : "Quick duration"}</span><select value={PLAN_WINDOW_OPTIONS.includes(planWindowDays as (typeof PLAN_WINDOW_OPTIONS)[number]) ? planWindowDays : "custom"} onChange={(event) => { if (event.target.value !== "custom") setPlanWindowDays(Number(event.target.value)); }} disabled={panelBusy}>{PLAN_WINDOW_OPTIONS.map((days) => <option key={days} value={days}>{language === "ar" ? days + " يوم" : days + " days"}</option>)}<option value="custom">{language === "ar" ? "مدة مخصصة" : "Custom duration"}</option></select><span>{language === "ar" ? "أو أدخل أي عدد أيام (1–10)" : "Or enter any number of days (1–10)"}</span><input type="number" min={1} max={10} value={planWindowDays} onChange={(event) => { const value = Number(event.target.value); if (Number.isFinite(value) && value > 0) setPlanWindowDays(Math.min(30, Math.floor(value))); }} disabled={panelBusy} /></label>
+            <div className="factory-plan-summary"><strong>{language === "ar" ? "سنوزع " + DEFAULT_BATCH_MIX.length + " قطع على " + planWindowDays + " أيام؛ لكل يوم محتوى على الأقل، ولكل قطعة برومبت تصميم مستقل." : "The 10-item batch covers every day in this 1–10 day window; every item has its own design prompt."}</strong><span>{language === "ar" ? "تعليم · أمان · ثقة بالماء · أسئلة الأهل · سلطة الكوتش · محلي أبوظبي · ريلز · تحويل." : "Education · safety · water confidence · parent FAQs · coach authority · Abu Dhabi local · Reels · conversion."}</span></div>
           </div>
           <div className="factory-30-day-grid">
             {planDays.map(({ day, dayItems }, index) => <button type="button" key={day.toISOString()} className={dayItems.length > 0 ? "has-items" : ""} onClick={() => selectFactoryTab(dayItems.length > 0 ? "review" : "strategy")}><span>{language === "ar" ? `اليوم ${index + 1}` : `Day ${index + 1}`}</span><strong>{dayItems.length}</strong><small>{day.toLocaleDateString(language === "ar" ? "ar-AE" : "en-AE", { month: "short", day: "numeric" })}</small>{dayItems.slice(0, 2).map((item) => <em key={item.id}>{item.topic}</em>)}</button>)}
