@@ -30,13 +30,13 @@ test("capcut remains manual workflow only", () => {
 test("Gemini image and Veo use the secure provider key while estimates remain non-billable", () => {
   assert.match(geminiImage, /loadAiProviderKeys\(supabase, GEMINI_ENV_API_KEY, ""\)/);
   assert.match(geminiImage, /"x-goog-api-key": geminiKey/);
-  assert.ok(geminiImage.indexOf('if (mode === "estimate")') < geminiImage.indexOf("loadAiProviderKeys"));
+  assert.ok(geminiImage.indexOf('if (mode === "estimate")') < geminiImage.indexOf("const providerKeys = await loadAiProviderKeys"));
   assert.match(veoVideo, /loadAiProviderKeys\(supabase, GEMINI_ENV_API_KEY, ""\)/);
   assert.match(veoVideo, /callVeo\(prompt, spec, geminiKey\)/);
   assert.match(veoVideo, /pollVeo\(started\.operationName, geminiKey\)/);
   assert.match(veoVideo, /started\.operationName,\n    geminiKey,/);
   assert.match(veoVideo, /body\.mode === "estimate"/);
-  assert.ok(veoVideo.indexOf('if (body.mode === "estimate")') < veoVideo.indexOf("loadAiProviderKeys"));
+  assert.ok(veoVideo.indexOf('if (body.mode === "estimate")') < veoVideo.indexOf("const providerKeys = await loadAiProviderKeys"));
   assert.match(veoVideo, /if \(!geminiKey\) return json/);
   assert.doesNotMatch(veoVideo, /if \(!GEMINI_API_KEY\)/);
 });
