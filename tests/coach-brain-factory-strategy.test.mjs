@@ -24,7 +24,7 @@ test("Coach Brain and Factory accept only the supported 1–30 day planning wind
 test("Factory preserves the existing ten-item batch and spaces it across the selected window", () => {
   assert.match(factory, /DEFAULT_BATCH_MIX\.length/);
   assert.match(factory, /safeDays - 1/);
-  assert.match(factory, /this does not mean one post every day/);
+  assert.match(factory, /covers every day in this 1–30 day window/);
 });
 
 test("handoff normalization preserves canonical fields and clamps duration to 30 days", () => {
