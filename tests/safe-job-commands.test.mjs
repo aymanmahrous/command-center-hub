@@ -4,6 +4,7 @@ import test from "node:test";
 
 const migration = await readFile(new URL("../supabase/migrations/20260920120000_safe_staff_job_commands.sql", import.meta.url), "utf8");
 const app = await readFile(new URL("../src/operations-queue-view.tsx", import.meta.url), "utf8");
+const css = await readFile(new URL("../src/integrations.css", import.meta.url), "utf8");
 
  test("safe job commands are audited and never delete rows", () => {
   assert.match(migration, /retry_staff_publish_job/);
@@ -27,4 +28,14 @@ test("operations UI keeps publish jobs view-only while publishing is frozen", ()
   assert.match(app, /job\.jobType !== "publish_content"/);
   assert.match(app, /publishing is frozen/i);
   assert.doesNotMatch(app, /\["failed", "dead"\]\.includes\(job\.status\)/);
+});
+
+
+test("overdue follow-up filter includes both queued and retrying overdue items and excludes background jobs", () => {
+  assert.match(app, /const \[overdueOnly, setOverdueOnly\] = useState\(false\)/);
+  assert.match(app, /\(!overdueOnly \|\| \(\["queued", "retrying"\]\.includes\(job\.status\) && isPast\(job\.scheduledFor, now\)\)\)/);
+  assert.match(app, /const backgroundJobs = overdueOnly\s*\? \[\]/);
+  assert.match(app, /setOverdueOnly\(\(current\) => !current\)/);
+  assert.match(app, /operations-columns is-filtered/);
+  assert.match(css, /\.operations-columns\.is-filtered\s*\{\s*grid-template-columns: 1fr;/);
 });
