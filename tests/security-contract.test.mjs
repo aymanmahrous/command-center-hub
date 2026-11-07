@@ -143,11 +143,12 @@ test("Content batch generation uses approved RPC and confirms before write", () 
   assert.doesNotMatch(growthHub, /graph\.facebook|buffer\.com/i);
 });
 
-test("Content batch review approves through approved RPCs only", () => {
+test("Content batch review approval is separate from scheduling and publishing", () => {
   assert.match(app, /ContentGrowthHub/);
   assert.match(app, /approveAllBatch/);
-  assert.match(app, /approve_staff_content_batch/);
   assert.match(app, /transition_staff_content_item/);
+  assert.match(app, /OWNER_PUBLISHING_FROZEN/);
+  assert.doesNotMatch(app, /approve_staff_content_batch|approve_and_schedule_staff_content_item|sharedDatabaseBatchId/);
   assert.match(batchReviewPanel, /Nothing will be scheduled or published from this screen/);
   assert.match(app, /canApproveContentItem/);
   assert.match(app, /sharedDatabaseBatchId/);
