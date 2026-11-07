@@ -97,11 +97,11 @@ const entries: Entry[] = [
     id: "video",
     name: "Video Specialist",
     category: "provider-and-handoff",
-    status: "historical",
-    responsibility: "لا يوجد مسار توليد فيديو مثبت حاليًا؛ دليل Veo تاريخي فقط، وRunway حالة اتصال فقط دون مسار توليد أو تسليم مثبت.",
-    handoff: "لا يوجد تسليم فيديو آلي مثبت حاليًا؛ تُراجع الأصول الموجودة فقط عبر Media Library.",
-    boundary: "سجل Veo الناجح تاريخي فقط؛ الأصل المرتبط حُجب عن المراجعة لأن الموافقة غير معروفة. Runway غير متصل بواجهة API ولا يوجد مسار توليد أو تسليم مثبت.",
-    destination: "media",
+    status: "manual",
+    responsibility: "Runway متاح كتسليم يدوي بلا API: يجهز المصنع برومبت الفيديو ويفتح حساب Runway ليلصق المالك التعليمات وينشئ الفيديو يدويًا.",
+    handoff: "Content Factory → Review → نسخ برومبت Runway الكامل وفتح الحساب؛ بعد التنزيل يعود الفيديو إلى Media Library للمراجعة.",
+    boundary: "لا ندّعي توليدًا آليًا عبر Runway API. مسار التسليم اليدوي موجود في PR #327 ولم يُدمج بعد؛ ولا يحتاج اشتراك Runway Pro إلى مفتاح API. دليل Veo السابق تاريخي، والأصل القديم محجوب لأن الموافقة غير معروفة.",
+    destination: "content",
     icon: Video,
   },
   {
@@ -183,7 +183,7 @@ const copy = {
     addTitle: "قاعدة إضافة أي وكيل جديد",
     add: "لا يُضاف الاسم إلى القائمة إلا بعد تحديد مهمته ومدخلاته ومخرجاته والأدوات المسموحة وحدود الصلاحية ومسار التسليم واختبار نتيجة حقيقية. لا يكفي ربط مزود أو إضافة زر لتسمية ذلك وكيلًا.",
     providerTitle: "المزودون ليسوا وكلاء",
-    providers: "Gemini وOpenAI نماذج/مزودون يمكن أن يستخدمهم أكثر من دور. Canva أداة تصميم، وVeo له دليل تاريخي فقط؛ Runway حالة اتصال فقط دون مسار توليد أو تسليم مثبت. لا نكررهم كمديرين مستقلين.",
+    providers: "Gemini وOpenAI نماذج/مزودون يمكن أن يستخدمهم أكثر من دور. Canva أداة تصميم. Runway له تسليم يدوي بلا API ضمن PR #327 (بانتظار الدمج)، أما توليد Runway API الآلي فغير مثبت. دليل Veo تاريخي فقط. هذه أدوات ومزودون وليست مديرين مستقلين.",
     readOnly: "عرض تنظيمي فقط — لا يطلق توليدًا أو رسائل أو جدولة أو نشرًا.",
   },
   en: {
@@ -214,7 +214,7 @@ const copy = {
     addTitle: "Rule for adding a new agent",
     add: "A new agent is registered only after its mission, inputs, outputs, allowed tools, permission boundaries, handoff, and real-result test are defined. A provider connection or a button alone does not make an agent.",
     providerTitle: "Providers are not agents",
-    providers: "Gemini and OpenAI are model providers that may serve multiple roles. Canva is a design tool; Veo has historical evidence only; Runway is status-only with no verified generation or handoff path. They are not independent managers.",
+    providers: "Gemini and OpenAI are model providers that may serve multiple roles. Canva is a design tool. Runway has a manual no-API handoff prepared in PR #327 (pending merge); automated Runway API generation is not verified. Veo evidence is historical only. These are tools/providers, not independent managers.",
     readOnly: "Directory view only — no generation, messages, scheduling, or publishing is triggered.",
   },
 };
@@ -268,7 +268,7 @@ export default function AIWorkforceView({ language, onNavigate }: {
                 strategy: "Defines audience, messaging, content mix, and campaign goals inside Coach Brain.",
                 factory: "Turns the strategy into content items, spaces them over the chosen horizon, and prepares review.",
                 design: "Produces or prepares visual assets through Canva and the existing image path.",
-                video: "No verified video-generation path is currently available. Veo evidence is historical only; Runway is status-only with no verified generation or handoff path.",
+                video: "Runway is a manual no-API handoff: Content Factory Review prepares the complete prompt, opens the owner\u2019s Runway account, and the owner creates the video manually. The handoff implementation is in PR #327 and is not merged yet; no automated Runway API generation is claimed. The previous Veo evidence is historical only.",
                 review: "Reviews copy, designs, and media; the owner retains approval.",
                 publisher: "Distributes content only after review and valid owner authorization.",
               } as Record<string, string>)[entry.id]}</dd></div>
@@ -280,7 +280,7 @@ export default function AIWorkforceView({ language, onNavigate }: {
                 strategy: "Guides Coach Brain without creating a separate queue or ledger.",
                 factory: "Coach Brain brief → existing content batch → Review.",
                 design: "Links the asset to the content item for Media Library / Review.",
-                video: "No verified automated video handoff exists; existing assets can be reviewed through Media Library.",
+                video: "Content Factory Review → copy the complete Runway prompt and open Runway; after manual creation, return the downloaded video to Media Library for review.",
                 review: "Nothing advances without a clear human decision.",
                 publisher: "Receives only reviewed content with required authorization.",
               } as Record<string, string>)[entry.id]}</dd></div>
@@ -292,7 +292,7 @@ export default function AIWorkforceView({ language, onNavigate }: {
                 strategy: "Embedded logic, not an independent agent.",
                 factory: "Existing production workflow, not a general-purpose agent runtime.",
                 design: "A connected Canva registry entry does not prove end-to-end design creation and export. No paid operation is triggered.",
-                video: "The prior Veo job is historical evidence only; its linked asset was blocked from review because consent was unknown. Runway has no verified generation or handoff path.",
+                video: "Runway is manual only; no verified API generation. The handoff implementation is pending PR #327 merge. Runway Pro does not require a developer API key for this manual route. The old Veo asset remains blocked because consent was unknown.",
                 review: "Human gate, not an AI agent.",
                 publisher: "External publishing remains behind the owner-authorization gate. Queue preparation, scheduling, and retry are separate server operations and are not fully disabled; this directory does not expose them.",
               } as Record<string, string>)[entry.id]}</dd></div>
