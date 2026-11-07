@@ -76,7 +76,7 @@ test("canonical task fields are bounded and malformed handoffs remain rejected",
   });
   assert.equal(normalized?.userIntent.length, 1000);
   assert.equal(normalized?.planStrategy.length, 160);
-  assert.equal(normalized?.requestedDuration, 45);
+  assert.equal(normalized?.requestedDuration, 10);
   assert.equal(normalized?.contentGoal.length, 500);
   assert.equal(normalized?.researchContext.summary.length, 4000);
   assert.ok(normalized?.question.length <= 1600);
