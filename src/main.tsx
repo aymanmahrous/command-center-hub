@@ -3,8 +3,9 @@ import { createRoot } from "react-dom/client";
 import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, LayoutDashboard, Library, LogOut, Settings2, ShieldAlert, Workflow } from "lucide-react";
 import { z } from "zod";
 import { isSupabaseBrowserConfigurationReady } from "./supabase-config";
-import { canApproveContentItem, sharedDatabaseBatchId, type ContentBatchItem } from "./content-batch";
+import { canApproveContentItem, type ContentBatchItem } from "./content-batch";
 import { appendChangeRequest, buildChangeRequestNote, type ChangeRequestKind } from "./content-growth";
+import { OWNER_PUBLISHING_FROZEN } from "./content-publishing";
 import { formatLocalDateTimeInput } from "./date-utils";
 import { LanguageProvider, useLanguage } from "./i18n";
 import type { Language } from "./i18n";
@@ -152,14 +153,6 @@ const ContentMutationSchema = z.object({
   status: z.enum(["idea", "draft", "generated", "needs_review", "approved", "scheduled", "published", "failed", "cancelled"]).optional(),
   scheduledFor: z.string().nullable().optional(), updatedAt: z.string().optional(),
 });
-const ContentBatchApprovalSchema = z.object({
-  success: z.boolean(),
-  code: z.string().optional(),
-  batchId: z.string().uuid().optional(),
-  approvedCount: z.number().int().nonnegative().optional(),
-  alreadyApprovedCount: z.number().int().nonnegative().optional(),
-  skippedCount: z.number().int().nonnegative().optional(),
-}).passthrough();
 const MediaAssetSchema = z.object({
   id: z.string().uuid(), createdBy: z.string().uuid().nullable(), contentItemId: z.string().uuid().nullable(),
   assetType: z.enum(["image", "video", "document", "audio"]), source: z.enum(["upload", "generated", "external", "stock"]),
@@ -350,6 +343,7 @@ async function updateContentItem(session: Session, contentItemId: string, fields
 }
 
 async function transitionContentItem(session: Session, contentItemId: string, action: ContentAction, scheduledFor: string | null = null) {
+  if (OWNER_PUBLISHING_FROZEN && (action === "schedule" || action === "unschedule")) throw new Error("OWNER_PUBLISHING_FROZEN");
   const result = ContentMutationSchema.parse(await callRpc(session, "transition_staff_content_item", {
     p_content_item_id: contentItemId, p_action: action, p_scheduled_for: scheduledFor,
   }));
@@ -357,13 +351,6 @@ async function transitionContentItem(session: Session, contentItemId: string, ac
   return result;
 }
 
-async function approveStaffContentBatch(session: Session, batchId: string) {
-  const result = ContentBatchApprovalSchema.parse(await callRpc(session, "approve_staff_content_batch", {
-    p_batch_id: batchId,
-  }));
-  if (!result.success) throw new Error(result.code ?? "UPDATE_REJECTED");
-  return result;
-}
 function LanguageSwitcher({ onDark = false }: { onDark?: boolean }) {
   const { language, setLanguage, t } = useLanguage();
   const labels = t("language");
@@ -768,6 +755,10 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
 
   async function transition(item: z.infer<typeof ContentItemSchema>, action: ContentAction, form: HTMLFormElement) {
     if (!canWrite || busyId || batchBusy) return;
+    if (OWNER_PUBLISHING_FROZEN && (action === "schedule" || action === "unschedule")) {
+      setNotice(language === "ar" ? "الجدولة مجمّدة بتفويض المالك؛ المراجعة والاعتماد فقط متاحان." : "Scheduling is frozen by owner authorization; review and approval only are available.");
+      return;
+    }
     let scheduledFor: string | null = null;
     if (action === "schedule") {
       const localValue = String(new FormData(form).get("scheduledFor") ?? "").trim();
@@ -791,17 +782,14 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
     if (!canWrite || busyId || batchBusy || item.status === "approved") return;
     if (!canApproveContentItem(item)) return;
     const confirmMessage = language === "ar"
-      ? `تأكيد اعتماد «${item.topic || "محتوى بدون عنوان"}»؟ سيتم اعتماد المحتوى وجدولته للموعد المحدد.`
-      : `Approve "${item.topic || copy.untitled}"? The item will be approved and scheduled for its planned time.`;
+      ? `تأكيد اعتماد «${item.topic || "محتوى بدون عنوان"}»؟ لن تتم جدولة المحتوى أو نشره.`
+      : `Approve "${item.topic || copy.untitled}"? This will not schedule or publish the item.`;
     if (!window.confirm(confirmMessage)) return;
     await runMutation(
       item.id,
-      () => callRpc(session, "approve_and_schedule_staff_content_item", {
-        p_content_item_id: item.id,
-        p_scheduled_for: item.scheduledFor,
-      }),
-      language === "ar" ? "تم اعتماد المحتوى وجدولته." : "Item approved and scheduled.",
-      { action: "unschedule", label: language === "ar" ? "إلغاء الجدولة" : "Undo scheduling" },
+      () => transitionContentItem(session, item.id, "approve"),
+      language === "ar" ? "تم اعتماد المحتوى دون جدولة أو نشر." : "Item approved without scheduling or publishing.",
+      { action: "return_to_review", label: language === "ar" ? "تراجع عن الاعتماد" : "Undo approval" },
     );
   }
 
@@ -829,9 +817,12 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
   async function editBatchItem(item: ContentBatchItem, visualPrompt: string, scheduledFor: string | null) {
     if (!canWrite || busyId || batchBusy || item.status === "published") return;
     const contentChanged = visualPrompt !== String(item.visualPrompt ?? "");
-    const scheduleChanged = scheduledFor !== item.scheduledFor;
+    const scheduleWasRequested = scheduledFor !== item.scheduledFor;
+    const scheduleChanged = !OWNER_PUBLISHING_FROZEN && scheduleWasRequested;
     if (!contentChanged && !scheduleChanged) {
-      setNotice(language === "ar" ? "لا تغيير." : "No change.");
+      setNotice(OWNER_PUBLISHING_FROZEN && scheduleWasRequested
+        ? (language === "ar" ? "الجدولة مجمّدة؛ لم يتم تغيير الموعد." : "Scheduling is frozen; the publish time was not changed.")
+        : (language === "ar" ? "لا تغيير." : "No change."));
       return;
     }
     const confirmMessage = language === "ar" ? "تأكيد التعديل؟" : "Confirm edit?";
@@ -853,9 +844,11 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
       }
     }, contentChanged && scheduleChanged
       ? (language === "ar" ? "تم حفظ التصميم والموعد." : "Design request and schedule updated.")
-      : contentChanged
-        ? (language === "ar" ? "تم حفظ طلب التصميم." : "Design request saved.")
-        : (language === "ar" ? "تم تحديث الموعد." : "Time updated."));
+      : contentChanged && OWNER_PUBLISHING_FROZEN && scheduleWasRequested
+        ? (language === "ar" ? "تم حفظ البرومبت؛ لم يتغير الموعد لأن الجدولة مجمّدة." : "Prompt saved; the publish time stayed unchanged because scheduling is frozen.")
+        : contentChanged
+          ? (language === "ar" ? "تم حفظ طلب التصميم." : "Design request saved.")
+          : (language === "ar" ? "تم تحديث الموعد." : "Time updated."));
   }
 
   async function approveAllBatch(candidates: ContentBatchItem[]) {
@@ -865,29 +858,9 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
       setNotice(t("contentBatch").batchNothingToApprove);
       return;
     }
-    const databaseBatchId = sharedDatabaseBatchId(candidates);
     setBatchBusy(true);
     setNotice("");
     try {
-      if (databaseBatchId) {
-        try {
-          const result = await approveStaffContentBatch(session, databaseBatchId);
-          const approvedCount = result.approvedCount ?? 0;
-          const alreadyApprovedCount = result.alreadyApprovedCount ?? 0;
-          if (approvedCount > 0 || alreadyApprovedCount > 0) {
-            setNotice(approvedCount > 0 ? t("contentBatch").batchApprovedNotice : t("contentBatch").batchNothingToApprove);
-            onChanged();
-          } else {
-            setNotice(t("contentBatch").batchNothingToApprove);
-          }
-        } catch (cause) {
-          const code = cause instanceof Error ? cause.message : "UPDATE_FAILED";
-          if (code === "SESSION_EXPIRED") { onSessionExpired(); return; }
-          setNotice(contentErrorMessage(language, code));
-        }
-        return;
-      }
-
       let approvedCount = 0;
       let failed = false;
       for (const item of pending) {
@@ -975,12 +948,12 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
           <button type="submit" disabled={locked}>{busyId === item.id ? t("common").saving : copy.saveButton}</button>
         </form>}
         <form className="content-actions" onSubmit={(event) => event.preventDefault()}>
-          <label>{copy.scheduleTimeLabel}<input name="scheduledFor" type="datetime-local" defaultValue={scheduledLocal} disabled={!canWrite || busyId !== null || !["approved", "scheduled"].includes(item.status)} /></label>
+          <label>{copy.scheduleTimeLabel}<input name="scheduledFor" type="datetime-local" defaultValue={scheduledLocal} disabled={OWNER_PUBLISHING_FROZEN || !canWrite || busyId !== null || !["approved", "scheduled"].includes(item.status)} /></label>
           <div>
             {["draft", "generated", "needs_review"].includes(item.status) && <button type="button" disabled={!canWrite || busyId !== null} onClick={(event) => void transition(item, "approve", event.currentTarget.form!)}>{copy.approveButton}</button>}
             {["draft", "generated", "approved", "scheduled", "failed"].includes(item.status) && <button type="button" className="secondary" disabled={!canWrite || busyId !== null} onClick={(event) => void transition(item, "return_to_review", event.currentTarget.form!)}>{copy.returnToReviewButton}</button>}
-            {["approved", "scheduled"].includes(item.status) && <button type="button" disabled={!canWrite || busyId !== null} onClick={(event) => void transition(item, "schedule", event.currentTarget.form!)}>{item.status === "scheduled" ? copy.rescheduleButton : copy.scheduleButton}</button>}
-            {item.status === "scheduled" && <button type="button" className="secondary" disabled={!canWrite || busyId !== null} onClick={(event) => void transition(item, "unschedule", event.currentTarget.form!)}>{copy.unscheduleButton}</button>}
+            {["approved", "scheduled"].includes(item.status) && <button type="button" disabled={OWNER_PUBLISHING_FROZEN || !canWrite || busyId !== null} title={OWNER_PUBLISHING_FROZEN ? (language === "ar" ? "الجدولة مجمّدة بتفويض المالك." : "Scheduling is frozen by owner authorization.") : undefined} onClick={(event) => void transition(item, "schedule", event.currentTarget.form!)}>{item.status === "scheduled" ? copy.rescheduleButton : copy.scheduleButton}</button>}
+            {item.status === "scheduled" && <button type="button" className="secondary" disabled={OWNER_PUBLISHING_FROZEN || !canWrite || busyId !== null} title={OWNER_PUBLISHING_FROZEN ? (language === "ar" ? "الجدولة مجمّدة بتفويض المالك." : "Scheduling is frozen by owner authorization.") : undefined} onClick={(event) => void transition(item, "unschedule", event.currentTarget.form!)}>{copy.unscheduleButton}</button>}
           </div>
         </form>
         <footer><span>{copy.lastUpdated}: {formatBookingDateTime(language, item.updatedAt)}</span>{item.publishedAt && <span>{copy.published}: {formatBookingDateTime(language, item.publishedAt)}</span>}{!canWrite && <span>{t("common").readOnlyNote}</span>}{item.status === "published" && <span>{copy.publishedLocked}</span>}</footer>
