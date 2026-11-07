@@ -162,4 +162,6 @@ test("Coach Brain sample always shows a selectable design prompt with copy and m
   assert.match(coachBrain, /https:\/\/app\.runwayml\.com\//);
   assert.match(coachBrain, /https:\/\/www\.canva\.com\//);
   assert.match(coachBrain, /sampleVideoDuration/);
+  assert.match(coachBrain, /const sampleBasePrompt = String\(sample\?\.visualPrompt \?\? ""\)\.trim\(\)/);
+  assert.match(coachBrain, /const sampleDesignPrompt = sampleBasePrompt/);
 });
