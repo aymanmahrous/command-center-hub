@@ -9,6 +9,7 @@ import {
 } from "./content-batch";
 import type { ChangeRequestKind } from "./content-growth";
 import {
+  OWNER_OWNER_PUBLISHING_FROZEN,
   buildExternalPostLink,
   latestReceiptForPlatform,
   parsePublicationReceipts,
@@ -91,8 +92,6 @@ function canRequestPublish(item: ContentBatchItem): boolean {
 function canRequestPublishWithMedia(item: ContentBatchItem, asset: MediaAssetRecord | undefined): boolean {
   return canRequestPublish(item) && Boolean(asset && canUseInMarketingBatch(asset));
 }
-
-const PUBLISHING_FROZEN = true; // Owner freeze: keep review/approval available, but block every live publish request until a fresh owner authorization is implemented.
 
 const REQUEST_PUBLISH_COPY = {
   en: {
@@ -565,7 +564,7 @@ export function ContentBatchReviewPanel({
   }
 
   async function handleRequestPublish(item: ContentBatchItem) {
-    if (PUBLISHING_FROZEN) {
+    if (OWNER_PUBLISHING_FROZEN) {
       setPublishNotice(language === "ar" ? "النشر مجمّد بتفويض المالك. يمكنك تجهيز المحتوى ومراجعته، لكن لا يمكن إرسال أي منشور الآن." : "Publishing is frozen by owner authorization. You can prepare and review content, but no post can be sent now.");
       return;
     }
@@ -971,7 +970,7 @@ export function ContentBatchReviewPanel({
                   </button>
                 )}
                 {canRequestPublish(item) && session && (
-                  PUBLISHING_FROZEN
+                  OWNER_PUBLISHING_FROZEN
                     ? <small className="item-action-disabled-reason">{language === "ar" ? "النشر مجمّد بتفويض المالك. المراجعة والتجهيز متاحان؛ الإرسال غير متاح." : "Publishing is frozen by owner authorization. Review and preparation remain available; sending is disabled."}</small>
                     : <button
                         type="button"
@@ -1041,7 +1040,7 @@ export function ContentBatchReviewPanel({
                     void onEditItem(item, String(data.get("visualPrompt") ?? "").trim(), scheduledFor).then(() => setEditTargetId(null));
                   }}
                 >
-                  <label>{language === "ar" ? "موعد النشر" : "Publish time"}<input name="scheduledFor" type="datetime-local" defaultValue={formatLocalDateTimeInput(item.scheduledFor)} disabled={!canWrite || item.status === "published"} /></label>
+                  <label>{language === "ar" ? "موعد النشر" : "Publish time"}<input name="scheduledFor" type="datetime-local" defaultValue={formatLocalDateTimeInput(item.scheduledFor)} disabled={OWNER_PUBLISHING_FROZEN || !canWrite || item.status === "published"} /></label>
                   <label>{language === "ar" ? "طلب التصميم" : "Design request"}<textarea name="visualPrompt" defaultValue={String(item.visualPrompt ?? "")} maxLength={2000} rows={3} disabled={!canWrite || item.status === "published"} /></label>
                   <button type="submit" disabled={itemLocked}>{language === "ar" ? "حفظ" : "Save"}</button>
                 </form>
