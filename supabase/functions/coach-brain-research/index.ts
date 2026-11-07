@@ -1,12 +1,13 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { loadAiProviderKeys } from "../_shared/ai-provider-keys.ts";
 import { buildGeminiUsageSummary } from "./usage.ts";
 import { buildCoachBrainBusinessContext } from "../../../src/content-strategy.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-const GEMINI_API_KEY = (Deno.env.get("GEMINI_API_KEY") ?? "").trim();
+const GEMINI_ENV_API_KEY = (Deno.env.get("GEMINI_API_KEY") ?? "").trim();
 const GEMINI_MODEL = "gemini-3.7-flash";
 const ALLOWED_ROLES = new Set(["super_admin", "admin", "coach", "reception"]);
 const CORS_HEADERS = { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, apikey, content-type", "access-control-allow-methods": "POST, OPTIONS" };
@@ -132,10 +133,10 @@ function buildPrompt(question: string, academyContext: string, referenceAnswer?:
   );
   return parts.join("\n\n");
 }
-async function callGemini(prompt: string) {
+async function callGemini(prompt: string, apiKey: string) {
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`, {
     method: "POST",
-    headers: { "content-type": "application/json", "x-goog-api-key": GEMINI_API_KEY },
+    headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
     body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], tools: [{ google_search: {} }], generationConfig: { temperature: 0.2 } }),
   });
   if (!response.ok) {
@@ -162,19 +163,20 @@ Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
   if (request.method !== "POST") return json({ success: false, code: "METHOD_NOT_ALLOWED" }, 405);
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) return json({ success: false, code: "SERVER_MISCONFIGURED" }, 500);
-  if (!GEMINI_API_KEY) return json({ success: false, code: "NEEDS_CREDENTIAL" }, 424);
   const token = bearerToken(request);
   if (!token) return json({ success: false, code: "AUTH_REQUIRED" }, 401);
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
   const staff = await requireStaff(supabase, token);
   if ("error" in staff && staff.error) return staff.error;
+  const providerKeys = await loadAiProviderKeys(supabase, GEMINI_ENV_API_KEY, "");
+  if (!providerKeys.gemini) return json({ success: false, code: "NEEDS_CREDENTIAL" }, 424);
   const body = await request.json().catch(() => ({})) as JsonObject;
   const referenceAnswer = sanitizeQuestion(body.referenceAnswer, 4000);
   const question = sanitizeQuestion(body.question, referenceAnswer ? 1000 : 5000);
   if (!question) return json({ success: false, code: "QUESTION_REQUIRED" }, 400);
   let academyContext: string;
   try { academyContext = await loadAcademyContext(token); } catch { return json({ success: false, code: "ACADEMY_CONTEXT_FAILED" }, 502); }
-  const result = await callGemini(buildPrompt(question, academyContext, referenceAnswer || undefined));
+  const result = await callGemini(buildPrompt(question, academyContext, referenceAnswer || undefined), providerKeys.gemini);
   if ("error" in result && result.error) return result.error;
   return json({ success: true, query: question, ...(result.data as JsonObject) });
 });
