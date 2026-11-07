@@ -643,7 +643,7 @@ No PR was merged or closed. No Production database, job, flag, policy, grant, Ed
 - GitHub Actions Verify run **#1093** passed on implementation commit `715871400b61a6c3605ac2fadbcdbb0ac2660457`: TypeScript, tests, and production build all succeeded.
 - Vercel Preview deployment `dpl_A4L53U4uD7ceNuExFSFXfwr7y4Sp` reached **READY** for that implementation commit.
 - **Runtime acceptance remains NOT VERIFIED.** Preview environment configuration is not a valid end-to-end QA environment: the shared Preview Supabase URL points to a stale/wrong project and its publishable key is blank; the isolated lab project has no application schema/migration baseline. A READY build is not proof of authenticated application behavior or AI provider execution.
-- The approval and CI evidence above refer to implementation commit `7158714...`. This handoff-only commit is a subsequent documentation amendment; re-check review freshness and CI status for the resulting PR head before treating the latest head as fully approved/verified.
+- The approval record remains visible as **APPROVED** after this documentation amendment. The handoff-only commit `b3078dc0d31279abde141bddaea9d9b875c18b93` triggered Verify run **#1094**, which was **IN_PROGRESS** at the time of this handoff verification. The earlier run #1093 remains the completed implementation-code evidence for commit `7158714...`; do not describe run #1094 as passed until its final result is available.
 
 ### Current PR/release state
 - Last confirmed state before this handoff amendment: PR #331 was OPEN and **Draft**. No merge is performed by this update.
