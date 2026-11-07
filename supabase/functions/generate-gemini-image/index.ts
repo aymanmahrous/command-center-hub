@@ -1,9 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { loadAiProviderKeys } from "../_shared/ai-provider-keys.ts";
 
 const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/$/, "");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const GEMINI_API_KEY = (Deno.env.get("GEMINI_API_KEY") ?? "").trim();
+const GEMINI_ENV_API_KEY = (Deno.env.get("GEMINI_API_KEY") ?? "").trim();
 const GEMINI_IMAGE_MODEL = "gemini-3.1-flash-lite-image";
 const GEMINI_INTERACTIONS_URL = "https://generativelanguage.googleapis.com/v1beta/interactions";
 const MEDIA_BUCKET = "relax-fix-media";
@@ -109,11 +110,10 @@ Deno.serve(async (request) => {
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
   const staff = await requireStaff(supabase, token);
   if ("error" in staff && staff.error) return staff.error;
-
   const body = await request.json().catch(() => ({})) as JsonObject;
   const mode = typeof body.mode === "string" ? body.mode : "";
   if (mode !== "estimate" && mode !== "generate") return json({ success: false, code: "INVALID_MODE" }, 400);
-  if (!GEMINI_API_KEY) return json({ success: false, code: "GEMINI_CREDENTIAL_MISSING" }, 424);
+  if (!geminiKey) return json({ success: false, code: "GEMINI_CREDENTIAL_MISSING" }, 424);
 
   if (mode === "estimate") {
     return json({
@@ -126,6 +126,10 @@ Deno.serve(async (request) => {
       detail: "Estimate only; no image generation request was sent.",
     });
   }
+
+  const providerKeys = await loadAiProviderKeys(supabase, GEMINI_ENV_API_KEY, "");
+  const geminiKey = providerKeys.gemini;
+  if (!geminiKey) return json({ success: false, code: "GEMINI_CREDENTIAL_MISSING" }, 424);
 
   const contentItemId = typeof body.contentItemId === "string" ? body.contentItemId : "";
   if (!/^[0-9a-f-]{36}$/i.test(contentItemId)) return json({ success: false, code: "INVALID_CONTENT_ITEM_ID" }, 400);
@@ -146,7 +150,7 @@ Deno.serve(async (request) => {
   const response = await fetch(GEMINI_INTERACTIONS_URL, {
     method: "POST",
     headers: {
-      "x-goog-api-key": GEMINI_API_KEY,
+      "x-goog-api-key": geminiKey,
       "content-type": "application/json",
     },
     body: JSON.stringify({

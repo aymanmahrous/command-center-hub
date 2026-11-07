@@ -269,6 +269,15 @@ export function ensureMediaBrief(visualPrompt: string, slot: CoachAymanSlotSpec,
   if (hasStructure) return trimmed;
 
   const body = trimmed || `academy ${slot.contentPillar.replace(/_/g, " ")} content for ${slot.platform}.`;
+  const fallbackHeadlineByPillar: Record<string, string> = {
+    parent_concerns: "طمأنينة طفلك تبدأ بخطوات هادئة. | Your child's confidence starts with calm steps.",
+    swimming_education: "تعلم السباحة يبدأ بالأساس الصحيح. | Swimming starts with the right fundamentals.",
+    safety_awareness: "السلامة في الماء تبدأ بقواعد واضحة. | Water safety starts with clear rules.",
+    real_progress: "التقدم الحقيقي يُبنى خطوة بخطوة. | Real progress is built one step at a time.",
+    offer_booking: "ابدأ بتقييم مجاني وخطة مناسبة. | Start with a free assessment and a suitable plan.",
+    coach_authority: "التدريب الهادئ يبني المهارة والثقة. | Calm coaching builds skill and confidence.",
+  };
+  const fallbackHeadline = fallbackHeadlineByPillar[slot.contentPillar] ?? "التعلم يبدأ بخطوات هادئة وواضحة. | Learning starts with calm, clear steps.";
   const videoBrief = isVideoContentType(slot.contentType)
     ? buildVideoBrief(slot, slot.hookSeed, primaryCta)
     : null;
@@ -276,8 +285,8 @@ export function ensureMediaBrief(visualPrompt: string, slot: CoachAymanSlotSpec,
   return [
     `FORMAT: ${slot.briefFormat}`,
     `VISUAL CONCEPT: ${body.split("\n")[0]}`,
-    `HEADLINE: ${slot.hookSeed}`,
-    `SUPPORTING TEXT: Keep copy parent-friendly for kids swimming lessons and water safety in Abu Dhabi.`,
+    `HEADLINE: ${fallbackHeadline}`,
+    "SUPPORTING TEXT: نص عربي واضح ومطمئن للأهالي مع ترجمة إنجليزية. | Clear, reassuring guidance for parents in Arabic and English.",
     `SCENE IDEA: Real pool context with academy coaching expertise; no fabricated reviews or results.`,
     `CTA: ${primaryCta}`,
     videoBrief,

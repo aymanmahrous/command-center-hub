@@ -85,3 +85,41 @@ test("handoff remains available when batch creation fails", () => {
   assert.doesNotMatch(failurePath, /clearCoachBrainFactoryHandoff\(\)/, "the generation failure catch must not clear the handoff");
   assert.equal(readCoachBrainFactoryHandoff(access)?.question, "خطة سباحة للأطفال");
 });
+
+test("a failed session write cannot shadow the successful local fallback with stale data", () => {
+  const local = memoryStorage();
+  let stale = payload;
+  const session = {
+    getItem() { return stale; },
+    setItem() { throw new Error("SESSION_QUOTA_EXCEEDED"); },
+    removeItem() { stale = null; },
+  };
+
+  const nextPayload = JSON.stringify({
+    question: "خطة جديدة",
+    answer: "بحث جديد",
+    contentGoal: "تحسين التنفس",
+    createdAt: "2026-11-06T16:11:00.000Z",
+  });
+
+  assert.equal(writeCoachBrainFactoryHandoff(nextPayload, {
+    sessionStorage: session,
+    localStorage: local,
+  }), true);
+  const restored = readCoachBrainFactoryHandoff({
+    sessionStorage: session,
+    localStorage: local,
+  });
+  assert.equal(restored?.question, "خطة جديدة\nContent goal: تحسين التنفس");
+  assert.equal(restored?.contentGoal, "تحسين التنفس");
+});
+
+
+test("successful batch generation and media linking open the daily prompt review workspace", () => {
+  const savedBatch = contentGrowthHub.indexOf("setSelectedBatchId(saved.batchId);");
+  const batchReview = contentGrowthHub.indexOf('selectFactoryTab("review");', savedBatch);
+  const mediaLinked = contentGrowthHub.indexOf("Media is now linked to the content.");
+  const mediaReview = contentGrowthHub.indexOf('selectFactoryTab("review");', mediaLinked);
+  assert.ok(savedBatch >= 0 && batchReview > savedBatch, "newly generated batches must open Review automatically");
+  assert.ok(mediaLinked >= 0 && mediaReview > mediaLinked, "after media linking, return to Review where the daily prompt is visible");
+});

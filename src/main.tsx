@@ -3,8 +3,9 @@ import { createRoot } from "react-dom/client";
 import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, LayoutDashboard, Library, LogOut, Settings2, ShieldAlert, Workflow } from "lucide-react";
 import { z } from "zod";
 import { isSupabaseBrowserConfigurationReady } from "./supabase-config";
-import { canApproveContentItem, sharedDatabaseBatchId, type ContentBatchItem } from "./content-batch";
+import { canApproveContentItem, type ContentBatchItem } from "./content-batch";
 import { appendChangeRequest, buildChangeRequestNote, type ChangeRequestKind } from "./content-growth";
+import { OWNER_PUBLISHING_FROZEN, OWNER_WHATSAPP_LIVE_FROZEN } from "./publishing-freeze";
 import { formatLocalDateTimeInput } from "./date-utils";
 import { LanguageProvider, useLanguage } from "./i18n";
 import type { Language } from "./i18n";
@@ -125,7 +126,7 @@ const ConversationSchema = z.object({
   channel: z.enum(["instagram", "facebook", "whatsapp", "website"]),
   mode: z.enum(["ai_active", "human_required", "human_takeover", "paused"]),
   unread: z.number().int().nonnegative(), lastMessage: z.string(), updatedAt: z.string(),
-  leadScore: z.number().int(), intent: z.string(), humanRequired: z.boolean(),
+  leadScore: z.number().int(), intent: z.string(), humanRequired: z.boolean(), doNotContact: z.boolean().optional(),
   needsAttention: z.boolean().optional(), handoffReason: z.string().nullable().optional(),
 }).passthrough();
 const MessageSchema = z.object({
@@ -152,14 +153,6 @@ const ContentMutationSchema = z.object({
   status: z.enum(["idea", "draft", "generated", "needs_review", "approved", "scheduled", "published", "failed", "cancelled"]).optional(),
   scheduledFor: z.string().nullable().optional(), updatedAt: z.string().optional(),
 });
-const ContentBatchApprovalSchema = z.object({
-  success: z.boolean(),
-  code: z.string().optional(),
-  batchId: z.string().uuid().optional(),
-  approvedCount: z.number().int().nonnegative().optional(),
-  alreadyApprovedCount: z.number().int().nonnegative().optional(),
-  skippedCount: z.number().int().nonnegative().optional(),
-}).passthrough();
 const MediaAssetSchema = z.object({
   id: z.string().uuid(), createdBy: z.string().uuid().nullable(), contentItemId: z.string().uuid().nullable(),
   assetType: z.enum(["image", "video", "document", "audio"]), source: z.enum(["upload", "generated", "external", "stock"]),
@@ -318,6 +311,7 @@ async function returnConversationToAi(session: Session, conversationId: string) 
 }
 
 async function sendStaffWhatsappMessage(session: Session, conversationId: string, body: string) {
+  if (OWNER_WHATSAPP_LIVE_FROZEN) throw new Error("OWNER_WHATSAPP_LIVE_FROZEN");
   const response = await fetch(`${SUPABASE_URL}/functions/v1/send-whatsapp-message`, {
     method: "POST",
     headers: rpcHeaders(session),
@@ -350,6 +344,7 @@ async function updateContentItem(session: Session, contentItemId: string, fields
 }
 
 async function transitionContentItem(session: Session, contentItemId: string, action: ContentAction, scheduledFor: string | null = null) {
+  if (OWNER_PUBLISHING_FROZEN && (action === "schedule" || action === "unschedule")) throw new Error("OWNER_PUBLISHING_FROZEN");
   const result = ContentMutationSchema.parse(await callRpc(session, "transition_staff_content_item", {
     p_content_item_id: contentItemId, p_action: action, p_scheduled_for: scheduledFor,
   }));
@@ -357,13 +352,6 @@ async function transitionContentItem(session: Session, contentItemId: string, ac
   return result;
 }
 
-async function approveStaffContentBatch(session: Session, batchId: string) {
-  const result = ContentBatchApprovalSchema.parse(await callRpc(session, "approve_staff_content_batch", {
-    p_batch_id: batchId,
-  }));
-  if (!result.success) throw new Error(result.code ?? "UPDATE_REJECTED");
-  return result;
-}
 function LanguageSwitcher({ onDark = false }: { onDark?: boolean }) {
   const { language, setLanguage, t } = useLanguage();
   const labels = t("language");
@@ -454,6 +442,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
 
   async function changeMode(conversation: z.infer<typeof ConversationSchema>, next: ConversationMode) {
     if (!canWriteMode || busyId || conversation.mode === next) return;
+    if (conversation.doNotContact && next === "ai_active") { setNotice(language === "ar" ? "هذا العميل طلب عدم التواصل؛ لا يمكن إعادة تفعيل AI لهذه المحادثة." : "This customer opted out; AI cannot be reactivated for this conversation."); return; }
     const confirmMessage = language === "ar"
       ? `تأكيد تغيير وضع محادثة ${conversation.leadName} من «${modeLabels[conversation.mode]}» إلى «${modeLabels[next]}»؟ سيتم تسجيل العملية في Audit Log.`
       : `Change ${conversation.leadName}'s mode from "${modeLabels[conversation.mode]}" to "${modeLabels[next]}"? Recorded in the Audit Log.`;
@@ -492,6 +481,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
 
   async function handleReturnToAi(conversation: InboxConversation) {
     if (!canSendReply || busyId) return;
+    if (conversation.doNotContact) { setNotice(language === "ar" ? "هذا العميل طلب عدم التواصل؛ تظل المحادثة خارج ردود AI." : "This customer opted out; the conversation stays out of AI replies."); return; }
     const confirmMessage = language === "ar"
       ? `تأكيد إعادة محادثة ${conversation.leadName} إلى AI؟`
       : `Return ${conversation.leadName}'s conversation to AI?`;
@@ -511,6 +501,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
 
   async function handleSendReply(conversation: InboxConversation) {
     if (!canSendReply || busyId || !replyBody.trim()) return;
+    if (OWNER_WHATSAPP_LIVE_FROZEN) { setNotice(language === "ar" ? "إرسال WhatsApp متوقف بتفويض المالك. يمكنك تجهيز الرد ونسخه فقط؛ لم يتم إرسال أي رسالة." : "WhatsApp sending is paused by owner authorization. You can draft and copy replies only; no message is sent."); return; }
     const body = replyBody.trim();
     setBusyId(conversation.id); setNotice("");
     try {
@@ -537,6 +528,8 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
       STAFF_ACCESS_DENIED: "ليست لديك صلاحية تنفيذ هذا التغيير.",
       HUMAN_MODE_REQUIRED: "يجب استلام المحادثة يدويًا قبل الإرسال.",
       CHANNEL_NOT_WHATSAPP: "الرد اليدوي متاح لمحادثات WhatsApp فقط.",
+      LEAD_PHONE_MISSING: "لا يوجد رقم هاتف صالح لهذا العميل.",
+      DO_NOT_CONTACT: "هذا العميل طلب عدم التواصل؛ تم منع إرسال الرسالة.",
       INVALID_BODY: "نص الرسالة غير صالح.",
       SEND_FAILED: "تعذر إرسال الرسالة بأمان.",
     } : {
@@ -545,6 +538,8 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
       STAFF_ACCESS_DENIED: "You don't have permission for this.",
       HUMAN_MODE_REQUIRED: "Take over the conversation before sending a reply.",
       CHANNEL_NOT_WHATSAPP: "Manual replies are WhatsApp-only.",
+      LEAD_PHONE_MISSING: "This customer has no valid phone number.",
+      DO_NOT_CONTACT: "This customer opted out of contact; the reply was blocked.",
       INVALID_BODY: "The message text isn't valid.",
       SEND_FAILED: "The message could not be sent safely.",
     };
@@ -560,7 +555,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
       <div className="conversation-list" aria-label={copy.listAriaLabel}>
         {visibleConversations.length === 0 && <p className="inbox-filter-empty">{language === "ar" ? "لا توجد محادثات في هذا التصنيف." : "No conversations in this filter."}</p>}
         {visibleConversations.map((conversation) => <button type="button" key={conversation.id} className={selectedId === conversation.id ? "selected" : ""} onClick={() => { setSelectedId(conversation.id); setMobileListOpen(false); setNotice(""); setReplyBody(""); }}>
-          <span><strong>{conversation.leadName}</strong><span className="conversation-badges">{conversation.unread > 0 && <b className="unread-count">{conversation.unread}</b>}{(conversation.needsAttention || conversation.humanRequired || conversation.mode === "human_required" || conversation.mode === "human_takeover") && <b className="attention-badge" title={copy.needsAttention}>{copy.attentionBadge}</b>}</span></span>
+          <span><strong>{conversation.leadName}</strong><span className="conversation-badges">{conversation.unread > 0 && <b className="unread-count">{conversation.unread}</b>}{(conversation.needsAttention || conversation.humanRequired || conversation.mode === "human_required" || conversation.mode === "human_takeover") && <b className="attention-badge" title={copy.needsAttention}>{copy.attentionBadge}</b>}{conversation.doNotContact && <b className="do-not-contact-badge">{language === "ar" ? "عدم التواصل" : "Do not contact"}</b>}</span></span>
           <small>{conversation.lastMessage || copy.noMessages}</small>
           <em>{conversation.channel} · {modeLabels[conversation.mode]}</em>
         </button>)}
@@ -568,11 +563,12 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
       <section className="conversation-panel">
         <header>
           <div><button type="button" className="inbox-mobile-back" onClick={() => setMobileListOpen(true)}>{language === "ar" ? "← كل المحادثات" : "← All conversations"}</button><h3>{selected?.leadName ?? copy.selectConversation}</h3>{selected && <p>Score {selected.leadScore}/100 · {selected.intent}{selected.handoffReason ? ` · ${selected.handoffReason}` : ""}</p>}</div>
-          {selected && <label>{copy.modeLabel}<select value={selected.mode} disabled={!canWriteMode || busyId !== null} onChange={(event) => void changeMode(selected, event.target.value as ConversationMode)}>{(Object.keys(modeLabels) as ConversationMode[]).map((mode) => <option key={mode} value={mode}>{modeLabels[mode]}</option>)}</select></label>}
+          {selected && <label>{copy.modeLabel}<select value={selected.mode} disabled={!canWriteMode || busyId !== null} onChange={(event) => void changeMode(selected, event.target.value as ConversationMode)}>{(Object.keys(modeLabels) as ConversationMode[]).map((mode) => <option key={mode} value={mode} disabled={Boolean(selected.doNotContact && mode === "ai_active")}>{modeLabels[mode]}</option>)}</select></label>}
         </header>
+        {selected?.doNotContact && <div className="notice-box" role="alert">{language === "ar" ? "هذا العميل طلب عدم التواصل. تم تعطيل الردود اليدوية وإعادة تفعيل AI لهذه المحادثة." : "This customer opted out of contact. Manual replies and AI reactivation are disabled for this conversation."}</div>}
         {selected && canSendReply && <div className="inbox-action-bar">
           <button type="button" className="primary-action" disabled={busyId !== null || selected.mode === "human_takeover"} onClick={() => void handleTakeOver(selected)}>{copy.takeOverButton}</button>
-          <button type="button" className="secondary" disabled={busyId !== null || selected.mode === "ai_active"} onClick={() => void handleReturnToAi(selected)}>{copy.returnToAiButton}</button>
+          <button type="button" className="secondary" disabled={busyId !== null || selected.mode === "ai_active" || selected.doNotContact === true} onClick={() => void handleReturnToAi(selected)}>{copy.returnToAiButton}</button>
         </div>}
         {(selected?.humanRequired || selected?.needsAttention) && <div className="human-alert">{selected.handoffReason ? `${copy.humanRequiredAlert} (${selected.handoffReason})` : copy.humanRequiredAlert}</div>}
         <div className="message-stream">
@@ -583,9 +579,16 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
             <p>{message.body}</p><small>{message.authorType}{message.safetyClassification ? ` · ${message.safetyClassification}` : ""} · {new Date(message.createdAt).toLocaleString(language === "ar" ? "ar-AE" : "en-AE")}</small>
           </article>)}
         </div>
-        {selected && canSendReply && selected.channel === "whatsapp" && selected.mode === "human_takeover" && <form className="inbox-compose" onSubmit={(event) => { event.preventDefault(); void handleSendReply(selected); }}>
+        {selected && canSendReply && !selected.doNotContact && selected.channel === "whatsapp" && selected.mode === "human_takeover" && <form className="inbox-compose" onSubmit={(event) => { event.preventDefault(); void handleSendReply(selected); }}>
           <label htmlFor="inbox-reply">{copy.replyLabel}<textarea id="inbox-reply" rows={3} value={replyBody} disabled={busyId !== null} onChange={(event) => setReplyBody(event.target.value)} placeholder={copy.replyPlaceholder} /></label>
-          <button type="submit" disabled={busyId !== null || !replyBody.trim()}>{busyId === selected.id ? copy.sendingReply : copy.sendButton}</button>
+          {OWNER_WHATSAPP_LIVE_FROZEN && <p className="read-only-note">{language === "ar" ? "الإرسال متوقف مؤقتًا. يمكنك كتابة الرد ونسخه؛ لا توجد رسالة ستُرسل من التطبيق الآن." : "Sending is paused. You can draft and copy the reply; the app will not send it now."}</p>}
+          <div className="inbox-compose-actions">
+            <button type="button" className="secondary" disabled={!replyBody.trim()} onClick={() => {
+              if (!navigator.clipboard?.writeText) { setNotice(language === "ar" ? "حدد نص الرد وانسخه يدويًا." : "Select the reply text and copy it manually."); return; }
+              void navigator.clipboard.writeText(replyBody).then(() => setNotice(language === "ar" ? "تم نسخ الرد." : "Reply copied.")).catch(() => setNotice(language === "ar" ? "تعذر النسخ التلقائي؛ حدد النص وانسخه يدويًا." : "Automatic copy failed; select and copy the text manually."));
+            }}>{language === "ar" ? "نسخ الرد" : "Copy reply"}</button>
+            <button type="submit" disabled={OWNER_WHATSAPP_LIVE_FROZEN || busyId !== null || !replyBody.trim()} title={OWNER_WHATSAPP_LIVE_FROZEN ? (language === "ar" ? "الإرسال يحتاج تفويض المالك." : "Sending requires owner authorization.") : undefined}>{busyId === selected.id ? copy.sendingReply : copy.sendButton}</button>
+          </div>
         </form>}
         {!canSendReply && canWriteMode && <p className="read-only-note">{copy.replyReadOnlyNote}</p>}
         {!canWriteMode && !canSendReply && <p className="read-only-note">{copy.readOnlyNote}</p>}
@@ -618,8 +621,8 @@ function CRMView({ value, session, onChanged, onSessionExpired }: { value: JsonV
     if (followUpDate && Number.isNaN(followUpDate.getTime())) { setNotice(copy.invalidFollowUp); return; }
     const nextFollowUpAt = followUpDate?.toISOString() ?? null;
     const confirmMessage = language === "ar"
-      ? `تأكيد تحديث مسار ${lead.name}؟ سيتم تطبيق قواعد المتابعة وتسجيل العملية في Audit Log.`
-      : `Update ${lead.name}'s stage? Follow-up rules apply. Recorded in the Audit Log.`;
+      ? `تأكيد تحديث ${lead.name}؟\nعدم التواصل: ${doNotContact ? "مفعّل — سيوقف AI ويلغي المتابعات المعلقة ويمنع الرد اليدوي" : "غير مفعّل"}\nموعد المتابعة: ${nextFollowUpAt ? new Date(nextFollowUpAt).toLocaleString("ar-AE") : "لا يوجد"}`
+      : `Update ${lead.name}?\nDo not contact: ${doNotContact ? "ON — pauses AI, cancels queued follow-ups, and blocks manual WhatsApp replies" : "OFF"}\nFollow-up: ${nextFollowUpAt ? new Date(nextFollowUpAt).toLocaleString("en-AE") : "none"}`;
     if (!window.confirm(confirmMessage)) return;
     setBusyId(lead.id); setNotice("");
     try { await updateLeadWorkflow(session, lead.id, stage, humanRequired, doNotContact, nextFollowUpAt); setNotice(language === "ar" ? "تم تحديث مسار العميل وتسجيل العملية بنجاح." : "Stage updated and recorded."); onChanged(); }
@@ -761,6 +764,10 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
 
   async function transition(item: z.infer<typeof ContentItemSchema>, action: ContentAction, form: HTMLFormElement) {
     if (!canWrite || busyId || batchBusy) return;
+    if (OWNER_PUBLISHING_FROZEN && (action === "schedule" || action === "unschedule")) {
+      setNotice(language === "ar" ? "الجدولة مجمّدة بتفويض المالك؛ المراجعة والاعتماد فقط متاحان." : "Scheduling is frozen by owner authorization; review and approval only are available.");
+      return;
+    }
     let scheduledFor: string | null = null;
     if (action === "schedule") {
       const localValue = String(new FormData(form).get("scheduledFor") ?? "").trim();
@@ -784,22 +791,23 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
     if (!canWrite || busyId || batchBusy || item.status === "approved") return;
     if (!canApproveContentItem(item)) return;
     const confirmMessage = language === "ar"
-      ? `تأكيد اعتماد «${item.topic || "محتوى بدون عنوان"}»؟ سيتم اعتماد المحتوى وجدولته للموعد المحدد.`
-      : `Approve "${item.topic || copy.untitled}"? The item will be approved and scheduled for its planned time.`;
+      ? `تأكيد اعتماد «${item.topic || "محتوى بدون عنوان"}»؟ لن تتم جدولة المحتوى أو نشره.`
+      : `Approve "${item.topic || copy.untitled}"? This will not schedule or publish the item.`;
     if (!window.confirm(confirmMessage)) return;
     await runMutation(
       item.id,
-      () => callRpc(session, "approve_and_schedule_staff_content_item", {
-        p_content_item_id: item.id,
-        p_scheduled_for: item.scheduledFor,
-      }),
-      language === "ar" ? "تم اعتماد المحتوى وجدولته." : "Item approved and scheduled.",
-      { action: "unschedule", label: language === "ar" ? "إلغاء الجدولة" : "Undo scheduling" },
+      () => transitionContentItem(session, item.id, "approve"),
+      language === "ar" ? "تم اعتماد المحتوى دون جدولة أو نشر." : "Item approved without scheduling or publishing.",
+      { action: "return_to_review", label: language === "ar" ? "تراجع عن الاعتماد" : "Undo approval" },
     );
   }
 
   async function requestBatchChanges(item: ContentBatchItem, kind: ChangeRequestKind, note: string) {
     if (!canWrite || busyId || batchBusy || item.status === "needs_review") return;
+    if (OWNER_PUBLISHING_FROZEN && item.status === "scheduled") {
+      setNotice(language === "ar" ? "المحتوى المجدول للعرض فقط أثناء تجميد النشر؛ لم يتم تعديل الطابور." : "Scheduled content is view-only while publishing is frozen; the queue was not changed.");
+      return;
+    }
     const confirmMessage = language === "ar"
       ? `تأكيد طلب تعديل «${item.topic || "محتوى بدون عنوان"}» وإعادته للمراجعة؟`
       : `Request changes and return "${item.topic || copy.untitled}" to review?`;
@@ -821,10 +829,17 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
 
   async function editBatchItem(item: ContentBatchItem, visualPrompt: string, scheduledFor: string | null) {
     if (!canWrite || busyId || batchBusy || item.status === "published") return;
+    if (OWNER_PUBLISHING_FROZEN && item.status === "scheduled") {
+      setNotice(language === "ar" ? "المحتوى المجدول للعرض فقط أثناء تجميد النشر؛ لم يتم تعديل الطابور." : "Scheduled content is view-only while publishing is frozen; the queue was not changed.");
+      return;
+    }
     const contentChanged = visualPrompt !== String(item.visualPrompt ?? "");
-    const scheduleChanged = scheduledFor !== item.scheduledFor;
+    const scheduleWasRequested = scheduledFor !== item.scheduledFor;
+    const scheduleChanged = !OWNER_PUBLISHING_FROZEN && scheduleWasRequested;
     if (!contentChanged && !scheduleChanged) {
-      setNotice(language === "ar" ? "لا تغيير." : "No change.");
+      setNotice(OWNER_PUBLISHING_FROZEN && scheduleWasRequested
+        ? (language === "ar" ? "الجدولة مجمّدة؛ لم يتم تغيير الموعد." : "Scheduling is frozen; the publish time was not changed.")
+        : (language === "ar" ? "لا تغيير." : "No change."));
       return;
     }
     const confirmMessage = language === "ar" ? "تأكيد التعديل؟" : "Confirm edit?";
@@ -846,9 +861,11 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
       }
     }, contentChanged && scheduleChanged
       ? (language === "ar" ? "تم حفظ التصميم والموعد." : "Design request and schedule updated.")
-      : contentChanged
-        ? (language === "ar" ? "تم حفظ طلب التصميم." : "Design request saved.")
-        : (language === "ar" ? "تم تحديث الموعد." : "Time updated."));
+      : contentChanged && OWNER_PUBLISHING_FROZEN && scheduleWasRequested
+        ? (language === "ar" ? "تم حفظ البرومبت؛ لم يتغير الموعد لأن الجدولة مجمّدة." : "Prompt saved; the publish time stayed unchanged because scheduling is frozen.")
+        : contentChanged
+          ? (language === "ar" ? "تم حفظ طلب التصميم." : "Design request saved.")
+          : (language === "ar" ? "تم تحديث الموعد." : "Time updated."));
   }
 
   async function approveAllBatch(candidates: ContentBatchItem[]) {
@@ -858,29 +875,9 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
       setNotice(t("contentBatch").batchNothingToApprove);
       return;
     }
-    const databaseBatchId = sharedDatabaseBatchId(candidates);
     setBatchBusy(true);
     setNotice("");
     try {
-      if (databaseBatchId) {
-        try {
-          const result = await approveStaffContentBatch(session, databaseBatchId);
-          const approvedCount = result.approvedCount ?? 0;
-          const alreadyApprovedCount = result.alreadyApprovedCount ?? 0;
-          if (approvedCount > 0 || alreadyApprovedCount > 0) {
-            setNotice(approvedCount > 0 ? t("contentBatch").batchApprovedNotice : t("contentBatch").batchNothingToApprove);
-            onChanged();
-          } else {
-            setNotice(t("contentBatch").batchNothingToApprove);
-          }
-        } catch (cause) {
-          const code = cause instanceof Error ? cause.message : "UPDATE_FAILED";
-          if (code === "SESSION_EXPIRED") { onSessionExpired(); return; }
-          setNotice(contentErrorMessage(language, code));
-        }
-        return;
-      }
-
       let approvedCount = 0;
       let failed = false;
       for (const item of pending) {
@@ -959,7 +956,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
       const scheduledLocal = formatLocalDateTimeInput(item.scheduledFor);
       const locked = panelBusy || !canWrite || item.status === "published";
       return <article className="content-card" key={item.id}>
-        <header><div><span>{item.platform} · {item.contentType}</span><h3>{item.topic || copy.untitled}</h3><small>{item.status === "published" ? (language === "ar" ? "منشور — لا يحتاج تعديلًا" : "Published — no edit needed") : (language === "ar" ? "اختر إجراءً من الأسفل" : "Choose an action below")}</small></div><div className="content-card-heading-actions"><span className={`content-status status-${item.status}`}>{statusLabels[item.status]}</span><button type="button" onClick={() => setExpandedContentId((current) => current === item.id ? null : item.id)}>{expandedContentId === item.id ? (language === "ar" ? "إغلاق التعديل" : "Close editor") : (language === "ar" ? "تعديل المحتوى" : "Edit content")}</button></div></header>
+        <header><div><span>{item.platform} · {item.contentType}</span><h3>{item.topic || copy.untitled}</h3><small>{item.status === "published" ? (language === "ar" ? "منشور — لا يحتاج تعديلًا" : "Published — no edit needed") : (language === "ar" ? "اختر إجراءً من الأسفل" : "Choose an action below")}</small></div><div className="content-card-heading-actions"><span className={`content-status status-${item.status}`}>{statusLabels[item.status]}</span><button type="button" disabled={OWNER_PUBLISHING_FROZEN && item.status === "scheduled"} title={OWNER_PUBLISHING_FROZEN && item.status === "scheduled" ? (language === "ar" ? "المحتوى المجدول للعرض فقط أثناء تجميد النشر." : "Scheduled content is view-only while publishing is frozen.") : undefined} onClick={() => setExpandedContentId((current) => current === item.id ? null : item.id)}>{expandedContentId === item.id ? (language === "ar" ? "إغلاق التعديل" : "Close editor") : (language === "ar" ? "تعديل المحتوى" : "Edit content")}</button></div></header>
         {expandedContentId === item.id && <form id={`content-editor-${item.id}`} onSubmit={(event) => { event.preventDefault(); void save(item, event.currentTarget); }}>
           <div className="content-fields"><label>{copy.topicLabel}<input name="topic" defaultValue={item.topic} maxLength={300} disabled={locked} /></label><label>{copy.hookLabel}<input name="hook" defaultValue={item.hook} maxLength={500} disabled={locked} /></label></div>
           <label>{copy.captionLabel}<textarea name="caption" defaultValue={item.caption} minLength={2} maxLength={5000} rows={6} required disabled={locked} /></label>
@@ -968,12 +965,12 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
           <button type="submit" disabled={locked}>{busyId === item.id ? t("common").saving : copy.saveButton}</button>
         </form>}
         <form className="content-actions" onSubmit={(event) => event.preventDefault()}>
-          <label>{copy.scheduleTimeLabel}<input name="scheduledFor" type="datetime-local" defaultValue={scheduledLocal} disabled={!canWrite || busyId !== null || !["approved", "scheduled"].includes(item.status)} /></label>
+          <label>{copy.scheduleTimeLabel}<input name="scheduledFor" type="datetime-local" defaultValue={scheduledLocal} disabled={OWNER_PUBLISHING_FROZEN || !canWrite || busyId !== null || !["approved", "scheduled"].includes(item.status)} /></label>
           <div>
             {["draft", "generated", "needs_review"].includes(item.status) && <button type="button" disabled={!canWrite || busyId !== null} onClick={(event) => void transition(item, "approve", event.currentTarget.form!)}>{copy.approveButton}</button>}
             {["draft", "generated", "approved", "scheduled", "failed"].includes(item.status) && <button type="button" className="secondary" disabled={!canWrite || busyId !== null} onClick={(event) => void transition(item, "return_to_review", event.currentTarget.form!)}>{copy.returnToReviewButton}</button>}
-            {["approved", "scheduled"].includes(item.status) && <button type="button" disabled={!canWrite || busyId !== null} onClick={(event) => void transition(item, "schedule", event.currentTarget.form!)}>{item.status === "scheduled" ? copy.rescheduleButton : copy.scheduleButton}</button>}
-            {item.status === "scheduled" && <button type="button" className="secondary" disabled={!canWrite || busyId !== null} onClick={(event) => void transition(item, "unschedule", event.currentTarget.form!)}>{copy.unscheduleButton}</button>}
+            {["approved", "scheduled"].includes(item.status) && <button type="button" disabled={OWNER_PUBLISHING_FROZEN || !canWrite || busyId !== null} title={OWNER_PUBLISHING_FROZEN ? (language === "ar" ? "الجدولة مجمّدة بتفويض المالك." : "Scheduling is frozen by owner authorization.") : undefined} onClick={(event) => void transition(item, "schedule", event.currentTarget.form!)}>{item.status === "scheduled" ? copy.rescheduleButton : copy.scheduleButton}</button>}
+            {item.status === "scheduled" && <button type="button" className="secondary" disabled={OWNER_PUBLISHING_FROZEN || !canWrite || busyId !== null} title={OWNER_PUBLISHING_FROZEN ? (language === "ar" ? "الجدولة مجمّدة بتفويض المالك." : "Scheduling is frozen by owner authorization.") : undefined} onClick={(event) => void transition(item, "unschedule", event.currentTarget.form!)}>{copy.unscheduleButton}</button>}
           </div>
         </form>
         <footer><span>{copy.lastUpdated}: {formatBookingDateTime(language, item.updatedAt)}</span>{item.publishedAt && <span>{copy.published}: {formatBookingDateTime(language, item.publishedAt)}</span>}{!canWrite && <span>{t("common").readOnlyNote}</span>}{item.status === "published" && <span>{copy.publishedLocked}</span>}</footer>

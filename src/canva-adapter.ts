@@ -30,7 +30,7 @@ async function callCanvaOAuthEdge(session: CanvaSession, body: Record<string, un
     cache: "no-store",
   });
   const payload = (await response.json().catch(() => ({}))) as CanvaEdgeResponse;
-  if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
+  if (response.status === 401) throw new Error("SESSION_EXPIRED");
   if (!response.ok) throw new Error(String(payload.code ?? `CANVA_EDGE_HTTP_${response.status}`));
   return payload;
 }
