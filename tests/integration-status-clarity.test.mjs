@@ -19,4 +19,10 @@ test("WhatsApp status does not falsely claim n8n is connected or hide the separa
   assert.match(source, /defaults to dry-run/);
   assert.match(source, /Dry-run افتراضيًا/);
   assert.doesNotMatch(source, /WhatsApp uses the existing n8n path outside this screen/);
+  assert.match(source, /Account access verified/);
+  assert.match(source, /publishing permissions and the actual publish path were not tested/);
+  assert.match(source, /صلاحيات النشر ومسار النشر الفعلي لم تُختبر/);
+  assert.match(source, /actual design generation and template output are not yet verified/);
+  assert.match(source, /manual prompt copy and Open Runway handoff remain available in Content Factory/);
+  assert.match(source, /Verify account access/);
 });
