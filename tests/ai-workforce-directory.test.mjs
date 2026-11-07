@@ -24,6 +24,8 @@ test("AI Workforce is a truthful directory, not a fake autonomous agent ledger",
   assert.match(view, /Owner authorization required/);
   assert.match(view, /يتطلب تفويض المالك/);
   assert.doesNotMatch(view, /Protected \/ frozen|محمي \/ مجمّد|Uses the existing Google Veo path when available/);
+  assert.doesNotMatch(view, /Runway is currently a manual handoff|Runway تسليم يدوي حاليًا/);
+  assert.match(view, /Runway is status-only with no verified generation or handoff path/);
   assert.match(view, /External publishing remains behind the owner-authorization gate/);
   assert.match(view, /الإرسال الخارجي محمي ببوابة تفويض المالك/);
   assert.match(view, /AI Sales Concierge/);
