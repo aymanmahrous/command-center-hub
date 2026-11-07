@@ -1242,6 +1242,7 @@ function BookingView({ value, session, onChanged, onSessionExpired }: { value: J
 function Dashboard({ session, onLogout }: { session: Session; onLogout: () => void }) {
   const { language, t } = useLanguage();
   const nav = t("nav");
+  const aiWorkforceLabel = language === "ar" ? "فريق الذكاء الاصطناعي" : "AI Workforce";
   const dashboardCopy = t("dashboard");
   const launchParams = new URLSearchParams(window.location.search);
   const canvaCallback = launchParams.get("canva");
@@ -1279,7 +1280,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
 
   const current = useMemo(() => sections.find(([id]) => id === active)!, [active]);
 
-  const currentSectionLabel = current[0] === "agents" ? (language === "ar" ? "فريق الذكاء الاصطناعي" : "AI Workforce") : nav[current[0]];
+  const currentSectionLabel = current[0] === "agents" ? aiWorkforceLabel : nav[current[0]];
 
   useEffect(() => {
     document.title = `${currentSectionLabel} · ${nav.dashboard}`;
@@ -1328,13 +1329,12 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   };
 
   // One owner-facing system: core destinations stay visible; lower-frequency tools live under More.
-  const moreIds = ["automations", "today", "planner", "crm", "connections", "analytics", "radar", "archive", "workspace", "agents"] as const;
+  const moreIds = ["automations", "today", "planner", "crm", "connections", "analytics", "radar", "archive", "workspace"] as const;
   const moreLabel = language === "ar" ? "المزيد" : "More";
   const toggleMore = () => setMoreOpen(!moreOpen);
   const morePanel = <div className="more-panel">
-    {moreIds.filter((id) => id !== "agents" || session.role === "super_admin").map((id) => <button key={id} onClick={() => go(id)}>
-      {id === "agents" ? (language === "ar" ? "فريق الذكاء الاصطناعي" : "AI Workforce") : nav[id]}
-    </button>)}
+    {moreIds.map((id) => <button key={id} onClick={() => go(id)}>{nav[id]}</button>)}
+    {session.role === "super_admin" && <button key="agents" onClick={() => go("agents")}>{aiWorkforceLabel}</button>}
   </div>;
 
   const primary = [
