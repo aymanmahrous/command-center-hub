@@ -8,7 +8,7 @@ const app = await readFile(new URL("../src/main.tsx", import.meta.url), "utf8");
 const inboxCss = await readFile(new URL("../src/ai-inbox.css", import.meta.url), "utf8");
 
 test("WhatsApp send authorization blocks opted-out leads under a locked lead row", () => {
-  assert.match(migration, /FROM public\.leads[\s\S]*?FOR UPDATE/);
+  assert.match(migration, /FROM public\.leads WHERE id = v_conversation\.lead_id/);
   assert.match(migration, /coalesce\(v_lead\.do_not_contact, false\)/);
   assert.match(migration, /jsonb_build_object\('success', false, 'code', 'DO_NOT_CONTACT'\)/);
   assert.match(migration, /HUMAN_MODE_REQUIRED/);
@@ -27,6 +27,8 @@ test("AI Inbox explains opt-out and invalid phone blocks in Arabic and English",
   assert.match(app, /DO_NOT_CONTACT: "This customer opted out of contact; the reply was blocked\."/);
   assert.match(app, /LEAD_PHONE_MISSING/);
   assert.match(migration, /'doNotContact', coalesce\(l\.do_not_contact, false\)/);
+  assert.match(migration, /p_mode = 'ai_active' AND coalesce\(v_lead\.do_not_contact, false\)/);
+  assert.match(migration, /IF coalesce\(v_lead\.do_not_contact, false\) THEN/);
   assert.match(app, /doNotContact: z\.boolean\(\)\.optional\(\)/);
   assert.match(app, /!selected\.doNotContact && selected\.channel === "whatsapp"/);
   assert.match(app, /disabled=\{Boolean\(selected\.doNotContact && mode === "ai_active"\)\}/);
