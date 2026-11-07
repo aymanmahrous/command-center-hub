@@ -158,6 +158,12 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
   const [sampleBusy, setSampleBusy] = useState(false);
   const [sample, setSample] = useState<GeneratedContentSample | null>(null);
   const [sampleError, setSampleError] = useState("");
+  const [sampleVideoDuration, setSampleVideoDuration] = useState<3 | 5 | 8>(5);
+  const [sampleDesignNotice, setSampleDesignNotice] = useState("");
+  const sampleIsVideo = Boolean(sample && /reel|video/i.test(String(sample.contentType)));
+  const sampleDesignPrompt = sample
+    ? `${String(sample.visualPrompt ?? "").trim()}${sampleIsVideo ? `\n\nFINAL OUTPUT REQUIREMENT: Create one vertical 9:16 video with an exact target duration of ${sampleVideoDuration} seconds. This duration overrides any earlier duration in the brief.` : ""}`.trim()
+    : "";
 
   function selectedPlanDays() {
     const requested = Number(customDays);
@@ -210,6 +216,39 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
     url.searchParams.set("planMix", planMix);
     url.searchParams.set("planExecution", planExecution);
     window.location.assign(url.toString());
+  }
+
+  async function copySampleDesignPrompt() {
+    if (!sampleDesignPrompt) {
+      setSampleDesignNotice(language === "ar" ? "لم يرجع مزود المحتوى برومبت تصميم لهذا العنصر؛ لن ننسخ نصًا ناقصًا." : "The content provider returned no design prompt for this item; incomplete text will not be copied.");
+      return;
+    }
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("CLIPBOARD_UNAVAILABLE");
+      await navigator.clipboard.writeText(sampleDesignPrompt);
+      setSampleDesignNotice(language === "ar" ? "تم نسخ برومبت التصميم الكامل." : "The complete design prompt was copied.");
+    } catch {
+      setSampleDesignNotice(language === "ar" ? "تعذر النسخ التلقائي. البرومبت ظاهر في المربع؛ اضغط داخله وحدد الكل ثم انسخ يدويًا." : "Automatic copy is unavailable. The prompt is visible below; focus the box, select all, and copy manually.");
+    }
+  }
+
+  async function openSampleDesignTool() {
+    if (!sampleDesignPrompt) {
+      setSampleDesignNotice(language === "ar" ? "لا يوجد برومبت تصميم صالح لهذا العنصر." : "No valid design prompt exists for this item.");
+      return;
+    }
+    const target = sampleIsVideo ? "runway" : "canva";
+    const destination = target === "runway" ? "https://app.runwayml.com/" : "https://www.canva.com/";
+    window.open(destination, "_blank", "noopener,noreferrer");
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("CLIPBOARD_UNAVAILABLE");
+      await navigator.clipboard.writeText(sampleDesignPrompt);
+      setSampleDesignNotice(language === "ar"
+        ? `تم فتح ${target === "runway" ? "Runway" : "Canva"} ونسخ البرومبت. الصقه داخل حسابك؛ لم يتم استدعاء API مدفوع.`
+        : `${target === "runway" ? "Runway" : "Canva"} opened and the prompt was copied. Paste it into your account; no paid API was called.`);
+    } catch {
+      setSampleDesignNotice(language === "ar" ? "تم فتح الأداة، لكن تعذر النسخ التلقائي. البرومبت ظاهر في المربع ويمكن نسخه يدويًا." : "The tool opened, but automatic copy failed. The prompt remains visible and can be copied manually.");
+    }
   }
 
   async function research(event: FormEvent) {
@@ -400,7 +439,18 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
           <p>{sample.hook}</p>
           <div className="coach-brain__sample-caption">{sample.caption}</div>
           <small>{sample.platform} · {sample.contentType}</small>
-          <details><summary>{language === "ar" ? "تفاصيل التصميم" : "Design brief"}</summary><p>{sample.visualPrompt}</p></details>
+          <section className="coach-brain__sample-design" aria-label={language === "ar" ? "برومبت التصميم اليومي" : "Daily design prompt"}>
+            <strong>{language === "ar" ? "برومبت التصميم لهذا المحتوى" : "Design prompt for this content"}</strong>
+            {sampleIsVideo && <label><span>{language === "ar" ? "مدة فيديو Runway" : "Runway video length"}</span><select value={sampleVideoDuration} onChange={(event) => setSampleVideoDuration(Number(event.target.value) as 3 | 5 | 8)}><option value={3}>3 {language === "ar" ? "ثوانٍ" : "seconds"}</option><option value={5}>5 {language === "ar" ? "ثوانٍ" : "seconds"}</option><option value={8}>8 {language === "ar" ? "ثوانٍ" : "seconds"}</option></select></label>}
+            {sampleDesignPrompt
+              ? <textarea readOnly rows={6} value={sampleDesignPrompt} onFocus={(event) => event.currentTarget.select()} aria-label={language === "ar" ? "برومبت التصميم الكامل" : "Complete design prompt"} />
+              : <p role="status">{language === "ar" ? "لم يرجع مزود المحتوى برومبت تصميم لهذا العنصر." : "The content provider did not return a design prompt for this item."}</p>}
+            <div className="coach-brain__sample-design-actions">
+              <button type="button" className="coach-brain__reset" disabled={!sampleDesignPrompt} onClick={() => void copySampleDesignPrompt()}>{language === "ar" ? "نسخ البرومبت" : "Copy prompt"}</button>
+              <button type="button" className="coach-brain__reset" disabled={!sampleDesignPrompt} onClick={() => void openSampleDesignTool()}>{sampleIsVideo ? (language === "ar" ? "فتح Runway ونسخ البرومبت" : "Open Runway + copy prompt") : (language === "ar" ? "فتح Canva ونسخ البرومبت" : "Open Canva + copy prompt")}</button>
+            </div>
+            {sampleDesignNotice && <p className="coach-brain__privacy-note" role="status">{sampleDesignNotice}</p>}
+          </section>
         </article>}
       </section>
 
