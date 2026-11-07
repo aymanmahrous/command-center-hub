@@ -100,7 +100,7 @@ const entries: Entry[] = [
     status: "manual",
     responsibility: "Runway متاح كتسليم يدوي بلا API: يجهز المصنع برومبت الفيديو ويفتح حساب Runway ليلصق المالك التعليمات وينشئ الفيديو يدويًا.",
     handoff: "Content Factory → Review → نسخ برومبت Runway الكامل وفتح الحساب؛ بعد التنزيل يعود الفيديو إلى Media Library للمراجعة.",
-    boundary: "لا ندّعي توليدًا آليًا عبر Runway API. مسار التسليم اليدوي موجود في PR #327 ولم يُدمج بعد؛ ولا يحتاج اشتراك Runway Pro إلى مفتاح API. دليل Veo السابق تاريخي، والأصل القديم محجوب لأن الموافقة غير معروفة.",
+    boundary: "توجد وظيفة runway-media منشورة في Supabase لكنها غير موجودة في GitHub وغير موصولة بواجهة المصنع؛ لم نتحقق من مفاتيحها أو حدود تكلفتها ولا نستدعيها. مسار النسخ والفتح اليدوي في PR #327 هو المسار المعتمد حاليًا. لا يحتاج هذا المسار إلى مفتاح API. دليل Veo تاريخي والأصل القديم محجوب لأن الموافقة غير معروفة.",
     destination: "content",
     icon: Video,
   },
@@ -183,7 +183,7 @@ const copy = {
     addTitle: "قاعدة إضافة أي وكيل جديد",
     add: "لا يُضاف الاسم إلى القائمة إلا بعد تحديد مهمته ومدخلاته ومخرجاته والأدوات المسموحة وحدود الصلاحية ومسار التسليم واختبار نتيجة حقيقية. لا يكفي ربط مزود أو إضافة زر لتسمية ذلك وكيلًا.",
     providerTitle: "المزودون ليسوا وكلاء",
-    providers: "Gemini وOpenAI نماذج/مزودون يمكن أن يستخدمهم أكثر من دور. Canva أداة تصميم. Runway له تسليم يدوي بلا API ضمن PR #327 (بانتظار الدمج)، أما توليد Runway API الآلي فغير مثبت. دليل Veo تاريخي فقط. هذه أدوات ومزودون وليست مديرين مستقلين.",
+    providers: "Gemini وOpenAI نماذج/مزودون يمكن أن يستخدمهم أكثر من دور. Canva أداة تصميم. Runway له تسليم يدوي في PR #327 (بانتظار الدمج). توجد وظيفة runway-media منشورة في Supabase لكنها غير متتبعة في GitHub وغير موصولة بالمصنع، لذلك لا نعدّها جاهزة ولا نستدعيها. دليل Veo تاريخي فقط. هذه أدوات ومزودون وليست مديرين مستقلين.",
     readOnly: "عرض تنظيمي فقط — لا يطلق توليدًا أو رسائل أو جدولة أو نشرًا.",
   },
   en: {
@@ -214,7 +214,7 @@ const copy = {
     addTitle: "Rule for adding a new agent",
     add: "A new agent is registered only after its mission, inputs, outputs, allowed tools, permission boundaries, handoff, and real-result test are defined. A provider connection or a button alone does not make an agent.",
     providerTitle: "Providers are not agents",
-    providers: "Gemini and OpenAI are model providers that may serve multiple roles. Canva is a design tool. Runway has a manual no-API handoff prepared in PR #327 (pending merge); automated Runway API generation is not verified. Veo evidence is historical only. These are tools/providers, not independent managers.",
+    providers: "Gemini and OpenAI are model providers that may serve multiple roles. Canva is a design tool. Runway has a manual handoff prepared in PR #327 (pending merge). A deployed Supabase runway-media API function exists, but it is not tracked in GitHub or wired to the Factory UI, so its readiness is unverified and it is not invoked. Veo evidence is historical only. These are tools/providers, not independent managers.",
     readOnly: "Directory view only — no generation, messages, scheduling, or publishing is triggered.",
   },
 };
@@ -292,7 +292,7 @@ export default function AIWorkforceView({ language, onNavigate }: {
                 strategy: "Embedded logic, not an independent agent.",
                 factory: "Existing production workflow, not a general-purpose agent runtime.",
                 design: "A connected Canva registry entry does not prove end-to-end design creation and export. No paid operation is triggered.",
-                video: "Runway is manual only; no verified API generation. The handoff implementation is pending PR #327 merge. Runway Pro does not require a developer API key for this manual route. The old Veo asset remains blocked because consent was unknown.",
+                video: "Runway is manual in the current Factory UI. A Supabase runway-media API function exists, but it is not source-controlled, connected to this workflow, or safety/cost verified. The manual handoff is pending PR #327 merge. Runway Pro does not require a developer API key for this manual route. The old Veo asset remains blocked because consent was unknown.",
                 review: "Human gate, not an AI agent.",
                 publisher: "External publishing remains behind the owner-authorization gate. Queue preparation, scheduling, and retry are separate server operations and are not fully disabled; this directory does not expose them.",
               } as Record<string, string>)[entry.id]}</dd></div>
