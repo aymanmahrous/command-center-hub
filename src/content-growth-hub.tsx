@@ -315,6 +315,7 @@ export default function ContentGrowthHub({
   }, [activeFactoryTab, primaryBatch]);
 
   const batchItems = selectedBatch?.items ?? [];
+  useEffect(() => { setSelectedPlanDate(null); }, [planWindowDays, selectedBatch?.batchId]);
   const mediaLinkCandidates = useMemo(() => batchItems.filter((item) => ["draft", "generated", "needs_review", "approved"].includes(item.status) && !item.mediaAssetId), [batchItems]);
   const strategySummary = useMemo(() => buildStrategySummary(batchItems), [batchItems]);
   const panelBusy = busy || generating;
