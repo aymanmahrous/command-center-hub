@@ -5,7 +5,7 @@ import { z } from "zod";
 import { isSupabaseBrowserConfigurationReady } from "./supabase-config";
 import { canApproveContentItem, type ContentBatchItem } from "./content-batch";
 import { appendChangeRequest, buildChangeRequestNote, type ChangeRequestKind } from "./content-growth";
-import { OWNER_PUBLISHING_FROZEN } from "./publishing-freeze";
+import { OWNER_PUBLISHING_FROZEN, OWNER_WHATSAPP_LIVE_FROZEN } from "./publishing-freeze";
 import { formatLocalDateTimeInput } from "./date-utils";
 import { LanguageProvider, useLanguage } from "./i18n";
 import type { Language } from "./i18n";
@@ -311,6 +311,7 @@ async function returnConversationToAi(session: Session, conversationId: string) 
 }
 
 async function sendStaffWhatsappMessage(session: Session, conversationId: string, body: string) {
+  if (OWNER_WHATSAPP_LIVE_FROZEN) throw new Error("OWNER_WHATSAPP_LIVE_FROZEN");
   const response = await fetch(`${SUPABASE_URL}/functions/v1/send-whatsapp-message`, {
     method: "POST",
     headers: rpcHeaders(session),
@@ -500,6 +501,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
 
   async function handleSendReply(conversation: InboxConversation) {
     if (!canSendReply || busyId || !replyBody.trim()) return;
+    if (OWNER_WHATSAPP_LIVE_FROZEN) { setNotice(language === "ar" ? "إرسال WhatsApp متوقف بتفويض المالك. يمكنك تجهيز الرد ونسخه فقط؛ لم يتم إرسال أي رسالة." : "WhatsApp sending is paused by owner authorization. You can draft and copy replies only; no message is sent."); return; }
     const body = replyBody.trim();
     setBusyId(conversation.id); setNotice("");
     try {
@@ -579,7 +581,14 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
         </div>
         {selected && canSendReply && !selected.doNotContact && selected.channel === "whatsapp" && selected.mode === "human_takeover" && <form className="inbox-compose" onSubmit={(event) => { event.preventDefault(); void handleSendReply(selected); }}>
           <label htmlFor="inbox-reply">{copy.replyLabel}<textarea id="inbox-reply" rows={3} value={replyBody} disabled={busyId !== null} onChange={(event) => setReplyBody(event.target.value)} placeholder={copy.replyPlaceholder} /></label>
-          <button type="submit" disabled={busyId !== null || !replyBody.trim()}>{busyId === selected.id ? copy.sendingReply : copy.sendButton}</button>
+          {OWNER_WHATSAPP_LIVE_FROZEN && <p className="read-only-note">{language === "ar" ? "الإرسال متوقف مؤقتًا. يمكنك كتابة الرد ونسخه؛ لا توجد رسالة ستُرسل من التطبيق الآن." : "Sending is paused. You can draft and copy the reply; the app will not send it now."}</p>}
+          <div className="inbox-compose-actions">
+            <button type="button" className="secondary" disabled={!replyBody.trim()} onClick={() => {
+              if (!navigator.clipboard?.writeText) { setNotice(language === "ar" ? "حدد نص الرد وانسخه يدويًا." : "Select the reply text and copy it manually."); return; }
+              void navigator.clipboard.writeText(replyBody).then(() => setNotice(language === "ar" ? "تم نسخ الرد." : "Reply copied.")).catch(() => setNotice(language === "ar" ? "تعذر النسخ التلقائي؛ حدد النص وانسخه يدويًا." : "Automatic copy failed; select and copy the text manually."));
+            }}>{language === "ar" ? "نسخ الرد" : "Copy reply"}</button>
+            <button type="submit" disabled={OWNER_WHATSAPP_LIVE_FROZEN || busyId !== null || !replyBody.trim()} title={OWNER_WHATSAPP_LIVE_FROZEN ? (language === "ar" ? "الإرسال يحتاج تفويض المالك." : "Sending requires owner authorization.") : undefined}>{busyId === selected.id ? copy.sendingReply : copy.sendButton}</button>
+          </div>
         </form>}
         {!canSendReply && canWriteMode && <p className="read-only-note">{copy.replyReadOnlyNote}</p>}
         {!canWriteMode && !canSendReply && <p className="read-only-note">{copy.readOnlyNote}</p>}
