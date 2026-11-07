@@ -365,7 +365,7 @@ async function normalizeItems(rawItems: unknown[], batchNonce: string, start: Da
       }
     }
     const visualCopyLineIsBilingual = (label: string) => {
-      const line = rawVisualPrompt.split(/\r?\n/).find((part) => part.trim().toUpperCase().startsWith(label));
+      const line = visualPrompt.split(/\r?\n/).find((part) => part.trim().toUpperCase().startsWith(label));
       const copy = line?.slice(line.indexOf(":") + 1).trim() ?? "";
       return /^[\u0600-\u06FF]/.test(copy) && hasEnglish(copy);
     };
