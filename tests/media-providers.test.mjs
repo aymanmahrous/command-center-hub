@@ -5,8 +5,6 @@ import test from "node:test";
 const providers = await readFile(new URL("../src/media-providers.ts", import.meta.url), "utf8");
 const geminiImage = await readFile(new URL("../supabase/functions/generate-gemini-image/index.ts", import.meta.url), "utf8");
 const veoVideo = await readFile(new URL("../supabase/functions/generate-veo-video/index.ts", import.meta.url), "utf8");
-const geminiImage = await readFile(new URL("../supabase/functions/generate-gemini-image/index.ts", import.meta.url), "utf8");
-const veoVideo = await readFile(new URL("../supabase/functions/generate-veo-video/index.ts", import.meta.url), "utf8");
 
 test("canva stays optional and never blocks fallback plans", () => {
   assert.match(providers, /optional: true/);
