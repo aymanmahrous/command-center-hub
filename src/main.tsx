@@ -1278,7 +1278,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
 
   const current = useMemo(() => sections.find(([id]) => id === active)!, [active]);
 
-  const currentSectionLabel = current[0] === "agents" ? nav.aiWorkforce : nav[current[0]];
+  const currentSectionLabel = current[0] === "agents" ? nav.agents : nav[current[0]];
 
   useEffect(() => {
     document.title = `${currentSectionLabel} · ${nav.dashboard}`;
@@ -1332,7 +1332,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   const toggleMore = () => setMoreOpen(!moreOpen);
   const morePanel = <div className="more-panel">
     {moreIds.map((id) => <button key={id} onClick={() => go(id)}>{nav[id]}</button>)}
-    {session.role === "super_admin" && <button key="agents" onClick={() => go("agents")}>{nav.aiWorkforce}</button>}
+    {session.role === "super_admin" && <button key="agents" onClick={() => go("agents")}>{nav.agents}</button>}
   </div>;
 
   const primary = [
