@@ -685,7 +685,7 @@ export function ContentBatchReviewPanel({
       {visibleItems.length === 0 ? <p className="content-review-empty">{language === "ar" ? "لا توجد عناصر في هذه الحالة." : "No items match this status."}</p> : <div className="content-batch-grid">
         {visibleItems.map((item) => {
           const canApprove = ["draft", "generated", "needs_review"].includes(item.status);
-          const canRequestChanges = ["draft", "generated", "approved", "scheduled", "failed"].includes(item.status);
+          const canRequestChanges = ["draft", "generated", "approved", "scheduled", "failed"].includes(item.status) && !(OWNER_PUBLISHING_FROZEN && item.status === "scheduled");
           const itemLocked = busy || !canWrite;
           const pillar = readContentPillar(item);
           const timeSlot = readTimeSlot(item);
@@ -958,7 +958,7 @@ export function ContentBatchReviewPanel({
                   >
                     🎨 {language === "ar" ? "بوستر رسمي PNG" : "Branded Poster PNG"}
                   </button>
-                {onEditItem && item.status !== "published" && (
+                {onEditItem && item.status !== "published" && !(OWNER_PUBLISHING_FROZEN && item.status === "scheduled") && (
                   <button
                     type="button"
                     className="secondary"
