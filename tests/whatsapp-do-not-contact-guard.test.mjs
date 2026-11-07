@@ -54,6 +54,6 @@ test("WhatsApp live sending requires a separate explicit owner authorization", a
 
 test("WhatsApp send preflight is callable only by the server-role Edge Function", () => {
   assert.match(migration, /SERVICE_ROLE_REQUIRED/);
-  assert.match(migration, /REVOKE ALL ON FUNCTION public\.assert_staff_whatsapp_send_allowed\(uuid, text\) FROM PUBLIC, anon, authenticated/);
+  assert.match(migration, /REVOKE EXECUTE ON FUNCTION public\.assert_staff_whatsapp_send_allowed\(uuid, text\) FROM PUBLIC, anon, authenticated/);
   assert.match(migration, /GRANT EXECUTE ON FUNCTION public\.assert_staff_whatsapp_send_allowed\(uuid, text\) TO service_role/);
 });
