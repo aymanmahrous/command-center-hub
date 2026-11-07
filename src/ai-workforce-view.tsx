@@ -8,7 +8,7 @@ type Entry = {
   id: string;
   name: string;
   category: Category;
-  status: "governance" | "in_app" | "embedded" | "unverified" | "historical" | "manual" | "human" | "frozen" | "draft_only";
+  status: "governance" | "in_app" | "embedded" | "unverified" | "historical" | "manual" | "human" | "owner_authorization_required" | "draft_only";
   responsibility: string;
   handoff: string;
   boundary: string;
@@ -98,9 +98,9 @@ const entries: Entry[] = [
     name: "Video Specialist",
     category: "provider-and-handoff",
     status: "historical",
-    responsibility: "مسار الفيديو الحالي يعتمد على Google Veo عند توفره؛ Runway يظل تسليمًا يدويًا.",
-    handoff: "الفيديو أو الـbrief ينتقل إلى مكتبة الوسائط والمراجعة.",
-    boundary: "يوجد سجل Veo ناجح سابقًا، لكن الأصل المرتبط كان محجوبًا عن المراجعة بسبب موافقة غير معروفة. Runway ليس API متصلًا.",
+    responsibility: "لا يوجد مسار توليد فيديو مثبت حاليًا؛ دليل Veo تاريخي فقط، وRunway حالة اتصال فقط دون مسار توليد أو تسليم مثبت.",
+    handoff: "لا يوجد تسليم فيديو آلي مثبت حاليًا؛ تُراجع الأصول الموجودة فقط عبر Media Library.",
+    boundary: "سجل Veo الناجح تاريخي فقط؛ الأصل المرتبط حُجب عن المراجعة لأن الموافقة غير معروفة. Runway غير متصل بواجهة API ولا يوجد مسار توليد أو تسليم مثبت.",
     destination: "media",
     icon: Video,
   },
@@ -119,7 +119,7 @@ const entries: Entry[] = [
     id: "publisher",
     name: "Publisher",
     category: "protected-service",
-    status: "frozen",
+    status: "owner_authorization_required",
     responsibility: "التوزيع عبر مسار النشر الحالي بعد وجود تفويض مالك صالح.",
     handoff: "لا يستقبل إلا محتوى اجتاز المراجعة والتفويض المطلوب.",
     boundary: "الإرسال الخارجي محمي ببوابة تفويض المالك. تجهيز الطابور والجدولة وإعادة المحاولة لها صلاحيات منفصلة على الخادم ولم تُعطّل بالكامل؛ لا تستخدم هذه الصفحة لتنفيذها.",
@@ -168,7 +168,7 @@ const copy = {
     historical: "دليل سابق فقط",
     manual: "تسليم يدوي",
     human: "قرار بشري",
-    frozen: "محمي / مجمّد",
+    owner_authorization_required: "يتطلب تفويض المالك",
     draft_only: "مسودة فقط — مراجعة بشرية",
     flowTitle: "مسار العمل المعتمد",
     flow: [
@@ -176,7 +176,7 @@ const copy = {
       ["2", "Coach Brain", "بحث واستراتيجية وموجز منظم"],
       ["3", "Content Factory", "إنتاج العناصر وربط الوسائط"],
       ["4", "Media Library + Review", "حفظ الأصل ثم المراجعة البشرية"],
-      ["5", "Publisher", "متوقف حتى تفويض المالك"],
+      ["5", "Publisher", "الإرسال الخارجي يتطلب تفويض المالك"],
     ],
     truthTitle: "ما لا ينبغي أن نَدّعيه الآن",
     truth: "لا يوجد حتى الآن سجل عام موحد لتشغيل وكلاء مستقلين أو إنشاء وكلاء جدد من الواجهة. سجلات تشغيل المحتوى الحالية تخص الأتمتة والمحتوى، ولا يصح تحويلها إلى سجل وكلاء وهمي. لذلك تعرض هذه الصفحة الموجود بدقة، ولا تعرض حالة تشغيل أو إنجازًا غير مثبت.",
@@ -199,7 +199,7 @@ const copy = {
     historical: "Historical evidence only",
     manual: "Manual handoff",
     human: "Human decision",
-    frozen: "Protected / frozen",
+    owner_authorization_required: "Owner authorization required",
     draft_only: "Draft only — human review",
     flowTitle: "Approved work path",
     flow: [
@@ -207,7 +207,7 @@ const copy = {
       ["2", "Coach Brain", "Research, strategy, and structured brief"],
       ["3", "Content Factory", "Creates items and links media"],
       ["4", "Media Library + Review", "Stores the asset for human review"],
-      ["5", "Publisher", "Paused until owner authorization"],
+      ["5", "Publisher", "External sending requires owner authorization"],
     ],
     truthTitle: "What is not proven yet",
     truth: "There is no general registry or execution ledger for independent agents, and no safe create-agent workflow in the app. Existing content automation runs are content-specific; they must not be presented as a generic agent ledger. This page reports existing capabilities without inventing live status or completed work.",
@@ -268,7 +268,7 @@ export default function AIWorkforceView({ language, onNavigate }: {
                 strategy: "Defines audience, messaging, content mix, and campaign goals inside Coach Brain.",
                 factory: "Turns the strategy into content items, spaces them over the chosen horizon, and prepares review.",
                 design: "Produces or prepares visual assets through Canva and the existing image path.",
-                video: "Uses the existing Google Veo path when available; Runway remains a manual handoff.",
+                video: "No verified video-generation path is currently available. Veo evidence is historical only; Runway is status-only with no verified generation or handoff path.",
                 review: "Reviews copy, designs, and media; the owner retains approval.",
                 publisher: "Distributes content only after review and valid owner authorization.",
               } as Record<string, string>)[entry.id]}</dd></div>
@@ -280,7 +280,7 @@ export default function AIWorkforceView({ language, onNavigate }: {
                 strategy: "Guides Coach Brain without creating a separate queue or ledger.",
                 factory: "Coach Brain brief → existing content batch → Review.",
                 design: "Links the asset to the content item for Media Library / Review.",
-                video: "Video asset or brief moves to Media Library and review.",
+                video: "No verified automated video handoff exists; existing assets can be reviewed through Media Library.",
                 review: "Nothing advances without a clear human decision.",
                 publisher: "Receives only reviewed content with required authorization.",
               } as Record<string, string>)[entry.id]}</dd></div>
@@ -292,7 +292,7 @@ export default function AIWorkforceView({ language, onNavigate }: {
                 strategy: "Embedded logic, not an independent agent.",
                 factory: "Existing production workflow, not a general-purpose agent runtime.",
                 design: "A connected Canva registry entry does not prove end-to-end design creation and export. No paid operation is triggered.",
-                video: "One prior Veo job succeeded, but its linked asset was blocked from review because consent was unknown. Runway is not API-connected.",
+                video: "The prior Veo job is historical evidence only; its linked asset was blocked from review because consent was unknown. Runway has no verified generation or handoff path.",
                 review: "Human gate, not an AI agent.",
                 publisher: "External publishing remains behind the owner-authorization gate. Queue preparation, scheduling, and retry are separate server operations and are not fully disabled; this directory does not expose them.",
               } as Record<string, string>)[entry.id]}</dd></div>
