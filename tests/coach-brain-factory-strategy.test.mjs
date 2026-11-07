@@ -61,7 +61,8 @@ test("every Factory daily item receives an Arabic-first bilingual design prompt,
 
 
 test("each populated plan day opens the review workspace where its daily design prompts are shown", () => {
-  assert.match(factory, /selectFactoryTab\(dayItems\.length > 0 \? "review" : "strategy"\)/);
+  assert.match(factory, /setSelectedPlanDate\(day\.toDateString\(\)\)/);
+  assert.match(factory, /selectFactoryTab\("review"\)/);
   assert.match(review, /content-daily-design-prompt/);
   assert.match(review, /item\.visualPrompt/);
 });
