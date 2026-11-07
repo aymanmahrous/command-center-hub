@@ -53,4 +53,7 @@ test("owner publishing freeze blocks direct send and scheduling while preserving
   assert.match(main, /approved without scheduling or publishing/);
   assert.doesNotMatch(main, /approve_staff_content_batch|approve_and_schedule_staff_content_item/);
   assert.match(main, /Scheduling is frozen by owner authorization/);
+  assert.match(main, /Scheduled content is view-only while publishing is frozen/);
+  assert.match(main, /OWNER_PUBLISHING_FROZEN && item.status === "scheduled"/);
+  assert.match(reviewPanel, /!(OWNER_PUBLISHING_FROZEN && item.status === "scheduled")/);
 });
