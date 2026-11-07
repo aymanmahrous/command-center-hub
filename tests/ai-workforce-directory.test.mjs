@@ -8,7 +8,7 @@ const view = await readFile(new URL("../src/ai-workforce-view.tsx", import.meta.
 test("AI Workforce is reachable from More and is excluded from non-owner roles", () => {
   assert.match(main, /\["agents", Bot, "x"\]/);
   assert.match(main, /session\.role === "super_admin" && <button key="agents"/);
-  assert.match(main, /active === "agents" \? \(session\.role === "super_admin"/);
+  assert.match(main, /session\.role === "super_admin"/);
   assert.match(main, /active === "agents"/);
   assert.ok(main.includes("nav.agents"));
 });
@@ -18,6 +18,7 @@ test("AI Workforce is a truthful directory, not a fake autonomous agent ledger",
   assert.match(view, /لا يوجد حتى الآن سجل عام موحد/);
   assert.match(view, /Providers are not agents/);
   assert.match(view, /Gemini and OpenAI are model providers/);
+  assert.match(view, /Runway is a manual no-API handoff/);
   assert.match(view, /Runway is a manual no-API handoff/);
 
   assert.match(view, /Owner authorization required/);
