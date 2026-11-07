@@ -312,7 +312,7 @@ export function ContentBatchReviewPanel({
       const requestedProvider = selectedDesignProvider(item);
       const isVideo = /reel|video/i.test(String(item.contentType));
       if (requestedProvider === "auto" && isVideo && videoCapabilityState !== "AVAILABLE") {
-        onOpenConnections?.();
+        await openExternalBrief("runway", item);
         return;
       }
       const provider = resolveDesignProvider(requestedProvider, isVideo, designCapabilityState === "AVAILABLE", videoCapabilityState === "AVAILABLE");
