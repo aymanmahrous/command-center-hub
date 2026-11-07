@@ -65,3 +65,13 @@ test("each populated plan day opens the review workspace where its daily design 
   assert.match(review, /content-daily-design-prompt/);
   assert.match(review, /item\.visualPrompt/);
 });
+
+
+test("selecting a populated calendar day filters the review workspace to that day's prompts", () => {
+  assert.match(factory, /setSelectedPlanDate\(day\.toDateString\(\)\)/);
+  assert.match(factory, /focusDate=\{selectedPlanDate\}/);
+  assert.match(review, /item\.scheduledFor && new Date\(item\.scheduledFor\)\.toDateString\(\) === focusDate/);
+  assert.match(review, /onClearFocusDate/);
+  assert.match(review, /Clear the day filter before approving the entire batch/);
+  assert.match(review, /content-daily-design-prompt/);
+});
