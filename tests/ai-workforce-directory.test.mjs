@@ -7,9 +7,9 @@ const view = await readFile(new URL("../src/ai-workforce-view.tsx", import.meta.
 
 test("AI Workforce is reachable from More and is excluded from non-owner roles", () => {
   assert.match(main, /\["agents", Bot, "x"\]/);
-  assert.match(main, /const isOwner = session\.role === "super_admin";/);
-  assert.match(main, /\{isOwner && <button key="agents"/);
-  assert.match(main, /active === "agents" \? \(isOwner/);
+  assert.match(main, /session\.role === "super_admin" && <button key="agents"/);
+  assert.match(main, /active === "agents" \? \(session\.role === "super_admin"/);
+  assert.match(main, /active === "agents"/);
   assert.ok(main.includes("nav.agents"));
 });
 
