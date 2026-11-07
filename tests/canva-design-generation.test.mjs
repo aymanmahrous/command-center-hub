@@ -6,6 +6,7 @@ const adapter = await readFile(new URL("../src/canva-design-adapter.ts", import.
 const edge = await readFile(new URL("../supabase/functions/canva-design/index.ts", import.meta.url), "utf8");
 const panel = await readFile(new URL("../src/content-batch-review-panel.tsx", import.meta.url), "utf8");
 const growthHub = await readFile(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
+const diagnostics = await readFile(new URL("../supabase/functions/canva-design/diagnostics.ts", import.meta.url), "utf8");
 
 test("canva design adapter stays server-side", () => {
   assert.match(adapter, /functions\/v1\/canva-design/);
@@ -100,8 +101,16 @@ test("Canva poster copy is concise, removes URL/contact clutter, and preserves t
   assert.match(edge, /selected\.length === 2/);
   assert.match(edge, /const cleanHeadline = compactPosterCopy\(headline, 90\)/);
   assert.match(edge, /const cleanBody = posterBodyCopy\(body\)/);
-  assert.match(edge, /const cleanCta = compactPosterCopy\(cta, 90\) \|\| "Free initial assessment · WhatsApp 058 821 9130"/);
+  assert.match(edge, /const baseCta = compactPosterCopy\(cta, 30\)/);
+  assert.ok(edge.includes("واتساب 058 821 9130 | الإدارة 055 137 8660"));
+  assert.ok(edge.includes("WhatsApp 058 821 9130 | Admin 055 137 8660"));
+  assert.ok(edge.includes('.join("\\n").slice(0, 90)'));
   assert.doesNotMatch(edge, /bodyWithContacts/);
   assert.doesNotMatch(edge, /ACADEMY_PHONE_LINE|ACADEMY_BRANCH_LINE/);
-  assert.match(adapter, /cta: typeof item\.cta === "string" \? item\.cta : ""/);
+  assert.match(adapter, /cta: typeof item\.cta === "string" \? item\.cta\.trim\(\) : ""/);
+});
+
+test("Canva asset filenames use academy identity and remain within provider limits", () => {
+  assert.match(diagnostics, /return `swimming-academy-\$\{compactId\}\.\$\{safeExtension\}`\.slice\(0, 50\)/);
+  assert.doesNotMatch(diagnostics, /coach-ayman|coach-\$\{/i);
 });
