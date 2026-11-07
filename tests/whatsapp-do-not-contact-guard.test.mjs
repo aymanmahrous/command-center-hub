@@ -39,3 +39,14 @@ test("AI Inbox explains opt-out and invalid phone blocks in Arabic and English",
   assert.ok(app.includes('Do not contact: ${doNotContact ? "ON — pauses AI, cancels queued follow-ups, and blocks manual WhatsApp replies"'));
   assert.ok(app.includes('عدم التواصل: ${doNotContact ? "مفعّل — سيوقف AI ويلغي المتابعات المعلقة ويمنع الرد اليدوي"'));
 });
+
+
+test("WhatsApp live sending requires a separate explicit owner authorization", async () => {
+  const freeze = await readFile(new URL("../src/publishing-freeze.ts", import.meta.url), "utf8");
+  assert.match(freeze, /OWNER_WHATSAPP_LIVE_FROZEN = true/);
+  assert.match(edge, /OWNER_WHATSAPP_LIVE_AUTHORIZED = Deno\.env\.get\("OWNER_WHATSAPP_LIVE_AUTHORIZED"\) === "true"/);
+  assert.match(edge, /OWNER_WHATSAPP_LIVE_FROZEN/);
+  assert.match(app, /OWNER_WHATSAPP_LIVE_FROZEN/);
+  assert.match(app, /Copy reply|نسخ الرد/);
+  assert.match(app, /disabled=\{OWNER_WHATSAPP_LIVE_FROZEN \|\| busyId !== null \|\| !replyBody\.trim\(\)\}/);
+});
