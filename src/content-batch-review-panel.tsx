@@ -9,12 +9,12 @@ import {
 } from "./content-batch";
 import type { ChangeRequestKind } from "./content-growth";
 import {
-  OWNER_PUBLISHING_FROZEN,
   buildExternalPostLink,
   latestReceiptForPlatform,
   parsePublicationReceipts,
   resolvePublishPipelineStage,
 } from "./content-publishing";
+import { OWNER_PUBLISHING_FROZEN } from "./publishing-freeze";
 import { readContentPillar, readTimeSlot } from "./content-strategy";
 import { readPublishingCopy } from "./content-publishing-copy";
 import { ContentBatchMediaPreview } from "./content-batch-media-preview";
