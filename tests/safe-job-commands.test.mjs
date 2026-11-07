@@ -5,6 +5,7 @@ import test from "node:test";
 const migration = await readFile(new URL("../supabase/migrations/20260920120000_safe_staff_job_commands.sql", import.meta.url), "utf8");
 const app = await readFile(new URL("../src/operations-queue-view.tsx", import.meta.url), "utf8");
 const css = await readFile(new URL("../src/integrations.css", import.meta.url), "utf8");
+const reviewPanel = await readFile(new URL("../src/content-batch-review-panel.tsx", import.meta.url), "utf8");
 
  test("safe job commands are audited and never delete rows", () => {
   assert.match(migration, /retry_staff_publish_job/);
@@ -38,4 +39,13 @@ test("overdue follow-up filter includes both queued and retrying overdue items a
   assert.match(app, /setOverdueOnly\(\(current\) => !current\)/);
   assert.match(app, /operations-columns is-filtered/);
   assert.match(css, /\.operations-columns\.is-filtered\s*\{\s*grid-template-columns: 1fr;/);
+});
+
+
+test("owner publishing freeze blocks direct send from Content Factory while preserving review", () => {
+  assert.match(reviewPanel, /const PUBLISHING_FROZEN = true/);
+  assert.match(reviewPanel, /if \(PUBLISHING_FROZEN\)/);
+  assert.match(reviewPanel, /Publishing is frozen by owner authorization/);
+  assert.match(reviewPanel, /النشر مجمّد بتفويض المالك/);
+  assert.match(reviewPanel, /Review and preparation remain available; sending is disabled/);
 });
