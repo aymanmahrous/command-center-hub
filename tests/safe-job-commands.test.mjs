@@ -7,7 +7,7 @@ const app = await readFile(new URL("../src/operations-queue-view.tsx", import.me
 const css = await readFile(new URL("../src/integrations.css", import.meta.url), "utf8");
 const reviewPanel = await readFile(new URL("../src/content-batch-review-panel.tsx", import.meta.url), "utf8");
 const main = await readFile(new URL("../src/main.tsx", import.meta.url), "utf8");
-const publishing = await readFile(new URL("../src/content-publishing.ts", import.meta.url), "utf8");
+const publishing = await readFile(new URL("../src/publishing-freeze.ts", import.meta.url), "utf8");
 
  test("safe job commands are audited and never delete rows", () => {
   assert.match(migration, /retry_staff_publish_job/);
