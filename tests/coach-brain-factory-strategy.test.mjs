@@ -10,15 +10,15 @@ const research = await readFile(new URL("../supabase/functions/coach-brain-resea
 const slotSpec = await readFile(new URL("../supabase/functions/generate-content-batch/coach-ayman-slot-spec.ts", import.meta.url), "utf8");
 const batchGenerator = await readFile(new URL("../supabase/functions/generate-content-batch/index.ts", import.meta.url), "utf8");
 
-test("Coach Brain and Factory accept only the supported 1–45 day planning window", () => {
+test("Coach Brain and Factory accept only the supported 1–30 day planning window", () => {
   assert.match(coachBrain, /Math\.min\(45/);
-  assert.match(coachBrain, /min=\{1\} max=\{45\}/);
+  assert.match(coachBrain, /min=\{1\} max=\{30\}/);
   assert.doesNotMatch(coachBrain, /value="60"/);
   assert.match(factory, /PLAN_WINDOW_OPTIONS = \[1, 2, 3, 4, 7, 14, 30, 45\]/);
   assert.match(factory, /Math\.min\(45/);
   assert.match(factory, /max=\{45\}/);
   assert.doesNotMatch(factory, /Math\.min\(365/);
-  assert.match(factory, /45 - planWindowDays/);
+  assert.match(factory, /30 - planWindowDays/);
 });
 
 test("Factory preserves the existing ten-item batch and spaces it across the selected window", () => {
@@ -27,7 +27,7 @@ test("Factory preserves the existing ten-item batch and spaces it across the sel
   assert.match(factory, /this does not mean one post every day/);
 });
 
-test("handoff normalization preserves canonical fields and clamps duration to 45 days", () => {
+test("handoff normalization preserves canonical fields and clamps duration to 30 days", () => {
   assert.match(handoff, /userIntent: string/);
   assert.match(handoff, /planStrategy: string/);
   assert.match(handoff, /researchContext:/);
@@ -57,4 +57,11 @@ test("every Factory daily item receives an Arabic-first bilingual design prompt,
   assert.match(batchGenerator, /const visualPrompt = ensureMediaBrief\(rawVisualPrompt, slot, primaryCta\)/);
   assert.match(batchGenerator, /const line = visualPrompt\.split/);
   assert.doesNotMatch(batchGenerator, /const line = rawVisualPrompt\.split/);
+});
+
+
+test("each populated plan day opens the review workspace where its daily design prompts are shown", () => {
+  assert.match(factory, /selectFactoryTab\(dayItems\.length > 0 \? "review" : "strategy"\)/);
+  assert.match(review, /content-daily-design-prompt/);
+  assert.match(review, /item\.visualPrompt/);
 });
