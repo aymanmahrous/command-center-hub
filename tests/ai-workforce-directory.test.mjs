@@ -27,7 +27,10 @@ test("AI Workforce is a truthful directory, not a fake autonomous agent ledger",
   assert.doesNotMatch(view, /frozen: t\.frozen/);
   assert.doesNotMatch(view, /Protected \/ frozen|محمي \/ مجمّد|Uses the existing Google Veo path when available/);
   assert.doesNotMatch(view, /Runway is status-only|Runway حالة اتصال فقط/);
-  assert.match(view, /manual no-API handoff prepared in PR #327/);
+  assert.match(view, /manual handoff prepared in PR #327/);
+  assert.match(view, /runway-media API function exists/);
+  assert.match(view, /not tracked in GitHub or wired to the Factory UI/);
+  assert.match(view, /not source-controlled, connected to this workflow, or safety\/cost verified/);
   assert.match(view, /مسار التسليم اليدوي موجود في PR #327 ولم يُدمج بعد/);
   assert.match(view, /destination: "content"/);
   assert.match(view, /External publishing remains behind the owner-authorization gate/);
