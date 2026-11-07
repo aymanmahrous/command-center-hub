@@ -11,7 +11,7 @@ test("Runway manual handoff retains the complete duration-specific prompt when c
   assert.match(source, /value=\{itemDesignPrompt\}/);
   assert.match(source, /FINAL OUTPUT REQUIREMENT: Create one vertical 9:16 video with an exact target duration of \$\{manualVideoDuration\} seconds/);
   assert.match(source, /onFocus=\{\(event\) => event\.currentTarget\.select\(\)\}/);
-  assert.match(source, /Automatic copy failed\. The complete prompt remains visible above/);
+  assert.match(source, /Automatic copy is unavailable\. Focus the prompt box, select all, and copy manually\./);
 });
 
 test("Runway manual handoff opens the existing account without requiring an API connection", () => {
