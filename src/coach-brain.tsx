@@ -171,7 +171,7 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
     const selected = planDays === "custom"
       ? (Number.isFinite(requested) && requested > 0 ? Math.floor(requested) : 30)
       : Number(planDays);
-    return Math.max(1, Math.min(45, selected || 30));
+    return Math.max(1, Math.min(30, selected || 30));
   }
 
   function sendResultToFactory() {
@@ -379,8 +379,8 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
           </div>
         </div>
         <div className="coach-brain__plan-grid">
-          <label><span>{language === "ar" ? "المدة" : "Window"}</span><select value={planDays} onChange={(event) => setPlanDays(event.target.value)} disabled={sampleBusy}><option value="1">1 {language === "ar" ? "يوم" : "day"}</option><option value="2">2 {language === "ar" ? "يوم" : "days"}</option><option value="3">3 {language === "ar" ? "أيام" : "days"}</option><option value="4">4 {language === "ar" ? "أيام" : "days"}</option><option value="7">7 {language === "ar" ? "أيام" : "days"}</option><option value="14">14 {language === "ar" ? "يومًا" : "days"}</option><option value="30">30 {language === "ar" ? "يومًا" : "days"}</option><option value="45">45 {language === "ar" ? "يومًا" : "days"}</option><option value="custom">{language === "ar" ? "مخصص" : "Custom"}</option></select></label>
-          {planDays === "custom" && <label><span>{language === "ar" ? "عدد الأيام" : "Days"}</span><input type="number" min={1} max={45} value={customDays} onChange={(event) => setCustomDays(event.target.value)} onBlur={() => setCustomDays(String(Math.max(1, Math.min(45, Number(customDays) || 1))))} disabled={sampleBusy} /></label>}
+          <label><span>{language === "ar" ? "المدة" : "Window"}</span><select value={planDays} onChange={(event) => setPlanDays(event.target.value)} disabled={sampleBusy}><option value="1">1 {language === "ar" ? "يوم" : "day"}</option><option value="2">2 {language === "ar" ? "يوم" : "days"}</option><option value="3">3 {language === "ar" ? "أيام" : "days"}</option><option value="4">4 {language === "ar" ? "أيام" : "days"}</option><option value="7">7 {language === "ar" ? "أيام" : "days"}</option><option value="14">14 {language === "ar" ? "يومًا" : "days"}</option><option value="30">30 {language === "ar" ? "يومًا" : "days"}</option><option value="custom">{language === "ar" ? "مخصص" : "Custom"}</option></select></label>
+          {planDays === "custom" && <label><span>{language === "ar" ? "عدد الأيام" : "Days"}</span><input type="number" min={1} max={30} value={customDays} onChange={(event) => setCustomDays(event.target.value)} onBlur={() => setCustomDays(String(Math.max(1, Math.min(30, Number(customDays) || 1))))} disabled={sampleBusy} /></label>}
           <label><span>{language === "ar" ? "نوع المحتوى" : "Content mix"}</span><select value={planMix} onChange={(event) => setPlanMix(event.target.value)} disabled={sampleBusy}><option value="varied">{language === "ar" ? "⭐ متنوع وأفضل توازن" : "⭐ Varied / best balance"}</option><option value="education">{language === "ar" ? "تعليمي" : "Education"}</option><option value="parents">{language === "ar" ? "للأهل" : "Parent tips"}</option><option value="conversion">{language === "ar" ? "تحويل وحجوزات" : "Conversion"}</option></select></label>
           <label><span>{language === "ar" ? "التنفيذ" : "Execution"}</span><select value={planExecution} onChange={(event) => setPlanExecution(event.target.value as typeof planExecution)} disabled={sampleBusy}><option value="best">⭐ {language === "ar" ? "تلقائي — Gemini إن كان مضبوطًا، وإلا OpenAI إن كان مضبوطًا" : "Automatic — Gemini if configured; else OpenAI if configured"}</option><option value="value">Gemini</option></select></label>
         </div>
