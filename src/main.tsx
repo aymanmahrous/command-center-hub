@@ -1278,7 +1278,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
 
   const current = useMemo(() => sections.find(([id]) => id === active)!, [active]);
 
-  const currentSectionLabel = nav[current[0]];
+  const currentSectionLabel = current[0] === "agents" ? nav.aiWorkforce : nav[current[0]];
 
   useEffect(() => {
     document.title = `${currentSectionLabel} · ${nav.dashboard}`;
