@@ -25,9 +25,12 @@ test("AI Workforce is a truthful directory, not a fake autonomous agent ledger",
   assert.match(view, /process_ai_sales_concierge_turn/);
   assert.match(view, /Draft only — human review/);
   assert.match(view, /categoryLabels/);
-  const publisher = view.match(/id: "publisher",([\\s\\S]*?)\\n  },/);
-  assert.ok(publisher);
-  assert.doesNotMatch(publisher[1], /destination:/);
+  const publisherStart = view.indexOf('id: "publisher",');
+  assert.ok(publisherStart >= 0);
+  const publisherEnd = view.indexOf("\\n  },", publisherStart);
+  assert.ok(publisherEnd > publisherStart);
+  const publisher = view.slice(publisherStart, publisherEnd);
+  assert.doesNotMatch(publisher, /destination:/);
 });
 
 test("existing workflows are linked rather than duplicated", () => {
