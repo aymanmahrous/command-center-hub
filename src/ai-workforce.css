@@ -12,7 +12,7 @@
 .ai-workforce-card-top{display:flex;align-items:center;justify-content:space-between;gap:.6rem}
 .ai-workforce-icon{display:grid;place-items:center;width:2.25rem;height:2.25rem;border-radius:9px;background:var(--surface,#f3f5f8);color:var(--accent,#344054)}
 .ai-workforce-status{display:inline-flex;align-items:center;border-radius:99px;padding:.25rem .55rem;font-size:.72rem;line-height:1.4;background:#eef1f5;color:#475467}
-.ai-workforce-status.status-unverified,.ai-workforce-status.status-historical,.ai-workforce-status.status-frozen{background:#fff4e5;color:#8a4b08}
+.ai-workforce-status.status-unverified,.ai-workforce-status.status-historical,.ai-workforce-status.status-owner_authorization_required{background:#fff4e5;color:#8a4b08}
 .ai-workforce-status.status-human{background:#eaf4ee;color:#21633b}
 .ai-workforce-card h4{margin:.1rem 0 0;font-size:1rem}
 .ai-workforce-category{margin:0;color:var(--muted,#667085);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
