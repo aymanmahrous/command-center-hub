@@ -252,7 +252,7 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
       setNotice(language === "ar" ? "أدخل مفتاح Gemini أو OpenAI واحدًا على الأقل." : "Enter at least one Gemini or OpenAI API key.");
       return;
     }
-    if ([gemini, openai].some((key) => key.length > 512 || /[\\r\\n\\0]/.test(key))) {
+    if ([gemini, openai].some((key) => key.length > 0 && (key.length < 12 || key.length > 512 || /[\\r\\n\\0]/.test(key)))) {
       setNotice(language === "ar" ? "صيغة المفتاح غير صالحة أو أطول من الحد المسموح." : "A key is invalid or exceeds the allowed length.");
       return;
     }
