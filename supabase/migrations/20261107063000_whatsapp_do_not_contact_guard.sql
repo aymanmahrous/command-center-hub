@@ -39,7 +39,7 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'code', 'HUMAN_MODE_REQUIRED');
   END IF;
 
-  -- Lock the lead row while checking the current contact preference.
+  -- Read the current contact preference before authorizing an external reply.
   SELECT * INTO v_lead
   FROM public.leads
   WHERE id = v_conversation.lead_id
@@ -144,7 +144,7 @@ begin
     return jsonb_build_object('success', false, 'code', 'NOT_FOUND');
   end if;
 
-  SELECT * INTO v_lead FROM public.leads WHERE id = v_conversation.lead_id FOR UPDATE;
+  SELECT * INTO v_lead FROM public.leads WHERE id = v_conversation.lead_id;
   IF NOT FOUND THEN
     RETURN jsonb_build_object('success', false, 'code', 'LEAD_NOT_FOUND');
   END IF;
@@ -218,7 +218,7 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'code', 'NOT_FOUND');
   END IF;
 
-  SELECT * INTO v_lead FROM public.leads WHERE id = v_conversation.lead_id FOR UPDATE;
+  SELECT * INTO v_lead FROM public.leads WHERE id = v_conversation.lead_id;
   IF NOT FOUND THEN
     RETURN jsonb_build_object('success', false, 'code', 'LEAD_NOT_FOUND');
   END IF;
