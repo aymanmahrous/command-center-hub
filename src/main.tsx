@@ -125,7 +125,7 @@ const ConversationSchema = z.object({
   channel: z.enum(["instagram", "facebook", "whatsapp", "website"]),
   mode: z.enum(["ai_active", "human_required", "human_takeover", "paused"]),
   unread: z.number().int().nonnegative(), lastMessage: z.string(), updatedAt: z.string(),
-  leadScore: z.number().int(), intent: z.string(), humanRequired: z.boolean(),
+  leadScore: z.number().int(), intent: z.string(), humanRequired: z.boolean(), doNotContact: z.boolean().optional(),
   needsAttention: z.boolean().optional(), handoffReason: z.string().nullable().optional(),
 }).passthrough();
 const MessageSchema = z.object({
@@ -454,6 +454,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
 
   async function changeMode(conversation: z.infer<typeof ConversationSchema>, next: ConversationMode) {
     if (!canWriteMode || busyId || conversation.mode === next) return;
+    if (conversation.doNotContact && next === "ai_active") { setNotice(language === "ar" ? "هذا العميل طلب عدم التواصل؛ لا يمكن إعادة تفعيل AI لهذه المحادثة." : "This customer opted out; AI cannot be reactivated for this conversation."); return; }
     const confirmMessage = language === "ar"
       ? `تأكيد تغيير وضع محادثة ${conversation.leadName} من «${modeLabels[conversation.mode]}» إلى «${modeLabels[next]}»؟ سيتم تسجيل العملية في Audit Log.`
       : `Change ${conversation.leadName}'s mode from "${modeLabels[conversation.mode]}" to "${modeLabels[next]}"? Recorded in the Audit Log.`;
@@ -492,6 +493,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
 
   async function handleReturnToAi(conversation: InboxConversation) {
     if (!canSendReply || busyId) return;
+    if (conversation.doNotContact) { setNotice(language === "ar" ? "هذا العميل طلب عدم التواصل؛ تظل المحادثة خارج ردود AI." : "This customer opted out; the conversation stays out of AI replies."); return; }
     const confirmMessage = language === "ar"
       ? `تأكيد إعادة محادثة ${conversation.leadName} إلى AI؟`
       : `Return ${conversation.leadName}'s conversation to AI?`;
@@ -564,7 +566,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
       <div className="conversation-list" aria-label={copy.listAriaLabel}>
         {visibleConversations.length === 0 && <p className="inbox-filter-empty">{language === "ar" ? "لا توجد محادثات في هذا التصنيف." : "No conversations in this filter."}</p>}
         {visibleConversations.map((conversation) => <button type="button" key={conversation.id} className={selectedId === conversation.id ? "selected" : ""} onClick={() => { setSelectedId(conversation.id); setMobileListOpen(false); setNotice(""); setReplyBody(""); }}>
-          <span><strong>{conversation.leadName}</strong><span className="conversation-badges">{conversation.unread > 0 && <b className="unread-count">{conversation.unread}</b>}{(conversation.needsAttention || conversation.humanRequired || conversation.mode === "human_required" || conversation.mode === "human_takeover") && <b className="attention-badge" title={copy.needsAttention}>{copy.attentionBadge}</b>}</span></span>
+          <span><strong>{conversation.leadName}</strong><span className="conversation-badges">{conversation.unread > 0 && <b className="unread-count">{conversation.unread}</b>}{(conversation.needsAttention || conversation.humanRequired || conversation.mode === "human_required" || conversation.mode === "human_takeover") && <b className="attention-badge" title={copy.needsAttention}>{copy.attentionBadge}</b>}{conversation.doNotContact && <b className="do-not-contact-badge">{language === "ar" ? "عدم التواصل" : "Do not contact"}</b>}</span></span>
           <small>{conversation.lastMessage || copy.noMessages}</small>
           <em>{conversation.channel} · {modeLabels[conversation.mode]}</em>
         </button>)}
@@ -572,11 +574,12 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
       <section className="conversation-panel">
         <header>
           <div><button type="button" className="inbox-mobile-back" onClick={() => setMobileListOpen(true)}>{language === "ar" ? "← كل المحادثات" : "← All conversations"}</button><h3>{selected?.leadName ?? copy.selectConversation}</h3>{selected && <p>Score {selected.leadScore}/100 · {selected.intent}{selected.handoffReason ? ` · ${selected.handoffReason}` : ""}</p>}</div>
-          {selected && <label>{copy.modeLabel}<select value={selected.mode} disabled={!canWriteMode || busyId !== null} onChange={(event) => void changeMode(selected, event.target.value as ConversationMode)}>{(Object.keys(modeLabels) as ConversationMode[]).map((mode) => <option key={mode} value={mode}>{modeLabels[mode]}</option>)}</select></label>}
+          {selected && <label>{copy.modeLabel}<select value={selected.mode} disabled={!canWriteMode || busyId !== null} onChange={(event) => void changeMode(selected, event.target.value as ConversationMode)}>{(Object.keys(modeLabels) as ConversationMode[]).map((mode) => <option key={mode} value={mode} disabled={Boolean(selected.doNotContact && mode === "ai_active")}>{modeLabels[mode]}</option>)}</select></label>}
         </header>
+        {selected?.doNotContact && <div className="notice-box" role="alert">{language === "ar" ? "هذا العميل طلب عدم التواصل. تم تعطيل الردود اليدوية وإعادة تفعيل AI لهذه المحادثة." : "This customer opted out of contact. Manual replies and AI reactivation are disabled for this conversation."}</div>}
         {selected && canSendReply && <div className="inbox-action-bar">
           <button type="button" className="primary-action" disabled={busyId !== null || selected.mode === "human_takeover"} onClick={() => void handleTakeOver(selected)}>{copy.takeOverButton}</button>
-          <button type="button" className="secondary" disabled={busyId !== null || selected.mode === "ai_active"} onClick={() => void handleReturnToAi(selected)}>{copy.returnToAiButton}</button>
+          <button type="button" className="secondary" disabled={busyId !== null || selected.mode === "ai_active" || selected.doNotContact === true} onClick={() => void handleReturnToAi(selected)}>{copy.returnToAiButton}</button>
         </div>}
         {(selected?.humanRequired || selected?.needsAttention) && <div className="human-alert">{selected.handoffReason ? `${copy.humanRequiredAlert} (${selected.handoffReason})` : copy.humanRequiredAlert}</div>}
         <div className="message-stream">
@@ -587,7 +590,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
             <p>{message.body}</p><small>{message.authorType}{message.safetyClassification ? ` · ${message.safetyClassification}` : ""} · {new Date(message.createdAt).toLocaleString(language === "ar" ? "ar-AE" : "en-AE")}</small>
           </article>)}
         </div>
-        {selected && canSendReply && selected.channel === "whatsapp" && selected.mode === "human_takeover" && <form className="inbox-compose" onSubmit={(event) => { event.preventDefault(); void handleSendReply(selected); }}>
+        {selected && canSendReply && !selected.doNotContact && selected.channel === "whatsapp" && selected.mode === "human_takeover" && <form className="inbox-compose" onSubmit={(event) => { event.preventDefault(); void handleSendReply(selected); }}>
           <label htmlFor="inbox-reply">{copy.replyLabel}<textarea id="inbox-reply" rows={3} value={replyBody} disabled={busyId !== null} onChange={(event) => setReplyBody(event.target.value)} placeholder={copy.replyPlaceholder} /></label>
           <button type="submit" disabled={busyId !== null || !replyBody.trim()}>{busyId === selected.id ? copy.sendingReply : copy.sendButton}</button>
         </form>}
