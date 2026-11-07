@@ -19,3 +19,8 @@ test("Runway manual handoff opens the existing account without requiring an API 
   assert.match(source, /Runway — فتح يدوي/);
   assert.match(source, /Opens your account and copies the prompt; no API connection required/);
 });
+
+
+test("Auto video uses the manual Runway fallback when no verified API capability is available", () => {
+  assert.match(source, /requestedProvider === "auto" && isVideo && videoCapabilityState !== "AVAILABLE"[\s\S]*?await openExternalBrief\("runway", item\)/);
+});
