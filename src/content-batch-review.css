@@ -301,3 +301,54 @@
   background: rgba(2, 132, 199, 0.2);
   border-color: #38bdf8;
 }
+
+
+/* Each scheduled content item exposes its own design prompt and manual handoff. */
+.content-daily-design-prompt {
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid #1e3a5f;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.68);
+}
+.content-daily-design-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.content-daily-design-heading strong { color: #7dd3fc; font-size: .86rem; }
+.content-daily-design-heading small { color: #94a3b8; font-size: .76rem; }
+.content-daily-design-prompt textarea {
+  width: 100%;
+  min-height: 112px;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  background: #0b1220;
+  color: #e2e8f0;
+  font: inherit;
+  font-size: .82rem;
+  line-height: 1.55;
+  resize: vertical;
+}
+.content-daily-design-missing { margin: 0; color: #fbbf24; font-size: .82rem; }
+.content-manual-tool-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.content-manual-tool-actions label { display: inline-flex; align-items: center; gap: 8px; color: #cbd5e1; font-size: .8rem; }
+.content-manual-tool-actions select { min-width: 100px; padding: 7px 9px; border: 1px solid #334155; border-radius: 8px; background: #0f172a; color: #f8fafc; }
+.content-daily-design-prompt .content-manual-runway-fallback { display: grid; gap: 8px; }
+.content-daily-design-prompt .content-manual-runway-fallback label { display: grid; gap: 6px; color: #cbd5e1; font-size: .8rem; }
+.content-daily-design-prompt .content-manual-runway-fallback textarea { min-height: 120px; }
+@media (max-width: 720px) {
+  .content-manual-tool-actions { display: grid; grid-template-columns: 1fr; }
+  .content-manual-tool-actions button { width: 100%; }
+  .content-manual-tool-actions label { justify-content: space-between; }
+}
