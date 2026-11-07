@@ -1,3 +1,5 @@
+export const OWNER_PUBLISHING_FROZEN = true; // One source of truth for the current owner freeze.
+
 import type { ContentBatchItem } from "./content-batch";
 
 export const RELAXFIX_WHATSAPP_E164 = "971588219130";
