@@ -30,7 +30,6 @@ const C360 = lazy(() => import("./customer-360-panel"));
 const OperationsQueueView = lazy(() => import("./operations-queue-view"));
 const IntegrationsCenter = lazy(() => import("./integrations-center"));
 const AutomationsView = lazy(() => import("./automations-view"));
-const MarketingCompanyView = lazy(() => import("./marketing-company-view"));
 const AIWorkforceView = lazy(() => import("./ai-workforce-view"));
 
 const sections = [
