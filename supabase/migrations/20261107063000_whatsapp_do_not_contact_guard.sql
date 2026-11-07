@@ -249,5 +249,5 @@ $function$
 
 
 -- This preflight RPC is an internal Edge Function boundary, never a browser API.
-REVOKE ALL ON FUNCTION public.assert_staff_whatsapp_send_allowed(uuid, text) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.assert_staff_whatsapp_send_allowed(uuid, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.assert_staff_whatsapp_send_allowed(uuid, text) TO service_role;
