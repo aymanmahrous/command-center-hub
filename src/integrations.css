@@ -56,3 +56,5 @@
 }
 
 .automation-action-panel button,.operations-boundary button{justify-self:start;padding:9px 13px;cursor:pointer}
+
+.operations-columns.is-filtered { grid-template-columns: 1fr; }

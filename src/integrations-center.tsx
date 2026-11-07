@@ -1,16 +1,25 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { useLanguage } from "./i18n";
 import type { Language } from "./i18n";
 import { CANVA_OPEN_URL, canvaConnectErrorMessage, startCanvaConnect } from "./canva-adapter";
 import { googleCalendarConnectErrorMessage, startGoogleCalendarConnect } from "./google-calendar-adapter";
 import { metaOAuthErrorMessage } from "./meta-oauth-error-message";
+import { readAiProviderPreference, writeAiProviderPreference, type AiProviderPreference } from "./ai-provider-preference";
 import "./integrations-center.css";
 
 type Role = "super_admin" | "admin" | "reception" | "coach" | "content_manager";
 type Session = { accessToken: string; displayName: string; role: Role };
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 type CapabilityState = "AVAILABLE" | "LIMITED" | "BLOCKED" | "NOT_CONFIGURED";
+type AiProviderName = "gemini" | "openai";
+type AiProviderStatus = {
+  providers?: Partial<Record<AiProviderName, boolean>>;
+  providerChecks?: Partial<Record<AiProviderName, { configured?: boolean; externalCheck?: string; providerStatus?: number }>>;
+  detail?: string;
+  code?: string;
+  externalCheck?: string;
+};
 const URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
 const KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
 const Item = z.object({ id: z.string().uuid(), provider: z.string(), connectionMethod: z.enum(["oauth", "api_key", "manual"]), status: z.enum(["not_connected", "pending", "connected", "needs_test", "error", "disabled"]), displayName: z.string(), accountLabel: z.string().nullable().optional(), secretHint: z.string().nullable().optional(), lastTestedAt: z.string().nullable().optional(), lastErrorCode: z.string().nullable().optional(), updatedAt: z.string() }).passthrough();
@@ -47,6 +56,16 @@ function externallyVerified(item: z.infer<typeof Item>): boolean {
   return Boolean(metadata && typeof metadata === "object" && !Array.isArray(metadata)
     && (metadata as Record<string, unknown>).verifiedExternally === true);
 }
+function formatLastTestedAt(value: string | null | undefined, language: Language): string {
+  if (!value) return language === "ar" ? "لم يُختبر بعد" : "Not tested yet";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return language === "ar" ? "وقت الاختبار غير صالح" : "Invalid test time";
+  return new Intl.DateTimeFormat(language === "ar" ? "ar-AE" : "en-AE", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Asia/Dubai",
+  }).format(date);
+}
 function capabilityState(status: z.infer<typeof Item>["status"]): CapabilityState {
   if (status === "not_connected") return "NOT_CONFIGURED";
   if (status === "error" || status === "disabled") return "BLOCKED";
@@ -57,14 +76,34 @@ function capabilityState(status: z.infer<typeof Item>["status"]): CapabilityStat
 }
 function capabilityDetail(language: Language, state: CapabilityState, provider: string): string {
   const name = capabilityNames[provider]?.[language] ?? (language === "ar" ? "القدرة المطلوبة" : "Requested capability");
+  if ((provider === "facebook" || provider === "instagram") && state === "LIMITED") {
+    return language === "ar"
+      ? `${name}: تم التحقق من قراءة بيانات الحساب فقط؛ صلاحيات النشر ومسار النشر الفعلي لم تُختبر.`
+      : `${name}: account identity/read access was checked only; publishing permissions and the actual publish path were not tested.`;
+  }
+  if (provider === "canva" && state === "LIMITED") {
+    return language === "ar"
+      ? `${name}: اختبار قراءة الحساب ناجح؛ إنشاء التصميم والقالب الفعليان لم يُتحققا بعد.`
+      : `${name}: account read test passed; actual design generation and template output are not yet verified.`;
+  }
+  if (provider === "runway" && state === "NOT_CONFIGURED") {
+    return language === "ar"
+      ? "مفتاح Runway API غير مهيأ للتوليد الآلي؛ التسليم اليدوي ونسخ البرومبت وفتح Runway متاح من Content Factory."
+      : "Runway API generation is not configured; manual prompt copy and Open Runway handoff remain available in Content Factory.";
+  }
+  if (provider === "runway" && state === "LIMITED") {
+    return language === "ar"
+      ? "توليد Runway عبر API غير متحقق؛ التسليم اليدوي متاح من Content Factory."
+      : "Runway API generation is unverified; manual handoff remains available in Content Factory.";
+  }
   if (state === "NOT_CONFIGURED") return language === "ar" ? `${name}: لا يوجد إعداد صالح.` : `${name}: no usable configuration.`;
   if (state === "BLOCKED") return language === "ar" ? `${name}: متوقف حتى معالجة الخطأ أو إعادة التفعيل.` : `${name}: blocked until the error is resolved or re-enabled.`;
   if (state === "AVAILABLE") return language === "ar" ? `${name}: اجتاز فحصًا خارجيًا فعليًا.` : `${name}: a live external check passed.`;
   return language === "ar" ? `${name}: الإعداد موجود، لكن التشغيل الخارجي لم يُتحقق منه.` : `${name}: configuration exists, but external operation is not verified.`;
 }
 function rpcHeaders(session: Session) { return { apikey: KEY, Authorization: `Bearer ${session.accessToken}`, "Content-Type": "application/json", Accept: "application/json" }; }
-async function rpc(session: Session, name: string, body: Record<string, unknown> = {}) { const response = await fetch(`${URL}/rest/v1/rpc/${name}`, { method: "POST", headers: rpcHeaders(session), body: JSON.stringify(body), cache: "no-store" }); if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED"); if (!response.ok) throw new Error(`RPC_FAILED_${response.status}`); return Payload.parse(await response.json()); }
-function message(language: Language, code?: string) { const map: Record<string, Record<Language, string>> = { SECRET_TOO_SHORT: { ar: "القيمة قصيرة جدًا. استخدم قيمة صالحة.", en: "The value is too short. Enter a valid credential." }, CREDENTIAL_REQUIRED: { ar: "أدخل قيمة الربط أولًا.", en: "Enter the connection value first." }, STAFF_ACCESS_DENIED: { ar: "ليس لديك صلاحية إدارة التكاملات.", en: "You do not have integration-management access." }, CONNECTION_CONFIGURED: { ar: "تم اختبار الإعداد بنجاح. لم يتم استدعاء مزود خارجي بعد.", en: "Configuration passed the local safety test. No external provider was called." } }; return (code && map[code]?.[language]) || (language === "ar" ? `لم يكتمل الإجراء: ${code ?? "خطأ غير معروف"}` : `Action not completed: ${code ?? "Unknown error"}`); }
+async function rpc(session: Session, name: string, body: Record<string, unknown> = {}) { const response = await fetch(`${URL}/rest/v1/rpc/${name}`, { method: "POST", headers: rpcHeaders(session), body: JSON.stringify(body), cache: "no-store" }); if (response.status === 401) throw new Error("SESSION_EXPIRED"); if (response.status === 403) throw new Error("STAFF_ACCESS_DENIED"); if (!response.ok) throw new Error(`RPC_FAILED_${response.status}`); return Payload.parse(await response.json()); }
+function message(language: Language, code?: string) { const map: Record<string, Record<Language, string>> = { SECRET_TOO_SHORT: { ar: "القيمة قصيرة جدًا. استخدم قيمة صالحة.", en: "The value is too short. Enter a valid credential." }, INTEGRATION_SAVED: { ar: "تم حفظ مفاتيح المزودين في مخزن الأسرار المحمي. لم يبدأ أي توليد.", en: "Provider keys were saved in the protected secret store. No generation was started." }, INTEGRATION_DISCONNECTED: { ar: "تم حذف مفاتيح التكامل وتعطيله.", en: "The integration credentials were removed and the integration was disabled." }, CREDENTIAL_REQUIRED: { ar: "أدخل قيمة الربط أولًا.", en: "Enter the connection value first." }, STAFF_ACCESS_DENIED: { ar: "ليس لديك صلاحية إدارة التكاملات.", en: "You do not have integration-management access." }, CONNECTION_CONFIGURED: { ar: "تم اختبار الإعداد بنجاح. لم يتم استدعاء مزود خارجي بعد.", en: "Configuration passed the local safety test. No external provider was called." } }; return (code && map[code]?.[language]) || (language === "ar" ? `لم يكتمل الإجراء: ${code ?? "خطأ غير معروف"}` : `Action not completed: ${code ?? "Unknown error"}`); }
 
 export default function IntegrationsCenter({ value, session, onChanged, onSessionExpired }: { value: JsonValue; session: Session; onChanged: () => void; onSessionExpired: () => void }) {
   const { language } = useLanguage();
@@ -72,11 +111,53 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
   const [selected, setSelected] = useState<string | null>(null);
   const [secret, setSecret] = useState("");
   const [account, setAccount] = useState("");
+  const [geminiKey, setGeminiKey] = useState("");
+  const [openaiKey, setOpenaiKey] = useState("");
+  const [aiStatusRefresh, setAiStatusRefresh] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
-  const items = parsed.success ? (parsed.data.items ?? []) : [];
+  const [aiStatus, setAiStatus] = useState<AiProviderStatus | null>(null);
+  const [aiStatusBusy, setAiStatusBusy] = useState(true);
+  const [aiStatusError, setAiStatusError] = useState("");
+  const [aiProviderPreference, setAiProviderPreference] = useState<AiProviderPreference>(() => readAiProviderPreference());
+  const items = parsed.success
+    ? (parsed.data.items ?? []).filter((item) => !["ai_provider", "meta_whatsapp", "telegram"].includes(item.provider))
+    : [];
   const canWrite = ["super_admin", "admin", "content_manager"].includes(session.role);
-  async function action(name: string, body: Record<string, unknown>) { setBusy(name); setNotice(""); try { const result = await rpc(session, name, body); if (!result.success) throw new Error(result.code ?? "ACTION_REJECTED"); setNotice(message(language, result.code)); setSelected(null); setSecret(""); setAccount(""); onChanged(); } catch (cause) { if (cause instanceof Error && cause.message === "SESSION_EXPIRED") { onSessionExpired(); return; } setNotice(message(language, cause instanceof Error ? cause.message : "ACTION_FAILED")); } finally { setBusy(null); } }
+
+  useEffect(() => {
+    const controller = new AbortController();
+    if (!canWrite) {
+      setAiStatusBusy(false);
+      setAiStatusError("STAFF_ACCESS_DENIED");
+      return () => controller.abort();
+    }
+    setAiStatusBusy(true);
+    void fetch(`${URL}/functions/v1/generate-content-batch`, {
+      method: "POST",
+      headers: rpcHeaders(session),
+      body: JSON.stringify({ mode: "status" }),
+      cache: "no-store",
+      signal: controller.signal,
+    }).then(async (response) => {
+      if (response.status === 401) throw new Error("SESSION_EXPIRED");
+      const payload = await response.json().catch(() => ({})) as AiProviderStatus & { success?: boolean };
+      if (!response.ok || payload.success !== true) throw new Error(payload.code ?? (response.status === 403 ? "STAFF_ACCESS_DENIED" : "AI_STATUS_UNAVAILABLE"));
+      setAiStatus(payload);
+      setAiStatusError("");
+    }).catch((cause) => {
+      if (controller.signal.aborted) return;
+      if (cause instanceof Error && cause.message === "SESSION_EXPIRED") {
+        onSessionExpired();
+        return;
+      }
+      setAiStatusError(cause instanceof Error ? cause.message : "AI_STATUS_UNAVAILABLE");
+    }).finally(() => {
+      if (!controller.signal.aborted) setAiStatusBusy(false);
+    });
+    return () => controller.abort();
+  }, [session.accessToken, session.role, canWrite, onSessionExpired, aiStatusRefresh]);
+  async function action(name: string, body: Record<string, unknown>) { setBusy(name); setNotice(""); try { const result = await rpc(session, name, body); if (!result.success) throw new Error(result.code ?? "ACTION_REJECTED"); setNotice(message(language, result.code)); setSelected(null); setSecret(""); setAccount(""); if (body.p_provider === "ai_provider") { setGeminiKey(""); setOpenaiKey(""); setAiStatusRefresh((value) => value + 1); } onChanged(); } catch (cause) { if (cause instanceof Error && cause.message === "SESSION_EXPIRED") { onSessionExpired(); return; } setNotice(message(language, cause instanceof Error ? cause.message : "ACTION_FAILED")); } finally { setBusy(null); } }
   async function connectOAuth(provider: string) {
     setBusy(provider); setNotice("");
     try {
@@ -95,9 +176,9 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
             cache: "no-store",
           });
           const result = await response.json().catch(() => ({}));
-          if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
+          if (response.status === 401) throw new Error("SESSION_EXPIRED");
           if (!response.ok || !result.success) throw new Error(String(result.code ?? "META_EXTERNAL_TEST_FAILED"));
-          setNotice(language === "ar" ? `تم التحقق من Facebook خارجيًا: ${result.accountLabel ?? "الصفحة"}.` : `Facebook verified externally: ${result.accountLabel ?? "page"}.`);
+          setNotice(language === "ar" ? `تم التحقق من الوصول إلى صفحة Facebook: ${result.accountLabel ?? "الصفحة"}؛ صلاحيات النشر لم تُختبر.` : `Facebook page access verified: ${result.accountLabel ?? "page"}; publishing permissions were not tested.`);
           onChanged();
           return;
         }
@@ -108,7 +189,7 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
           cache: "no-store",
         });
         const result = await response.json().catch(() => ({}));
-        if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
+        if (response.status === 401) throw new Error("SESSION_EXPIRED");
         if (!response.ok || !result.success || !result.authorizationUrl) throw new Error(String(result.code ?? "FACEBOOK_AUTHORIZE_FAILED"));
         window.location.assign(String(result.authorizationUrl));
         return;
@@ -123,7 +204,7 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
             cache: "no-store",
           });
           const result = await response.json().catch(() => ({}));
-          if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
+          if (response.status === 401) throw new Error("SESSION_EXPIRED");
           if (!response.ok || !result.success || !result.authorizationUrl) throw new Error(String(result.code ?? "FACEBOOK_AUTHORIZE_FAILED"));
           window.location.assign(String(result.authorizationUrl));
           return;
@@ -135,9 +216,9 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
           cache: "no-store",
         });
         const result = await response.json().catch(() => ({}));
-        if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
+        if (response.status === 401) throw new Error("SESSION_EXPIRED");
         if (!response.ok || !result.success) throw new Error(String(result.code ?? "META_EXTERNAL_TEST_FAILED"));
-        setNotice(language === "ar" ? `تم التحقق من ${result.accountLabel ?? "Meta"} خارجيًا وربطه بحالة المركز.` : `Meta connection verified externally: ${result.accountLabel ?? "connected"}.`);
+        setNotice(language === "ar" ? `تم التحقق من الوصول إلى حساب ${result.accountLabel ?? "Instagram"}؛ صلاحيات النشر لم تُختبر.` : `Instagram account access verified: ${result.accountLabel ?? "account"}; publishing permissions were not tested.`);
         onChanged();
         return;
       }
@@ -162,12 +243,89 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
       }
     } finally { setBusy(null); }
   }
-  function open(provider: string) { setSelected(provider); setSecret(""); setAccount(""); setNotice(""); }
+  function open(provider: string) { setSelected(provider); setSecret(""); setAccount(""); setGeminiKey(""); setOpenaiKey(""); setNotice(""); }
+  function closeDialog() { setSelected(null); setSecret(""); setAccount(""); setGeminiKey(""); setOpenaiKey(""); }
+  async function saveAiProviderKeys() {
+    const gemini = geminiKey.trim();
+    const openai = openaiKey.trim();
+    if (!canWrite) { setNotice(message(language, "STAFF_ACCESS_DENIED")); return; }
+    if (!gemini && !openai) {
+      setNotice(language === "ar" ? "أدخل مفتاح Gemini أو OpenAI واحدًا على الأقل." : "Enter at least one Gemini or OpenAI API key.");
+      return;
+    }
+    if ([gemini, openai].some((key) => key.length > 0 && (key.length < 12 || key.length > 512 || /[\\r\\n\\0]/.test(key)))) {
+      setNotice(language === "ar" ? "صيغة المفتاح غير صالحة أو أطول من الحد المسموح." : "A key is invalid or exceeds the allowed length.");
+      return;
+    }
+    await action("connect_staff_integration", {
+      p_provider: "ai_provider",
+      p_connection_method: "api_key",
+      p_secret: JSON.stringify({ gemini, openai }),
+      p_secret_hint: "Gemini/OpenAI keys",
+      p_account_label: "Gemini + OpenAI",
+      p_metadata: { configuredProviders: [ ...(gemini ? ["gemini"] : []), ...(openai ? ["openai"] : []) ] },
+    });
+  }
   if (!parsed.success) return <div className="error-box">{language === "ar" ? "بيانات التكاملات غير متوافقة؛ لم يتم تنفيذ أي إجراء." : "Integration data is incompatible; no action was performed."}</div>;
   return <div className="integration-center">
-    <div className="integration-intro"><div><p className="eyebrow">{language === "ar" ? "مركز الاتصالات" : "CONNECTION CENTER"}</p><h2>{language === "ar" ? "اربط الخدمات من داخل التطبيق" : "Connect services inside the app"}</h2><p>{language === "ar" ? "القيم السرية تُحفظ في الخادم ولا تظهر كاملة للواجهة. زر الاختبار الحالي يتحقق من الإعداد فقط، ولا ينفذ نشرًا أو رسالة خارجية." : "Secrets are stored server-side and never returned in full. The current test validates configuration only; it does not publish or send externally."}</p></div><span className="integration-safety">{language === "ar" ? "محمية + سجل تدقيق" : "Protected + audited"}</span></div>
+    <div className="integration-intro"><div><p className="eyebrow">{language === "ar" ? "مركز الاتصالات" : "CONNECTION CENTER"}</p><h2>{language === "ar" ? "اربط الخدمات من داخل التطبيق" : "Connect services inside the app"}</h2><p>{language === "ar" ? "القيم السرية تبقى في الخادم. فحوصات الحالة آمنة للقراءة فقط؛ لا تنشر محتوى ولا ترسل رسائل." : "Secrets remain server-side. Status checks are read-only; they do not publish content or send messages."}</p></div><span className="integration-safety">{language === "ar" ? "محمية + سجل تدقيق" : "Protected + audited"}</span></div>
     {notice && <div className="integration-notice" role="status" aria-live="polite">{notice}</div>}
-    <div className="integration-grid">{items.map((item) => { const definition = definitions[item.provider] ?? { icon: "?", method: "manual" as const, description: { ar: "تكامل إضافي.", en: "Additional integration." } }; const verified = Boolean(item.lastTestedAt && externallyVerified(item)); const status = verified ? (language === "ar" ? "تم التحقق من الاتصال الخارجي" : "External connection verified") : (statusLabels[language][item.status] ?? item.status); const state = capabilityState(item.status); return <article className="integration-card" key={item.provider}><header><span className="integration-icon">{definition.icon}</span><div><h3>{item.displayName}</h3><p>{definition.description[language]}</p></div><span className={`integration-status status-${item.status}`}>{status}</span></header><div className={`integration-capability capability-${state.toLowerCase()}`}><strong>{capabilityLabels[language][state]}</strong><span>{capabilityDetail(language, state, item.provider)}</span></div><dl><div><dt>{language === "ar" ? "طريقة الربط" : "Method"}</dt><dd>{item.provider === "instagram" || item.provider === "meta_whatsapp" ? "Meta server connection" : item.connectionMethod === "api_key" ? "API Key" : item.connectionMethod === "oauth" ? "OAuth" : language === "ar" ? "إعداد داخلي" : "Internal setup"}</dd></div><div><dt>{language === "ar" ? "الحساب" : "Account"}</dt><dd>{item.accountLabel || (language === "ar" ? "غير محدد" : "Not set")}</dd></div><div><dt>{language === "ar" ? "القيمة" : "Credential"}</dt><dd>{item.secretHint || "—"}</dd></div></dl><footer>{canWrite && ["not_connected", "disabled", "pending"].includes(item.status) && <><button type="button" disabled={busy === item.provider} onClick={() => item.connectionMethod === "oauth" ? void connectOAuth(item.provider) : open(item.provider)}>{busy === item.provider ? (language === "ar" ? "جاري الربط" : "Connecting") : language === "ar" ? (item.status === "disabled" ? "إعادة الربط" : item.provider === "instagram" || item.provider === "meta_whatsapp" ? "فحص وربط" : item.connectionMethod === "oauth" ? "اتصال آمن" : "إعداد") : (item.status === "disabled" ? "Reconnect" : item.provider === "instagram" || item.provider === "meta_whatsapp" ? "Verify & connect" : item.connectionMethod === "oauth" ? "Secure connect" : "Setup")}</button>{item.provider === "canva" && <a className="secondary" href={CANVA_OPEN_URL} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none", padding: "6px 12px", borderRadius: "6px", fontSize: "0.85rem" }}>{language === "ar" ? "فتح Canva يدوياً" : "Open Canva"}</a>}</>}{canWrite && ["connected", "needs_test", "error"].includes(item.status) && <><button type="button" disabled={busy === item.provider} onClick={() => ((item.provider === "facebook" || item.provider === "instagram") ? void connectOAuth(item.provider) : void action("test_staff_integration", { p_provider: item.provider }))}>{item.provider === "facebook" || item.provider === "instagram" ? (language === "ar" ? "فحص الاتصال الخارجي" : "Verify external connection") : (language === "ar" ? "اختبار الإعداد المحلي" : "Test local configuration")}</button><button type="button" className="secondary" onClick={() => open(item.provider)}>{language === "ar" ? "تعديل" : "Edit"}</button><button type="button" className="danger" onClick={() => { if (window.confirm(language === "ar" ? "سيتم حذف سر الربط وتعطيل التكامل. هل تتابع؟" : "The stored credential will be removed and the integration disabled. Continue?")) void action("disconnect_staff_integration", { p_provider: item.provider }); }}>{language === "ar" ? "تعطيل" : "Disable"}</button></>}</footer></article>; })}</div>
-    {selected && items.find((item) => item.provider === selected)?.connectionMethod !== "oauth" && <div className="integration-modal" role="dialog" aria-modal="true" aria-labelledby="integration-dialog-title"><div className="integration-modal-card"><header><div><p className="eyebrow">{language === "ar" ? "إعداد آمن" : "SECURE SETUP"}</p><h2 id="integration-dialog-title">{items.find((item) => item.provider === selected)?.displayName}</h2></div><button type="button" className="modal-close" onClick={() => setSelected(null)}>×</button></header><p>{selected === "ai_provider" ? (language === "ar" ? "محرك Gemini مهيأ مركزياً في الخادم لتشغيل Coach Brain ومصنع المحتوى. إدخال مفتاح هنا اختياري لمزود بديل فقط." : "Gemini AI is centrally configured server-side for Coach Brain and Factory. Entering a key here is optional for alternative providers.") : (language === "ar" ? "أدخل القيمة من مزود الخدمة. لن تظهر القيمة بعد الحفظ، وسيظهر آخر أربعة رموز فقط." : "Enter the provider value. It will not be shown after saving; only the last four characters are displayed.")}</p><label>{language === "ar" ? "القيمة السرية / Token" : "Secret value / Token"}<input type="password" autoComplete="off" value={secret} onChange={(event) => setSecret(event.target.value)} placeholder={language === "ar" ? "أدخل القيمة هنا" : "Enter value here"} /></label><label>{language === "ar" ? "اسم الحساب (اختياري)" : "Account label (optional)"}<input value={account} onChange={(event) => setAccount(event.target.value)} placeholder={language === "ar" ? "مثال: Relax Fix UAE" : "e.g. Relax Fix UAE"} /></label><div className="integration-modal-actions"><button type="button" className="secondary" onClick={() => setSelected(null)}>{language === "ar" ? "إلغاء" : "Cancel"}</button><button type="button" disabled={!secret.trim() || busy === selected} onClick={() => void action("connect_staff_integration", { p_provider: selected, p_connection_method: definitions[selected]?.method ?? "manual", p_secret: secret, p_account_label: account })}>{busy === selected ? (language === "ar" ? "جاري الحفظ" : "Saving") : (language === "ar" ? "حفظ الاعتماد" : "Save credential")}</button></div><small>{language === "ar" ? "لا تدخل بيانات تسجيل الدخول أو أسرار مزود الخدمة في هذه الواجهة. OAuth يتم من خلال صفحة المزود عندما يكون الربط مهيأ." : "Do not enter provider login credentials or OAuth secrets here. OAuth runs on the provider page when the connection is configured."}</small></div></div>}
+    <section className="integration-card ai-provider-control" aria-labelledby="ai-provider-control-title">
+      <header>
+        <span className="integration-icon">AI</span>
+        <div>
+          <h3 id="ai-provider-control-title">{language === "ar" ? "محركات الذكاء الاصطناعي" : "AI providers"}</h3>
+          <p>{language === "ar" ? "حالة المفاتيح وفحص اتصال آمن للقراءة فقط؛ لا يتم توليد محتوى أو استهلاك رصيد هنا." : "Credential presence and read-only connection checks; no content is generated and no generation credits are used here."}</p>
+        </div>
+        <span className="integration-status status-needs_test">{aiStatusBusy ? (language === "ar" ? "جارٍ الفحص" : "Checking") : aiStatusError ? (language === "ar" ? "تعذر التحقق" : "Unverified") : (language === "ar" ? "فحص الحالة فقط" : "Status check only")}</span>{canWrite && <button type="button" className="secondary" onClick={() => open("ai_provider")}>{language === "ar" ? "إدارة المفاتيح" : "Manage API keys"}</button>}
+      </header>
+      <div className="integration-grid">
+        {(["gemini", "openai"] as const).map((provider) => {
+          const configured = aiStatus?.providers?.[provider] === true;
+          const external = aiStatus?.providerChecks?.[provider]?.externalCheck
+            ?? (provider === "gemini" ? aiStatus?.externalCheck : undefined);
+          const label = external === "PASSED"
+            ? (language === "ar" ? "الاتصال الخارجي ناجح" : "External check passed")
+            : external === "FAILED"
+              ? (language === "ar" ? "المفتاح موجود لكن الاتصال فشل" : "Credential present; external check failed")
+              : configured
+                ? (language === "ar" ? "المفتاح موجود؛ الفحص غير متاح" : "Credential present; check unavailable")
+                : (language === "ar" ? "غير مهيأ أو غير متاح" : "Not configured or unavailable");
+          return <article className="integration-card" key={provider}>
+            <header><span className="integration-icon">{provider === "gemini" ? "G" : "OAI"}</span><div><h3>{provider === "gemini" ? "Gemini" : "OpenAI"}</h3><p>{label}</p></div></header>
+          </article>;
+        })}
+      </div>
+      <label className="batch-ai-provider">
+        <span>{language === "ar" ? "المزود الافتراضي لتوليد المحتوى" : "Default content-generation provider"}</span>
+        <select value={aiProviderPreference} disabled={!canWrite} onChange={(event) => {
+          const next = event.target.value as AiProviderPreference;
+          setAiProviderPreference(next);
+          writeAiProviderPreference(next);
+        }}>
+          <option value="auto">{language === "ar" ? "تلقائي — بديل عند العطل المؤقت" : "Auto — fallback on temporary outage"}</option>
+          <option value="gemini">Gemini</option>
+          <option value="openai">OpenAI</option>
+        </select>
+      </label>
+      {aiStatusError && <p className="integration-notice" role="status">{language === "ar" ? "تعذر قراءة حالة محركات الذكاء الاصطناعي. لم يتم تغيير أي إعداد." : "AI provider status could not be read. No setting was changed."}</p>}
+      <p className="batch-meta">{language === "ar"
+        ? "هذا الاختيار يُحفظ على هذا الجهاز فقط، ولا يحفظ أي مفاتيح. يؤثر على عينات المحتوى ومصنع المحتوى؛ بحث Coach Brain الحالي يستخدم Gemini."
+        : "This preference is saved on this device only and stores no keys. It affects content samples and Factory generation; Coach Brain research currently uses Gemini."}</p>
+      <p className="batch-meta">{language === "ar"
+        ? "التبديل التلقائي يستخدم البديل عند فشل الشبكة أو عطل الخادم المؤقت. لا يبدّل تلقائيًا عند خطأ المفتاح أو حد الاستخدام. وقد يرسل محاولة ثانية للمزود البديل؛ وأي استخدام يخضع لفوترة ذلك المزود."
+        : "Automatic fallback is limited to network or temporary server failures. It does not switch on credential or usage-limit errors. A fallback may send a second request, which is subject to the alternate provider's billing."}</p>
+      <p className="batch-meta">{language === "ar"
+        ? "فحص الاتصال لا يثبت نجاح التوليد الفعلي. لا يتم تشغيل أي توليد من هذه الشاشة."
+        : "A connection check does not prove generation works. This screen never starts generation."}</p>
+    </section>
+    <div className="integration-notice" role="status">
+      <strong>{language === "ar" ? "WhatsApp — المسارات منفصلة وحالة n8n غير متحققة" : "WhatsApp — separate paths; n8n status unverified"}</strong>
+      <p>{language === "ar"
+        ? "استقبال الرسائل مصمم عبر n8n، لكن حالة الـWorkflow الحي لا تُقرأ من هذا المركز. الرد البشري من AI Inbox يستخدم دالة Meta Cloud منفصلة، ووضع الإرسال فيها Dry-run افتراضيًا. لن نعتبر n8n متصلًا أو نفعّل إرسالًا حيًا قبل التحقق من الحساب والمسار الفعلي."
+        : "Inbound messages are designed to use n8n, but this center cannot read the live workflow state. Human replies from AI Inbox use a separate Meta Cloud function that defaults to dry-run. We will not mark n8n connected or enable live sending before verifying the actual account and route."}</p>
+    </div>
+    <div className="integration-grid">{items.map((item) => { const definition = definitions[item.provider] ?? { icon: "?", method: "manual" as const, description: { ar: "تكامل إضافي.", en: "Additional integration." } }; const verified = Boolean(item.lastTestedAt && externallyVerified(item)); const status = verified && (item.provider === "facebook" || item.provider === "instagram") ? (language === "ar" ? "تم التحقق من وصول الحساب" : "Account access verified") : verified ? (language === "ar" ? "تم التحقق من الاتصال الخارجي" : "External connection verified") : (statusLabels[language][item.status] ?? item.status); const state = capabilityState(item.status); return <article className="integration-card" key={item.provider}><header><span className="integration-icon">{definition.icon}</span><div><h3>{item.displayName}</h3><p>{definition.description[language]}</p></div><span className={`integration-status status-${item.status}`}>{status}</span></header><div className={`integration-capability capability-${state.toLowerCase()}`}><strong>{capabilityLabels[language][state]}</strong><span>{capabilityDetail(language, state, item.provider)}</span></div><dl><div><dt>{language === "ar" ? "طريقة الربط" : "Method"}</dt><dd>{item.provider === "instagram" || item.provider === "meta_whatsapp" ? "Meta server connection" : item.connectionMethod === "api_key" ? "API Key" : item.connectionMethod === "oauth" ? "OAuth" : language === "ar" ? "إعداد داخلي" : "Internal setup"}</dd></div><div><dt>{language === "ar" ? "الحساب" : "Account"}</dt><dd>{item.accountLabel || (language === "ar" ? "غير محدد" : "Not set")}</dd></div><div><dt>{language === "ar" ? "القيمة" : "Credential"}</dt><dd>{item.secretHint || "—"}</dd></div><div><dt>{language === "ar" ? "آخر تحقق" : "Last checked"}</dt><dd>{formatLastTestedAt(item.lastTestedAt, language)}</dd></div></dl><footer>{canWrite && ["not_connected", "disabled", "pending"].includes(item.status) && <><button type="button" disabled={busy === item.provider} onClick={() => item.connectionMethod === "oauth" ? void connectOAuth(item.provider) : open(item.provider)}>{busy === item.provider ? (language === "ar" ? "جاري الربط" : "Connecting") : language === "ar" ? (item.status === "disabled" ? "إعادة الربط" : item.provider === "instagram" || item.provider === "meta_whatsapp" ? "فحص وربط" : item.connectionMethod === "oauth" ? "اتصال آمن" : "إعداد") : (item.status === "disabled" ? "Reconnect" : item.provider === "instagram" || item.provider === "meta_whatsapp" ? "Verify & connect" : item.connectionMethod === "oauth" ? "Secure connect" : "Setup")}</button>{item.provider === "canva" && <a className="secondary" href={CANVA_OPEN_URL} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none", padding: "6px 12px", borderRadius: "6px", fontSize: "0.85rem" }}>{language === "ar" ? "فتح Canva يدوياً" : "Open Canva"}</a>}</>}{canWrite && ["connected", "needs_test", "error"].includes(item.status) && <><button type="button" disabled={busy === item.provider} onClick={() => ((item.provider === "facebook" || item.provider === "instagram") ? void connectOAuth(item.provider) : void action("test_staff_integration", { p_provider: item.provider }))}>{item.provider === "facebook" || item.provider === "instagram" ? (language === "ar" ? "فحص وصول الحساب" : "Verify account access") : (language === "ar" ? "اختبار الإعداد المحلي" : "Test local configuration")}</button><button type="button" className="secondary" onClick={() => open(item.provider)}>{language === "ar" ? "تعديل" : "Edit"}</button><button type="button" className="danger" onClick={() => { if (window.confirm(language === "ar" ? "سيتم حذف سر الربط وتعطيل التكامل. هل تتابع؟" : "The stored credential will be removed and the integration disabled. Continue?")) void action("disconnect_staff_integration", { p_provider: item.provider }); }}>{language === "ar" ? "تعطيل" : "Disable"}</button></>}</footer></article>; })}</div>
+    {selected && items.find((item) => item.provider === selected)?.connectionMethod !== "oauth" && <div className="integration-modal" role="dialog" aria-modal="true" aria-labelledby="integration-dialog-title"><div className="integration-modal-card"><header><div><p className="eyebrow">{language === "ar" ? "إعداد آمن" : "SECURE SETUP"}</p><h2 id="integration-dialog-title">{selected === "ai_provider" ? (language === "ar" ? "مفاتيح Gemini وOpenAI" : "Gemini and OpenAI API keys") : items.find((item) => item.provider === selected)?.displayName}</h2></div><button type="button" className="modal-close" onClick={closeDialog}>×</button></header><p>{selected === "ai_provider" ? (language === "ar" ? "أدخل مفاتيح API من حسابات Gemini وOpenAI. تُحفظ في مخزن الأسرار المحمي بالخادم ولا تُعاد للمتصفح. الحفظ يستبدل المفتاحين؛ اكتب كل مفتاح تريد الاحتفاظ به واترك الآخر فارغًا لإزالة مفتاحه المحفوظ؛ ويظل أي مفتاح موجود في إعدادات الخادم احتياطيًا. اشتراك Gemini Pro لا يشمل فوترة Gemini API." : "Enter API keys from Gemini and OpenAI. They are stored in the protected server-side secret store and are never returned to the browser. Saving replaces both keys; enter every key you want to keep and leave the other blank to remove its saved key; any existing server-side environment key remains a fallback. Gemini Pro subscription does not include Gemini API billing.") : (language === "ar" ? "أدخل القيمة من مزود الخدمة. لن تظهر القيمة بعد الحفظ، وسيظهر آخر أربعة رموز فقط." : "Enter the provider value. It will not be shown after saving; only the last four characters are displayed.")}</p>{selected === "ai_provider" ? <><label>Gemini API Key<input type="password" autoComplete="new-password" maxLength={512} value={geminiKey} onChange={(event) => setGeminiKey(event.target.value)} placeholder={language === "ar" ? "مفتاح Gemini API" : "Gemini API key"} /></label><label>OpenAI API Key<input type="password" autoComplete="new-password" maxLength={512} value={openaiKey} onChange={(event) => setOpenaiKey(event.target.value)} placeholder={language === "ar" ? "مفتاح OpenAI API" : "OpenAI API key"} /></label></> : <><label>{language === "ar" ? "القيمة السرية / Token" : "Secret value / Token"}<input type="password" autoComplete="off" value={secret} onChange={(event) => setSecret(event.target.value)} placeholder={language === "ar" ? "أدخل القيمة هنا" : "Enter value here"} /></label><label>{language === "ar" ? "اسم الحساب (اختياري)" : "Account label (optional)"}<input value={account} onChange={(event) => setAccount(event.target.value)} placeholder={language === "ar" ? "مثال: Relax Fix UAE" : "e.g. Relax Fix UAE"} /></label></>}<div className="integration-modal-actions"><button type="button" className="secondary" onClick={closeDialog}>{language === "ar" ? "إلغاء" : "Cancel"}</button><button type="button" disabled={busy === (selected === "ai_provider" ? "connect_staff_integration" : selected) || (selected === "ai_provider" ? (!geminiKey.trim() && !openaiKey.trim()) : !secret.trim())} onClick={() => selected === "ai_provider" ? void saveAiProviderKeys() : void action("connect_staff_integration", { p_provider: selected, p_connection_method: definitions[selected]?.method ?? "manual", p_secret: secret, p_account_label: account })}>{busy === (selected === "ai_provider" ? "connect_staff_integration" : selected) ? (language === "ar" ? "جاري الحفظ" : "Saving") : (language === "ar" ? "حفظ الاعتماد" : "Save credential")}</button></div><small>{selected === "ai_provider" ? (language === "ar" ? "لا تشارك هذه المفاتيح في المحادثات أو الرسائل. لا يتم حفظها في المتصفح ولا إظهارها بعد الحفظ. لا يتم تشغيل توليد عند الحفظ." : "Never share these keys in chats or messages. They are not stored in browser storage or shown after saving. Saving does not start generation.") : (language === "ar" ? "لا تدخل بيانات تسجيل الدخول أو أسرار مزود الخدمة في هذه الواجهة. OAuth يتم من خلال صفحة المزود عندما يكون الربط مهيأ." : "Do not enter provider login credentials or OAuth secrets here. OAuth runs on the provider page when the connection is configured.")}</small></div></div>}
   </div>;
 }

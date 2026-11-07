@@ -40,3 +40,16 @@ test("external verification label refers to the connection, not capability readi
   assert.match(view, /External connection verified/);
   assert.match(view, /configuration exists, but external operation is not verified/);
 });
+
+
+test("AI provider keys have an owner-facing secure setup path without exposing stored values", () => {
+  assert.match(view, /Manage API keys/);
+  assert.match(view, /Gemini API Key/);
+  assert.match(view, /OpenAI API Key/);
+  assert.match(view, /p_secret: JSON\.stringify\(\{ gemini, openai \}\)/);
+  assert.match(view, /autoComplete="new-password"/);
+  assert.match(view, /Saving replaces both keys/);
+  assert.match(view, /INTEGRATION_SAVED/);
+  assert.match(view, /setGeminiKey\(""\)/);
+  assert.match(view, /setOpenaiKey\(""\)/);
+});

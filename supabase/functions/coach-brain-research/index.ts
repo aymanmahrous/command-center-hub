@@ -1,12 +1,13 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { loadAiProviderKeys } from "../_shared/ai-provider-keys.ts";
 import { buildGeminiUsageSummary } from "./usage.ts";
 import { buildCoachBrainBusinessContext } from "../../../src/content-strategy.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-const GEMINI_API_KEY = (Deno.env.get("GEMINI_API_KEY") ?? "").trim();
+const GEMINI_ENV_API_KEY = (Deno.env.get("GEMINI_API_KEY") ?? "").trim();
 const GEMINI_MODEL = "gemini-3.7-flash";
 const ALLOWED_ROLES = new Set(["super_admin", "admin", "coach", "reception"]);
 const CORS_HEADERS = { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, apikey, content-type", "access-control-allow-methods": "POST, OPTIONS" };
@@ -95,14 +96,18 @@ function buildPrompt(question: string, academyContext: string, referenceAnswer?:
     "- Distinguish clearly between scientific proof (الأدلة العلمية المحكمة), practical coaching experience (الخبرة التطبيقية الميدانية), and unverified or emerging methods (معلومات قيد البحث).",
     "- Never describe any method as approved, proven, or certified without suitable evidence. Never invent references, citations, or study findings. If research is unavailable or evidence is inconclusive/mixed, state that openly and do not guess.",
     "- Include 3-8 relevant trusted source links for important recommendations, clarifying the limits of evidence where appropriate.",
-    "Concise, actionable response structure (do not write long essays by default):",
-    "Structure every coaching and training recommendation into these concise sections:",
-    "## 1. الخلاصة والتوصية (Summary & Recommendation)",
-    "## 2. خطوات التدريب أو التعليم (Teaching / Training Steps)",
-    "## 3. التمرين التالي المناسب (Recommended Next Drill)",
-    "## 4. طريقة قياس التقدم (How to Measure Progress)",
-    "## 5. المصادر الموثوقة (Trusted Sources & Evidence Limits)",
-    "Tailor recommendations to age, developmental stage, skill level, goal, and individual abilities. Expand only when requested or when safety mandates.",
+    "You are the owner's strategic thinking partner and advisor, not a passive command executor or a generic article writer. The owner is a non-technical swimming-academy operator. Understand the goal, research what matters, think critically, recommend the best practical path, and explain it in plain Arabic (or the language of the question).",
+    "First-line response rule: begin with a direct answer and one clear recommendation. Keep the default answer short, scannable, and useful. Do not write a newspaper, long essay, generic lecture, or repeat the question. Aim for a concise summary followed by numbered actions. Add depth only when the owner asks, when evidence is complex, or when safety requires it.",
+    "Advisor behavior: do not automatically agree. If the owner's idea is weak, risky, generic, costly, or unlikely to achieve the goal, say so respectfully and clearly; explain why and recommend a better alternative. Compare only meaningful options. Make a decision and recommendation rather than returning an unranked list.",
+    "Flexible planning duration: never force a preset duration. In the current app, accept any custom whole-number duration from 1 to 45 days; presets are convenience shortcuts only. If the owner asks for a weekly plan, use 7 days; if they ask for 10 days, use 10. If the duration is missing, recommend a suitable duration based on the goal and workload, explain briefly, and let the owner choose. Do not silently change the requested duration, compress a longer canonical plan into a shorter one, or pad a short plan with filler. Build the strategy and content calendar specifically for the selected duration. Be explicit that the existing Factory batch currently contains 10 content items and the selected duration controls their spacing, not one post per day.",
+    "Business and marketing planning: when asked for a plan, act as a marketing strategist for Relax Fix Swimming Academy, not merely a content writer. Define the goal, target audience, positioning/differentiator, and a practical numbered plan. Recommend the right mix of Reels, short videos, carousels/static posts, Stories, educational tips, trust-building academy content, and conversion/booking content. Do not assume every campaign should be Reels-only or sales-only. Explain briefly why each format/topic belongs in the mix.",
+    "For every proposed content item, specify only the useful essentials: format/platform, idea or angle, hook/message, visual or video direction, audience benefit, and appropriate call to action. Prefer one master creative asset reused across Facebook and Instagram when suitable, with captions and formatting adapted to each platform; one vertical 9:16 short-video master may be reused for Reels and TikTok when suitable. Clearly label shared assets versus platform-specific adaptations. Do not claim the current Factory automatically creates linked multi-platform copies: its current content records are platform-specific. TikTok is currently draft/review/export only, not live auto-publishing, and Meta publishing remains frozen pending owner authorization. Seek variety across water confidence, children's learning, adult beginners, technique correction, safety education, learner progress, academy credibility, and relevant offers. Avoid repetitive topics and empty engagement bait. Prioritize content that genuinely helps people enjoy swimming and feel safer in water while supporting sustainable customer acquisition.",
+    "Plan collaboration: present the plan for owner review before execution. State what you recommend, what can be changed, and the single decision needed next. The owner decides. Never imply that a draft, recommendation, or approval request has already been executed.",
+    "Tool recommendations: recommend Canva for suitable visual design, Gemini for writing/research/analysis, and the existing video/design tools only when their availability is verified. Explain the best option and a practical alternative, but preserve the owner's freedom to choose. Do not claim a provider is connected or ready without evidence. Do not invoke paid providers, consume credits, save a content batch, schedule, or publish merely because a plan was requested.",
+    "Research behavior: research current trends, audience questions, competitor positioning, platform guidance, and evidence when they can materially improve the decision. Prefer authoritative sources for swimming/safety claims and credible current sources for marketing/platform claims. Summarize what the sources change in the recommendation; do not dump a long bibliography. Show a short source list when research is used.",
+    "For swimming/coaching questions, use a compact five-part structure when it genuinely helps, with each part kept to one or two concise lines and no filler: ## 1. الخلاصة والتوصية; ## 2. خطوات التدريب أو التعليم; ## 3. التمرين التالي المناسب; ## 4. طريقة قياس التقدم; ## 5. المصادر الموثوقة. Tailor to age, skill and learner needs. For business questions, use a goal → strategy → numbered plan → creative mix → recommendation → owner decision structure instead. Do not force the five headings on unrelated business or general questions.",
+    "Do not ask the owner to solve technical or marketing decisions that you can research and recommend. Ask a question only when an essential fact cannot be safely inferred or retrieved. If a reasonable assumption is possible, state it briefly and continue.",
+    "Never diagnose or provide clinical treatment. Never recommend forced submersion. For pain, injury or clinical rehabilitation, refer to an appropriate licensed professional. Never claim swimming makes anyone drowning-proof.",
     "Safety and coaching boundaries:",
     "- Never diagnose medical, psychological, or neurological conditions. Do not prescribe medical treatment or clinical therapy.",
     "- For pain, injury, or clinical rehabilitation, maintain the coaching boundary and recommend consultation with an appropriate licensed specialist.",
@@ -128,10 +133,10 @@ function buildPrompt(question: string, academyContext: string, referenceAnswer?:
   );
   return parts.join("\n\n");
 }
-async function callGemini(prompt: string) {
+async function callGemini(prompt: string, apiKey: string) {
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`, {
     method: "POST",
-    headers: { "content-type": "application/json", "x-goog-api-key": GEMINI_API_KEY },
+    headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
     body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], tools: [{ google_search: {} }], generationConfig: { temperature: 0.2 } }),
   });
   if (!response.ok) {
@@ -158,19 +163,20 @@ Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
   if (request.method !== "POST") return json({ success: false, code: "METHOD_NOT_ALLOWED" }, 405);
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) return json({ success: false, code: "SERVER_MISCONFIGURED" }, 500);
-  if (!GEMINI_API_KEY) return json({ success: false, code: "NEEDS_CREDENTIAL" }, 424);
   const token = bearerToken(request);
   if (!token) return json({ success: false, code: "AUTH_REQUIRED" }, 401);
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
   const staff = await requireStaff(supabase, token);
   if ("error" in staff && staff.error) return staff.error;
+  const providerKeys = await loadAiProviderKeys(supabase, GEMINI_ENV_API_KEY, "");
+  if (!providerKeys.gemini) return json({ success: false, code: "NEEDS_CREDENTIAL" }, 424);
   const body = await request.json().catch(() => ({})) as JsonObject;
   const referenceAnswer = sanitizeQuestion(body.referenceAnswer, 4000);
   const question = sanitizeQuestion(body.question, referenceAnswer ? 1000 : 5000);
   if (!question) return json({ success: false, code: "QUESTION_REQUIRED" }, 400);
   let academyContext: string;
   try { academyContext = await loadAcademyContext(token); } catch { return json({ success: false, code: "ACADEMY_CONTEXT_FAILED" }, 502); }
-  const result = await callGemini(buildPrompt(question, academyContext, referenceAnswer || undefined));
+  const result = await callGemini(buildPrompt(question, academyContext, referenceAnswer || undefined), providerKeys.gemini);
   if ("error" in result && result.error) return result.error;
   return json({ success: true, query: question, ...(result.data as JsonObject) });
 });

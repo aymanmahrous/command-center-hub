@@ -24,6 +24,7 @@ import { ContentBatchReviewPanel } from "./content-batch-review-panel";
 import { fetchCanvaDesignStatus } from "./canva-design-adapter";
 import { assessCanvaReadiness, formatCanvaDiagnosticDetails, type CanvaStatusDiagnostic } from "./canva-readiness";
 import { clearCoachBrainFactoryHandoff, readCoachBrainFactoryHandoff } from "./coach-brain-factory-handoff";
+import { readAiProviderPreference, writeAiProviderPreference } from "./ai-provider-preference";
 import { useLanguage } from "./i18n";
 import { MEDIA_FACTORY_HANDOFF_KEY, parseMediaFactoryHandoff, type MediaFactoryHandoff } from "./media-factory-handoff";
 import "./content-growth-hub.css";
@@ -180,7 +181,7 @@ export default function ContentGrowthHub({
   const [canvaDesignStatus, setCanvaDesignStatus] = useState<CanvaStatusDiagnostic | null>(null);
   const [generateNotice, setGenerateNotice] = useState("");
   const [generating, setGenerating] = useState(false);
-  const [batchAiProvider, setBatchAiProvider] = useState<BatchAiProvider>("auto");
+  const [batchAiProvider, setBatchAiProvider] = useState<BatchAiProvider>(() => readAiProviderPreference());
   const handoffParams = new URLSearchParams(window.location.search);
   const storedCoachBrainHandoff = readCoachBrainFactoryHandoff();
   const [coachBrainContext, setCoachBrainContext] = useState<CoachBrainFactoryContext | null>(() => {
@@ -202,10 +203,11 @@ export default function ContentGrowthHub({
     ? `${language === "ar" ? "اتصال Canva" : "Canva connection"}: ${canvaReadiness.connectionLabel} · ${language === "ar" ? "جاهزية التصميم" : "Design readiness"}: ${canvaReadiness.readinessLabel}. ${canvaReadiness.detail}${canvaDiagnosticDetails.length ? ` · ${canvaDiagnosticDetails.join(" · ")}` : ""}`
     : null;
   const videoCapabilityState = integrations.find((integration) => integration.key === "runway")?.capabilityState ?? "NOT_CONFIGURED";
-  const PLAN_WINDOW_OPTIONS = [2, 3, 4, 7, 14, 30] as const;
+  const PLAN_WINDOW_OPTIONS = [1, 2, 3, 4, 7, 10] as const;
+  const [selectedPlanDate, setSelectedPlanDate] = useState<string | null>(null);
   const [planWindowDays, setPlanWindowDays] = useState<number>(() => {
     const value = Number(handoffParams.get("planDays") || storedCoachBrainHandoff?.planWindowDays);
-    return [2, 3, 4, 7, 14, 30].includes(value) ? value : 30;
+    return Number.isFinite(value) && value > 0 ? Math.max(1, Math.min(10, Math.floor(value))) : 10;
   });
   const [planFocus] = useState(() => handoffParams.get("planMix") || storedCoachBrainHandoff?.planMix || "varied");
   const [planExecution] = useState(() => handoffParams.get("planExecution") || storedCoachBrainHandoff?.planExecution || "best");
@@ -313,6 +315,7 @@ export default function ContentGrowthHub({
   }, [activeFactoryTab, primaryBatch]);
 
   const batchItems = selectedBatch?.items ?? [];
+  useEffect(() => { setSelectedPlanDate(null); }, [planWindowDays, selectedBatch?.batchId]);
   const mediaLinkCandidates = useMemo(() => batchItems.filter((item) => ["draft", "generated", "needs_review", "approved"].includes(item.status) && !item.mediaAssetId), [batchItems]);
   const strategySummary = useMemo(() => buildStrategySummary(batchItems), [batchItems]);
   const panelBusy = busy || generating;
@@ -335,6 +338,7 @@ export default function ContentGrowthHub({
       sessionStorage.removeItem(MEDIA_FACTORY_HANDOFF_KEY);
       setMediaFactoryHandoff(null);
       setMediaLinkNotice(language === "ar" ? "تم ربط الوسائط بالمحتوى فعليًا. أعيدت الحالة إلى المراجعة قبل أي نشر." : "Media is now linked to the content. The item returned to review before any publish.");
+      selectFactoryTab("review");
       onBatchCreated?.();
     } catch (cause) {
       if (cause instanceof Error && cause.message === "SESSION_EXPIRED") onSessionExpired?.();
@@ -357,14 +361,14 @@ export default function ContentGrowthHub({
   }, []);
 
   function fitBatchToPlanWindow<T extends { plannedFor: string }>(batch: T[], days: number, baseStart: Date): T[] {
-    if (days >= 30) return batch;
+    const safeDays = Math.max(1, Math.min(10, Math.floor(days) || 10));
     const start = new Date(baseStart);
     start.setUTCHours(0, 0, 0, 0);
     start.setUTCDate(start.getUTCDate() + 1);
     return batch.map((item, index) => {
       const source = new Date(item.plannedFor);
       const target = new Date(start);
-      const dayOffset = Math.min(days - 1, Math.floor((index * days) / Math.max(batch.length, 1)));
+      const dayOffset = Math.min(safeDays - 1, Math.floor((index * safeDays) / Math.max(batch.length, 1)));
       target.setUTCDate(start.getUTCDate() + dayOffset);
       target.setUTCHours(source.getUTCHours(), source.getUTCMinutes(), 0, 0);
       return { ...item, plannedFor: target.toISOString() };
@@ -405,7 +409,7 @@ export default function ContentGrowthHub({
       }
       let saved: { success?: boolean; batchId?: string; code?: string } | null = null;
 
-      for (let shiftDays = 0; shiftDays <= 45 && !saved; shiftDays += 1) {
+      for (let shiftDays = 0; shiftDays <= Math.max(0, 45 - planWindowDays) && !saved; shiftDays += 1) {
         const start = new Date(generationStart);
         start.setUTCDate(start.getUTCDate() + shiftDays);
         const batchNonce = shiftDays === 0 ? nonce : `${nonce}-${shiftDays}`;
@@ -429,6 +433,7 @@ export default function ContentGrowthHub({
       clearCoachBrainFactoryHandoff();
       setGenerateNotice(copy.generateSuccess.replace("{batchId}", saved.batchId));
       setSelectedBatchId(saved.batchId);
+      selectFactoryTab("review");
       setMediaAssets(assets);
       onBatchCreated?.();
     } catch (cause) {
@@ -470,11 +475,11 @@ export default function ContentGrowthHub({
         <section className="factory-30-day-plan" aria-labelledby="factory-30-day-title">
           <header><div><span>{language === "ar" ? "خطة Coach Brain" : "COACH BRAIN PLAN"}</span><h3 id="factory-30-day-title">{language === "ar" ? "حدد المدة ودع Coach Brain يبني التوزيع" : "Choose the window and let Coach Brain shape the mix"}</h3></div><small>{language === "ar" ? "نفس المصنع والبنية الحالية؛ المدة تحدد نافذة الجدولة فقط." : "Same Factory and existing infrastructure; the window controls scheduling only."}</small></header>
           <div className="factory-plan-controls">
-            <label className="batch-ai-provider"><span>{language === "ar" ? "عدد الأيام" : "Plan length"}</span><select value={planWindowDays} onChange={(event) => setPlanWindowDays(Number(event.target.value))} disabled={panelBusy}>{PLAN_WINDOW_OPTIONS.map((days) => <option key={days} value={days}>{language === "ar" ? days + " يوم" : days + " days"}</option>)}</select></label>
-            <div className="factory-plan-summary"><strong>{language === "ar" ? "سنوزع " + DEFAULT_BATCH_MIX.length + " أفكار متنوعة على " + planWindowDays + " يومًا." : "Coach Brain will distribute " + DEFAULT_BATCH_MIX.length + " varied ideas across " + planWindowDays + " days."}</strong><span>{language === "ar" ? "تعليم · أمان · ثقة بالماء · أسئلة الأهل · سلطة الكوتش · محلي أبوظبي · ريلز · تحويل." : "Education · safety · water confidence · parent FAQs · coach authority · Abu Dhabi local · Reels · conversion."}</span></div>
+            <label className="batch-ai-provider"><span>{language === "ar" ? "اختيار سريع للمدة" : "Quick duration"}</span><select value={PLAN_WINDOW_OPTIONS.includes(planWindowDays as (typeof PLAN_WINDOW_OPTIONS)[number]) ? planWindowDays : "custom"} onChange={(event) => { if (event.target.value !== "custom") setPlanWindowDays(Number(event.target.value)); }} disabled={panelBusy}>{PLAN_WINDOW_OPTIONS.map((days) => <option key={days} value={days}>{language === "ar" ? days + " يوم" : days + " days"}</option>)}<option value="custom">{language === "ar" ? "مدة مخصصة" : "Custom duration"}</option></select><span>{language === "ar" ? "أو أدخل أي عدد أيام (1–10)" : "Or enter any number of days (1–10)"}</span><input type="number" min={1} max={10} value={planWindowDays} onChange={(event) => { const value = Number(event.target.value); if (Number.isFinite(value) && value > 0) setPlanWindowDays(Math.min(10, Math.floor(value))); }} disabled={panelBusy} /></label>
+            <div className="factory-plan-summary"><strong>{language === "ar" ? "سنوزع " + DEFAULT_BATCH_MIX.length + " قطع على " + planWindowDays + " أيام؛ لكل يوم محتوى على الأقل، ولكل قطعة برومبت تصميم مستقل." : "The 10-item batch covers every day in this 1–10 day window; every item has its own design prompt."}</strong><span>{language === "ar" ? "تعليم · أمان · ثقة بالماء · أسئلة الأهل · سلطة الكوتش · محلي أبوظبي · ريلز · تحويل." : "Education · safety · water confidence · parent FAQs · coach authority · Abu Dhabi local · Reels · conversion."}</span></div>
           </div>
           <div className="factory-30-day-grid">
-            {planDays.map(({ day, dayItems }, index) => <button type="button" key={day.toISOString()} className={dayItems.length > 0 ? "has-items" : ""} onClick={() => selectFactoryTab(dayItems.length > 0 ? "campaigns" : "strategy")}><span>{language === "ar" ? `اليوم ${index + 1}` : `Day ${index + 1}`}</span><strong>{dayItems.length}</strong><small>{day.toLocaleDateString(language === "ar" ? "ar-AE" : "en-AE", { month: "short", day: "numeric" })}</small>{dayItems.slice(0, 2).map((item) => <em key={item.id}>{item.topic}</em>)}</button>)}
+            {planDays.map(({ day, dayItems }, index) => <button type="button" key={day.toISOString()} aria-pressed={selectedPlanDate === day.toDateString()} className={dayItems.length > 0 ? "has-items" : ""} onClick={() => { if (dayItems.length > 0) { setSelectedPlanDate(day.toDateString()); selectFactoryTab("review"); } else { setSelectedPlanDate(null); selectFactoryTab("strategy"); } }}><span>{language === "ar" ? `اليوم ${index + 1}` : `Day ${index + 1}`}</span><strong>{dayItems.length}</strong><small>{day.toLocaleDateString(language === "ar" ? "ar-AE" : "en-AE", { month: "short", day: "numeric" })}</small>{dayItems.slice(0, 2).map((item) => <em key={item.id}>{item.topic}</em>)}</button>)}
           </div>
         </section>
       )}
@@ -591,8 +596,12 @@ export default function ContentGrowthHub({
         </p>
         <label className="batch-ai-provider">
           <span>{language === "ar" ? "مزود الذكاء" : "AI provider"}</span>
-          <select value={batchAiProvider} onChange={(event) => setBatchAiProvider(event.target.value as BatchAiProvider)} disabled={generating || panelBusy}>
-            <option value="auto">{language === "ar" ? "تلقائي — الأفضل المتاح" : "Auto — best available"}</option>
+          <select value={batchAiProvider} onChange={(event) => {
+            const next = event.target.value as BatchAiProvider;
+            setBatchAiProvider(next);
+            writeAiProviderPreference(next);
+          }} disabled={generating || panelBusy}>
+            <option value="auto">{language === "ar" ? "تلقائي — بديل عند العطل المؤقت" : "Auto — fallback on temporary outage"}</option>
             <option value="gemini">Gemini</option>
             <option value="openai">OpenAI</option>
           </select>
@@ -630,21 +639,19 @@ export default function ContentGrowthHub({
           <p>{copy.integrationsEyebrow}</p>
           <h3 id="integration-status-heading">{copy.integrationsTitle}</h3>
         </header>
-        <div className="integration-grid">
-          {integrations.map((integration) => (
-            <article key={integration.key} className={integration.connected ? "connected" : integration.key === "canva" ? "optional" : "disconnected"}>
-              <strong>{copy.integrationLabels[integration.key]}</strong>
-              <small>{displayCapabilityState(integration.capabilityState, language)} · {integration.key === "canva" ? copy.optionalNotConnected : integration.connected ? copy.connected : copy.notConnected}</small>
-              <small>{integration.detail}</small>
-            </article>
-          ))}
-        </div>
-        <p className="batch-meta">{copy.integrationsNote}</p>
         <p className="batch-meta" role="status">
           {language === "ar"
-            ? "إدارة اتصال Canva ومصادر الوسائط تتم من مكتبة الوسائط فقط؛ هذه الصفحة تعرض الحالة ولا تنشئ نقطة اتصال ثانية."
-            : "Canva and media-source connections are managed only in Media Library; this page shows status without creating a second connection control."}
+            ? "ربط مصادر الوسائط مثل Google Drive يتم من مكتبة الوسائط فقط. أما Canva وMeta ومحركات الذكاء الاصطناعي فتُدار من مركز الاتصالات الموحد. لن نعرض هنا حالة ثانية مبنية على بيانات تشغيل الأتمتة."
+            : "Media-source connections such as Google Drive are managed only in Media Library. Canva, Meta and AI providers are managed in the single Connections Center. This screen will not show a second status list derived from automation-run data."}
         </p>
+        <div className="factory-section-action-bar">
+          <button type="button" className="secondary" onClick={() => onOpenMedia?.()}>
+            {language === "ar" ? "فتح مكتبة الوسائط" : "Open Media Library"}
+          </button>
+          <button type="button" className="secondary" onClick={() => window.dispatchEvent(new CustomEvent("command-center:navigate", { detail: { section: "connections" } }))}>
+            {language === "ar" ? "فتح مركز الاتصالات" : "Open Connections Center"}
+          </button>
+        </div>
       </section>}
 
       {activeFactoryTab === "strategy" && <section id="content-strategy" className="content-growth-section" aria-labelledby="strategy-mix-heading">
@@ -723,6 +730,8 @@ export default function ContentGrowthHub({
             designCapabilityState={canvaCapabilityState}
             designCapabilityDetail={canvaReadiness.detail}
             videoCapabilityState={videoCapabilityState}
+            focusDate={selectedPlanDate}
+            onClearFocusDate={() => setSelectedPlanDate(null)}
             canWrite={canWrite}
           busy={panelBusy}
           session={session}

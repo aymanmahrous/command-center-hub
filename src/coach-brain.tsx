@@ -1,8 +1,9 @@
 import { FormEvent, useState } from "react";
 import { AlertTriangle, BookOpen, Brain, Search, ShieldCheck, Sparkles } from "lucide-react";
 import { buildCoachBrainSummaryRequest } from "./coach-brain-conversation";
+import { readAiProviderPreference } from "./ai-provider-preference";
 import { generateCoachAymanSampleWithProvider, type BatchAiProvider, type GeminiBatchPromptContext, type GeneratedContentSample } from "./gemini-batch-adapter";
-import { writeCoachBrainFactoryHandoff } from "./coach-brain-factory-handoff";
+import { readCoachBrainFactoryHandoff, writeCoachBrainFactoryHandoff } from "./coach-brain-factory-handoff";
 import "./coach-brain.css";
 
 type Source = { title: string; url: string };
@@ -58,6 +59,7 @@ const copy = {
     actions: ["جهز لي خطة محتوى 10 أيام", "أعطني أفكارًا متنوعة لمحتوى السباحة", "جهز لي تصميم صورة", "جهز لي تصميم فيديو", "راجع هذا النص وحسّنه", "لخّص هذه المحادثة واقترح الخطوة التالية"],
     summaryPrompt: "لخّص إجابة البحث الأخيرة واقترح خطوة عملية تالية.", designImagePrompt: "أريد تصميم صورة تسويقية للسباحة. جهز لي Brief واضحًا للتصميم واقترح أفضل مزود متصل ومتحقق، ثم أعطني بدائل حقيقية يمكنني اختيارها بحرية.", designVideoPrompt: "أريد تصميم فيديو قصير للسباحة. جهز لي Brief واضحًا للفيديو واقترح أفضل مزود متصل ومتحقق، ثم أعطني بدائل حقيقية يمكنني اختيارها بحرية.",
     error: "تعذر تنفيذ البحث الآن. لم يتم حفظ السؤال أو إنشاء أي بيانات.",
+    handoffSaveError: "تعذر نقل المهمة بأمان إلى مصنع المحتوى. لم يتم إنشاء دفعة أو نشر أي شيء. حاول مرة أخرى.",
     privacyNote: "البحث يتم عبر خادم آمن، ومفتاح Gemini لا يصل إلى الهاتف.",
     examples: [
       "طفل يخاف من الماء وعنده صعوبات انتباه، كيف أبدأ تدريبه تدريجيًا؟",
@@ -99,6 +101,7 @@ const copy = {
     actions: ["Prepare a 10-day content plan", "Give me varied swimming content ideas", "Prepare an image design", "Prepare a video design", "Review and improve this copy", "Summarize this conversation and suggest the next step"],
     summaryPrompt: "Summarize the latest research answer and suggest one practical next step.", designImagePrompt: "I want a swimming marketing image. Prepare a clear design brief, recommend the best connected and verified provider, and show real alternatives I can freely choose.", designVideoPrompt: "I want a short swimming video. Prepare a clear video brief, recommend the best connected and verified provider, and show real alternatives I can freely choose.",
     error: "The research could not be completed. The question was not saved and no swimmer record was created.",
+    handoffSaveError: "The task could not be safely transferred to Content Factory. Nothing was generated or published. Please retry.",
     privacyNote: "Research runs through a secure server; the Gemini key never reaches the phone.",
     examples: [
       "A child has water fear and attention difficulties. How to begin step by step?",
@@ -151,22 +154,44 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
   const [planDays, setPlanDays] = useState("7");
   const [customDays, setCustomDays] = useState("10");
   const [planMix, setPlanMix] = useState("varied");
-  const [planExecution, setPlanExecution] = useState<"best" | "value" | "library" | "design" | "manual">("best");
+  const [planExecution, setPlanExecution] = useState<"best" | "value">("best");
   const [sampleBusy, setSampleBusy] = useState(false);
   const [sample, setSample] = useState<GeneratedContentSample | null>(null);
   const [sampleError, setSampleError] = useState("");
+  const [sampleVideoDuration, setSampleVideoDuration] = useState<3 | 5 | 8>(5);
+  const [sampleDesignNotice, setSampleDesignNotice] = useState("");
+  const sampleIsVideo = Boolean(sample && /reel|video/i.test(String(sample.contentType)));
+  const sampleBasePrompt = String(sample?.visualPrompt ?? "").trim();
+  const sampleDesignPrompt = sampleBasePrompt
+    ? `${sampleBasePrompt}${sampleIsVideo ? `\n\nFINAL OUTPUT REQUIREMENT: Create one vertical 9:16 video with an exact target duration of ${sampleVideoDuration} seconds. This duration overrides any earlier duration in the brief.` : ""}`.trim()
+    : "";
 
   function selectedPlanDays() {
-    return planDays === "custom" ? Math.max(2, Math.min(30, Number(customDays) || 10)) : Number(planDays);
+    const requested = Number(customDays);
+    const selected = planDays === "custom"
+      ? (Number.isFinite(requested) && requested > 0 ? Math.floor(requested) : 10)
+      : Number(planDays);
+    return Math.max(1, Math.min(10, selected || 10));
   }
 
   function sendResultToFactory() {
     if (!result && !sample) return;
+    const userIntent = question.trim().slice(0, 1000) || "Coach Brain content plan";
+    const researchSummary = result?.answer?.slice(0, 4000) || sample?.caption?.slice(0, 4000) || "";
+    const researchSources = result?.sources?.slice(0, 5).map((source) => ({ title: source.title, url: source.url })) ?? [];
+    const requestedDuration = selectedPlanDays();
+    const createdAt = new Date().toISOString();
+    const contentGoal = sample?.topic?.trim().slice(0, 500) || userIntent.slice(0, 500);
     const handoff = JSON.stringify({
-      question: question.trim().slice(0, 1000) || "Coach Brain content plan",
-      answer: result?.answer?.slice(0, 4000) || sample?.caption?.slice(0, 4000) || "",
-      sources: result?.sources?.slice(0, 5).map((source) => ({ title: source.title, url: source.url })) ?? [],
-      planWindowDays: selectedPlanDays(),
+      userIntent,
+      planStrategy: `${planMix}:${planExecution}`,
+      researchContext: { summary: researchSummary, sources: researchSources },
+      requestedDuration,
+      contentGoal,
+      question: userIntent,
+      answer: researchSummary,
+      sources: researchSources,
+      planWindowDays: requestedDuration,
       planMix,
       planExecution,
       sample: sample ? {
@@ -177,9 +202,14 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
         platform: sample.platform,
         contentType: sample.contentType,
       } : null,
-      createdAt: new Date().toISOString(),
+      createdAt,
     });
-    writeCoachBrainFactoryHandoff(handoff);
+    const saved = writeCoachBrainFactoryHandoff(handoff);
+    const restored = readCoachBrainFactoryHandoff();
+    if (!saved || !restored || restored.createdAt !== createdAt) {
+      setError(t.handoffSaveError);
+      return;
+    }
     const url = new URL(window.location.href);
     url.searchParams.set("section", "content");
     url.searchParams.set("factoryContext", "coach-brain");
@@ -187,6 +217,39 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
     url.searchParams.set("planMix", planMix);
     url.searchParams.set("planExecution", planExecution);
     window.location.assign(url.toString());
+  }
+
+  async function copySampleDesignPrompt() {
+    if (!sampleDesignPrompt) {
+      setSampleDesignNotice(language === "ar" ? "لم يرجع مزود المحتوى برومبت تصميم لهذا العنصر؛ لن ننسخ نصًا ناقصًا." : "The content provider returned no design prompt for this item; incomplete text will not be copied.");
+      return;
+    }
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("CLIPBOARD_UNAVAILABLE");
+      await navigator.clipboard.writeText(sampleDesignPrompt);
+      setSampleDesignNotice(language === "ar" ? "تم نسخ برومبت التصميم الكامل." : "The complete design prompt was copied.");
+    } catch {
+      setSampleDesignNotice(language === "ar" ? "تعذر النسخ التلقائي. البرومبت ظاهر في المربع؛ اضغط داخله وحدد الكل ثم انسخ يدويًا." : "Automatic copy is unavailable. The prompt is visible below; focus the box, select all, and copy manually.");
+    }
+  }
+
+  async function openSampleDesignTool() {
+    if (!sampleDesignPrompt) {
+      setSampleDesignNotice(language === "ar" ? "لا يوجد برومبت تصميم صالح لهذا العنصر." : "No valid design prompt exists for this item.");
+      return;
+    }
+    const target = sampleIsVideo ? "runway" : "canva";
+    const destination = target === "runway" ? "https://app.runwayml.com/" : "https://www.canva.com/";
+    window.open(destination, "_blank", "noopener,noreferrer");
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("CLIPBOARD_UNAVAILABLE");
+      await navigator.clipboard.writeText(sampleDesignPrompt);
+      setSampleDesignNotice(language === "ar"
+        ? `تم فتح ${target === "runway" ? "Runway" : "Canva"} ونسخ البرومبت. الصقه داخل حسابك؛ لم يتم استدعاء API مدفوع.`
+        : `${target === "runway" ? "Runway" : "Canva"} opened and the prompt was copied. Paste it into your account; no paid API was called.`);
+    } catch {
+      setSampleDesignNotice(language === "ar" ? "تم فتح الأداة، لكن تعذر النسخ التلقائي. البرومبت ظاهر في المربع ويمكن نسخه يدويًا." : "The tool opened, but automatic copy failed. The prompt remains visible and can be copied manually.");
+    }
   }
 
   async function research(event: FormEvent) {
@@ -316,10 +379,10 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
           </div>
         </div>
         <div className="coach-brain__plan-grid">
-          <label><span>{language === "ar" ? "المدة" : "Window"}</span><select value={planDays} onChange={(event) => setPlanDays(event.target.value)} disabled={sampleBusy}><option value="2">2 {language === "ar" ? "يوم" : "days"}</option><option value="3">3 {language === "ar" ? "أيام" : "days"}</option><option value="4">4 {language === "ar" ? "أيام" : "days"}</option><option value="7">7 {language === "ar" ? "أيام" : "days"}</option><option value="14">14 {language === "ar" ? "يومًا" : "days"}</option><option value="30">30 {language === "ar" ? "يومًا" : "days"}</option><option value="custom">{language === "ar" ? "مخصص" : "Custom"}</option></select></label>
-          {planDays === "custom" && <label><span>{language === "ar" ? "عدد الأيام" : "Days"}</span><input type="number" min={2} max={30} value={customDays} onChange={(event) => setCustomDays(event.target.value)} disabled={sampleBusy} /></label>}
+          <label><span>{language === "ar" ? "المدة" : "Window"}</span><select value={planDays} onChange={(event) => setPlanDays(event.target.value)} disabled={sampleBusy}><option value="1">1 {language === "ar" ? "يوم" : "day"}</option><option value="2">2 {language === "ar" ? "يوم" : "days"}</option><option value="3">3 {language === "ar" ? "أيام" : "days"}</option><option value="4">4 {language === "ar" ? "أيام" : "days"}</option><option value="7">7 {language === "ar" ? "أيام" : "days"}</option><option value="10">10 {language === "ar" ? "أيام" : "days"}</option><option value="custom">{language === "ar" ? "مخصص" : "Custom"}</option></select></label>
+          {planDays === "custom" && <label><span>{language === "ar" ? "عدد الأيام" : "Days"}</span><input type="number" min={1} max={10} value={customDays} onChange={(event) => setCustomDays(event.target.value)} onBlur={() => setCustomDays(String(Math.max(1, Math.min(10, Number(customDays) || 1))))} disabled={sampleBusy} /></label>}
           <label><span>{language === "ar" ? "نوع المحتوى" : "Content mix"}</span><select value={planMix} onChange={(event) => setPlanMix(event.target.value)} disabled={sampleBusy}><option value="varied">{language === "ar" ? "⭐ متنوع وأفضل توازن" : "⭐ Varied / best balance"}</option><option value="education">{language === "ar" ? "تعليمي" : "Education"}</option><option value="parents">{language === "ar" ? "للأهل" : "Parent tips"}</option><option value="conversion">{language === "ar" ? "تحويل وحجوزات" : "Conversion"}</option></select></label>
-          <label><span>{language === "ar" ? "التنفيذ" : "Execution"}</span><select value={planExecution} onChange={(event) => setPlanExecution(event.target.value as typeof planExecution)} disabled={sampleBusy}><option value="best">⭐ {language === "ar" ? "الأفضل" : "Best"}</option><option value="value">💰 {language === "ar" ? "الأوفر" : "Best value"}</option><option value="library">📁 {language === "ar" ? "من مكتبتي" : "From my library"}</option><option value="design">🎨 {language === "ar" ? "أفضل تصميم" : "Best design"}</option><option value="manual">⚙️ {language === "ar" ? "يدوي" : "Manual"}</option></select></label>
+          <label><span>{language === "ar" ? "التنفيذ" : "Execution"}</span><select value={planExecution} onChange={(event) => setPlanExecution(event.target.value as typeof planExecution)} disabled={sampleBusy}><option value="best">⭐ {language === "ar" ? "تلقائي — Gemini إن كان مضبوطًا، وإلا OpenAI إن كان مضبوطًا" : "Automatic — Gemini if configured; else OpenAI if configured"}</option><option value="value">Gemini</option></select></label>
         </div>
         <div className="coach-brain__plan-actions">
           <button type="button" className="coach-brain__primary" disabled={sampleBusy} onClick={async () => {
@@ -329,10 +392,12 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
               const parsed = raw ? JSON.parse(raw) as { accessToken?: unknown } : {};
               const accessToken = typeof parsed.accessToken === "string" ? parsed.accessToken : "";
               if (!accessToken) throw new Error("AUTH_REQUIRED");
-              const provider: BatchAiProvider = planExecution === "value" ? "gemini" : "auto";
+              const provider: BatchAiProvider = planExecution === "value" ? "gemini" : readAiProviderPreference();
               const providerLabel = provider === "gemini"
                 ? "Gemini"
-                : (language === "ar" ? "يحدده الخادم تلقائيًا" : "selected automatically by the server");
+                : provider === "openai"
+                  ? "OpenAI"
+                  : (language === "ar" ? "يحدده الخادم تلقائيًا" : "selected automatically by the server");
               const confirmationMessage = language === "ar"
                 ? [
                     "سيتم طلب عينة محتوى حقيقية من مزود ذكاء اصطناعي.",
@@ -375,7 +440,18 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
           <p>{sample.hook}</p>
           <div className="coach-brain__sample-caption">{sample.caption}</div>
           <small>{sample.platform} · {sample.contentType}</small>
-          <details><summary>{language === "ar" ? "تفاصيل التصميم" : "Design brief"}</summary><p>{sample.visualPrompt}</p></details>
+          <section className="coach-brain__sample-design" aria-label={language === "ar" ? "برومبت التصميم اليومي" : "Daily design prompt"}>
+            <strong>{language === "ar" ? "برومبت التصميم لهذا المحتوى" : "Design prompt for this content"}</strong>
+            {sampleIsVideo && <label><span>{language === "ar" ? "مدة فيديو Runway" : "Runway video length"}</span><select value={sampleVideoDuration} onChange={(event) => setSampleVideoDuration(Number(event.target.value) as 3 | 5 | 8)}><option value={3}>3 {language === "ar" ? "ثوانٍ" : "seconds"}</option><option value={5}>5 {language === "ar" ? "ثوانٍ" : "seconds"}</option><option value={8}>8 {language === "ar" ? "ثوانٍ" : "seconds"}</option></select></label>}
+            {sampleDesignPrompt
+              ? <textarea readOnly rows={6} value={sampleDesignPrompt} onFocus={(event) => event.currentTarget.select()} aria-label={language === "ar" ? "برومبت التصميم الكامل" : "Complete design prompt"} />
+              : <p role="status">{language === "ar" ? "لم يرجع مزود المحتوى برومبت تصميم لهذا العنصر." : "The content provider did not return a design prompt for this item."}</p>}
+            <div className="coach-brain__sample-design-actions">
+              <button type="button" className="coach-brain__reset" disabled={!sampleDesignPrompt} onClick={() => void copySampleDesignPrompt()}>{language === "ar" ? "نسخ البرومبت" : "Copy prompt"}</button>
+              <button type="button" className="coach-brain__reset" disabled={!sampleDesignPrompt} onClick={() => void openSampleDesignTool()}>{sampleIsVideo ? (language === "ar" ? "فتح Runway ونسخ البرومبت" : "Open Runway + copy prompt") : (language === "ar" ? "فتح Canva ونسخ البرومبت" : "Open Canva + copy prompt")}</button>
+            </div>
+            {sampleDesignNotice && <p className="coach-brain__privacy-note" role="status">{sampleDesignNotice}</p>}
+          </section>
         </article>}
       </section>
 

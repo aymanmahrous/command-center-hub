@@ -1,13 +1,11 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ar } from "./ar";
-import { en } from "./en";
 import type { Dictionary } from "./en";
 
 export type Language = "ar" | "en";
 export type { Dictionary };
 
 const STORAGE_KEY = "relaxfix-language";
-const dictionaries: Record<Language, Dictionary> = { ar, en };
 
 function readStoredLanguage(): Language {
   try {
@@ -30,7 +28,9 @@ type LanguageContextValue = {
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [language, setLanguageState] = useState<Language>(() => readStoredLanguage());
+  const [language, setLanguageState] = useState<Language>("ar");
+  const [dictionary, setDictionary] = useState<Dictionary>(ar);
+  const languageRequestRef = useRef(0);
   const dir: "rtl" | "ltr" = language === "ar" ? "rtl" : "ltr";
 
   useEffect(() => {
@@ -38,24 +38,56 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.dir = dir;
   }, [dir, language]);
 
+  useEffect(() => {
+    if (readStoredLanguage() !== "en") return;
+    const request = ++languageRequestRef.current;
+    void import("./en").then(({ en: english }) => {
+      if (languageRequestRef.current !== request) return;
+      setDictionary(english);
+      setLanguageState("en");
+    }).catch(() => {
+      // Keep the complete Arabic dictionary available if the optional chunk fails.
+    });
+    return () => {
+      if (languageRequestRef.current === request) languageRequestRef.current += 1;
+    };
+  }, []);
+
   function setLanguage(next: Language) {
-    setLanguageState(next);
-    try {
-      window.localStorage.setItem(STORAGE_KEY, next);
-    } catch {
-      /* ignore persistence failures (private browsing, quota, etc.) */
+    const request = ++languageRequestRef.current;
+    if (next === "ar") {
+      setDictionary(ar);
+      setLanguageState("ar");
+      try {
+        window.localStorage.setItem(STORAGE_KEY, "ar");
+      } catch {
+        /* ignore persistence failures (private browsing, quota, etc.) */
+      }
+      return;
     }
+
+    void import("./en").then(({ en: english }) => {
+      if (languageRequestRef.current !== request) return;
+      setDictionary(english);
+      setLanguageState("en");
+      try {
+        window.localStorage.setItem(STORAGE_KEY, "en");
+      } catch {
+        /* ignore persistence failures (private browsing, quota, etc.) */
+      }
+    }).catch(() => {
+      if (languageRequestRef.current !== request) return;
+      setDictionary(ar);
+      setLanguageState("ar");
+    });
   }
 
-  const value = useMemo<LanguageContextValue>(() => {
-    const dictionary = dictionaries[language];
-    return {
-      language,
-      dir,
-      setLanguage,
-      t: (section) => dictionary[section],
-    };
-  }, [dir, language]);
+  const value = useMemo<LanguageContextValue>(() => ({
+    language,
+    dir,
+    setLanguage,
+    t: (section) => dictionary[section],
+  }), [dir, dictionary, language]);
 
   return React.createElement(LanguageContext.Provider, { value }, children);
 }

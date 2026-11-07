@@ -4,10 +4,14 @@ import test from "node:test";
 
 const adapter = await readFile(new URL("../src/gemini-batch-adapter.ts", import.meta.url), "utf8");
 const edge = await readFile(new URL("../supabase/functions/generate-content-batch/index.ts", import.meta.url), "utf8");
+const providerKeys = await readFile(new URL("../supabase/functions/_shared/ai-provider-keys.ts", import.meta.url), "utf8");
+const coachResearch = await readFile(new URL("../supabase/functions/coach-brain-research/index.ts", import.meta.url), "utf8");
 const slotSpec = await readFile(new URL("../supabase/functions/generate-content-batch/coach-ayman-slot-spec.ts", import.meta.url), "utf8");
 const generator = await readFile(new URL("../src/content-batch-generator.ts", import.meta.url), "utf8");
 const hub = await readFile(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
 const coachBrain = await readFile(new URL("../src/coach-brain.tsx", import.meta.url), "utf8");
+const connections = await readFile(new URL("../src/integrations-center.tsx", import.meta.url), "utf8");
+const providerPreference = await readFile(new URL("../src/ai-provider-preference.ts", import.meta.url), "utf8");
 
 test("gemini batch adapter calls server edge function only", () => {
   assert.match(adapter, /functions\/v1\/generate-content-batch/);
@@ -53,11 +57,13 @@ test("content growth hub generates 30-day local calendar with media linkage", ()
   assert.match(hub, /buildCoachAyman30DayBatchWithMedia/);
   assert.match(hub, /create_staff_generated_content_batch/);
   assert.match(hub, /batchAiProvider/);
-  assert.match(hub, /Auto — best available/);
+  assert.match(hub, /Auto — fallback on temporary outage/);
 });
 
 test("existing Coach Brain, Academy, business and performance context reaches the Gemini prompt", () => {
-  assert.match(coachBrain, /answer: result\?\.answer\?\.slice\(0, 4000\)/);
+  assert.match(coachBrain, /const researchSummary = result\?\.answer\?\.slice\(0, 4000\)/);
+  assert.match(coachBrain, /researchContext: \{ summary: researchSummary, sources: researchSources \}/);
+  assert.match(coachBrain, /answer: researchSummary/);
   assert.match(hub, /academyKnowledge: knowledgeContext\.entries/);
   assert.match(hub, /coachBrainResearch: knowledgeContext\.researchContext \?\? null/);
   assert.match(hub, /businessStrategy: \{ brand: BRAND, platformGuidance: PLATFORM_GUIDANCE, strategySummary: \{ \.\.\.strategySummary, currentBatchStrategy: planFocus \} \}/);
@@ -87,7 +93,7 @@ test("Factory lets the owner choose a scheduling window without creating a secon
   assert.match(hub, /fitBatchToPlanWindow/);
   assert.match(hub, /COACH BRAIN PLAN/);
   assert.match(hub, /DEFAULT_BATCH_MIX\.length/);
-  assert.match(hub, /7, 14, 30/);
+  assert.match(hub, /7, 10/);
 });
 
 
@@ -104,4 +110,78 @@ test("Coach Brain can generate one real non-persisted sample and carry the owner
   assert.match(hub, /planFocus/);
   assert.match(hub, /get_staff_integrations/);
   assert.match(hub, /canvaIntegration/);
+});
+
+test("provider status checks Gemini and OpenAI using read-only endpoints", () => {
+  assert.match(edge, /verifyGeminiCredential/);
+  assert.match(edge, /verifyOpenAICredential/);
+  assert.match(edge, /api\.openai\.com\/v1\/models/);
+  assert.match(edge, /model\.id === OPENAI_MODEL/);
+  assert.match(edge, /model\.name\.endsWith/);
+  assert.match(edge, /providerChecks/);
+  assert.match(edge, /anyProviderReady/);
+  assert.match(edge, /mode === "status"/);
+  assert.match(edge, /externalCheck: !providerKeys\.gemini \? "NOT CONFIGURED"/);
+  assert.match(edge, /externalCheck: !providerKeys\.openai \? "NOT CONFIGURED"/);
+});
+
+test("automatic generation fails over only for retryable Gemini outages", () => {
+  assert.match(edge, /requestedProvider === "auto"/);
+  assert.match(edge, /const \[geminiAvailability, openaiAvailability\] = await Promise\.all/);
+  assert.ok(edge.includes('selectedProvider = geminiAvailability.verified ? "gemini" : openaiAvailability.verified ? "openai" : null;'));
+  assert.match(edge, /selectedProvider === "gemini"/);
+  assert.match(edge, /providerKeys\.openai && autoOpenAIReady && generated\.error\.retryable/);
+  assert.match(edge, /"x-goog-api-key": apiKey/);
+  assert.doesNotMatch(edge, /generateContent\?key=\$\{apiKey\}/);
+  assert.match(edge, /response\.status >= 500/);
+  assert.match(edge, /GEMINI_NETWORK_ERROR/);
+  assert.match(edge, /AI_PROVIDER_FALLBACK_FAILED/);
+  assert.match(edge, /fallbackUsed/);
+});
+
+test("one owner provider preference is shared by Connections, Factory and Coach Brain samples", () => {
+  assert.match(providerPreference, /relaxfix-ai-provider-preference-v1/);
+  assert.match(providerPreference, /localStorage/);
+  assert.doesNotMatch(providerPreference, /API_KEY|secret/i);
+  assert.match(connections, /functions\/v1\/generate-content-batch/);
+  assert.match(connections, /mode: "status"/);
+  assert.match(connections, /if \(!canWrite\)/);
+  assert.match(connections, /response.status === 401/);
+  assert.match(connections, /writeAiProviderPreference/);
+  assert.match(connections, /ai_provider", "meta_whatsapp", "telegram"/);
+  assert.match(hub, /readAiProviderPreference/);
+  assert.match(hub, /writeAiProviderPreference/);
+  assert.match(hub, /command-center:navigate/);
+  assert.doesNotMatch(hub, /integrations\.map/);
+  assert.match(coachBrain, /readAiProviderPreference/);
+});
+
+
+test("Coach Brain sample always shows a selectable design prompt with copy and manual Canva/Runway handoff", () => {
+  assert.match(coachBrain, /sampleDesignPrompt/);
+  assert.match(coachBrain, /coach-brain__sample-design/);
+  assert.match(coachBrain, /value=\{sampleDesignPrompt\}/);
+  assert.match(coachBrain, /copySampleDesignPrompt/);
+  assert.match(coachBrain, /openSampleDesignTool/);
+  assert.match(coachBrain, /https:\/\/app\.runwayml\.com\//);
+  assert.match(coachBrain, /https:\/\/www\.canva\.com\//);
+  assert.match(coachBrain, /sampleVideoDuration/);
+  assert.match(coachBrain, /const sampleBasePrompt = String\(sample\?\.visualPrompt \?\? ""\)\.trim\(\)/);
+  assert.match(coachBrain, /const sampleDesignPrompt = sampleBasePrompt/);
+});
+
+
+test("AI provider keys are saved through the existing protected integration and resolved server-side", () => {
+  assert.match(connections, /Manage API keys/);
+  assert.match(connections, /p_provider: "ai_provider"/);
+  assert.match(connections, /p_secret: JSON\.stringify\(\{ gemini, openai \}\)/);
+  assert.match(connections, /Gemini API Key/);
+  assert.match(connections, /OpenAI API Key/);
+  assert.match(providerKeys, /staff_integrations/);
+  assert.match(providerKeys, /staff_integration_secrets/);
+  assert.match(providerKeys, /JSON\.parse/);
+  assert.match(edge, /loadAiProviderKeys\(supabase, GEMINI_ENV_API_KEY, OPENAI_ENV_API_KEY\)/);
+  assert.match(coachResearch, /loadAiProviderKeys\(supabase, GEMINI_ENV_API_KEY, ""\)/);
+  assert.match(providerKeys, /protected staff_integration_secrets/);
+  assert.doesNotMatch(providerKeys, /console\.(log|info|debug)/);
 });

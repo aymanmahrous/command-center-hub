@@ -14,6 +14,7 @@ import {
   parsePublicationReceipts,
   resolvePublishPipelineStage,
 } from "./content-publishing";
+import { OWNER_PUBLISHING_FROZEN } from "./publishing-freeze";
 import { readContentPillar, readTimeSlot } from "./content-strategy";
 import { readPublishingCopy } from "./content-publishing-copy";
 import { ContentBatchMediaPreview } from "./content-batch-media-preview";
@@ -132,6 +133,8 @@ type ContentBatchReviewPanelProps = {
   designCapabilityState?: CapabilityState;
   designCapabilityDetail?: string;
   videoCapabilityState?: CapabilityState;
+  focusDate?: string | null;
+  onClearFocusDate?: () => void;
 };
 
 function formatWhen(language: "ar" | "en", value: string | null) {
@@ -163,6 +166,8 @@ export function ContentBatchReviewPanel({
   designCapabilityState = "NOT_CONFIGURED",
   designCapabilityDetail,
   videoCapabilityState = "NOT_CONFIGURED",
+  focusDate = null,
+  onClearFocusDate,
 }: ContentBatchReviewPanelProps) {
   const { language, t } = useLanguage();
   const copy = t("contentBatch");
@@ -183,6 +188,7 @@ export function ContentBatchReviewPanel({
   const [publishNotice, setPublishNotice] = useState("");
   const [videoTargetId, setVideoTargetId] = useState<string | null>(null);
   const [videoDuration, setVideoDuration] = useState<4 | 6 | 8>(8);
+  const [manualVideoDuration, setManualVideoDuration] = useState<3 | 5 | 8>(5);
   const [videoResolution, setVideoResolution] = useState<"720p" | "1080p">("720p");
   const [videoEstimate, setVideoEstimate] = useState<{ costUsd: number; model: string } | null>(null);
   const [videoBusyId, setVideoBusyId] = useState<string | null>(null);
@@ -196,14 +202,17 @@ export function ContentBatchReviewPanel({
   const summary = useMemo(() => summarizeBatch(batch.items), [batch.items]);
   const batchStatus = overallBatchStatus(batch.items);
   const approveCandidates = approveAllCandidates(batch.items);
-  const approveAllEnabled = canWrite && !busy && approveAllWouldChange(batch.items);
+  const approveAllEnabled = canWrite && !busy && !focusDate && approveAllWouldChange(batch.items);
   const assetById = useMemo(() => new Map(mediaAssets.map((asset) => [asset.id, asset])), [mediaAssets]);
   const workspaceItems = useMemo(() => {
-    if (workspaceMode === "designs") return items.filter((item) => !item.mediaAssetId);
-    if (workspaceMode === "reels") return items.filter((item) => String(item.contentType).toLowerCase() === "reel");
-    if (workspaceMode === "campaigns") return items.filter((item) => ["approved", "scheduled", "published", "failed"].includes(item.status));
-    return items;
-  }, [items, workspaceMode]);
+    const dayItems = focusDate
+      ? items.filter((item) => item.scheduledFor && new Date(item.scheduledFor).toDateString() === focusDate)
+      : items;
+    if (workspaceMode === "designs") return dayItems.filter((item) => !item.mediaAssetId);
+    if (workspaceMode === "reels") return dayItems.filter((item) => String(item.contentType).toLowerCase() === "reel");
+    if (workspaceMode === "campaigns") return dayItems.filter((item) => ["approved", "scheduled", "published", "failed"].includes(item.status));
+    return dayItems;
+  }, [items, workspaceMode, focusDate]);
   const visibleItems = itemFilter === "all" ? workspaceItems : workspaceItems.filter((item) => item.status === itemFilter);
   const previewLabels = {
     designPreview: copy.designPreview,
@@ -244,12 +253,57 @@ export function ContentBatchReviewPanel({
       { key: "canva" as const, label: "Canva", available: !isVideo && designCapabilityState === "AVAILABLE", detail: designCapabilityState === "AVAILABLE"
           ? (language === "ar" ? "Canva متصل وجاهز لتصميم صورة / Carousel" : "Canva is connected and ready for image / carousel design")
           : designCapabilityDetail ?? (language === "ar" ? "Canva غير جاهز للتصميم حاليًا" : "Canva is not ready for design yet") },
-      { key: "gemini" as const, label: "Gemini Image", available: !isVideo, detail: language === "ar" ? "توليد صورة عبر Gemini مع تأكيد التكلفة" : "Gemini image generation; confirm cost first" },
+      { key: "gemini" as const, label: language === "ar" ? "Gemini Image API — تكلفة منفصلة" : "Gemini Image API — separate billing", available: !isVideo, detail: language === "ar" ? "فوترة Gemini API منفصلة عن اشتراك Gemini Pro" : "Gemini API billing is separate from your Gemini Pro subscription" },
       { key: "chatgpt" as const, label: "ChatGPT", available: false, detail: language === "ar" ? "توليد بصري — غير موصول داخل المصنع حاليًا" : "Visual generation — not wired into Factory yet" },
-      { key: "runway" as const, label: "Runway", available: isVideo && videoCapabilityState === "AVAILABLE", detail: language === "ar" ? "توليد فيديو" : "Video generation" },
+      { key: "runway" as const, label: "Runway — فتح يدوي", available: isVideo, detail: language === "ar" ? "يفتح حسابك وينسخ البرومبت؛ لا يحتاج ربط API" : "Opens your account and copies the prompt; no API connection required" },
       { key: "capcut" as const, label: "CapCut", available: isVideo, detail: language === "ar" ? "تحرير فيديو يدوي" : "Manual video editing" },
       { key: "manual" as const, label: language === "ar" ? "يدوي" : "Manual", available: true, detail: language === "ar" ? "استخدم الـBrief الجاهز" : "Use the prepared brief" },
     ];
+  }
+
+  async function copyDesignPrompt(item: ContentBatchItem) {
+    const basePrompt = String(item.visualPrompt ?? "").trim();
+    const isVideo = /reel|video/i.test(String(item.contentType));
+    const prompt = basePrompt
+      ? `${basePrompt}${isVideo ? `\n\nFINAL OUTPUT REQUIREMENT: Create one vertical 9:16 video with an exact target duration of ${manualVideoDuration} seconds. This duration overrides any earlier duration in the brief.` : ""}`.trim()
+      : "";
+    if (!prompt) {
+      setDesignNotice(language === "ar" ? "لا يوجد برومبت تصميم محفوظ لهذا المحتوى. لن نرسل عنوانًا أو نصًا ناقصًا بدلًا منه." : "No saved design prompt exists for this item. A title or incomplete text will not be substituted.");
+      return;
+    }
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("CLIPBOARD_UNAVAILABLE");
+      await navigator.clipboard.writeText(prompt);
+      setDesignNotice(language === "ar" ? "تم نسخ برومبت التصميم الكامل." : "The complete design prompt was copied.");
+    } catch {
+      setDesignNotice(language === "ar" ? "تعذر النسخ التلقائي. اضغط داخل مربع البرومبت، وحدد الكل، ثم انسخ يدويًا." : "Automatic copy is unavailable. Focus the prompt box, select all, and copy manually.");
+    }
+  }
+
+  async function openExternalBrief(target: "canva" | "gemini" | "runway", item: ContentBatchItem) {
+    const destinations = { canva: "https://www.canva.com/", gemini: "https://gemini.google.com/app", runway: "https://app.runwayml.com/" } as const;
+    const basePrompt = String(item.visualPrompt ?? "").trim();
+    if (!basePrompt) {
+      setDesignNotice(language === "ar" ? "لا يوجد برومبت تصميم محفوظ لهذا المحتوى. لم يتم فتح الأداة أو إرسال نص ناقص." : "No saved design prompt exists for this item. The tool was not opened and no incomplete text was sent.");
+      return;
+    }
+    if (item.status === "published") {
+      setDesignNotice(language === "ar" ? "هذا المحتوى منشور بالفعل؛ يمكنك نسخ البرومبت للمراجعة دون إنشاء نسخة جديدة من هنا." : "This item is already published; you may copy its prompt for reference, but no new creative is launched from here.");
+      return;
+    }
+    const prompt = target === "runway"
+      ? `${basePrompt}\n\nFINAL OUTPUT REQUIREMENT: Create one vertical 9:16 video with an exact target duration of ${manualVideoDuration} seconds. This duration overrides any earlier duration in the brief.`
+      : basePrompt;
+    window.open(destinations[target], "_blank", "noopener,noreferrer");
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("CLIPBOARD_UNAVAILABLE");
+      await navigator.clipboard.writeText(prompt);
+      setDesignNotice(language === "ar"
+        ? `تم نسخ التعليمات وفتح ${target === "canva" ? "Canva" : target === "gemini" ? "Gemini Pro" : "Runway"}. الصقها داخل حسابك؛ لم يتم استدعاء API مدفوع.`
+        : `The brief was copied and ${target === "canva" ? "Canva" : target === "gemini" ? "Gemini Pro" : "Runway"} was opened. Paste it into your account; no paid API was called.`);
+    } catch {
+      setDesignNotice(language === "ar" ? "تم فتح الأداة، لكن تعذر النسخ التلقائي. البرومبت ظاهر في مربع النص ويمكن تحديده ونسخه يدويًا." : "The tool was opened, but automatic copy failed. The prompt is visible in the text box and can be selected and copied manually.");
+    }
   }
 
   function selectedDesignProvider(item: ContentBatchItem): DesignProvider {
@@ -265,7 +319,7 @@ export function ContentBatchReviewPanel({
       const requestedProvider = selectedDesignProvider(item);
       const isVideo = /reel|video/i.test(String(item.contentType));
       if (requestedProvider === "auto" && isVideo && videoCapabilityState !== "AVAILABLE") {
-        onOpenConnections?.();
+        await openExternalBrief("runway", item);
         return;
       }
       const provider = resolveDesignProvider(requestedProvider, isVideo, designCapabilityState === "AVAILABLE", videoCapabilityState === "AVAILABLE");
@@ -281,6 +335,10 @@ export function ContentBatchReviewPanel({
           : language === "ar"
             ? "هذا المزود غير جاهز حاليًا. لم يتم تشغيل أي عملية."
             : "This provider is not ready right now. No operation was started.");
+        return;
+      }
+      if (provider === "runway") {
+        await openExternalBrief("runway", item);
         return;
       }
       if (provider === "gemini") {
@@ -301,8 +359,8 @@ export function ContentBatchReviewPanel({
       }
       if (provider !== "canva") {
         setDesignNotice(language === "ar"
-          ? provider === "runway" ? "Runway هو اختيار الفيديو، لكن التنفيذ الآلي يتطلب اتصالًا متحققًا به. لا ندّعي توليدًا غير موجود." : provider === "capcut" ? "CapCut متاح هنا كمسار تحرير يدوي؛ الـBrief جاهز." : "تم اختيار المسار اليدوي؛ استخدم الـBrief الجاهز."
-          : provider === "runway" ? "Runway is the video choice, but automated execution requires a verified connection. No unsupported generation is claimed." : provider === "capcut" ? "CapCut is available here as a manual editing path; the brief is ready." : "Manual path selected; use the prepared brief.");
+          ? provider === "capcut" ? "CapCut متاح هنا كمسار تحرير يدوي؛ الـBrief جاهز." : "تم اختيار المسار اليدوي؛ استخدم الـBrief الجاهز."
+          : provider === "capcut" ? "CapCut is available here as a manual editing path; the brief is ready." : "Manual path selected; use the prepared brief.");
         return;
       }
       const generated = await generateCanvaDesignForContentItem(session, item);
@@ -513,6 +571,10 @@ export function ContentBatchReviewPanel({
   }
 
   async function handleRequestPublish(item: ContentBatchItem) {
+    if (OWNER_PUBLISHING_FROZEN) {
+      setPublishNotice(language === "ar" ? "النشر مجمّد بتفويض المالك. يمكنك تجهيز المحتوى ومراجعته، لكن لا يمكن إرسال أي منشور الآن." : "Publishing is frozen by owner authorization. You can prepare and review content, but no post can be sent now.");
+      return;
+    }
     if (!session || !canWrite || busy || publishBusyId || !canRequestPublish(item)) return;
     const priorReceipt = latestReceiptForPlatform(item, item.platform);
     const confirmedFailure = priorReceipt?.status.toLowerCase() === "failed";
@@ -561,6 +623,13 @@ export function ContentBatchReviewPanel({
         </div>
         <span className={`content-status batch-status-${batchStatus}`}>{batchStatusLabels[batchStatus] ?? batchStatus}</span>
       </header>
+
+      {focusDate && (
+        <div className="content-batch-design-notice" role="status">
+          <span>{language === "ar" ? "عرض محتوى يوم " : "Showing content for "}{new Date(focusDate).toLocaleDateString(language === "ar" ? "ar-AE" : "en-AE", { dateStyle: "full" })}</span>
+          {onClearFocusDate && <button type="button" className="secondary" onClick={onClearFocusDate}>{language === "ar" ? "عرض كل الأيام" : "Show all days"}</button>}
+        </div>
+      )}
 
       <div className="content-batch-summary" aria-label={copy.summaryAria}>
         <article><span>{copy.needsReview}</span><strong>{summary.needsReview}</strong></article>
@@ -630,7 +699,7 @@ export function ContentBatchReviewPanel({
       {visibleItems.length === 0 ? <p className="content-review-empty">{language === "ar" ? "لا توجد عناصر في هذه الحالة." : "No items match this status."}</p> : <div className="content-batch-grid">
         {visibleItems.map((item) => {
           const canApprove = ["draft", "generated", "needs_review"].includes(item.status);
-          const canRequestChanges = ["draft", "generated", "approved", "scheduled", "failed"].includes(item.status);
+          const canRequestChanges = ["draft", "generated", "approved", "scheduled", "failed"].includes(item.status) && !(OWNER_PUBLISHING_FROZEN && item.status === "scheduled");
           const itemLocked = busy || !canWrite;
           const pillar = readContentPillar(item);
           const timeSlot = readTimeSlot(item);
@@ -640,6 +709,11 @@ export function ContentBatchReviewPanel({
           const platformReceipt = latestReceiptForPlatform(item, item.platform);
           const postLink = buildExternalPostLink(item.platform, platformReceipt?.externalPostId);
           const itemDisabledReason = !canWrite ? copy.actionDisabledReadOnly : busy ? copy.actionDisabledBusy : undefined;
+          const itemBaseDesignPrompt = String(item.visualPrompt ?? "").trim();
+          const itemIsVideo = /reel|video/i.test(String(item.contentType));
+          const itemDesignPrompt = itemBaseDesignPrompt
+            ? `${itemBaseDesignPrompt}${itemIsVideo ? `\n\nFINAL OUTPUT REQUIREMENT: Create one vertical 9:16 video with an exact target duration of ${manualVideoDuration} seconds. This duration overrides any earlier duration in the brief.` : ""}`.trim()
+            : "";
           const linkedMediaAssetId = typeof item.mediaAssetId === "string" ? item.mediaAssetId : "";
           const linkedMediaAsset = assetById.get(linkedMediaAssetId);
           const canRegenerateDesign = Boolean(linkedMediaAsset && !canUseInMarketingBatch(linkedMediaAsset));
@@ -657,6 +731,29 @@ export function ContentBatchReviewPanel({
                 </div>
                 <span className={`content-status status-${item.status}`}>{itemStatusLabels[item.status as keyof typeof itemStatusLabels] ?? item.status}</span>
               </header>
+              {session && (
+                <section className="content-daily-design-prompt" aria-label={language === "ar" ? "برومبت التصميم لهذا اليوم" : "Daily design prompt"}>
+                  <div className="content-daily-design-heading">
+                    <strong>{itemIsVideo ? (language === "ar" ? "برومبت الفيديو الكامل لـRunway" : "Complete Runway video prompt") : (language === "ar" ? "برومبت التصميم لهذا المحتوى" : "Design prompt for this content")}</strong>
+                    <small>{formatWhen(language, item.scheduledFor)}</small>
+                  </div>
+                  {itemIsVideo && <label className="content-video-duration"><span>{language === "ar" ? "مدة فيديو Runway" : "Runway video length"}</span><select value={manualVideoDuration} onChange={(event) => setManualVideoDuration(Number(event.target.value) as 3 | 5 | 8)} disabled={item.status === "published"}><option value={3}>3 {language === "ar" ? "ثوانٍ" : "seconds"}</option><option value={5}>5 {language === "ar" ? "ثوانٍ" : "seconds"}</option><option value={8}>8 {language === "ar" ? "ثوانٍ" : "seconds"}</option></select></label>}
+                  {itemDesignPrompt
+                    ? <textarea readOnly rows={5} value={itemDesignPrompt} onFocus={(event) => event.currentTarget.select()} aria-label={itemIsVideo ? (language === "ar" ? "برومبت Runway الكامل مع المدة" : "Complete Runway prompt with duration") : (language === "ar" ? "برومبت التصميم الكامل" : "Complete design prompt")} />
+                    : <p className="content-daily-design-missing" role="status">{language === "ar" ? "لا يوجد برومبت تصميم محفوظ لهذا العنصر. يلزم إصلاح المحتوى قبل إرساله إلى أداة تصميم." : "No design prompt is saved for this item. Repair the content before sending it to a design tool."}</p>}
+                  <div className="content-manual-tool-actions">
+                    <button type="button" className="secondary" disabled={!itemDesignPrompt} onClick={() => void copyDesignPrompt(item)}>{itemIsVideo ? (language === "ar" ? "نسخ برومبت Runway" : "Copy Runway prompt") : (language === "ar" ? "نسخ برومبت التصميم" : "Copy design prompt")}</button>
+                    {!itemIsVideo && <>
+                      <button type="button" className="secondary" disabled={!itemDesignPrompt || item.status === "published"} onClick={() => void openExternalBrief("canva", item)}>{language === "ar" ? "فتح Canva ونسخ البرومبت" : "Open Canva + copy prompt"}</button>
+                      <button type="button" className="secondary" disabled={!itemDesignPrompt || item.status === "published"} onClick={() => void openExternalBrief("gemini", item)}>{language === "ar" ? "فتح Gemini Pro ونسخ البرومبت" : "Open Gemini Pro + copy prompt"}</button>
+                    </>}
+                    {itemIsVideo && <>
+                      <button type="button" className="secondary" disabled={!itemDesignPrompt || item.status === "published"} onClick={() => void openExternalBrief("runway", item)}>{language === "ar" ? "فتح Runway ونسخ برومبت الفيديو" : "Open Runway + copy video prompt"}</button>
+
+                    </>}
+                  </div>
+                </section>
+              )}
               <details className="content-item-details">
                 <summary>{language === "ar" ? "المزيد والتفاصيل" : "More details"}</summary>
                 <p className="item-caption">{item.caption.trim() || copy.noCaption}</p>
@@ -812,6 +909,7 @@ export function ContentBatchReviewPanel({
                         ? copy.generateDesignBusy
                         : language === "ar" ? "إنشاء التصميم" : "Create design"}
                     </button>
+
                   </div>
                 )}
                 {session && /reel|video/i.test(String(item.contentType)) && (!item.mediaAssetId || replacingMediaItemId === item.id) && item.status !== "published" && (
@@ -874,7 +972,7 @@ export function ContentBatchReviewPanel({
                   >
                     🎨 {language === "ar" ? "بوستر رسمي PNG" : "Branded Poster PNG"}
                   </button>
-                {onEditItem && item.status !== "published" && (
+                {onEditItem && item.status !== "published" && !(OWNER_PUBLISHING_FROZEN && item.status === "scheduled") && (
                   <button
                     type="button"
                     className="secondary"
@@ -886,15 +984,17 @@ export function ContentBatchReviewPanel({
                   </button>
                 )}
                 {canRequestPublish(item) && session && (
-                  <button
-                    type="button"
-                    className="primary-button"
-                    disabled={itemLocked || publishBusyId === item.id || !canRequestPublishWithMedia(item, linkedMediaAsset)}
-                    title={itemDisabledReason ?? (!canRequestPublishWithMedia(item, linkedMediaAsset) ? (language === "ar" ? "الوسائط المرتبطة ليست جاهزة للنشر." : "Linked media is not publish-ready.") : undefined)}
-                    onClick={() => void handleRequestPublish(item)}
-                  >
-                    {publishBusyId === item.id ? requestPublishCopy.busy : platformReceipt?.status.toLowerCase() === "failed" ? requestPublishCopy.retryButton : requestPublishCopy.button}
-                  </button>
+                  OWNER_PUBLISHING_FROZEN
+                    ? <small className="item-action-disabled-reason">{language === "ar" ? "النشر مجمّد بتفويض المالك. المراجعة والتجهيز متاحان؛ الإرسال غير متاح." : "Publishing is frozen by owner authorization. Review and preparation remain available; sending is disabled."}</small>
+                    : <button
+                        type="button"
+                        className="primary-button"
+                        disabled={itemLocked || publishBusyId === item.id || !canRequestPublishWithMedia(item, linkedMediaAsset)}
+                        title={itemDisabledReason ?? (!canRequestPublishWithMedia(item, linkedMediaAsset) ? (language === "ar" ? "الوسائط المرتبطة ليست جاهزة للنشر." : "Linked media is not publish-ready.") : undefined)}
+                        onClick={() => void handleRequestPublish(item)}
+                      >
+                        {publishBusyId === item.id ? requestPublishCopy.busy : platformReceipt?.status.toLowerCase() === "failed" ? requestPublishCopy.retryButton : requestPublishCopy.button}
+                      </button>
                 )}
                 {item.status === "approved" && !canRequestPublishWithMedia(item, linkedMediaAsset) && (
                   <small className="item-action-disabled-reason">
@@ -954,7 +1054,7 @@ export function ContentBatchReviewPanel({
                     void onEditItem(item, String(data.get("visualPrompt") ?? "").trim(), scheduledFor).then(() => setEditTargetId(null));
                   }}
                 >
-                  <label>{language === "ar" ? "موعد النشر" : "Publish time"}<input name="scheduledFor" type="datetime-local" defaultValue={formatLocalDateTimeInput(item.scheduledFor)} disabled={!canWrite || item.status === "published"} /></label>
+                  <label>{language === "ar" ? "موعد النشر" : "Publish time"}<input name="scheduledFor" type="datetime-local" defaultValue={formatLocalDateTimeInput(item.scheduledFor)} disabled={OWNER_PUBLISHING_FROZEN || !canWrite || item.status === "published"} /></label>
                   <label>{language === "ar" ? "طلب التصميم" : "Design request"}<textarea name="visualPrompt" defaultValue={String(item.visualPrompt ?? "")} maxLength={2000} rows={3} disabled={!canWrite || item.status === "published"} /></label>
                   <button type="submit" disabled={itemLocked}>{language === "ar" ? "حفظ" : "Save"}</button>
                 </form>

@@ -67,8 +67,8 @@ const todayCopy = {
     bookingsHint: "طلبات أُنشئت اليوم",
     confirmedLabel: "حجوزات مؤكدة",
     confirmedHint: "مؤكدة اليوم",
-    followUpsLabel: "المتابعات",
-    followUpsHint: "CRM + طابور المتابعة",
+    followUpsLabel: "متابعات CRM",
+    followUpsHint: "سجلات المتابعة داخل CRM",
     contentReviewLabel: "مراجعة المحتوى",
     contentReviewHint: "مسودة / مولّد / بانتظار المراجعة",
     contentPipelineEyebrow: "عمليات المحتوى",
@@ -111,8 +111,8 @@ const todayCopy = {
     bookingsHint: "Requests created today",
     confirmedLabel: "Confirmed bookings",
     confirmedHint: "Confirmed today",
-    followUpsLabel: "Follow-ups",
-    followUpsHint: "Queued CRM + jobs",
+    followUpsLabel: "CRM follow-ups",
+    followUpsHint: "CRM follow-up records",
     contentReviewLabel: "Content review",
     contentReviewHint: "Draft / generated / needs review",
     contentPipelineEyebrow: "Content operations",
@@ -367,7 +367,7 @@ export default function TodayOperationsView({
         <button type="button" className="summary-alert today-summary-action" onClick={() => onNavigate("crm")}><span>{copy.leadsLabel}</span><strong>{leads.length}</strong><small>{copy.leadsHint}</small></button>
         <button type="button" className="summary-alert today-summary-action" onClick={() => onNavigate("planner")}><span>{copy.bookingsLabel}</span><strong>{metrics.bookingsToday.length}</strong><small>{copy.bookingsHint}</small></button>
         <button type="button" className="summary-alert today-summary-action" onClick={() => onNavigate("planner")}><span>{copy.confirmedLabel}</span><strong>{metrics.confirmedToday.length}</strong><small>{copy.confirmedHint}</small></button>
-        <button type="button" className="summary-alert today-summary-action" onClick={() => onNavigate("crm")}><span>{copy.followUpsLabel}</span><strong>{metrics.followUpJobs.length + metrics.crmFollowUps.length}</strong><small>{copy.followUpsHint}</small></button>
+        <button type="button" className="summary-alert today-summary-action" onClick={() => onNavigate("crm")}><span>{copy.followUpsLabel}</span><strong>{metrics.crmFollowUps.length}</strong><small>{copy.followUpsHint}</small></button>
         <button type="button" className="summary-alert today-summary-action" onClick={() => onNavigate("content")}><span>{copy.contentReviewLabel}</span><strong>{metrics.reviewContent.length}</strong><small>{copy.contentReviewHint}</small></button>
       </div>
     </section>

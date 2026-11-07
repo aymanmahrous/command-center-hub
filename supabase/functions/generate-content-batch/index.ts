@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { loadAiProviderKeys, type AiProviderKeys } from "../_shared/ai-provider-keys.ts";
 import {
   COACH_AYMAN_PROVIDER_ID,
   COACH_AYMAN_SLOT_SPEC,
@@ -16,8 +17,8 @@ import {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const GEMINI_API_KEY = (Deno.env.get("GEMINI_API_KEY") ?? "").trim();
-const OPENAI_API_KEY = (Deno.env.get("OPENAI_API_KEY") ?? "").trim();
+const GEMINI_ENV_API_KEY = (Deno.env.get("GEMINI_API_KEY") ?? "").trim();
+const OPENAI_ENV_API_KEY = (Deno.env.get("OPENAI_API_KEY") ?? "").trim();
 const GEMINI_MODEL = "gemini-3.8-flash";
 const OPENAI_MODEL = (Deno.env.get("OPENAI_MODEL") ?? "gpt-6-luna").trim();
 const ALLOWED_ROLES = new Set(["super_admin", "admin", "content_manager"]);
@@ -148,16 +149,16 @@ function bearerToken(request: Request) {
   return authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
 }
 
-function credentialStatus() {
-  const providers = { gemini: Boolean(GEMINI_API_KEY), openai: Boolean(OPENAI_API_KEY) };
-  if (!GEMINI_API_KEY && !OPENAI_API_KEY) {
+function credentialStatus(providerKeys: AiProviderKeys) {
+  const providers = { gemini: Boolean(providerKeys.gemini), openai: Boolean(providerKeys.openai) };
+  if (!providerKeys.gemini && !providerKeys.openai) {
     return {
       connected: false,
       integrationStatus: "NEEDS CREDENTIAL",
       credentialsConfigured: false,
       provider: null,
       providers,
-      detail: "Set GEMINI_API_KEY or OPENAI_API_KEY in Supabase Edge Function secrets (server-side only).",
+      detail: "Add Gemini or OpenAI API keys in the protected Connections Center, or configure server-side Edge Function secrets.",
       code: "NEEDS_CREDENTIAL",
     };
   }
@@ -165,26 +166,52 @@ function credentialStatus() {
     connected: false,
     integrationStatus: "CREDENTIALS CONFIGURED",
     credentialsConfigured: true,
-    provider: GEMINI_API_KEY ? "gemini" : "openai",
+    provider: providerKeys.gemini ? "gemini" : "openai",
     providers,
     detail: "Provider credentials are configured; an external check is still required.",
     code: "CREDENTIALS_CONFIGURED",
   };
 }
-
-async function verifyGeminiCredential() {
-  if (!GEMINI_API_KEY) return { verified: false, code: "NOT_CONFIGURED" as const };
+async function verifyGeminiCredential(apiKey: string) {
+  if (!apiKey) return { verified: false, code: "NOT_CONFIGURED" as const };
   try {
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models", {
       method: "GET",
-      headers: { "x-goog-api-key": GEMINI_API_KEY },
+      headers: { "x-goog-api-key": apiKey },
     });
-    if (response.ok) return { verified: true as const };
-    return { verified: false, code: "GEMINI_EXTERNAL_CHECK_FAILED" as const, providerStatus: response.status };
+    if (!response.ok) return { verified: false, code: "GEMINI_EXTERNAL_CHECK_FAILED" as const, providerStatus: response.status };
+    const payload = await response.json().catch(() => null) as JsonObject | null;
+    const models = Array.isArray(payload?.models) ? payload.models as JsonObject[] : [];
+    const modelAvailable = models.some((model) => typeof model.name === "string" && model.name.endsWith(`models/${GEMINI_MODEL}`));
+    return modelAvailable
+      ? { verified: true as const }
+      : { verified: false, code: "GEMINI_MODEL_UNAVAILABLE" as const };
   } catch {
     return { verified: false, code: "GEMINI_EXTERNAL_CHECK_FAILED" as const };
   }
 }
+
+async function verifyOpenAICredential(apiKey: string) {
+  if (!apiKey) return { verified: false, code: "NOT_CONFIGURED" as const };
+  try {
+    const response = await fetch("https://api.openai.com/v1/models", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!response.ok) return { verified: false, code: "OPENAI_EXTERNAL_CHECK_FAILED" as const, providerStatus: response.status };
+    const payload = await response.json().catch(() => null) as JsonObject | null;
+    const models = Array.isArray(payload?.data) ? payload.data as JsonObject[] : [];
+    const modelAvailable = models.some((model) => model.id === OPENAI_MODEL);
+    return modelAvailable
+      ? { verified: true as const }
+      : { verified: false, code: "OPENAI_MODEL_UNAVAILABLE" as const };
+  } catch {
+    return { verified: false, code: "OPENAI_EXTERNAL_CHECK_FAILED" as const };
+  }
+}
+
+type ProviderFailure = { code: string; providerStatus?: number; retryable: boolean };
+type ProviderCallResult = { data: JsonObject } | { error: ProviderFailure };
 
 async function requireStaff(supabase: ReturnType<typeof createClient>, token: string) {
   const { data: authData, error: authError } = await supabase.auth.getUser(token);
@@ -264,32 +291,42 @@ function buildPrompt(batchNonce: string, startIso: string, context: PromptContex
   ].join("\n");
 }
 
-async function callGemini(prompt: string) {
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } }),
-  });
-  if (!response.ok) return { error: json({ success: false, code: "GEMINI_REQUEST_FAILED", status: response.status }, 502) };
+async function callGemini(prompt: string, apiKey: string): Promise<ProviderCallResult> {
+  let response: Response;
+  try {
+    response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } }),
+    });
+  } catch {
+    return { error: { code: "GEMINI_NETWORK_ERROR", retryable: true } };
+  }
+  if (!response.ok) return { error: { code: "GEMINI_REQUEST_FAILED", providerStatus: response.status, retryable: response.status >= 500 } };
   const payload = await response.json().catch(() => null) as JsonObject | null;
   const parts = ((payload?.candidates as JsonObject[] | undefined)?.[0]?.content as JsonObject | undefined)?.parts as JsonObject[] | undefined;
   const text = parts?.[0]?.text;
-  if (typeof text !== "string" || !text.trim()) return { error: json({ success: false, code: "GEMINI_EMPTY_RESPONSE" }, 502) };
-  try { return { data: JSON.parse(text) as JsonObject }; } catch { return { error: json({ success: false, code: "GEMINI_INVALID_JSON" }, 502) }; }
+  if (typeof text !== "string" || !text.trim()) return { error: { code: "GEMINI_EMPTY_RESPONSE", retryable: false } };
+  try { return { data: JSON.parse(text) as JsonObject }; } catch { return { error: { code: "GEMINI_INVALID_JSON", retryable: false } }; }
 }
 
-async function callOpenAI(prompt: string) {
-  const response = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
-    body: JSON.stringify({ model: OPENAI_MODEL, input: prompt, text: { format: { type: "json_object" } } }),
-  });
-  if (!response.ok) return { error: json({ success: false, code: "OPENAI_REQUEST_FAILED", status: response.status }, 502) };
+async function callOpenAI(prompt: string, apiKey: string): Promise<ProviderCallResult> {
+  let response: Response;
+  try {
+    response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({ model: OPENAI_MODEL, input: prompt, text: { format: { type: "json_object" } } }),
+    });
+  } catch {
+    return { error: { code: "OPENAI_NETWORK_ERROR", retryable: true } };
+  }
+  if (!response.ok) return { error: { code: "OPENAI_REQUEST_FAILED", providerStatus: response.status, retryable: response.status >= 500 } };
   const payload = await response.json().catch(() => null) as JsonObject | null;
   const output = Array.isArray(payload?.output) ? payload.output as JsonObject[] : [];
   const text = output.flatMap((item) => Array.isArray(item.content) ? item.content as JsonObject[] : []).map((item) => typeof item.text === "string" ? item.text : "").find((value) => value.trim());
-  if (!text) return { error: json({ success: false, code: "OPENAI_EMPTY_RESPONSE" }, 502) };
-  try { return { data: JSON.parse(text) as JsonObject }; } catch { return { error: json({ success: false, code: "OPENAI_INVALID_JSON" }, 502) }; }
+  if (!text) return { error: { code: "OPENAI_EMPTY_RESPONSE", retryable: false } };
+  try { return { data: JSON.parse(text) as JsonObject }; } catch { return { error: { code: "OPENAI_INVALID_JSON", retryable: false } }; }
 }
 
 function stripTrackedFooter(caption: string): string {
@@ -328,7 +365,7 @@ async function normalizeItems(rawItems: unknown[], batchNonce: string, start: Da
       }
     }
     const visualCopyLineIsBilingual = (label: string) => {
-      const line = rawVisualPrompt.split(/\r?\n/).find((part) => part.trim().toUpperCase().startsWith(label));
+      const line = visualPrompt.split(/\r?\n/).find((part) => part.trim().toUpperCase().startsWith(label));
       const copy = line?.slice(line.indexOf(":") + 1).trim() ?? "";
       return /^[\u0600-\u06FF]/.test(copy) && hasEnglish(copy);
     };
@@ -373,38 +410,83 @@ Deno.serve(async (request) => {
   if ("error" in staff && staff.error) return staff.error;
 
   const body = await request.json().catch(() => ({})) as JsonObject;
-  const status = credentialStatus();
+  const providerKeys = await loadAiProviderKeys(supabase, GEMINI_ENV_API_KEY, OPENAI_ENV_API_KEY);
+  const status = credentialStatus(providerKeys);
 
   if (body.mode === "status") {
-    const geminiCheck = await verifyGeminiCredential();
-    const externallyVerified = geminiCheck.verified;
+    const [geminiCheck, openaiCheck] = await Promise.all([
+      verifyGeminiCredential(providerKeys.gemini),
+      verifyOpenAICredential(providerKeys.openai),
+    ]);
+    const externallyVerified = geminiCheck.verified || openaiCheck.verified;
+    const providerChecks = {
+      gemini: {
+        configured: Boolean(providerKeys.gemini),
+        externalCheck: !providerKeys.gemini ? "NOT CONFIGURED" : geminiCheck.verified ? "PASSED" : "FAILED",
+        providerStatus: "providerStatus" in geminiCheck ? geminiCheck.providerStatus : undefined,
+      },
+      openai: {
+        configured: Boolean(providerKeys.openai),
+        externalCheck: !providerKeys.openai ? "NOT CONFIGURED" : openaiCheck.verified ? "PASSED" : "FAILED",
+        providerStatus: "providerStatus" in openaiCheck ? openaiCheck.providerStatus : undefined,
+      },
+    };
     return json({
       success: true,
-      connected: externallyVerified,
+      connected: geminiCheck.verified,
+      anyProviderReady: externallyVerified,
       credentialsConfigured: status.credentialsConfigured,
-      externalCheck: GEMINI_API_KEY ? (externallyVerified ? "PASSED" : "FAILED") : "NOT RUN",
+      externalCheck: providerKeys.gemini ? (geminiCheck.verified ? "PASSED" : "FAILED") : "NOT RUN",
       functionVerified: false,
       integrationStatus: externallyVerified ? "EXTERNAL CHECK VERIFIED" : status.integrationStatus,
-      detail: externallyVerified
-        ? "Gemini accepted a safe read-only models request. Batch generation has not been run."
-        : status.detail,
-      code: externallyVerified ? "EXTERNAL_CHECK_PASSED" : geminiCheck.code === "GEMINI_EXTERNAL_CHECK_FAILED" ? geminiCheck.code : status.code,
+      detail: `Gemini: ${providerChecks.gemini.externalCheck}. OpenAI: ${providerChecks.openai.externalCheck}. These are read-only credential checks. Batch generation has not been run.`,
+      code: externallyVerified ? "EXTERNAL_CHECK_PASSED" : status.code,
       credentialEnvVars: ["GEMINI_API_KEY", "OPENAI_API_KEY"],
-      provider: status.provider,
+      provider: geminiCheck.verified ? "gemini" : openaiCheck.verified ? "openai" : status.provider,
       providers: status.providers,
+      providerChecks,
       providerStatus: "providerStatus" in geminiCheck ? geminiCheck.providerStatus : undefined,
     });
   }
 
   if (body.mode !== "generate" && body.mode !== "sample") return json({ success: false, code: "INVALID_INPUT" }, 400);
   const requestedProvider = body.provider === "openai" || body.provider === "gemini" ? body.provider : "auto";
-  const selectedProvider = requestedProvider === "openai"
-    ? (OPENAI_API_KEY ? "openai" : null)
+  let autoOpenAIReady = false;
+  let selectedProvider: "gemini" | "openai" | null = requestedProvider === "openai"
+    ? (providerKeys.openai ? "openai" : null)
     : requestedProvider === "gemini"
-      ? (GEMINI_API_KEY ? "gemini" : null)
-      : (GEMINI_API_KEY ? "gemini" : OPENAI_API_KEY ? "openai" : null);
+      ? (providerKeys.gemini ? "gemini" : null)
+      : null;
+  if (requestedProvider === "auto") {
+    const [geminiAvailability, openaiAvailability] = await Promise.all([
+      verifyGeminiCredential(),
+      verifyOpenAICredential(),
+    ]);
+    autoOpenAIReady = openaiAvailability.verified;
+    selectedProvider = geminiAvailability.verified ? "gemini" : openaiAvailability.verified ? "openai" : null;
+    if (!selectedProvider) {
+      return json({
+        success: false,
+        connected: false,
+        code: "AI_PROVIDERS_UNAVAILABLE",
+        detail: "No AI provider passed its read-only availability check.",
+        providers: status.providers,
+        providerChecks: {
+          gemini: { configured: Boolean(providerKeys.gemini), externalCheck: !providerKeys.gemini ? "NOT CONFIGURED" : geminiAvailability.verified ? "PASSED" : "FAILED" },
+          openai: { configured: Boolean(providerKeys.openai), externalCheck: !providerKeys.openai ? "NOT CONFIGURED" : openaiAvailability.verified ? "PASSED" : "FAILED" },
+        },
+      }, 424);
+    }
+  }
   if (!selectedProvider) {
-    return json({ success: false, connected: false, code: "NEEDS_CREDENTIAL", detail: status.detail, providers: status.providers }, 424);
+    return json({
+      success: false,
+      connected: false,
+      code: "NEEDS_CREDENTIAL",
+      detail: status.detail,
+      provider: requestedProvider,
+      providers: status.providers,
+    }, 424);
   }
 
   const batchNonce = typeof body.batchNonce === "string" && body.batchNonce.trim() ? body.batchNonce.trim() : crypto.randomUUID();
@@ -413,8 +495,37 @@ Deno.serve(async (request) => {
   const sampleSlot = body.mode === "sample" && Number.isInteger(body.sampleSlot) ? Math.max(0, Math.min(COACH_AYMAN_SLOT_SPEC.length - 1, Number(body.sampleSlot))) : null;
   const slots = sampleSlot === null ? COACH_AYMAN_SLOT_SPEC : [COACH_AYMAN_SLOT_SPEC[sampleSlot]];
   const prompt = buildPrompt(batchNonce, start.toISOString(), context, slots);
-  const generated = selectedProvider === "gemini" ? await callGemini(prompt) : await callOpenAI(prompt);
-  if ("error" in generated && generated.error) return generated.error;
+  let generated = selectedProvider === "gemini" ? await callGemini(prompt, providerKeys.gemini) : await callOpenAI(prompt, providerKeys.openai);
+  let actualProvider = selectedProvider;
+  let fallbackUsed = false;
+  if ("error" in generated && requestedProvider === "auto" && selectedProvider === "gemini"
+    && providerKeys.openai && autoOpenAIReady && generated.error.retryable) {
+    const primaryError = generated.error;
+    const fallback = await callOpenAI(prompt);
+    if ("error" in fallback) {
+      return json({
+        success: false,
+        code: "AI_PROVIDER_FALLBACK_FAILED",
+        provider: "gemini",
+        providerError: primaryError.code,
+        fallbackProvider: "openai",
+        fallbackError: fallback.error.code,
+        providerStatus: primaryError.providerStatus,
+        fallbackStatus: fallback.error.providerStatus,
+      }, 502);
+    }
+    generated = fallback;
+    actualProvider = "openai";
+    fallbackUsed = true;
+  }
+  if ("error" in generated) {
+    return json({
+      success: false,
+      code: generated.error.code,
+      provider: actualProvider,
+      providerStatus: generated.error.providerStatus,
+    }, 502);
+  }
 
   const rawItems = Array.isArray(generated.data?.items) ? generated.data.items : [];
   const expectedCount = slots.length;
@@ -424,7 +535,7 @@ Deno.serve(async (request) => {
 
   try {
     const items = await normalizeItems(rawItems, batchNonce, start, slots);
-    return json({ success: true, provider: selectedProvider, items, batchNonce });
+    return json({ success: true, provider: actualProvider, fallbackUsed, items, batchNonce });
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : "GEMINI_NORMALIZE_FAILED";
     return json({ success: false, code: message }, 502);

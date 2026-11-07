@@ -5,7 +5,10 @@ const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/$/, "");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const WHATSAPP_TOKEN = (Deno.env.get("WHATSAPP_CLOUD_ACCESS_TOKEN") ?? Deno.env.get("META_WHATSAPP_ACCESS_TOKEN") ?? "").trim();
 const PHONE_NUMBER_ID = (Deno.env.get("WHATSAPP_PHONE_NUMBER_ID") ?? "100566230597045").trim();
-const DRY_RUN = (Deno.env.get("WHATSAPP_SEND_DRY_RUN") ?? "true").trim().toLowerCase() === "true";
+// Fail closed: only an explicit false opts out of dry-run. Missing or invalid values stay safe.
+const DRY_RUN_SETTING = (Deno.env.get("WHATSAPP_SEND_DRY_RUN") ?? "").trim().toLowerCase();
+const DRY_RUN = DRY_RUN_SETTING !== "false";
+const OWNER_WHATSAPP_LIVE_AUTHORIZED = Deno.env.get("OWNER_WHATSAPP_LIVE_AUTHORIZED") === "true";
 const ALLOWED_ROLES = new Set(["super_admin", "admin", "reception", "content_manager"]);
 const CORS_HEADERS = {
   "access-control-allow-origin": "*",
@@ -81,8 +84,8 @@ async function recordOutbound(
   return data as JsonObject;
 }
 
-async function sendViaWhatsAppCloud(recipientPhone: string, body: string) {
-  if (DRY_RUN || !WHATSAPP_TOKEN) {
+async function sendViaWhatsAppCloud(recipientPhone: string, body: string, forceDryRun = false) {
+  if (DRY_RUN || forceDryRun || !WHATSAPP_TOKEN) {
     return {
       dryRun: true,
       externalMessageId: `dry_run_${crypto.randomUUID()}`,
@@ -128,8 +131,9 @@ Deno.serve(async (request) => {
 
   const staff = await loadStaff(accessToken);
   if (!staff) return json({ success: false, code: "STAFF_ACCESS_DENIED" }, 403);
+  if (!OWNER_WHATSAPP_LIVE_AUTHORIZED) return json({ success: false, code: "OWNER_WHATSAPP_LIVE_FROZEN" }, 423);
 
-  let payload: { conversationId?: string; body?: string };
+  let payload: { conversationId?: string; body?: string; dryRun?: boolean };
   try {
     payload = await request.json();
   } catch {
@@ -149,7 +153,7 @@ Deno.serve(async (request) => {
     if (!allowed.success) return json(allowed, 400);
 
     const recipientPhone = String(allowed.recipientPhone ?? "");
-    const sendResult = await sendViaWhatsAppCloud(recipientPhone, body);
+    const sendResult = await sendViaWhatsAppCloud(recipientPhone, body, payload.dryRun === true);
     const recorded = await recordOutbound(
       service,
       conversationId,
