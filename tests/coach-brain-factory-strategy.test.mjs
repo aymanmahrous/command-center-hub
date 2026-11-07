@@ -11,14 +11,14 @@ const slotSpec = await readFile(new URL("../supabase/functions/generate-content-
 const batchGenerator = await readFile(new URL("../supabase/functions/generate-content-batch/index.ts", import.meta.url), "utf8");
 
 test("Coach Brain and Factory accept only the supported 1–30 day planning window", () => {
-  assert.match(coachBrain, /Math\.min\(45/);
+  assert.match(coachBrain, /Math\.min\(30/);
   assert.match(coachBrain, /min=\{1\} max=\{30\}/);
   assert.doesNotMatch(coachBrain, /value="60"/);
-  assert.match(factory, /PLAN_WINDOW_OPTIONS = \[1, 2, 3, 4, 7, 14, 30, 45\]/);
-  assert.match(factory, /Math\.min\(45/);
-  assert.match(factory, /max=\{45\}/);
+  assert.match(factory, /PLAN_WINDOW_OPTIONS = \[1, 2, 3, 4, 7, 14, 30\]/);
+  assert.match(factory, /Math\.min\(30/);
+  assert.match(factory, /max=\{30\}/);
   assert.doesNotMatch(factory, /Math\.min\(365/);
-  assert.match(factory, /30 - planWindowDays/);
+  assert.match(factory, /45 - planWindowDays/);
 });
 
 test("Factory preserves the existing ten-item batch and spaces it across the selected window", () => {
@@ -33,7 +33,7 @@ test("handoff normalization preserves canonical fields and clamps duration to 30
   assert.match(handoff, /researchContext:/);
   assert.match(handoff, /requestedDuration: number \| null/);
   assert.match(handoff, /contentGoal: string/);
-  assert.match(handoff, /Math\.max\(1, Math\.min\(45/);
+  assert.match(handoff, /Math\.max\(1, Math\.min\(30/);
 });
 
 test("Runway is an honest manual handoff, not a claimed API integration", () => {
