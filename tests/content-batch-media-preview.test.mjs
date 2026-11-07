@@ -91,8 +91,8 @@ test("every scheduled Factory item exposes its own complete design prompt and ma
   assert.match(block, /openExternalBrief\("runway", item\)/);
   assert.match(block, /formatWhen\(language, item\.scheduledFor\)/);
   assert.match(block, /manualVideoDuration/);
-  assert.match(block, /manualRunwayPrompt\.text/);
+  assert.match(block, /value=\{itemDesignPrompt\}/);
   assert.match(panel, /const basePrompt = String\(item\.visualPrompt \?\? ""\)\.trim\(\)/);
   assert.match(panel, /if \(!basePrompt\)/);
-  assert.match(panel, /FINAL OUTPUT REQUIREMENT: Create one vertical 9:16 video/);
+  assert.match(panel, /FINAL OUTPUT REQUIREMENT: Create one vertical 9:16 video with an exact target duration of \$\{manualVideoDuration\} seconds/);
 });
