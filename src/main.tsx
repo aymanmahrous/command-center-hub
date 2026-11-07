@@ -1241,6 +1241,7 @@ function BookingView({ value, session, onChanged, onSessionExpired }: { value: J
 function Dashboard({ session, onLogout }: { session: Session; onLogout: () => void }) {
   const { language, t } = useLanguage();
   const nav = t("nav");
+  const isOwner = isOwner;
   const dashboardCopy = t("dashboard");
   const launchParams = new URLSearchParams(window.location.search);
   const canvaCallback = launchParams.get("canva");
@@ -1278,7 +1279,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
 
   const current = useMemo(() => sections.find(([id]) => id === active)!, [active]);
 
-  const currentSectionLabel = current[0] === "agents" ? nav.agents : nav[current[0]];
+  const currentSectionLabel = nav[current[0]];
 
   useEffect(() => {
     document.title = `${currentSectionLabel} · ${nav.dashboard}`;
@@ -1332,7 +1333,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   const toggleMore = () => setMoreOpen(!moreOpen);
   const morePanel = <div className="more-panel">
     {moreIds.map((id) => <button key={id} onClick={() => go(id)}>{nav[id]}</button>)}
-    {session.role === "super_admin" && <button key="agents" onClick={() => go("agents")}>{nav.agents}</button>}
+    {isOwner && <button key="agents" onClick={() => go("agents")}>{nav.agents}</button>}
   </div>;
 
   const primary = [
@@ -1408,7 +1409,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
           active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "brain" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><CoachBrain language={language} onNavigate={(section) => { if (sections.some(([id]) => id === section)) go(section as SectionId); }} /></Suspense> :
           active === "workspace" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><RealProductFoundation session={session} language={language} /></Suspense> :
-          active === "agents" ? (session.role === "super_admin"
+          active === "agents" ? (isOwner
             ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><AIWorkforceView language={language} onNavigate={go} /></Suspense>
             : <p className="muted" role="alert">{language === "ar" ? "هذه الصفحة متاحة للمالك فقط." : "This page is available to the owner only."}</p>) :
           null
