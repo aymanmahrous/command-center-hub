@@ -110,9 +110,6 @@ Deno.serve(async (request) => {
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
   const staff = await requireStaff(supabase, token);
   if ("error" in staff && staff.error) return staff.error;
-  const providerKeys = await loadAiProviderKeys(supabase, GEMINI_ENV_API_KEY, "");
-  const geminiKey = providerKeys.gemini;
-
   const body = await request.json().catch(() => ({})) as JsonObject;
   const mode = typeof body.mode === "string" ? body.mode : "";
   if (mode !== "estimate" && mode !== "generate") return json({ success: false, code: "INVALID_MODE" }, 400);
@@ -129,6 +126,10 @@ Deno.serve(async (request) => {
       detail: "Estimate only; no image generation request was sent.",
     });
   }
+
+  const providerKeys = await loadAiProviderKeys(supabase, GEMINI_ENV_API_KEY, "");
+  const geminiKey = providerKeys.gemini;
+  if (!geminiKey) return json({ success: false, code: "GEMINI_CREDENTIAL_MISSING" }, 424);
 
   const contentItemId = typeof body.contentItemId === "string" ? body.contentItemId : "";
   if (!/^[0-9a-f-]{36}$/i.test(contentItemId)) return json({ success: false, code: "INVALID_CONTENT_ITEM_ID" }, 400);
