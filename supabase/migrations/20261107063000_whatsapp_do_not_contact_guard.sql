@@ -12,9 +12,8 @@ DECLARE
   v_lead public.leads%rowtype;
   v_body text;
 BEGIN
-  IF coalesce(auth.role(), '') <> 'service_role'
-     AND NOT public.is_active_staff(ARRAY['super_admin','admin','reception','content_manager']) THEN
-    RAISE EXCEPTION 'STAFF_ACCESS_DENIED' USING errcode = '42501';
+  IF coalesce(auth.role(), '') <> 'service_role' THEN
+    RAISE EXCEPTION 'SERVICE_ROLE_REQUIRED' USING errcode = '42501';
   END IF;
 
   v_body := btrim(coalesce(p_body, ''));
@@ -247,3 +246,8 @@ BEGIN
 END;
 $function$
 
+
+
+-- This preflight RPC is an internal Edge Function boundary, never a browser API.
+REVOKE ALL ON FUNCTION public.assert_staff_whatsapp_send_allowed(uuid, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.assert_staff_whatsapp_send_allowed(uuid, text) TO service_role;
