@@ -92,6 +92,8 @@ function canRequestPublishWithMedia(item: ContentBatchItem, asset: MediaAssetRec
   return canRequestPublish(item) && Boolean(asset && canUseInMarketingBatch(asset));
 }
 
+const PUBLISHING_FROZEN = true; // Owner freeze: keep review/approval available, but block every live publish request until a fresh owner authorization is implemented.
+
 const REQUEST_PUBLISH_COPY = {
   en: {
     button: "Publish Now",
@@ -563,6 +565,10 @@ export function ContentBatchReviewPanel({
   }
 
   async function handleRequestPublish(item: ContentBatchItem) {
+    if (PUBLISHING_FROZEN) {
+      setPublishNotice(language === "ar" ? "النشر مجمّد بتفويض المالك. يمكنك تجهيز المحتوى ومراجعته، لكن لا يمكن إرسال أي منشور الآن." : "Publishing is frozen by owner authorization. You can prepare and review content, but no post can be sent now.");
+      return;
+    }
     if (!session || !canWrite || busy || publishBusyId || !canRequestPublish(item)) return;
     const priorReceipt = latestReceiptForPlatform(item, item.platform);
     const confirmedFailure = priorReceipt?.status.toLowerCase() === "failed";
@@ -965,15 +971,17 @@ export function ContentBatchReviewPanel({
                   </button>
                 )}
                 {canRequestPublish(item) && session && (
-                  <button
-                    type="button"
-                    className="primary-button"
-                    disabled={itemLocked || publishBusyId === item.id || !canRequestPublishWithMedia(item, linkedMediaAsset)}
-                    title={itemDisabledReason ?? (!canRequestPublishWithMedia(item, linkedMediaAsset) ? (language === "ar" ? "الوسائط المرتبطة ليست جاهزة للنشر." : "Linked media is not publish-ready.") : undefined)}
-                    onClick={() => void handleRequestPublish(item)}
-                  >
-                    {publishBusyId === item.id ? requestPublishCopy.busy : platformReceipt?.status.toLowerCase() === "failed" ? requestPublishCopy.retryButton : requestPublishCopy.button}
-                  </button>
+                  PUBLISHING_FROZEN
+                    ? <small className="item-action-disabled-reason">{language === "ar" ? "النشر مجمّد بتفويض المالك. المراجعة والتجهيز متاحان؛ الإرسال غير متاح." : "Publishing is frozen by owner authorization. Review and preparation remain available; sending is disabled."}</small>
+                    : <button
+                        type="button"
+                        className="primary-button"
+                        disabled={itemLocked || publishBusyId === item.id || !canRequestPublishWithMedia(item, linkedMediaAsset)}
+                        title={itemDisabledReason ?? (!canRequestPublishWithMedia(item, linkedMediaAsset) ? (language === "ar" ? "الوسائط المرتبطة ليست جاهزة للنشر." : "Linked media is not publish-ready.") : undefined)}
+                        onClick={() => void handleRequestPublish(item)}
+                      >
+                        {publishBusyId === item.id ? requestPublishCopy.busy : platformReceipt?.status.toLowerCase() === "failed" ? requestPublishCopy.retryButton : requestPublishCopy.button}
+                      </button>
                 )}
                 {item.status === "approved" && !canRequestPublishWithMedia(item, linkedMediaAsset) && (
                   <small className="item-action-disabled-reason">
