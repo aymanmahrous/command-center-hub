@@ -7,6 +7,8 @@ const handoff = await readFile(new URL("../src/coach-brain-factory-handoff.ts", 
 const factory = await readFile(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
 const review = await readFile(new URL("../src/content-batch-review-panel.tsx", import.meta.url), "utf8");
 const research = await readFile(new URL("../supabase/functions/coach-brain-research/index.ts", import.meta.url), "utf8");
+const slotSpec = await readFile(new URL("../supabase/functions/generate-content-batch/coach-ayman-slot-spec.ts", import.meta.url), "utf8");
+const batchGenerator = await readFile(new URL("../supabase/functions/generate-content-batch/index.ts", import.meta.url), "utf8");
 
 test("Coach Brain and Factory accept only the supported 1–45 day planning window", () => {
   assert.match(coachBrain, /Math\.min\(45/);
@@ -45,4 +47,14 @@ test("Coach Brain research prompt keeps business strategy guidance syntactically
   assert.match(research, /buildCoachBrainBusinessContext/);
   assert.match(research, /not one post per day\.",\s*"Business and marketing planning:/);
   assert.match(research, /return parts\.join\("\\n\\n"\)/);
+});
+
+
+test("every Factory daily item receives an Arabic-first bilingual design prompt, including template fallback", () => {
+  assert.match(slotSpec, /fallbackHeadlineByPillar/);
+  assert.match(slotSpec, /HEADLINE: \$\{fallbackHeadline\}/);
+  assert.match(slotSpec, /SUPPORTING TEXT: نص عربي واضح[\s\S]*?Clear, reassuring guidance/);
+  assert.match(batchGenerator, /const visualPrompt = ensureMediaBrief\(rawVisualPrompt, slot, primaryCta\)/);
+  assert.match(batchGenerator, /const line = visualPrompt\.split/);
+  assert.doesNotMatch(batchGenerator, /const line = rawVisualPrompt\.split/);
 });
