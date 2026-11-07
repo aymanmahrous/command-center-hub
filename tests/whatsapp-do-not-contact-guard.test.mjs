@@ -36,6 +36,6 @@ test("AI Inbox explains opt-out and invalid phone blocks in Arabic and English",
   assert.match(app, /if \(conversation\.doNotContact\)/);
   assert.match(app, /do-not-contact-badge/);
   assert.match(inboxCss, /\.do-not-contact-badge/);
-  assert.match(app, /Do not contact: \\${doNotContact \\? "ON — pauses AI, cancels queued follow-ups, and blocks manual WhatsApp replies"/);
-  assert.match(app, /عدم التواصل: \\${doNotContact \\? "مفعّل — سيوقف AI ويلغي المتابعات المعلقة ويمنع الرد اليدوي"/);
+  assert.ok(app.includes('Do not contact: ${doNotContact ? "ON — pauses AI, cancels queued follow-ups, and blocks manual WhatsApp replies"'));
+  assert.ok(app.includes('عدم التواصل: ${doNotContact ? "مفعّل — سيوقف AI ويلغي المتابعات المعلقة ويمنع الرد اليدوي"'));
 });
