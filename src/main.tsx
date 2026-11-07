@@ -1241,7 +1241,7 @@ function BookingView({ value, session, onChanged, onSessionExpired }: { value: J
 function Dashboard({ session, onLogout }: { session: Session; onLogout: () => void }) {
   const { language, t } = useLanguage();
   const nav = t("nav");
-  const isOwner = isOwner;
+  const isOwner = session.role === "super_admin";
   const dashboardCopy = t("dashboard");
   const launchParams = new URLSearchParams(window.location.search);
   const canvaCallback = launchParams.get("canva");
