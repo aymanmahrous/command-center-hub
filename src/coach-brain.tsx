@@ -161,8 +161,9 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
   const [sampleVideoDuration, setSampleVideoDuration] = useState<3 | 5 | 8>(5);
   const [sampleDesignNotice, setSampleDesignNotice] = useState("");
   const sampleIsVideo = Boolean(sample && /reel|video/i.test(String(sample.contentType)));
-  const sampleDesignPrompt = sample
-    ? `${String(sample.visualPrompt ?? "").trim()}${sampleIsVideo ? `\n\nFINAL OUTPUT REQUIREMENT: Create one vertical 9:16 video with an exact target duration of ${sampleVideoDuration} seconds. This duration overrides any earlier duration in the brief.` : ""}`.trim()
+  const sampleBasePrompt = String(sample?.visualPrompt ?? "").trim();
+  const sampleDesignPrompt = sampleBasePrompt
+    ? `${sampleBasePrompt}${sampleIsVideo ? `\n\nFINAL OUTPUT REQUIREMENT: Create one vertical 9:16 video with an exact target duration of ${sampleVideoDuration} seconds. This duration overrides any earlier duration in the brief.` : ""}`.trim()
     : "";
 
   function selectedPlanDays() {
