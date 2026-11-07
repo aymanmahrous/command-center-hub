@@ -82,7 +82,7 @@ function boundedString(value: unknown, fallback: string, maxLength: number): str
 
 function boundedDuration(value: unknown): number | null {
   if (typeof value !== "number" || !Number.isFinite(value)) return null;
-  return Math.max(1, Math.min(45, Math.round(value)));
+  return Math.max(1, Math.min(30, Math.round(value)));
 }
 
 function normalizeHandoff(value: unknown): CoachBrainFactoryHandoff | null {
