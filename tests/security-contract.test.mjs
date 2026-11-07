@@ -151,7 +151,6 @@ test("Content batch review approval is separate from scheduling and publishing",
   assert.doesNotMatch(app, /approve_staff_content_batch|approve_and_schedule_staff_content_item|sharedDatabaseBatchId/);
   assert.match(batchReviewPanel, /Nothing will be scheduled or published from this screen/);
   assert.match(app, /canApproveContentItem/);
-  assert.match(app, /sharedDatabaseBatchId/);
   assert.doesNotMatch(app, /graph\.facebook|facebook\.com\/v\d+/i);
 });
 
