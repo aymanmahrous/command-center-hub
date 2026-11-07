@@ -10,6 +10,7 @@ test("AI Workforce is reachable from More and is excluded from non-owner roles",
   assert.match(main, /session\.role === "super_admin" && <button key="agents"/);
   assert.match(main, /session\.role === "super_admin"/);
   assert.match(main, /active === "agents"/);
+  assert.ok(main.includes("nav.aiWorkforce"));
   assert.match(main, /nav\.aiWorkforce/);
 });
 
