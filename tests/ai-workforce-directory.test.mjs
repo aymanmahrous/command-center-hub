@@ -27,7 +27,7 @@ test("AI Workforce is a truthful directory, not a fake autonomous agent ledger",
   assert.match(view, /categoryLabels/);
   const publisherStart = view.indexOf('id: "publisher",');
   assert.ok(publisherStart >= 0);
-  const publisherEnd = view.indexOf("\\n  },", publisherStart);
+  const publisherEnd = view.indexOf("icon: LockKeyhole", publisherStart);
   assert.ok(publisherEnd > publisherStart);
   const publisher = view.slice(publisherStart, publisherEnd);
   assert.doesNotMatch(publisher, /destination:/);
