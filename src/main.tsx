@@ -5,7 +5,7 @@ import { z } from "zod";
 import { isSupabaseBrowserConfigurationReady } from "./supabase-config";
 import { canApproveContentItem, type ContentBatchItem } from "./content-batch";
 import { appendChangeRequest, buildChangeRequestNote, type ChangeRequestKind } from "./content-growth";
-import { OWNER_PUBLISHING_FROZEN } from "./content-publishing";
+import { OWNER_PUBLISHING_FROZEN } from "./publishing-freeze";
 import { formatLocalDateTimeInput } from "./date-utils";
 import { LanguageProvider, useLanguage } from "./i18n";
 import type { Language } from "./i18n";
