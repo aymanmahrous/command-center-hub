@@ -1,9 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { loadAiProviderKeys } from "../_shared/ai-provider-keys.ts";
 
 const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/$/, "");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const GEMINI_API_KEY = (Deno.env.get("GEMINI_API_KEY") ?? "").trim();
+const GEMINI_ENV_API_KEY = (Deno.env.get("GEMINI_API_KEY") ?? "").trim();
 const MEDIA_BUCKET = "relax-fix-media";
 const ALLOWED_ROLES = new Set(["super_admin", "admin", "content_manager"]);
 const BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
@@ -74,14 +75,14 @@ function modelLabel(model: VideoSpec["model"]) {
   return "Veo 3.1";
 }
 
-async function callVeo(prompt: string, spec: VideoSpec) {
+async function callVeo(prompt: string, spec: VideoSpec, apiKey: string) {
   const response = await fetch(
     `${BASE_URL}/models/${spec.model}:predictLongRunning`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-goog-api-key": GEMINI_API_KEY,
+        "x-goog-api-key": apiKey,
       },
       body: JSON.stringify({
         instances: [{ prompt: prompt.slice(0, 8000) }],
@@ -107,10 +108,10 @@ async function callVeo(prompt: string, spec: VideoSpec) {
   return { operationName };
 }
 
-async function pollVeo(operationName: string) {
+async function pollVeo(operationName: string, apiKey: string) {
   for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
     const response = await fetch(`${BASE_URL}/${operationName}`, {
-      headers: { "x-goog-api-key": GEMINI_API_KEY },
+      headers: { "x-goog-api-key": apiKey },
     });
     const payload = await response.json().catch(() => null) as JsonObject | null;
     if (!response.ok) return { error: "VEO_STATUS_FAILED", providerStatus: response.status };
@@ -139,9 +140,10 @@ async function storeVideo(
   prompt: string,
   spec: VideoSpec,
   operationName: string,
+  apiKey: string,
 ) {
   const response = await fetch(videoUri, {
-    headers: { "x-goog-api-key": GEMINI_API_KEY },
+    headers: { "x-goog-api-key": apiKey },
   });
   if (!response.ok) return { error: "VEO_DOWNLOAD_FAILED", providerStatus: response.status };
   const bytes = new Uint8Array(await response.arrayBuffer());
@@ -196,13 +198,14 @@ Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
   if (request.method !== "POST") return json({ success: false, code: "METHOD_NOT_ALLOWED" }, 405);
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) return json({ success: false, code: "SERVER_MISCONFIGURED" }, 500);
-  if (!GEMINI_API_KEY) return json({ success: false, code: "GEMINI_CREDENTIAL_MISSING" }, 424);
 
   const token = bearerToken(request);
   if (!token) return json({ success: false, code: "AUTH_REQUIRED" }, 401);
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
   const staff = await requireStaff(supabase, token);
   if ("error" in staff && staff.error) return staff.error;
+  const providerKeys = await loadAiProviderKeys(supabase, GEMINI_ENV_API_KEY, "");
+  const geminiKey = providerKeys.gemini;
 
   const body = await request.json().catch(() => ({})) as JsonObject;
   const spec = normalizeSpec(body);
@@ -224,14 +227,15 @@ Deno.serve(async (request) => {
   }
 
   if (body.mode !== "generate") return json({ success: false, code: "INVALID_MODE" }, 400);
+  if (!geminiKey) return json({ success: false, code: "GEMINI_CREDENTIAL_MISSING" }, 424);
   const prompt = String(body.prompt ?? "").trim();
   if (!prompt) return json({ success: false, code: "PROMPT_REQUIRED" }, 400);
   if (prompt.length > 8000) return json({ success: false, code: "PROMPT_TOO_LONG" }, 400);
 
-  const started = await callVeo(prompt, spec);
+  const started = await callVeo(prompt, spec, geminiKey);
   if ("error" in started) return json({ success: false, ...started }, 502);
 
-  const finished = await pollVeo(started.operationName);
+  const finished = await pollVeo(started.operationName, geminiKey);
   if ("error" in finished) return json({ success: false, ...finished }, 502);
 
   const stored = await storeVideo(
@@ -241,6 +245,7 @@ Deno.serve(async (request) => {
     prompt,
     spec,
     started.operationName,
+    geminiKey,
   );
   if ("error" in stored) return json({ success: false, ...stored }, 502);
 
