@@ -14,7 +14,7 @@ test("Coach Brain and Factory accept only the supported 1–10 day planning wind
   assert.match(coachBrain, /Math\.min\(30/);
   assert.match(coachBrain, /min=\{1\} max=\{10\}/);
   assert.doesNotMatch(coachBrain, /value="60"/);
-  assert.match(factory, /PLAN_WINDOW_OPTIONS = \[1, 2, 3, 4, 7, 14, 30\]/);
+  assert.match(factory, /PLAN_WINDOW_OPTIONS = \[1, 2, 3, 4, 7, 10\]/);
   assert.match(factory, /Math\.min\(30/);
   assert.match(factory, /max=\{30\}/);
   assert.doesNotMatch(factory, /Math\.min\(365/);
