@@ -404,6 +404,7 @@ export default function ContentGrowthHub({
         geminiItems = null;
       }
       let saved: { success?: boolean; batchId?: string; code?: string } | null = null;
+      let usedAiGeneration = false;
 
       for (let shiftDays = 0; shiftDays <= 45 && !saved; shiftDays += 1) {
         const start = new Date(generationStart);
@@ -411,13 +412,15 @@ export default function ContentGrowthHub({
         const batchNonce = shiftDays === 0 ? nonce : `${nonce}-${shiftDays}`;
         const canonicalItems = await buildCoachAyman30DayBatchWithMedia(assets, start, batchNonce, knowledgeContext);
         const windowedCanonicalItems = fitBatchToPlanWindow(canonicalItems, planWindowDays, start);
-        const items = await mergeValidatedGeminiCreativeFields(geminiItems, windowedCanonicalItems, batchNonce) ?? windowedCanonicalItems;
+        const validatedAiItems = await mergeValidatedGeminiCreativeFields(geminiItems, windowedCanonicalItems, batchNonce);
+        const items = validatedAiItems ?? windowedCanonicalItems;
 
         try {
           saved = await callRpc(session, "create_staff_generated_content_batch", {
             p_items: items,
             p_provider_external_id: COACH_AYMAN_PROVIDER_ID,
           }) as { success?: boolean; batchId?: string; code?: string };
+          if (saved?.success && saved.batchId) usedAiGeneration = validatedAiItems !== null;
         } catch (cause) {
           const code = cause instanceof Error ? cause.message : "GENERATE_FAILED";
           if (code === "CONTENT_SLOT_ALREADY_PLANNED") continue;
@@ -427,7 +430,8 @@ export default function ContentGrowthHub({
 
       if (!saved?.success || !saved.batchId) throw new Error(saved?.code ?? "GENERATE_FAILED");
       clearCoachBrainFactoryHandoff();
-      setGenerateNotice(copy.generateSuccess.replace("{batchId}", saved.batchId));
+      const outcomeCopy = usedAiGeneration ? copy.generateSuccess : copy.generateFallback;
+      setGenerateNotice(outcomeCopy.replace("{batchId}", saved.batchId));
       setSelectedBatchId(saved.batchId);
       setMediaAssets(assets);
       onBatchCreated?.();
