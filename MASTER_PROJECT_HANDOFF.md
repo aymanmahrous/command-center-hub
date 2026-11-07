@@ -627,3 +627,34 @@ No PR was merged or closed. No Production database, job, flag, policy, grant, Ed
 - Vercel Preview remains unavailable due the daily `build-rate-limit`; no runtime Preview QA is claimed. PR #327 remains draft/open/unmerged.
 - No PR was merged, no Production deploy occurred, and no Supabase migration/function/secret/configuration or external provider operation was triggered.
 - Next safe point: keep #327 as the single consolidated Coach Brain/Factory review candidate; complete the outstanding server-side per-function authorization and frontend caller map before any owner administration UI. Preserve the publishing freeze and WhatsApp no-send boundary.
+
+## 33. Truthful AI generation outcome — PR #331 — 2026-11-08
+
+### Change delivered on the review branch
+- PR **#331**: https://github.com/aymanmahrous/command-center-hub/pull/331
+- Branch: `recovery/truthful-ai-generation-outcome-2026-11-08`
+- Implementation commit before this handoff amendment: `715871400b61a6c3605ac2fadbcdbb0ac2660457`.
+- The change distinguishes validated AI-generated content from academy fallback content. The success state is shown as AI-generated only when validated AI items were actually saved successfully; otherwise the owner receives a truthful fallback message in Arabic and English.
+- Changed implementation/test files: `src/content-growth-hub.tsx`, `src/i18n/ar.ts`, `src/i18n/en.ts`, `tests/factory-automation.test.mjs`, and `tests/gemini-batch-generation.test.mjs`.
+- This is a narrow application behavior correction; it does not add a provider, database, workflow, or parallel content system.
+
+### Review and verification evidence
+- GitHub review record: **APPROVED**, submitted by `pixelreel2026` at `2026-11-07T21:10:50Z`. The recorded review body is empty. This records the review state only; it is not merge or production-release authorization.
+- GitHub Actions Verify run **#1093** passed on implementation commit `715871400b61a6c3605ac2fadbcdbb0ac2660457`: TypeScript, tests, and production build all succeeded.
+- Vercel Preview deployment `dpl_A4L53U4uD7ceNuExFSFXfwr7y4Sp` reached **READY** for that implementation commit.
+- **Runtime acceptance remains NOT VERIFIED.** Preview environment configuration is not a valid end-to-end QA environment: the shared Preview Supabase URL points to a stale/wrong project and its publishable key is blank; the isolated lab project has no application schema/migration baseline. A READY build is not proof of authenticated application behavior or AI provider execution.
+- The approval and CI evidence above refer to implementation commit `7158714...`. This handoff-only commit is a subsequent documentation amendment; re-check review freshness and CI status for the resulting PR head before treating the latest head as fully approved/verified.
+
+### Current PR/release state
+- Last confirmed state before this handoff amendment: PR #331 was OPEN and **Draft**. No merge is performed by this update.
+- `main` remains unchanged by this work. No Production deployment, Production Supabase change, migration, secret/OAuth change, queue operation, publish/retry/schedule, WhatsApp message, or other external side effect was performed.
+- Social publishing remains **FROZEN** pending separate, specific owner authorization. Do not interpret this AI outcome correction or review approval as permission to publish.
+
+### Remaining work and next safe step
+1. Keep PR #331 isolated from Production. Review the updated handoff-only commit and confirm the PR's current approval/check state.
+2. Establish a safe Preview QA environment only through a valid, isolated application schema baseline; do not replay incomplete historical migrations or copy Production secrets/data into the lab.
+3. Run the focused owner journey for AI generation with both outcomes: validated AI result and academy fallback. Confirm that the UI message matches the actual saved result and that no live publish/message path is triggered.
+4. Only after runtime acceptance and a fresh review of the final PR head should a separate release decision be considered. Merge and Production deployment are not part of this handoff update.
+
+### Safe point
+The truthful-generation correction is implemented on PR #331 and its implementation commit passed the recorded CI and Preview build checks. Runtime behavior is not yet proven. The canonical handoff now records the change, approval evidence, exact verification boundary, protections, and next safe action. No Production or external operation was changed.
