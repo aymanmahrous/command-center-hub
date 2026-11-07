@@ -131,6 +131,8 @@ test("automatic generation fails over only for retryable Gemini outages", () => 
   assert.ok(edge.includes('selectedProvider = geminiAvailability.verified ? "gemini" : openaiAvailability.verified ? "openai" : null;'));
   assert.match(edge, /selectedProvider === "gemini"/);
   assert.match(edge, /providerKeys\.openai && autoOpenAIReady && generated\.error\.retryable/);
+  assert.match(edge, /"x-goog-api-key": apiKey/);
+  assert.doesNotMatch(edge, /generateContent\\?key=\\$\\{apiKey\\}/);
   assert.match(edge, /response\.status >= 500/);
   assert.match(edge, /GEMINI_NETWORK_ERROR/);
   assert.match(edge, /AI_PROVIDER_FALLBACK_FAILED/);
