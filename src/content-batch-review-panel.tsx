@@ -655,10 +655,10 @@ export function ContentBatchReviewPanel({
       )}
 
       <div className="content-batch-actions">
-        <button type="button" disabled={!approveAllEnabled} title={!canWrite ? copy.actionDisabledReadOnly : busy ? copy.actionDisabledBusy : approveCandidates.length === 0 ? copy.batchNothingToApprove : undefined} onClick={() => void handleApproveAll()}>
+        <button type="button" disabled={!approveAllEnabled} title={!canWrite ? copy.actionDisabledReadOnly : busy ? copy.actionDisabledBusy : focusDate ? (language === "ar" ? "أزل تصفية اليوم قبل اعتماد الدفعة كاملة" : "Clear the day filter before approving the entire batch") : approveCandidates.length === 0 ? copy.batchNothingToApprove : undefined} onClick={() => void handleApproveAll()}>
           {busy ? t("common").saving : copy.approveAllButton}
         </button>
-        {!canWrite ? <small>{copy.actionDisabledReadOnly}</small> : approveCandidates.length === 0 ? <small>{copy.batchNothingToApprove}</small> : null}
+        {focusDate ? <small>{language === "ar" ? "اعتماد الدفعة كاملة يتطلب عرض كل الأيام أولًا." : "Batch-wide approval requires showing all days first."}</small> : !canWrite ? <small>{copy.actionDisabledReadOnly}</small> : approveCandidates.length === 0 ? <small>{copy.batchNothingToApprove}</small> : null}
       </div>
       {designNotice && <p className="content-batch-design-notice" role="status">{designNotice}</p>}
       {publishNotice && <p className="content-batch-design-notice" role="status">{publishNotice}</p>}
