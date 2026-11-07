@@ -625,8 +625,8 @@ function CRMView({ value, session, onChanged, onSessionExpired }: { value: JsonV
     if (followUpDate && Number.isNaN(followUpDate.getTime())) { setNotice(copy.invalidFollowUp); return; }
     const nextFollowUpAt = followUpDate?.toISOString() ?? null;
     const confirmMessage = language === "ar"
-      ? `تأكيد تحديث مسار ${lead.name}؟ سيتم تطبيق قواعد المتابعة وتسجيل العملية في Audit Log.`
-      : `Update ${lead.name}'s stage? Follow-up rules apply. Recorded in the Audit Log.`;
+      ? `تأكيد تحديث ${lead.name}؟\nعدم التواصل: ${doNotContact ? "مفعّل — سيوقف AI ويلغي المتابعات المعلقة ويمنع الرد اليدوي" : "غير مفعّل"}\nموعد المتابعة: ${nextFollowUpAt ? new Date(nextFollowUpAt).toLocaleString("ar-AE") : "لا يوجد"}`
+      : `Update ${lead.name}?\nDo not contact: ${doNotContact ? "ON — pauses AI, cancels queued follow-ups, and blocks manual WhatsApp replies" : "OFF"}\nFollow-up: ${nextFollowUpAt ? new Date(nextFollowUpAt).toLocaleString("en-AE") : "none"}`;
     if (!window.confirm(confirmMessage)) return;
     setBusyId(lead.id); setNotice("");
     try { await updateLeadWorkflow(session, lead.id, stage, humanRequired, doNotContact, nextFollowUpAt); setNotice(language === "ar" ? "تم تحديث مسار العميل وتسجيل العملية بنجاح." : "Stage updated and recorded."); onChanged(); }
