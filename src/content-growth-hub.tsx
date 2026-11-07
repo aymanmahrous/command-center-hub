@@ -336,6 +336,7 @@ export default function ContentGrowthHub({
       sessionStorage.removeItem(MEDIA_FACTORY_HANDOFF_KEY);
       setMediaFactoryHandoff(null);
       setMediaLinkNotice(language === "ar" ? "تم ربط الوسائط بالمحتوى فعليًا. أعيدت الحالة إلى المراجعة قبل أي نشر." : "Media is now linked to the content. The item returned to review before any publish.");
+      selectFactoryTab("review");
       onBatchCreated?.();
     } catch (cause) {
       if (cause instanceof Error && cause.message === "SESSION_EXPIRED") onSessionExpired?.();
@@ -430,6 +431,7 @@ export default function ContentGrowthHub({
       clearCoachBrainFactoryHandoff();
       setGenerateNotice(copy.generateSuccess.replace("{batchId}", saved.batchId));
       setSelectedBatchId(saved.batchId);
+      selectFactoryTab("review");
       setMediaAssets(assets);
       onBatchCreated?.();
     } catch (cause) {
