@@ -232,7 +232,7 @@ export default function AIWorkforceView({ language, onNavigate }: {
     historical: t.historical,
     manual: t.manual,
     human: t.human,
-    frozen: t.frozen,
+    owner_authorization_required: t.owner_authorization_required,
     draft_only: t.draft_only,
   };
 
