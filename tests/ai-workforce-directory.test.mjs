@@ -11,7 +11,6 @@ test("AI Workforce is reachable from More and is excluded from non-owner roles",
   assert.match(main, /session\.role === "super_admin"/);
   assert.match(main, /active === "agents"/);
   assert.ok(main.includes("nav.agents"));
-  assert.ok(main.includes("nav.agents"));
 });
 
 test("AI Workforce is a truthful directory, not a fake autonomous agent ledger", () => {
@@ -20,7 +19,15 @@ test("AI Workforce is a truthful directory, not a fake autonomous agent ledger",
   assert.match(view, /Providers are not agents/);
   assert.match(view, /Gemini and OpenAI are model providers/);
   assert.match(view, /Runway is not API-connected/);
-  assert.match(view, /Publishing, scheduling, and retry are protected and frozen/);
+  assert.match(view, /External publishing remains behind the owner-authorization gate/);
+  assert.match(view, /الإرسال الخارجي محمي ببوابة تفويض المالك/);
+  assert.match(view, /AI Sales Concierge/);
+  assert.match(view, /process_ai_sales_concierge_turn/);
+  assert.match(view, /Draft only — human review/);
+  assert.match(view, /categoryLabels/);
+  const publisher = view.match(/id: "publisher",([\\s\\S]*?)\\n  },/);
+  assert.ok(publisher);
+  assert.doesNotMatch(publisher[1], /destination:/);
 });
 
 test("existing workflows are linked rather than duplicated", () => {
