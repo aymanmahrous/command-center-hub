@@ -204,6 +204,7 @@ export default function ContentGrowthHub({
     : null;
   const videoCapabilityState = integrations.find((integration) => integration.key === "runway")?.capabilityState ?? "NOT_CONFIGURED";
   const PLAN_WINDOW_OPTIONS = [1, 2, 3, 4, 7, 10] as const;
+  const [selectedPlanDate, setSelectedPlanDate] = useState<string | null>(null);
   const [planWindowDays, setPlanWindowDays] = useState<number>(() => {
     const value = Number(handoffParams.get("planDays") || storedCoachBrainHandoff?.planWindowDays);
     return Number.isFinite(value) && value > 0 ? Math.max(1, Math.min(10, Math.floor(value))) : 10;
@@ -477,7 +478,7 @@ export default function ContentGrowthHub({
             <div className="factory-plan-summary"><strong>{language === "ar" ? "سنوزع " + DEFAULT_BATCH_MIX.length + " قطع على " + planWindowDays + " أيام؛ لكل يوم محتوى على الأقل، ولكل قطعة برومبت تصميم مستقل." : "The 10-item batch covers every day in this 1–10 day window; every item has its own design prompt."}</strong><span>{language === "ar" ? "تعليم · أمان · ثقة بالماء · أسئلة الأهل · سلطة الكوتش · محلي أبوظبي · ريلز · تحويل." : "Education · safety · water confidence · parent FAQs · coach authority · Abu Dhabi local · Reels · conversion."}</span></div>
           </div>
           <div className="factory-30-day-grid">
-            {planDays.map(({ day, dayItems }, index) => <button type="button" key={day.toISOString()} className={dayItems.length > 0 ? "has-items" : ""} onClick={() => selectFactoryTab(dayItems.length > 0 ? "review" : "strategy")}><span>{language === "ar" ? `اليوم ${index + 1}` : `Day ${index + 1}`}</span><strong>{dayItems.length}</strong><small>{day.toLocaleDateString(language === "ar" ? "ar-AE" : "en-AE", { month: "short", day: "numeric" })}</small>{dayItems.slice(0, 2).map((item) => <em key={item.id}>{item.topic}</em>)}</button>)}
+            {planDays.map(({ day, dayItems }, index) => <button type="button" key={day.toISOString()} aria-pressed={selectedPlanDate === day.toDateString()} className={dayItems.length > 0 ? "has-items" : ""} onClick={() => { if (dayItems.length > 0) { setSelectedPlanDate(day.toDateString()); selectFactoryTab("review"); } else { setSelectedPlanDate(null); selectFactoryTab("strategy"); } }}><span>{language === "ar" ? `اليوم ${index + 1}` : `Day ${index + 1}`}</span><strong>{dayItems.length}</strong><small>{day.toLocaleDateString(language === "ar" ? "ar-AE" : "en-AE", { month: "short", day: "numeric" })}</small>{dayItems.slice(0, 2).map((item) => <em key={item.id}>{item.topic}</em>)}</button>)}
           </div>
         </section>
       )}
@@ -728,6 +729,8 @@ export default function ContentGrowthHub({
             designCapabilityState={canvaCapabilityState}
             designCapabilityDetail={canvaReadiness.detail}
             videoCapabilityState={videoCapabilityState}
+            focusDate={selectedPlanDate}
+            onClearFocusDate={() => setSelectedPlanDate(null)}
             canWrite={canWrite}
           busy={panelBusy}
           session={session}
