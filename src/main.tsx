@@ -1375,7 +1375,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
       <header className="owner-header">
         <div>
           <p className="eyebrow">{language === "ar" ? "مركز القيادة" : "OWNER COMMAND CENTER"}</p>
-          <h1>{active === "content" ? nav.factory : active === "dashboard" ? nav.dashboard : nav[current[0]]}</h1>
+          <h1>{active === "content" ? nav.factory : active === "dashboard" ? nav.dashboard : active === "agents" ? (language === "ar" ? "فريق الذكاء الاصطناعي" : "AI Workforce") : nav[current[0]]}</h1>
         </div>
         <div className="owner-header-actions">
           <button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button>
