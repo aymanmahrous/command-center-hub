@@ -86,3 +86,5 @@
   .message-stream { min-height: 380px; }
   .message-bubble { width: 90%; }
 }
+
+.do-not-contact-badge{display:inline-flex;align-items:center;padding:3px 7px;border-radius:999px;background:#fee2e2;color:#991b1b;font-size:.68rem;font-weight:800;line-height:1.3}
