@@ -133,6 +133,8 @@ type ContentBatchReviewPanelProps = {
   designCapabilityState?: CapabilityState;
   designCapabilityDetail?: string;
   videoCapabilityState?: CapabilityState;
+  focusDate?: string | null;
+  onClearFocusDate?: () => void;
 };
 
 function formatWhen(language: "ar" | "en", value: string | null) {
@@ -164,6 +166,8 @@ export function ContentBatchReviewPanel({
   designCapabilityState = "NOT_CONFIGURED",
   designCapabilityDetail,
   videoCapabilityState = "NOT_CONFIGURED",
+  focusDate = null,
+  onClearFocusDate,
 }: ContentBatchReviewPanelProps) {
   const { language, t } = useLanguage();
   const copy = t("contentBatch");
@@ -198,14 +202,17 @@ export function ContentBatchReviewPanel({
   const summary = useMemo(() => summarizeBatch(batch.items), [batch.items]);
   const batchStatus = overallBatchStatus(batch.items);
   const approveCandidates = approveAllCandidates(batch.items);
-  const approveAllEnabled = canWrite && !busy && approveAllWouldChange(batch.items);
+  const approveAllEnabled = canWrite && !busy && !focusDate && approveAllWouldChange(batch.items);
   const assetById = useMemo(() => new Map(mediaAssets.map((asset) => [asset.id, asset])), [mediaAssets]);
   const workspaceItems = useMemo(() => {
-    if (workspaceMode === "designs") return items.filter((item) => !item.mediaAssetId);
-    if (workspaceMode === "reels") return items.filter((item) => String(item.contentType).toLowerCase() === "reel");
-    if (workspaceMode === "campaigns") return items.filter((item) => ["approved", "scheduled", "published", "failed"].includes(item.status));
-    return items;
-  }, [items, workspaceMode]);
+    const dayItems = focusDate
+      ? items.filter((item) => item.scheduledFor && new Date(item.scheduledFor).toDateString() === focusDate)
+      : items;
+    if (workspaceMode === "designs") return dayItems.filter((item) => !item.mediaAssetId);
+    if (workspaceMode === "reels") return dayItems.filter((item) => String(item.contentType).toLowerCase() === "reel");
+    if (workspaceMode === "campaigns") return dayItems.filter((item) => ["approved", "scheduled", "published", "failed"].includes(item.status));
+    return dayItems;
+  }, [items, workspaceMode, focusDate]);
   const visibleItems = itemFilter === "all" ? workspaceItems : workspaceItems.filter((item) => item.status === itemFilter);
   const previewLabels = {
     designPreview: copy.designPreview,
@@ -616,6 +623,13 @@ export function ContentBatchReviewPanel({
         </div>
         <span className={`content-status batch-status-${batchStatus}`}>{batchStatusLabels[batchStatus] ?? batchStatus}</span>
       </header>
+
+      {focusDate && (
+        <div className="content-batch-design-notice" role="status">
+          <span>{language === "ar" ? "عرض محتوى يوم " : "Showing content for "}{new Date(focusDate).toLocaleDateString(language === "ar" ? "ar-AE" : "en-AE", { dateStyle: "full" })}</span>
+          {onClearFocusDate && <button type="button" className="secondary" onClick={onClearFocusDate}>{language === "ar" ? "عرض كل الأيام" : "Show all days"}</button>}
+        </div>
+      )}
 
       <div className="content-batch-summary" aria-label={copy.summaryAria}>
         <article><span>{copy.needsReview}</span><strong>{summary.needsReview}</strong></article>
