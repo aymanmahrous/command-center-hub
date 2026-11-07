@@ -13,7 +13,7 @@ function safeKey(value: unknown): string {
 
 /**
  * Resolve provider keys without ever returning them to the browser.
- * Existing Edge Function secrets remain supported; owner-managed keys in the
+ * Existing Edge Function secrets remain supported; keys configured through the authorized Connections Center in the
  * protected staff_integration_secrets row take precedence.
  */
 export async function loadAiProviderKeys(
