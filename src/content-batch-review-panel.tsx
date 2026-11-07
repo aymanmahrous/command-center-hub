@@ -9,7 +9,7 @@ import {
 } from "./content-batch";
 import type { ChangeRequestKind } from "./content-growth";
 import {
-  OWNER_OWNER_PUBLISHING_FROZEN,
+  OWNER_PUBLISHING_FROZEN,
   buildExternalPostLink,
   latestReceiptForPlatform,
   parsePublicationReceipts,
