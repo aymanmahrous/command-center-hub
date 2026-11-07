@@ -537,6 +537,8 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
       STAFF_ACCESS_DENIED: "ليست لديك صلاحية تنفيذ هذا التغيير.",
       HUMAN_MODE_REQUIRED: "يجب استلام المحادثة يدويًا قبل الإرسال.",
       CHANNEL_NOT_WHATSAPP: "الرد اليدوي متاح لمحادثات WhatsApp فقط.",
+      LEAD_PHONE_MISSING: "لا يوجد رقم هاتف صالح لهذا العميل.",
+      DO_NOT_CONTACT: "هذا العميل طلب عدم التواصل؛ تم منع إرسال الرسالة.",
       INVALID_BODY: "نص الرسالة غير صالح.",
       SEND_FAILED: "تعذر إرسال الرسالة بأمان.",
     } : {
@@ -545,6 +547,8 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
       STAFF_ACCESS_DENIED: "You don't have permission for this.",
       HUMAN_MODE_REQUIRED: "Take over the conversation before sending a reply.",
       CHANNEL_NOT_WHATSAPP: "Manual replies are WhatsApp-only.",
+      LEAD_PHONE_MISSING: "This customer has no valid phone number.",
+      DO_NOT_CONTACT: "This customer opted out of contact; the reply was blocked.",
       INVALID_BODY: "The message text isn't valid.",
       SEND_FAILED: "The message could not be sent safely.",
     };
