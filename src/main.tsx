@@ -1279,10 +1279,11 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
 
   const current = useMemo(() => sections.find(([id]) => id === active)!, [active]);
 
+  const currentSectionLabel = current[0] === "agents" ? (language === "ar" ? "فريق الذكاء الاصطناعي" : "AI Workforce") : nav[current[0]];
+
   useEffect(() => {
-    const sectionTitle = current[0] === "agents" ? (language === "ar" ? "فريق الذكاء الاصطناعي" : "AI Workforce") : nav[current[0]];
-    document.title = `${sectionTitle} · ${nav.dashboard}`;
-  }, [current, language, nav]);
+    document.title = `${currentSectionLabel} · ${nav.dashboard}`;
+  }, [currentSectionLabel, nav.dashboard]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -1375,7 +1376,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
       <header className="owner-header">
         <div>
           <p className="eyebrow">{language === "ar" ? "مركز القيادة" : "OWNER COMMAND CENTER"}</p>
-          <h1>{active === "content" ? nav.factory : active === "dashboard" ? nav.dashboard : active === "agents" ? (language === "ar" ? "فريق الذكاء الاصطناعي" : "AI Workforce") : nav[current[0]]}</h1>
+          <h1>{active === "content" ? nav.factory : active === "dashboard" ? nav.dashboard : currentSectionLabel}</h1>
         </div>
         <div className="owner-header-actions">
           <button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button>
