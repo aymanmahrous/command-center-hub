@@ -40,6 +40,7 @@ export const ar: Dictionary = {
     radar: "رادار الفرص",
     brain: "Coach Brain",
     workspace: "مساحة المنتج",
+    agents: "فريق الذكاء الاصطناعي",
     logout: "تسجيل الخروج",
     skipToContent: "تجاوز إلى المحتوى الرئيسي",
   },
