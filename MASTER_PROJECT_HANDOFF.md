@@ -653,8 +653,10 @@ No PR was merged or closed. No Production database, job, flag, policy, grant, Ed
 ### Read-only migration inventory — do not infer schema damage
 - Supabase Production migration history returned 213 version records.
 - `main` contains 51 migration files with 50 unique 14-digit filename versions; one local version is duplicated (`20260920120000`).
-- Literal version comparison found 1 matching version, 212 remote versions without a same-numbered local filename, and 50 local file versions without a same-numbered remote record.
-- These are migration-history identifiers only. They do not establish that schema objects are missing, that data is damaged, or that any migration should be replayed. Historical renames, squashes, pruning, or other migration-management decisions have not yet been reconciled.
+- Literal 14-digit version comparison found 1 matching version, 212 remote versions without a same-numbered local filename, and 50 local file versions without a same-numbered remote record. This comparison alone is misleading because the remote ledger can store a different version timestamp while retaining the migration name.
+- A second comparison normalized migration names by removing a leading 14-digit timestamp and the local `.sql` suffix. It matched 38 of 51 local files to remote migration names; 14 local files had no matching remote name, and 175 remote records had no matching local name. These are inventory comparisons, not proof that migrations were lost or that schema is inconsistent.
+- The remote ledger spans 2026-07-08 through 2026-11-05; the current local migration directory begins 2026-08-10 and its newest file is dated 2026-11-02. The 14 unmatched local names and 175 unmatched remote names require historical reconciliation (including renamed, squashed, legacy, or pruned migrations) before any migration action is considered.
+- These identifiers do not establish that schema objects are missing, that data is damaged, or that any migration should be replayed. No SQL/schema comparison has been performed.
 - **Forbidden until separately reviewed and authorized:** `db push`, migration repair/mark-applied, running SQL, renaming/deleting migration files, or changing Production schema/history. Continue with read-only repository/history and integration-configuration analysis only.
 
 ### Production release and runtime truth at this checkpoint
