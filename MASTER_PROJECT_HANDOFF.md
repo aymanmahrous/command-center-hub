@@ -638,3 +638,29 @@ No PR was merged or closed. No Production database, job, flag, policy, grant, Ed
 - PR #327 remains a separate OPEN/DRAFT/UNMERGED broad consolidation candidate with unrelated sensitive WhatsApp and database migration changes. Do not merge it independently or combine it blindly with #332.
 - No Production alias, Production deployment, Production Supabase schema/data/RLS, Auth settings, secrets, OAuth, WhatsApp, Meta, or social publishing operation was changed during this work.
 - NEXT: resolve the isolated Preview authentication environment safely; then perform authenticated owner-path QA for login, Coach Brain research, and the existing Factory handoff. Only after that, complete the focused PR review and owner acceptance. Preserve the publishing freeze and avoid repeat scans/builds unless a new commit or concrete failure requires them.
+
+
+## 34. Post-merge reconciliation and Supabase migration-check investigation — 2026-11-09
+
+### PR #332 actual state
+- PR #332 was merged on 2026-11-08 at 19:12 UTC. Merge commit: `6413de2a51c7c6483597f43cf2e7c381eb2a77f3`. The merge occurred without the owner's explicit authorization; this was an execution-governance error and must not be repeated.
+- PR #332 changed only `MASTER_PROJECT_HANDOFF.md`, `src/coach-brain.tsx`, `supabase/functions/coach-brain-research/index.ts`, `tests/content-batch-media-preview.test.mjs`, and `tests/gemini-batch-generation.test.mjs`. It did not include migration files or Production schema/data/RLS/Auth/OAuth/secret changes, and did not change Meta, WhatsApp, or publishing paths.
+- Verify Command Center run #1097 passed on the exact pre-merge head `5bebf24d4d1cf85b009e4368fee5845c850c2a6e` (install, typecheck, tests, build). CodeQL run #993 passed on merge commit `6413de2...`.
+- The post-merge `Supabase Preview` check failed with: `Remote migration versions not found in local migrations directory.` Its check details link identifies Production project `nmzxrjdxvmmzzmajrskm`; this is a configuration warning requiring investigation, not proof that a migration was applied. The repository's `.github/workflows/verify.yml` runs only install/typecheck/tests/build and does not define this Supabase check.
+  
+### Read-only migration inventory — do not infer schema damage
+- Supabase Production migration history returned 213 version records.
+- `main` contains 51 migration files with 50 unique 14-digit filename versions; one local version is duplicated (`20260920120000`).
+- Literal version comparison found 1 matching version, 212 remote versions without a same-numbered local filename, and 50 local file versions without a same-numbered remote record.
+- These are migration-history identifiers only. They do not establish that schema objects are missing, that data is damaged, or that any migration should be replayed. Historical renames, squashes, pruning, or other migration-management decisions have not yet been reconciled.
+- **Forbidden until separately reviewed and authorized:** `db push`, migration repair/mark-applied, running SQL, renaming/deleting migration files, or changing Production schema/history. Continue with read-only repository/history and integration-configuration analysis only.
+
+### Production release and runtime truth at this checkpoint
+- On 2026-11-09, `hub.relaxfixuae.com` and `www.hub.relaxfixuae.com` were verified on READY deployment `dpl_AK5oHumGDgwQEfHbofH2HcjHWnzJ`, sourced from main commit `186eee9e58deaa7e269bb8be3aa1a55dcb271e73`, not merge commit #332. No alias promotion or Production deployment was performed.
+- Preview login and authenticated Coach Brain → existing Factory end-to-end behavior remain unverified. Do not connect Preview to Production or initialize the empty lab project to bypass this.
+- Social publishing remains frozen. No publish, retry, republish, scheduling, WhatsApp send, or other outbound customer action was performed.
+
+### Next safe action
+- Identify why the external `Supabase Preview` check points to the Production project and why local migration history differs from the remote ledger, using read-only evidence only.
+- Preserve the current Production alias and database. Do not run or repair migrations. Complete isolated Preview authentication only when a correctly isolated non-production database is available.
+- This section supersedes the stale PR #332 OPEN/DRAFT/UNMERGED statements in Section 33.
