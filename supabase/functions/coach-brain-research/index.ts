@@ -97,7 +97,7 @@ function buildPrompt(question: string, academyContext: string, referenceAnswer?:
     "- Include 3-8 relevant trusted source links for important recommendations, clarifying the limits of evidence where appropriate.",
     "Concise, actionable response structure (do not write long essays by default):",
     "Structure every coaching and training recommendation into these concise sections:",
-    "## 1. الخلاصة والراية الموصى به (Summary & Recommended Opinion)",
+    "## 1. الخلاصة والرأي الموصى به (Summary & Recommended Opinion)",
     "## 2. أفضل خطوة تالية وسبب اختيارها (Best Next Step & Rationale)",
     "## 3. التكلفة المتوقعة والمخاطر أو القيود (Expected Cost, Risks & Constraints)",
     "Tailor recommendations to age, developmental stage, skill level, goal, and individual abilities. Expand only when requested or when safety mandates.",
