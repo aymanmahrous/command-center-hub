@@ -4,6 +4,7 @@ import test from "node:test";
 
 const adapter = await readFile(new URL("../src/gemini-batch-adapter.ts", import.meta.url), "utf8");
 const edge = await readFile(new URL("../supabase/functions/generate-content-batch/index.ts", import.meta.url), "utf8");
+const researchEdge = await readFile(new URL("../supabase/functions/coach-brain-research/index.ts", import.meta.url), "utf8");
 const slotSpec = await readFile(new URL("../supabase/functions/generate-content-batch/coach-ayman-slot-spec.ts", import.meta.url), "utf8");
 const generator = await readFile(new URL("../src/content-batch-generator.ts", import.meta.url), "utf8");
 const hub = await readFile(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
@@ -113,7 +114,7 @@ test("Coach Brain research output is rendered as safe plain text", () => {
   assert.match(coachBrain, /result\.answer/);
   assert.doesNotMatch(coachBrain, /dangerouslySetInnerHTML/);
   assert.doesNotMatch(coachBrain, /Summary content|Next step rationale|Cost, risks & constraints/);
-  assert.match(edge, /الخلاصة والرأي الموصى به/);
+  assert.match(researchEdge, /الخلاصة والرأي الموصى به/);
 });
 
 test("Existing Coach Brain research and academy context is passed through the current Gemini path", () => {
