@@ -409,7 +409,19 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
           <div className="coach-brain__results-heading"><span className="coach-brain__step">5</span><div><strong>{language === "ar" ? "النتيجة العملية" : "Practical result"}</strong><p>{language === "ar" ? "اقرأ الإجابة، راجع المصادر، ثم أرسلها لمصنع المحتوى عند الحاجة." : "Read the answer, review the sources, then send it to Content Factory when useful."}</p></div><div className="coach-brain__results-actions"><button type="button" className="coach-brain__reset" onClick={() => { setResult(null); setQuestion(""); setSummaryRequested(false); setError(""); }}>{language === "ar" ? "مهمة جديدة" : "New task"}</button><button type="button" className="coach-brain__reset" onClick={sendResultToFactory}>{language === "ar" ? "إرسال إلى مصنع المحتوى" : "Send to Content Factory"}</button></div></div>
           <article className="coach-brain__card coach-brain__answer">
             <div className="coach-brain__result-title"><Sparkles size={18} /> <h2>{t.direct}</h2></div>
-            <div className="coach-brain__answer-text">{result.answer}</div>
+            <div className="coach-brain__answer-text">
+{/* Structured output format starts here */}
+{result.answer && (
+  <div className="coach-brain__structured-output">
+    <h3>{t?.['1. الخلاصة والرأي الموصى به'] || '## 1. الخلاصة والراية الموصى به'}</h3>
+    <p>{/* Summary content */}</p>
+    <h3>{t?.['2. أفضل خطوة تالية وسبب اختيارها'] || '## 2. أفضل خطوة تالية وسبب اختيارها'}</h3>
+    <p>{/* Next step rationale */}</p>
+    <h3>{t?.['3. التكلفة المتوقعة والمخاطر أو القيود'] || '## 3. التكلفة المتوقعة والمخاطر أو القيود'}</h3>
+    <p>{/* Cost, risks & constraints */}</p>
+  </div>
+)}
+{result.answer && <div dangerouslySetInnerHTML={{ __html: result.answer }} />}</div>
           </article>
           <article className="coach-brain__card coach-brain__usage" aria-label={t.usageTitle}>
             <div className="coach-brain__result-title"><strong>{t.usageTitle}</strong></div>
