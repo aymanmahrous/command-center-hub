@@ -409,7 +409,13 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
           <div className="coach-brain__results-heading"><span className="coach-brain__step">5</span><div><strong>{language === "ar" ? "النتيجة العملية" : "Practical result"}</strong><p>{language === "ar" ? "اقرأ الإجابة، راجع المصادر، ثم أرسلها لمصنع المحتوى عند الحاجة." : "Read the answer, review the sources, then send it to Content Factory when useful."}</p></div><div className="coach-brain__results-actions"><button type="button" className="coach-brain__reset" onClick={() => { setResult(null); setQuestion(""); setSummaryRequested(false); setError(""); }}>{language === "ar" ? "مهمة جديدة" : "New task"}</button><button type="button" className="coach-brain__reset" onClick={sendResultToFactory}>{language === "ar" ? "إرسال إلى مصنع المحتوى" : "Send to Content Factory"}</button></div></div>
           <article className="coach-brain__card coach-brain__answer">
             <div className="coach-brain__result-title"><Sparkles size={18} /> <h2>{t.direct}</h2></div>
-            <div className="coach-brain__answer-text">{result.answer}</div>
+            <div className="coach-brain__answer-text">
+{/* Render provider output as text: preserve the complete answer without interpreting HTML. */}
+{result.answer && (
+  <div className="coach-brain__structured-output" style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+    {result.answer}
+  </div>
+)}</div>
           </article>
           <article className="coach-brain__card coach-brain__usage" aria-label={t.usageTitle}>
             <div className="coach-brain__result-title"><strong>{t.usageTitle}</strong></div>

@@ -4,6 +4,7 @@ import test from "node:test";
 
 const adapter = await readFile(new URL("../src/gemini-batch-adapter.ts", import.meta.url), "utf8");
 const edge = await readFile(new URL("../supabase/functions/generate-content-batch/index.ts", import.meta.url), "utf8");
+const researchEdge = await readFile(new URL("../supabase/functions/coach-brain-research/index.ts", import.meta.url), "utf8");
 const slotSpec = await readFile(new URL("../supabase/functions/generate-content-batch/coach-ayman-slot-spec.ts", import.meta.url), "utf8");
 const generator = await readFile(new URL("../src/content-batch-generator.ts", import.meta.url), "utf8");
 const hub = await readFile(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
@@ -104,4 +105,25 @@ test("Coach Brain can generate one real non-persisted sample and carry the owner
   assert.match(hub, /planFocus/);
   assert.match(hub, /get_staff_integrations/);
   assert.match(hub, /canvaIntegration/);
+});
+
+test("Coach Brain research output is rendered as safe plain text", () => {
+  assert.match(coachBrain, /coach-brain__structured-output/);
+  assert.match(coachBrain, /whiteSpace: "pre-wrap"/);
+  assert.match(coachBrain, /overflowWrap: "anywhere"/);
+  assert.match(coachBrain, /result\.answer/);
+  assert.doesNotMatch(coachBrain, /dangerouslySetInnerHTML/);
+  assert.doesNotMatch(coachBrain, /Summary content|Next step rationale|Cost, risks & constraints/);
+  assert.match(researchEdge, /الخلاصة والرأي الموصى به/);
+});
+
+test("Existing Coach Brain research and academy context is passed through the current Gemini path", () => {
+  assert.match(hub, /coachBrainResearch: knowledgeContext\.researchContext \?\? null/);
+  assert.match(adapter, /promptContext: promptContext \?\? null/);
+  assert.match(edge, /sanitizePromptContext\(body\.promptContext\)/);
+  assert.match(edge, /CANONICAL ACADEMY KNOWLEDGE/);
+  assert.match(edge, /COACH BRAIN RESEARCH/);
+  assert.match(edge, /CANONICAL BUSINESS FACTS AND PLATFORM STRATEGY/);
+  assert.match(edge, /EXISTING FACTORY STRATEGY SUMMARY/);
+  assert.match(edge, /PERFORMANCE GUIDANCE/);
 });

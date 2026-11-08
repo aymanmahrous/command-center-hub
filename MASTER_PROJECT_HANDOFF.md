@@ -627,3 +627,14 @@ No PR was merged or closed. No Production database, job, flag, policy, grant, Ed
 - Vercel Preview remains unavailable due the daily `build-rate-limit`; no runtime Preview QA is claimed. PR #327 remains draft/open/unmerged.
 - No PR was merged, no Production deploy occurred, and no Supabase migration/function/secret/configuration or external provider operation was triggered.
 - Next safe point: keep #327 as the single consolidated Coach Brain/Factory review candidate; complete the outstanding server-side per-function authorization and frontend caller map before any owner administration UI. Preserve the publishing freeze and WhatsApp no-send boundary.
+
+## 33. Coach Brain safe-output delivery and current QA boundary — 2026-11-08
+
+- Delivery branch: `delivery/coach-brain-factory-reconcile-2026-11-08`; latest verified source commit before this handoff amendment: `5bebf24d4d1cf85b009e4368fee5845c850c2a6e`. GitHub comparison against `main` reports 7 commits ahead and 0 behind.
+- Draft PR #332 is OPEN, DRAFT, and UNMERGED. It contains the focused Coach Brain safe-text rendering change, the three-section Arabic research prompt update, and two aligned regression-test updates. No merge is authorized by this record.
+- GitHub Actions Verify Command Center run #1097 passed on exact head `5bebf24d4d1cf85b009e4368fee5845c850c2a6e`: dependency install, TypeScript typecheck, full `npm test`, and `npm run build` all passed.
+- Vercel Preview deployment `dpl_EdWj41t4DEMmKK5Qbe12tpGKpGpz` reached READY for the same commit. This proves build/deployment readiness only, not authenticated runtime or end-to-end Coach Brain/Factory behavior.
+- Preview login investigation: the delivery branch has no branch-specific Supabase connection configuration and inherits the legacy project URL from the Vercel project-level environment. The available `command-center-lab` Supabase project is empty (no public tables and no migration history). Do not point preview to Production and do not initialize/migrate the lab database without a separate explicit owner approval and a reviewed migration plan.
+- PR #327 remains a separate OPEN/DRAFT/UNMERGED broad consolidation candidate with unrelated sensitive WhatsApp and database migration changes. Do not merge it independently or combine it blindly with #332.
+- No Production alias, Production deployment, Production Supabase schema/data/RLS, Auth settings, secrets, OAuth, WhatsApp, Meta, or social publishing operation was changed during this work.
+- NEXT: resolve the isolated Preview authentication environment safely; then perform authenticated owner-path QA for login, Coach Brain research, and the existing Factory handoff. Only after that, complete the focused PR review and owner acceptance. Preserve the publishing freeze and avoid repeat scans/builds unless a new commit or concrete failure requires them.

@@ -53,13 +53,11 @@ test("batch review panel integrates direct library picker and safe upload regist
   assert.match(panel, /الرفع لا يثبت الموافقة/);
 });
 
-test("coach brain edge function prompt enforces evidence-based pedagogy and 5-part concise response", async () => {
+test("Coach Brain research prompt enforces evidence-based pedagogy and a concise 3-part response", async () => {
   const coachBrain = await readFile(new URL("../supabase/functions/coach-brain-research/index.ts", import.meta.url), "utf8");
-  assert.match(coachBrain, /## 1\. الخلاصة والتوصية/);
-  assert.match(coachBrain, /## 2\. خطوات التدريب أو التعليم/);
-  assert.match(coachBrain, /## 3\. التمرين التالي المناسب/);
-  assert.match(coachBrain, /## 4\. طريقة قياس التقدم/);
-  assert.match(coachBrain, /## 5\. المصادر الموثوقة/);
+  assert.match(coachBrain, /## 1\. الخلاصة والرأي الموصى به/);
+  assert.match(coachBrain, /## 2\. أفضل خطوة تالية وسبب اختيارها/);
+  assert.match(coachBrain, /## 3\. التكلفة المتوقعة والمخاطر أو القيود/);
   assert.match(coachBrain, /water fear\/anxiety/);
   assert.match(coachBrain, /attention difficulties \(ADHD\)/);
   assert.match(coachBrain, /autism spectrum \(ASD\)/);
