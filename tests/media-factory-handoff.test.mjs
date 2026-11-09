@@ -47,3 +47,11 @@ test("Media Library wires the resolved handoff into session storage and renders 
   assert.match(factory, /mediaFactoryHandoff\.asset\.webUrl\s*&&\s*<a/);
   assert.match(factory, /<\/div>}\s*\{mediaLinkNotice\s*&&\s*<div className="notice-box" role="status" aria-live="polite">/);
 });
+
+test("Media Source Hub treats an explicit RPC rejection as failure and shows owner-safe feedback", async () => {
+  const sourceHub = await readFile(new URL("../src/media-source-hub-view.tsx", import.meta.url), "utf8");
+  assert.match(sourceHub, /result\.success === false/);
+  assert.match(sourceHub, /throw new Error\(code\)/);
+  assert.match(sourceHub, /تعذر ربط الأصل بالمكتبة/);
+  assert.match(sourceHub, /تعذر تجهيز الأصل لمصنع المحتوى/);
+});
