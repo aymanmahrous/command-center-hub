@@ -673,6 +673,16 @@ No PR was merged or closed. No Production database, job, flag, policy, grant, Ed
 - These identifiers do not establish that schema objects are missing, that data is damaged, or that any migration should be replayed. No SQL/schema comparison has been performed.
 - **Forbidden until separately reviewed and authorized:** `db push`, migration repair/mark-applied, running SQL, renaming/deleting migration files, or changing Production schema/history. Continue with read-only repository/history and integration-configuration analysis only.
 
+### Current Supabase project and branch inventory — read-only, 2026-11-09
+
+- The connected Supabase account currently lists exactly two projects:
+  - Production `nmzxrjdxvmmzzmajrskm`: `ACTIVE_HEALTHY`, region `eu-west-1`.
+  - `command-center-lab` `kgkwkfxqryxiqagmqloa`: `ACTIVE_HEALTHY`, region `eu-west-1`, created 2026-11-06.
+- The lab project currently has **zero public tables, zero migration records, and zero development branches**. Its healthy project status does not mean it is initialized or ready for authenticated application QA.
+- Production has one development branch record named `main`, attached to the Production project itself: branch ID `6ecd9948-a219-45a1-adfe-dc79602b12a7`, `status=MIGRATIONS_FAILED`, `preview_project_status=ACTIVE_HEALTHY`, `with_data=false`, last updated 2026-11-02. Do not treat this branch as an isolated, healthy QA database.
+- The inventory confirms that an isolated, initialized QA database is not currently available through these projects/branches. Do not create, reset, rebase, initialize, or apply migrations to either project/branch as a workaround.
+- This read-only inventory does **not** establish which Supabase GitHub/Vercel integration setting selected the Production project for the external Preview check. That specific integration configuration remains unverified and requires dashboard-level read-only inspection; do not change it during diagnosis.
+
 ### Production release and runtime truth at this checkpoint
 - On 2026-11-09, `hub.relaxfixuae.com` and `www.hub.relaxfixuae.com` were verified on READY deployment `dpl_AK5oHumGDgwQEfHbofH2HcjHWnzJ`, sourced from main commit `186eee9e58deaa7e269bb8be3aa1a55dcb271e73`, not merge commit #332. No alias promotion or Production deployment was performed.
 - Preview login and authenticated Coach Brain → existing Factory end-to-end behavior remain unverified. Do not connect Preview to Production or initialize the empty lab project to bypass this.
