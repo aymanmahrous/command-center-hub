@@ -91,7 +91,7 @@ const coachBrain = await readFile(new URL("../src/coach-brain.tsx", import.meta.
 
 test("manual image and video handoff uses static Canva and Runway links with copy-only behavior", () => {
   const start = coachBrain.indexOf("async function copySampleDesignPrompt()");
-  const end = coachBrain.indexOf("\\n  async function research", start);
+  const end = coachBrain.indexOf("\\n  }", start);
   const copyAction = coachBrain.slice(start, end);
   assert.ok(coachBrain.includes('href="https://www.canva.com/"'));
   assert.ok(coachBrain.includes('href="https://app.runwayml.com/"'));
