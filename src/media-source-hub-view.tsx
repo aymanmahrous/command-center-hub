@@ -17,7 +17,12 @@ async function callRpc(session: HubSession, rpcName: string, body: Record<string
   const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${encodeURIComponent(rpcName)}`, { method: "POST", headers: { apikey: SUPABASE_PUBLIC_KEY, Authorization: `Bearer ${session.accessToken}`, "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(body) });
   if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
   if (!response.ok) throw new Error(`RPC_FAILED_${response.status}`);
-  return response.json();
+  const result: unknown = await response.json();
+  if (result && typeof result === "object" && "success" in result && result.success === false) {
+    const code = "code" in result && typeof result.code === "string" ? result.code : "RPC_REJECTED";
+    throw new Error(code);
+  }
+  return result;
 }
 
 export default function MediaSourceHubView({ onOpenProvider, onNavigate, session, canWrite = false, onChanged, onSessionExpired }: Props) {
@@ -50,7 +55,7 @@ export default function MediaSourceHubView({ onOpenProvider, onNavigate, session
   async function saveToLibrary(item: RemoteMediaItem) {
     if (!session || !canWrite || savedIds.has(item.id)) return; setBusy(item.provider); setNotice("");
     try { await callRpc(session, "register_staff_external_media_asset", { p_asset_type: item.mimeType.startsWith("video/") ? "video" : "image", p_provider: item.provider, p_external_id: item.id, p_name: item.name, p_mime_type: item.mimeType, p_web_url: item.webUrl, p_preview_url: item.previewUrl ?? null, p_size_bytes: item.sizeBytes ?? null, p_created_at: item.createdAt ?? null, p_folder: item.folder ?? null }); setSavedIds((current) => new Set(current).add(item.id)); onChanged?.(); setNotice(ar ? "تم ربط الأصل بالمكتبة وحالته تحتاج مراجعة." : "Asset linked to Media Library as Needs review."); }
-    catch (cause) { const code = cause instanceof Error ? cause.message : "MEDIA_LIBRARY_LINK_FAILED"; if (code === "SESSION_EXPIRED") onSessionExpired?.(); else setNotice(code); }
+    catch (cause) { const code = cause instanceof Error ? cause.message : "MEDIA_LIBRARY_LINK_FAILED"; if (code === "SESSION_EXPIRED") onSessionExpired?.(); else setNotice(ar ? "تعذر ربط الأصل بالمكتبة. لم يتم تأكيد الحفظ؛ حاول مرة أخرى." : "Could not link this asset to the library. The save was not confirmed; please try again."); }
     finally { setBusy(null); }
   }
   async function copyBrief() { if (!brief) return; await navigator.clipboard?.writeText(JSON.stringify(brief, null, 2)); setCopied(true); window.setTimeout(() => setCopied(false), 1800); }
@@ -92,7 +97,7 @@ export default function MediaSourceHubView({ onOpenProvider, onNavigate, session
     } catch (cause) {
       const code = cause instanceof Error ? cause.message : "MEDIA_LIBRARY_LINK_FAILED";
       if (code === "SESSION_EXPIRED") onSessionExpired?.();
-      else setNotice(code);
+      else setNotice(ar ? "تعذر تجهيز الأصل لمصنع المحتوى. لم يتم تأكيد الربط؛ الأصل الخارجي لم يتغير." : "Could not prepare this asset for the Content Factory. The link was not confirmed; the external source was not changed.");
     } finally {
       setBusy(null);
     }
