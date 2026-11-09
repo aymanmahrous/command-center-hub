@@ -283,6 +283,7 @@ export const ar: Dictionary = {
     generateStateReady: "تم تسجيل النتيجة. الخطوة التالية: افتح الدفعة في المراجعة واستخدم مسار الاعتماد الحالي.",
     openBatchReview: "فتح مراجعة الدفعة",
     generateSuccess: "تم إنشاء تقويم 30 يومًا للمراجعة. Batch ID: {batchId}",
+    generateFallback: "تم حفظ الدفعة باستخدام المحتوى الأساسي للأكاديمية؛ لم يتوفر التوليد الذكي أو لم تجتز نتيجته التحقق. Batch ID: {batchId}",
     generateError: "تعذر توليد التقويم بأمان.",
     generateMixNote: "12 Reels · 10 Posts · 8 Story briefs · Instagram / Facebook auto-publish path",
     activeBatchLabel: "Batch ID النشط",
