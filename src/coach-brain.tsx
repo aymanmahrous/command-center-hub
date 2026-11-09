@@ -2,7 +2,7 @@ import { FormEvent, useState } from "react";
 import { AlertTriangle, BookOpen, Brain, Search, ShieldCheck, Sparkles } from "lucide-react";
 import { buildCoachBrainSummaryRequest } from "./coach-brain-conversation";
 import { generateCoachAymanSampleWithProvider, type BatchAiProvider, type GeminiBatchPromptContext, type GeneratedContentSample } from "./gemini-batch-adapter";
-import { readCoachBrainFactoryHandoff, writeCoachBrainFactoryHandoff } from "./coach-brain-factory-handoff";
+import { writeCoachBrainFactoryHandoff } from "./coach-brain-factory-handoff";
 import "./coach-brain.css";
 
 type Source = { title: string; url: string };
@@ -168,7 +168,6 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
 
   function sendResultToFactory() {
     if (!result && !sample) return;
-    const createdAt = new Date().toISOString();
     const handoff = JSON.stringify({
       question: question.trim().slice(0, 1000) || "Coach Brain content plan",
       answer: result?.answer?.slice(0, 4000) || sample?.caption?.slice(0, 4000) || "",
@@ -184,16 +183,9 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
         platform: sample.platform,
         contentType: sample.contentType,
       } : null,
-      createdAt,
+      createdAt: new Date().toISOString(),
     });
-    const saved = writeCoachBrainFactoryHandoff(handoff);
-    const restored = readCoachBrainFactoryHandoff();
-    if (!saved || !restored || restored.createdAt !== createdAt) {
-      setError(language === "ar"
-        ? "تعذر حفظ المهمة محليًا بأمان. لم يتم فتح مصنع المحتوى."
-        : "The task could not be saved locally. Content Factory was not opened.");
-      return;
-    }
+    writeCoachBrainFactoryHandoff(handoff);
     const url = new URL(window.location.href);
     url.searchParams.set("section", "content");
     url.searchParams.set("factoryContext", "coach-brain");
@@ -221,26 +213,7 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
     }
   }
 
-  async function openSampleDesignTool() {
-    if (!sampleDesignPrompt) {
-      setSampleDesignNotice(language === "ar" ? "لا يوجد برومبت تصميم صالح لهذا المحتوى." : "No valid design prompt exists for this content.");
-      return;
-    }
-    const target = sampleIsVideo ? "Runway" : "Canva";
-    const destination = sampleIsVideo ? "https://app.runwayml.com/" : "https://www.canva.com/";
-    window.open(destination, "_blank", "noopener,noreferrer");
-    try {
-      if (!navigator.clipboard?.writeText) throw new Error("CLIPBOARD_UNAVAILABLE");
-      await navigator.clipboard.writeText(sampleDesignPrompt);
-      setSampleDesignNotice(language === "ar"
-        ? `تم تجهيز البرومبت ونسخه. انتقل إلى حسابك في ${target} والصقه؛ إنشاء الوسيط يتم يدويًا داخل حسابك.`
-        : `Prompt copied. Open your ${target} account and paste it there; asset creation happens manually in your account.`);
-    } catch {
-      setSampleDesignNotice(language === "ar"
-        ? "تم طلب فتح الأداة، لكن تعذر النسخ التلقائي. البرومبت ظاهر في المربع ويمكن نسخه يدويًا."
-        : "The tool open request was sent, but automatic copy failed. The prompt remains visible for manual copying.");
-    }
-  }
+
 
   async function research(event: FormEvent) {
     event.preventDefault();
@@ -436,7 +409,9 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
             : <p role="status">{language === "ar" ? "لم يرجع مزود المحتوى برومبت تصميم لهذا العنصر." : "The content provider did not return a design prompt for this item."}</p>}
           <div className="coach-brain__sample-design-actions">
             <button type="button" className="coach-brain__reset" disabled={!sampleDesignPrompt} onClick={() => void copySampleDesignPrompt()}>{language === "ar" ? "نسخ البرومبت" : "Copy prompt"}</button>
-            <button type="button" className="coach-brain__reset" disabled={!sampleDesignPrompt} onClick={() => void openSampleDesignTool()}>{sampleIsVideo ? (language === "ar" ? "فتح Runway ونسخ البرومبت" : "Open Runway + copy prompt") : (language === "ar" ? "فتح Canva ونسخ البرومبت" : "Open Canva + copy prompt")}</button>
+            {sampleIsVideo
+              ? <a className="coach-brain__reset" href="https://app.runwayml.com/" target="_blank" rel="noopener noreferrer">{language === "ar" ? "فتح Runway" : "Open Runway"}</a>
+              : <a className="coach-brain__reset" href="https://www.canva.com/" target="_blank" rel="noopener noreferrer">{language === "ar" ? "فتح Canva" : "Open Canva"}</a>}
           </div>
           {sampleDesignNotice && <p className="coach-brain__privacy-note" role="status">{sampleDesignNotice}</p>}
         </section>
