@@ -98,11 +98,13 @@
 8. Growth Systems — SEO / Local SEO / Chatbot / n8n alerts ثم الإعلانات لاحقًا.
 
 لا يجوز تجاوز ترتيب المراحل. ولا تعني جاهزية الكود أو نجاح Preview الإذن بالنشر أو تشغيل أي أثر خارجي. Release Readiness Review للتطبيق بند تقني منفصل ومؤجل، ولا يُدرج بين مراحل المنتج أعلاه.
+
 ## 7. CURRENT_PHASE
 
 **Media Experience Simplification — المرحلة الحالية.**
 
 مرحلة Connections / Truthful Status (رقم 4 في القسم 6) سُجل تنفيذها والتحقق منها تاريخيًا بتاريخ 2026-10-30؛ اكتمالها لا يغيّر المرحلة الحالية المحددة في القسم 6. المرجع التنفيذي للخطوة التالية هو `PROJECT_HANDOFF.md`، قسم NEXT_REQUIRED_ACTION، مع مراعاة عائق عزل Preview الموضح في القسم 34.
+
 ## 8. CURRENT_BLOCKER
 
 **لا يوجد عطل Production مثبت بالأدلة المتاحة.**
@@ -110,10 +112,11 @@
 آخر تحقق موثق للنطاقين `hub.relaxfixuae.com` و`www.hub.relaxfixuae.com` كان بتاريخ 2026-11-09 على deployment بحالة READY:
 - Deployment: `dpl_AK5oHumGDgwQEfHbofH2HcjHWnzJ`
 - Source commit: `186eee9e58deaa7e269bb8be3aa1a55dcb271e73`
-- هذا الـcommit أقدم من merge commit الخاص بـPR #332 (`6413de2a51c7c6483597f43cf2e7c381eb2a77f3)).
+- هذا الـcommit أقدم من merge commit الخاص بـPR #332 (`6413de2a51c7c6483597f43cf2e7c381eb2a77f3).
 - لم يحدث alias promotion أو Production deployment في ذلك التحقق.
 
 لذلك فهذا **دليل تاريخي على حالة النطاق وقت الفحص فقط**، وليس إثباتًا أن Production يطابق أحدث `main` أو أن PR #332 منشور. تطابق Production الحالي مع أحدث `main` غير مثبت هنا. لا يوجد مبرر لإعادة النشر أو تغيير إعدادات Production دون سبب ودليل مستقلين.
+
 ## 9. آخر نتيجة مؤكدة
 
 **Facebook Controlled Publishing Test — مغلق بتحفظ (2026-09-11):**
@@ -134,6 +137,7 @@
 - `content_item_id`: `ffb9f795-c359-43c5-861c-5594eda75eef` — **approved** (مالك).
 - `media_asset_id`: `20e13023-11c0-4040-832d-f72bcd77a4a8` — **approved**, consent **confirmed**, publishability **ready_for_review**.
 
+
 ## 10. الخطوة الحالية (NEXT)
 
 **الخطوة المطلوبة للمنتج، وفق `PROJECT_HANDOFF.md` الحالي:** التحقق من مسار Media Library → Content Factory → Review في Preview غير إنتاجي، باستخدام بيانات اختبار آمنة، والتأكد من ظهور رسالة فشل واضحة عند تعذر الإجراء، ومن عدم استدعاء النشر أو Meta API أو WhatsApp sender.
@@ -141,6 +145,7 @@
 **العائق السابق لهذا الاختبار:** تسجيل الدخول إلى Preview غير مثبت في بيئة معزولة؛ ومشروع المختبر المتاح فارغ. لا تربط Preview بقاعدة Production ولا تهيئ قاعدة المختبر أو تشغّل migrations لتجاوز العائق.
 
 **الخطوة الآمنة قبل الاختبار:** تحليل إعدادات Supabase Preview وسجلّ migrations قراءةً فقط، كما هو موثق في القسم 34. بعد توافر قاعدة غير إنتاجية معزولة ومراجعة إعداداتها، يُستكمل اختبار مسار المالك دون ترقية Preview إلى Production.
+
 ## 11. تذكير إلزامي لكل Agent
 
 - لا تبدأ من الصفر؛ التزم بالمرحلة الحالية في القسم 6 وبآخر نقطة آمنة موثقة.
@@ -151,6 +156,7 @@
 - إرسال WhatsApp أو أي رسالة حقيقية للعملاء محمي أيضًا ويتطلب تفويضًا صريحًا مستقلًا.
 - عند غموض نتيجة أي عملية خارجية: لا تُعِد المحاولة تلقائيًا؛ أبلغ المدير والمالك.
 - التزم بحدود الأنظمة المعتمدة في القسم 12. لا تلمس الأنظمة أو الحسابات غير المدرجة فيه، ولا تكشف الأسرار أو الرموز.
+
 ## 12. APPROVED SYSTEM BOUNDARIES
 
 - Active Supabase project only: `nmzxrjdxvmmzzmajrskm`
