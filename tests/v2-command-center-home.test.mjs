@@ -46,8 +46,24 @@ test('V2 Home exposes quick operating navigation and filters decision signals', 
 test('Command Center guidance is derived from current summary data and cannot execute external actions', () => {
   assert.match(view, /AI ACTIVITY/);
   assert.match(view, /conversations for human review/);
-  assert.match(view, /content needs review or recovery/);
+  assert.match(view, /content needs review or has overdue schedule/);
   assert.match(view, /booking requests need confirmation/);
   assert.match(view, /never executes actions automatically/);
   assert.match(view, /Review All/);
+});
+
+test('Control Tower separates future scheduled content from overdue content', () => {
+  assert.match(view, /futureScheduled\?: number/);
+  assert.match(view, /overdueScheduled\?: number/);
+  assert.match(view, /summary\.content\.futureScheduled \?\? summary\.content\.scheduled/);
+  assert.match(view, /scheduled_content_overdue/);
+  assert.match(view, /overdueScheduled === 0/);
+  assert.match(view, /overdueScheduled/);
+  assert.match(view, /upcoming content items/);
+});
+
+test('Control Tower presents a seven-day marketing plan by default', () => {
+  assert.match(view, /WEEKLY MARKETING PLAN · 7 DAYS/);
+  assert.match(view, /Weekly marketing plan/);
+  assert.match(view, /DEFAULT_BATCH_MIX\.slice\(0, 7\)/);
 });

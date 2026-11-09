@@ -15,7 +15,7 @@ type WorkflowSummary = {
   leads: { total: number; hot: number };
   conversations: { humanRequired: number };
   bookings: { pending: number };
-  content: { review: number; published: number };
+  content: { review: number; published: number; overdueScheduled?: number };
   radar: { hot: number };
 };
 
@@ -24,6 +24,7 @@ export function deriveWorkflowActions(summary: WorkflowSummary, language: "ar" |
   const actions: WorkflowAction[] = [];
   if (summary.conversations.humanRequired > 0) actions.push({ id: "inbox-human-review", area: "inbox", status: "Ready", title: ar ? "مراجعة المحادثات البشرية" : "Review human conversations", detail: `${summary.conversations.humanRequired}`, next: ar ? "افتح Inbox ورد يدويًا" : "Open Inbox and reply manually", requiresOwnerApproval: true });
   if (summary.content.review > 0) actions.push({ id: "content-owner-review", area: "content", status: "Needs Approval", title: ar ? "اعتماد المحتوى" : "Approve content", detail: `${summary.content.review}`, next: ar ? "راجع ثم اعتمد أو ارفض" : "Review, then approve or reject", requiresOwnerApproval: true });
+  if ((summary.content.overdueScheduled ?? 0) > 0) actions.push({ id: "content-overdue-schedule", area: "content", status: "Blocked", title: ar ? "مراجعة المحتوى المتأخر" : "Reconcile overdue content", detail: `${summary.content.overdueScheduled}`, next: ar ? "راجع الموعد والإيصال قبل أي إعادة جدولة" : "Review timing and receipts before any reschedule", requiresOwnerApproval: true });
   if (summary.bookings.pending > 0) actions.push({ id: "booking-follow-up", area: "bookings", status: "Ready", title: ar ? "متابعة الحجوزات" : "Follow up bookings", detail: `${summary.bookings.pending}`, next: ar ? "افتح الحجوزات" : "Open bookings", requiresOwnerApproval: false });
   if (summary.leads.total > 0) actions.push({ id: "crm-follow-up", area: "crm", status: "Ready", title: ar ? "متابعة العملاء المحتملين" : "Follow up leads", detail: `${summary.leads.total}`, next: ar ? "افتح CRM" : "Open CRM", requiresOwnerApproval: false });
   if (summary.radar.hot > 0) actions.push({ id: "radar-review", area: "crm", status: "Needs Approval", title: ar ? "مراجعة الفرص الساخنة" : "Review hot opportunities", detail: `${summary.radar.hot}`, next: ar ? "راجع قبل أي تواصل خارجي" : "Review before external contact", requiresOwnerApproval: true });
