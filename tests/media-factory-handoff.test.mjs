@@ -55,3 +55,12 @@ test("Media Source Hub treats an explicit RPC rejection as failure and shows own
   assert.match(sourceHub, /تعذر ربط الأصل بالمكتبة/);
   assert.match(sourceHub, /تعذر تجهيز الأصل لمصنع المحتوى/);
 });
+
+
+test("Media Source Hub never claims a brief was copied when clipboard access fails", async () => {
+  const sourceHub = await readFile(new URL("../src/media-source-hub-view.tsx", import.meta.url), "utf8");
+  assert.match(sourceHub, /CLIPBOARD_UNAVAILABLE/);
+  assert.match(sourceHub, /Automatic copy is unavailable/);
+  assert.match(sourceHub, /تعذر النسخ التلقائي/);
+  assert.match(sourceHub, /setCopied\(false\)/);
+});

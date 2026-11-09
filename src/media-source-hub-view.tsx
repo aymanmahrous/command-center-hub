@@ -58,7 +58,21 @@ export default function MediaSourceHubView({ onOpenProvider, onNavigate, session
     catch (cause) { const code = cause instanceof Error ? cause.message : "MEDIA_LIBRARY_LINK_FAILED"; if (code === "SESSION_EXPIRED") onSessionExpired?.(); else setNotice(ar ? "تعذر ربط الأصل بالمكتبة. لم يتم تأكيد الحفظ؛ حاول مرة أخرى." : "Could not link this asset to the library. The save was not confirmed; please try again."); }
     finally { setBusy(null); }
   }
-  async function copyBrief() { if (!brief) return; await navigator.clipboard?.writeText(JSON.stringify(brief, null, 2)); setCopied(true); window.setTimeout(() => setCopied(false), 1800); }
+  async function copyBrief() {
+    if (!brief) return;
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("CLIPBOARD_UNAVAILABLE");
+      await navigator.clipboard.writeText(JSON.stringify(brief, null, 2));
+      setNotice("");
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setCopied(false);
+      setNotice(ar
+        ? "تعذر النسخ التلقائي. يمكنك تحديد النص الظاهر في موجز الإعلان ونسخه يدويًا."
+        : "Automatic copy is unavailable. Select the visible creative brief text and copy it manually.");
+    }
+  }
 
   async function useInFactory() {
     if (!selected || !session || !canWrite || busy) return;
