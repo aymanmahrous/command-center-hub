@@ -202,10 +202,10 @@ export default function ContentGrowthHub({
     ? `${language === "ar" ? "اتصال Canva" : "Canva connection"}: ${canvaReadiness.connectionLabel} · ${language === "ar" ? "جاهزية التصميم" : "Design readiness"}: ${canvaReadiness.readinessLabel}. ${canvaReadiness.detail}${canvaDiagnosticDetails.length ? ` · ${canvaDiagnosticDetails.join(" · ")}` : ""}`
     : null;
   const videoCapabilityState = integrations.find((integration) => integration.key === "runway")?.capabilityState ?? "NOT_CONFIGURED";
-  const PLAN_WINDOW_OPTIONS = [2, 3, 4, 7, 14, 30] as const;
+  const PLAN_WINDOW_OPTIONS = [1, 2, 3, 4, 7, 10] as const;
   const [planWindowDays, setPlanWindowDays] = useState<number>(() => {
     const value = Number(handoffParams.get("planDays") || storedCoachBrainHandoff?.planWindowDays);
-    return [2, 3, 4, 7, 14, 30].includes(value) ? value : 30;
+    return [1, 2, 3, 4, 7, 10].includes(value) ? value : 10;
   });
   const [planFocus] = useState(() => handoffParams.get("planMix") || storedCoachBrainHandoff?.planMix || "varied");
   const [planExecution] = useState(() => handoffParams.get("planExecution") || storedCoachBrainHandoff?.planExecution || "best");

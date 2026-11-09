@@ -2,7 +2,7 @@ import { FormEvent, useState } from "react";
 import { AlertTriangle, BookOpen, Brain, Search, ShieldCheck, Sparkles } from "lucide-react";
 import { buildCoachBrainSummaryRequest } from "./coach-brain-conversation";
 import { generateCoachAymanSampleWithProvider, type BatchAiProvider, type GeminiBatchPromptContext, type GeneratedContentSample } from "./gemini-batch-adapter";
-import { writeCoachBrainFactoryHandoff } from "./coach-brain-factory-handoff";
+import { readCoachBrainFactoryHandoff, writeCoachBrainFactoryHandoff } from "./coach-brain-factory-handoff";
 import "./coach-brain.css";
 
 type Source = { title: string; url: string };
@@ -155,18 +155,40 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
   const [sampleBusy, setSampleBusy] = useState(false);
   const [sample, setSample] = useState<GeneratedContentSample | null>(null);
   const [sampleError, setSampleError] = useState("");
+  const [sampleVideoDuration, setSampleVideoDuration] = useState<3 | 5 | 8>(5);
+  const [sampleDesignNotice, setSampleDesignNotice] = useState("");
+  const sampleIsVideo = Boolean(sample && /reel|video/i.test(String(sample.contentType)));
+  const sampleBasePrompt = String(sample?.visualPrompt ?? "").trim();
+  const sampleDesignPrompt = sampleBasePrompt
+    ? `${sampleBasePrompt}${sampleIsVideo ? `\n\nFINAL OUTPUT REQUIREMENT: Create one vertical 9:16 video with an exact target duration of ${sampleVideoDuration} seconds. This duration overrides any earlier duration in the brief.` : ""}`.trim()
+    : "";
 
   function selectedPlanDays() {
-    return planDays === "custom" ? Math.max(2, Math.min(30, Number(customDays) || 10)) : Number(planDays);
+    const requested = Number(customDays);
+    const selected = planDays === "custom"
+      ? (Number.isFinite(requested) && requested > 0 ? Math.floor(requested) : 10)
+      : Number(planDays);
+    return Math.max(1, Math.min(10, selected || 10));
   }
 
   function sendResultToFactory() {
     if (!result && !sample) return;
+    const userIntent = question.trim().slice(0, 1000) || "Coach Brain content plan";
+    const researchSummary = result?.answer?.slice(0, 4000) || sample?.caption?.slice(0, 4000) || "";
+    const researchSources = result?.sources?.slice(0, 5).map((source) => ({ title: source.title, url: source.url })) ?? [];
+    const requestedDuration = selectedPlanDays();
+    const createdAt = new Date().toISOString();
+    const contentGoal = sample?.topic?.trim().slice(0, 500) || userIntent.slice(0, 500);
     const handoff = JSON.stringify({
-      question: question.trim().slice(0, 1000) || "Coach Brain content plan",
-      answer: result?.answer?.slice(0, 4000) || sample?.caption?.slice(0, 4000) || "",
-      sources: result?.sources?.slice(0, 5).map((source) => ({ title: source.title, url: source.url })) ?? [],
-      planWindowDays: selectedPlanDays(),
+      userIntent,
+      planStrategy: `${planMix}:${planExecution}`,
+      researchContext: { summary: researchSummary, sources: researchSources },
+      requestedDuration,
+      contentGoal,
+      question: userIntent,
+      answer: researchSummary,
+      sources: researchSources,
+      planWindowDays: requestedDuration,
       planMix,
       planExecution,
       sample: sample ? {
@@ -177,16 +199,62 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
         platform: sample.platform,
         contentType: sample.contentType,
       } : null,
-      createdAt: new Date().toISOString(),
+      createdAt,
     });
-    writeCoachBrainFactoryHandoff(handoff);
+    const saved = writeCoachBrainFactoryHandoff(handoff);
+    const restored = readCoachBrainFactoryHandoff();
+    if (!saved || !restored || restored.createdAt !== createdAt) {
+      setError(language === "ar"
+        ? "تعذر حفظ المهمة محليًا بأمان. لم يتم فتح مصنع المحتوى."
+        : "The task could not be saved locally. Content Factory was not opened.");
+      return;
+    }
     const url = new URL(window.location.href);
     url.searchParams.set("section", "content");
     url.searchParams.set("factoryContext", "coach-brain");
-    url.searchParams.set("planDays", String(selectedPlanDays()));
+    url.searchParams.set("planDays", String(requestedDuration));
     url.searchParams.set("planMix", planMix);
     url.searchParams.set("planExecution", planExecution);
     window.location.assign(url.toString());
+  }
+
+  async function copySampleDesignPrompt() {
+    if (!sampleDesignPrompt) {
+      setSampleDesignNotice(language === "ar"
+        ? "لا يوجد برومبت تصميم مكتمل لهذا المحتوى؛ لن ننسخ نصًا ناقصًا."
+        : "No complete design prompt is available; incomplete text will not be copied.");
+      return;
+    }
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("CLIPBOARD_UNAVAILABLE");
+      await navigator.clipboard.writeText(sampleDesignPrompt);
+      setSampleDesignNotice(language === "ar" ? "تم نسخ برومبت التصميم الكامل." : "The complete design prompt was copied.");
+    } catch {
+      setSampleDesignNotice(language === "ar"
+        ? "تعذر النسخ التلقائي. البرومبت ظاهر في المربع؛ اضغط داخله وحدد الكل ثم انسخ يدويًا."
+        : "Automatic copy is unavailable. The prompt is visible below; focus the box, select all, and copy manually.");
+    }
+  }
+
+  async function openSampleDesignTool() {
+    if (!sampleDesignPrompt) {
+      setSampleDesignNotice(language === "ar" ? "لا يوجد برومبت تصميم صالح لهذا المحتوى." : "No valid design prompt exists for this content.");
+      return;
+    }
+    const target = sampleIsVideo ? "Runway" : "Canva";
+    const destination = sampleIsVideo ? "https://app.runwayml.com/" : "https://www.canva.com/";
+    window.open(destination, "_blank", "noopener,noreferrer");
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("CLIPBOARD_UNAVAILABLE");
+      await navigator.clipboard.writeText(sampleDesignPrompt);
+      setSampleDesignNotice(language === "ar"
+        ? `تم تجهيز البرومبت ونسخه. انتقل إلى حسابك في ${target} والصقه؛ إنشاء الوسيط يتم يدويًا داخل حسابك.`
+        : `Prompt copied. Open your ${target} account and paste it there; asset creation happens manually in your account.`);
+    } catch {
+      setSampleDesignNotice(language === "ar"
+        ? "تم طلب فتح الأداة، لكن تعذر النسخ التلقائي. البرومبت ظاهر في المربع ويمكن نسخه يدويًا."
+        : "The tool open request was sent, but automatic copy failed. The prompt remains visible for manual copying.");
+    }
   }
 
   async function research(event: FormEvent) {
@@ -316,14 +384,14 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
           </div>
         </div>
         <div className="coach-brain__plan-grid">
-          <label><span>{language === "ar" ? "المدة" : "Window"}</span><select value={planDays} onChange={(event) => setPlanDays(event.target.value)} disabled={sampleBusy}><option value="2">2 {language === "ar" ? "يوم" : "days"}</option><option value="3">3 {language === "ar" ? "أيام" : "days"}</option><option value="4">4 {language === "ar" ? "أيام" : "days"}</option><option value="7">7 {language === "ar" ? "أيام" : "days"}</option><option value="14">14 {language === "ar" ? "يومًا" : "days"}</option><option value="30">30 {language === "ar" ? "يومًا" : "days"}</option><option value="custom">{language === "ar" ? "مخصص" : "Custom"}</option></select></label>
-          {planDays === "custom" && <label><span>{language === "ar" ? "عدد الأيام" : "Days"}</span><input type="number" min={2} max={30} value={customDays} onChange={(event) => setCustomDays(event.target.value)} disabled={sampleBusy} /></label>}
+          <label><span>{language === "ar" ? "المدة" : "Window"}</span><select value={planDays} onChange={(event) => setPlanDays(event.target.value)} disabled={sampleBusy}><option value="1">1 {language === "ar" ? "يوم" : "day"}</option><option value="2">2 {language === "ar" ? "يوم" : "days"}</option><option value="3">3 {language === "ar" ? "أيام" : "days"}</option><option value="4">4 {language === "ar" ? "أيام" : "days"}</option><option value="7">7 {language === "ar" ? "أيام" : "days"}</option><option value="10">10 {language === "ar" ? "أيام" : "days"}</option><option value="custom">{language === "ar" ? "مخصص" : "Custom"}</option></select></label>
+          {planDays === "custom" && <label><span>{language === "ar" ? "عدد الأيام" : "Days"}</span><input type="number" min={1} max={10} value={customDays} onChange={(event) => setCustomDays(event.target.value)} disabled={sampleBusy} /></label>}
           <label><span>{language === "ar" ? "نوع المحتوى" : "Content mix"}</span><select value={planMix} onChange={(event) => setPlanMix(event.target.value)} disabled={sampleBusy}><option value="varied">{language === "ar" ? "⭐ متنوع وأفضل توازن" : "⭐ Varied / best balance"}</option><option value="education">{language === "ar" ? "تعليمي" : "Education"}</option><option value="parents">{language === "ar" ? "للأهل" : "Parent tips"}</option><option value="conversion">{language === "ar" ? "تحويل وحجوزات" : "Conversion"}</option></select></label>
           <label><span>{language === "ar" ? "التنفيذ" : "Execution"}</span><select value={planExecution} onChange={(event) => setPlanExecution(event.target.value as typeof planExecution)} disabled={sampleBusy}><option value="best">⭐ {language === "ar" ? "الأفضل" : "Best"}</option><option value="value">💰 {language === "ar" ? "الأوفر" : "Best value"}</option><option value="library">📁 {language === "ar" ? "من مكتبتي" : "From my library"}</option><option value="design">🎨 {language === "ar" ? "أفضل تصميم" : "Best design"}</option><option value="manual">⚙️ {language === "ar" ? "يدوي" : "Manual"}</option></select></label>
         </div>
         <div className="coach-brain__plan-actions">
           <button type="button" className="coach-brain__primary" disabled={sampleBusy} onClick={async () => {
-            setSampleBusy(true); setSampleError(""); setSample(null);
+            setSampleBusy(true); setSampleError(""); setSampleDesignNotice(""); setSample(null);
             try {
               const raw = sessionStorage.getItem("relaxfix-command-session");
               const parsed = raw ? JSON.parse(raw) as { accessToken?: unknown } : {};
@@ -375,7 +443,18 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
           <p>{sample.hook}</p>
           <div className="coach-brain__sample-caption">{sample.caption}</div>
           <small>{sample.platform} · {sample.contentType}</small>
-          <details><summary>{language === "ar" ? "تفاصيل التصميم" : "Design brief"}</summary><p>{sample.visualPrompt}</p></details>
+          <section className="coach-brain__sample-design" aria-label={language === "ar" ? "برومبت التصميم" : "Design prompt"}>
+          <strong>{language === "ar" ? "برومبت التصميم لهذا المحتوى" : "Design prompt for this content"}</strong>
+          {sampleIsVideo && <label><span>{language === "ar" ? "مدة فيديو Runway" : "Runway video length"}</span><select value={sampleVideoDuration} onChange={(event) => setSampleVideoDuration(Number(event.target.value) as 3 | 5 | 8)}><option value={3}>3 {language === "ar" ? "ثوانٍ" : "seconds"}</option><option value={5}>5 {language === "ar" ? "ثوانٍ" : "seconds"}</option><option value={8}>8 {language === "ar" ? "ثوانٍ" : "seconds"}</option></select></label>}
+          {sampleDesignPrompt
+            ? <textarea readOnly rows={6} value={sampleDesignPrompt} onFocus={(event) => event.currentTarget.select()} aria-label={language === "ar" ? "برومبت التصميم الكامل" : "Complete design prompt"} />
+            : <p role="status">{language === "ar" ? "لم يرجع مزود المحتوى برومبت تصميم لهذا العنصر." : "The content provider did not return a design prompt for this item."}</p>}
+          <div className="coach-brain__sample-design-actions">
+            <button type="button" className="coach-brain__reset" disabled={!sampleDesignPrompt} onClick={() => void copySampleDesignPrompt()}>{language === "ar" ? "نسخ البرومبت" : "Copy prompt"}</button>
+            <button type="button" className="coach-brain__reset" disabled={!sampleDesignPrompt} onClick={() => void openSampleDesignTool()}>{sampleIsVideo ? (language === "ar" ? "فتح Runway ونسخ البرومبت" : "Open Runway + copy prompt") : (language === "ar" ? "فتح Canva ونسخ البرومبت" : "Open Canva + copy prompt")}</button>
+          </div>
+          {sampleDesignNotice && <p className="coach-brain__privacy-note" role="status">{sampleDesignNotice}</p>}
+        </section>
         </article>}
       </section>
 
