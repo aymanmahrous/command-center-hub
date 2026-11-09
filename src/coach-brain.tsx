@@ -380,7 +380,7 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
         </div>
         <div className="coach-brain__plan-grid">
           <label><span>{language === "ar" ? "المدة" : "Window"}</span><select value={planDays} onChange={(event) => setPlanDays(event.target.value)} disabled={sampleBusy}>{[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((days) => <option key={days} value={days}>{days} {language === "ar" ? "يوم" : days === 1 ? "day" : "days"}</option>)}</select></label>
-          {planDays === "custom" && }
+
           <label><span>{language === "ar" ? "نوع المحتوى" : "Content mix"}</span><select value={planMix} onChange={(event) => setPlanMix(event.target.value)} disabled={sampleBusy}><option value="varied">{language === "ar" ? "⭐ متنوع وأفضل توازن" : "⭐ Varied / best balance"}</option><option value="education">{language === "ar" ? "تعليمي" : "Education"}</option><option value="parents">{language === "ar" ? "للأهل" : "Parent tips"}</option><option value="conversion">{language === "ar" ? "تحويل وحجوزات" : "Conversion"}</option></select></label>
           <label><span>{language === "ar" ? "التنفيذ" : "Execution"}</span><select value={planExecution} onChange={(event) => setPlanExecution(event.target.value as typeof planExecution)} disabled={sampleBusy}><option value="best">⭐ {language === "ar" ? "الأفضل" : "Best"}</option><option value="value">💰 {language === "ar" ? "الأوفر" : "Best value"}</option><option value="library">📁 {language === "ar" ? "من مكتبتي" : "From my library"}</option><option value="design">🎨 {language === "ar" ? "أفضل تصميم" : "Best design"}</option><option value="manual">⚙️ {language === "ar" ? "يدوي" : "Manual"}</option></select></label>
         </div>
