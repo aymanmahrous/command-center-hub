@@ -27,7 +27,7 @@ test("factory reports AI generation only when validated AI content was saved", a
   const arabicCopy = await readFile(new URL("../src/i18n/ar.ts", import.meta.url), "utf8");
   assert.match(hub, /const validatedAiItems = await mergeValidatedGeminiCreativeFields/);
   assert.match(hub, /usedAiGeneration = validatedAiItems !== null/);
-  assert.match(hub, /usedAiGeneration \\? copy\\.generateSuccess : copy\\.generateFallback/);
+  assert.match(hub, /usedAiGeneration \? copy\.generateSuccess : copy\.generateFallback/);
   assert.match(englishCopy, /The batch was saved using the academy's standard content/);
   assert.match(arabicCopy, /تم حفظ الدفعة باستخدام المحتوى الأساسي للأكاديمية/);
 });
