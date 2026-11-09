@@ -692,3 +692,37 @@ No PR was merged or closed. No Production database, job, flag, policy, grant, Ed
 - Identify why the external `Supabase Preview` check points to the Production project and why local migration history differs from the remote ledger, using read-only evidence only.
 - Preserve the current Production alias and database. Do not run or repair migrations. Complete isolated Preview authentication only when a correctly isolated non-production database is available.
 - This section supersedes the stale PR #332 OPEN/DRAFT/UNMERGED statements in Section 33.
+
+## 35. Current continuation checkpoint — 2026-11-09
+
+### Current repository and review candidates
+- Current `main` head: `6413de2a51c7c6483597f43cf2e7c381eb2a77f3`, the merge commit for PR #332.
+- PR #333 is the documentation-only handoff reconciliation branch. Exact head `1e977e8293b2f7f814c8ead289831927952be796`; Verify run #1105 passed; Preview `dpl_EsTrVYPwmU4arvC5wqNpUqhihjkd` reached READY. It is ready for independent review, not merged.
+- PR #334: Media Source Hub now rejects explicit `{success:false}` RPC results, gives localized failure feedback, and reports clipboard failures without showing a false copied state. Exact head `6e14d79c7a327a7017c89e08b7570894026ebe6f`; Verify #1113 passed; Preview `dpl_HGpkdKpqtZhXx3C7uFZepvLdviS4` READY.
+- PR #335: Arabic/English creative briefs use the approved academy identity, Al Mushrif–Abu Dhabi context, and free initial-assessment CTA; app-shell title is `Relax Fix · Command Center Hub`. Exact head `cdfaf7f2bd0aa377f32f3ed36256e021b4d69244`; Verify #1112 passed; Preview `dpl_9rDYfrKaMeXDrZoQ6tjKhbjon6xh` READY.
+- PR #336: Factory reports whether validated AI content or the academy fallback was actually saved, without invoking a provider or changing the owner-confirmation flow. Exact head `2f378c5940a16e2d9597c022803322b40946bc9d`; Verify #1110 passed; Preview `dpl_5HarXGjA2wPBHyr5jWUjNSAWPvF2` READY.
+- PRs #333–#336 are open and ready for independent review. None is merged. The CI runs verify install, TypeScript, tests, and build; READY Preview verifies deployment build/shell availability only. No authenticated owner-path QA is claimed.
+
+### Preview isolation — confirmed current cause
+- Current Vercel Preview bundles for main and PR branches outside the dedicated #327 override embed `https://xvsvkewkjutwsfysujls.supabase.co`.
+- The connected Supabase account inventory currently lists only Production `nmzxrjdxvmmzzmajrskm` and `command-center-lab` `kgkwkfxqryxiqagmqloa`; the old `xvsv...` project is not present in the connected project inventory.
+- Vercel's global Preview `VITE_SUPABASE_URL` still points to the old `xvsv...` ref. The #327 branch alone has branch-scoped Preview variables pointing to `command-center-lab`.
+- `command-center-lab` currently has zero migrations, zero public tables, and zero development branches. It is not ready for authenticated app QA. The Production project has only its existing failed `main` development-branch record; do not use it for QA.
+- Do not point Preview to Production, initialize the lab from incomplete migration files, create a paid branch, or change secrets/OAuth to bypass this blocker. No environment or database configuration was changed in this continuation.
+
+### Production deployment and domain truth
+- Current direct alias lookup maps both `hub.relaxfixuae.com` and `www.hub.relaxfixuae.com` to READY deployment `dpl_AK5oHumGDgwQEfHbofH2HcjHWnzJ`, source commit `186eee9e58deaa7e269bb8be3aa1a55dcb271e73`.
+- Current `main` commit `6413de2...` is 25 commits ahead of that aliased source. A READY Preview exists for current main as `dpl_FX7KujFm5VL43JHpqkGuW95sRgAd`, but its target is Preview, not Production, and it embeds the stale Preview Supabase URL.
+- No alias promotion, Production deployment, rollback, or domain change was performed. Do not promote the current Preview until Preview Supabase isolation and authenticated owner-path QA are resolved.
+
+### Read-only Production integration snapshot — 2026-11-09
+- `canva`: status `connected`, last test 2026-11-03.
+- `facebook`: status `connected`, account label `Relax Fix one`, last test 2026-11-03.
+- `instagram`: status `connected`, last test 2026-11-08.
+- `ai_provider`, `meta_whatsapp`, `google_calendar`, and `telegram`: status `not_connected`.
+- These are stored integration status records, not proof of current external API capability or permission to publish/send. No OAuth refresh, provider API call, generation, publishing, scheduling, retry, WhatsApp send, or customer message was performed.
+
+### Safe point and next action
+- Media Experience Simplification remains the active product phase. The focused fixes above are review-ready at source/CI/Preview-build level; the authenticated owner journey remains unverified.
+- Next safe action: complete independent review of #333–#336 and resolve the Preview database isolation plan without Production data or unapproved recurring cost. Then perform one consolidated authenticated owner-path test for Media Library → Content Factory → Review and Coach Brain → Factory.
+- Publishing remains frozen. No Production database, schema, RLS, secrets, OAuth, Edge Function, Vercel environment, domain alias, or external operation was changed.
