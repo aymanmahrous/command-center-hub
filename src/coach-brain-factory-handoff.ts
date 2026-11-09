@@ -6,6 +6,7 @@ export type CoachBrainFactoryHandoff = CoachBrainFactoryContext & {
   planWindowDays?: number;
   planMix?: string;
   planExecution?: string;
+  createdAt?: string;
 };
 
 type StorageLike = {
