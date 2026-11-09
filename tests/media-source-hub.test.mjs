@@ -27,8 +27,9 @@ test('consent states are fail-closed: needs_review and blocked cannot create mar
   assert.equal(buildCreativeBrief({ ...base, consent: "approved" }, "ar", "تعليم السباحة")?.approval, "needs_review");
 });
 
-test('creative briefs use the current Coach Ayman identity and retain owner review gates', () => {
-  assert.match(source, /Coach Ayman Swimming Academy/);
+test('creative briefs use the approved academy identity and retain owner review gates', () => {
+  assert.match(source, /Relax Fix Swimming Academy/);
+  assert.doesNotMatch(source, /Coach Ayman Swimming Academy/);
   assert.doesNotMatch(source, /Relax Fix UAE/);
   assert.match(source, /لا نشر تلقائي قبل اعتماد المالك/);
   assert.match(source, /No automatic publishing before owner approval/);
