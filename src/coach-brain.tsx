@@ -168,22 +168,12 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
 
   function sendResultToFactory() {
     if (!result && !sample) return;
-    const userIntent = question.trim().slice(0, 1000) || "Coach Brain content plan";
-    const researchSummary = result?.answer?.slice(0, 4000) || sample?.caption?.slice(0, 4000) || "";
-    const researchSources = result?.sources?.slice(0, 5).map((source) => ({ title: source.title, url: source.url })) ?? [];
-    const requestedDuration = selectedPlanDays();
     const createdAt = new Date().toISOString();
-    const contentGoal = sample?.topic?.trim().slice(0, 500) || userIntent.slice(0, 500);
     const handoff = JSON.stringify({
-      userIntent,
-      planStrategy: `${planMix}:${planExecution}`,
-      researchContext: { summary: researchSummary, sources: researchSources },
-      requestedDuration,
-      contentGoal,
-      question: userIntent,
-      answer: researchSummary,
-      sources: researchSources,
-      planWindowDays: requestedDuration,
+      question: question.trim().slice(0, 1000) || "Coach Brain content plan",
+      answer: result?.answer?.slice(0, 4000) || sample?.caption?.slice(0, 4000) || "",
+      sources: result?.sources?.slice(0, 5).map((source) => ({ title: source.title, url: source.url })) ?? [],
+      planWindowDays: selectedPlanDays(),
       planMix,
       planExecution,
       sample: sample ? {
@@ -207,7 +197,7 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
     const url = new URL(window.location.href);
     url.searchParams.set("section", "content");
     url.searchParams.set("factoryContext", "coach-brain");
-    url.searchParams.set("planDays", String(requestedDuration));
+    url.searchParams.set("planDays", String(selectedPlanDays()));
     url.searchParams.set("planMix", planMix);
     url.searchParams.set("planExecution", planExecution);
     window.location.assign(url.toString());
