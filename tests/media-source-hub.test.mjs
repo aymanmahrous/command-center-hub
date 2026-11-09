@@ -31,6 +31,10 @@ test('creative briefs use the approved academy identity and retain owner review 
   assert.match(source, /Relax Fix Swimming Academy/);
   assert.doesNotMatch(source, /Coach Ayman Swimming Academy/);
   assert.doesNotMatch(source, /Relax Fix UAE/);
+  assert.match(source, /Al Mushrif, Abu Dhabi/);
+  assert.match(source, /في المشرف، أبوظبي/);
+  assert.match(source, /Book your free initial assessment/);
+  assert.match(source, /احجز تقييمك الأولي المجاني/);
   assert.match(source, /لا نشر تلقائي قبل اعتماد المالك/);
   assert.match(source, /No automatic publishing before owner approval/);
 });
