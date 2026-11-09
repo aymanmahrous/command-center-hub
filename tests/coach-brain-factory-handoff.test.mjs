@@ -151,8 +151,8 @@ test("manual image and video handoff uses Canva and Runway without a provider AP
 });
 
 test("Coach Brain and Factory share the canonical 1-to-10-day planning window", () => {
-  assert.ok(coachBrain.includes("Math.max(1, Math.min(10, selected || 10))"));
-  assert.ok(coachBrain.includes('<option value="10">10'));
-  assert.ok(growth.includes("const PLAN_WINDOW_OPTIONS = [1, 2, 3, 4, 7, 10] as const;"));
-  assert.ok(growth.includes("return [1, 2, 3, 4, 7, 10].includes(value) ? value : 10;"));
+  assert.ok(coachBrain.includes("Math.max(1, Math.min(10, Number(planDays) || 10))"));
+  assert.ok(coachBrain.includes("[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((days)"));
+  assert.ok(contentGrowthHub.includes("const PLAN_WINDOW_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;"));
+  assert.ok(contentGrowthHub.includes("Number.isInteger(value) && value >= 1 && value <= 10"));
 });
