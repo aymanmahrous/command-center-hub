@@ -675,3 +675,18 @@ No PR was merged or closed. No Production database, job, flag, policy, grant, Ed
 - **Root cause of ordinary Preview login unavailability is now evidenced:** most Preview branches are built against the stale `xvsv...` Supabase endpoint, not the current lab or Production. The safe remedy requires a properly initialized isolated QA project with a reviewed migration baseline; it is not an environment-variable-only fix.
 - No Vercel environment variable, Supabase project, branch, schema, secret, or credential was changed during this inspection.
 - NEXT: preserve the current configuration; reconcile the historical migration lineage before any lab initialization. Continue code-level verification on main and keep authenticated QA marked NOT PROVEN until an isolated database is genuinely ready.
+
+
+## 36. Media RPC truthful-failure repair merged — 2026-11-10
+
+- PR **#334** was independently approved twice and merged as squash commit `3ebb114a30392996445ac722817924e778344911`.
+- The existing Media Source Hub RPC wrapper now treats a JSON response with `success:false` as a rejected operation even when the HTTP response itself is successful. It does not mark the asset as saved in that case.
+- Owner-facing Arabic/English messages now state that the save/link was not confirmed; clipboard feedback is shown as copied only after Clipboard API success.
+- Exact PR head `6e14d79c7a327a7017c89e08b7570894026ebe6f` had two independent approvals, Verify Command Center run #1113 success, and exact-head Vercel Preview READY before merge.
+- Mainline Vercel deployment for exact merge commit `3ebb114a30392996445ac722817924e778344911`: `dpl_6g9DEDvQ6jVezm7nbbgUd4WJVb18`, state **READY**, main-branch alias `command-center-hub-git-main-swimmingayman-8492s-projects.vercel.app`.
+- This remains a main-branch Vercel deployment with target null; it does not prove that `hub.relaxfixuae.com` or the Production alias points to this deployment. No Production alias promotion was performed.
+- PRs **#334, #335, #336, and #337 are now merged**. No new branch was created. Their exact PR heads passed Verify Command Center (install, TypeScript, tests, build); the current mainline Vercel build also reached READY.
+- The GitHub workflow `.github/workflows/verify.yml` exposes `workflow_dispatch`, but the connected GitHub toolset in this session has no workflow-dispatch action. Therefore a fresh full test-suite run on the post-merge main SHA is **NOT RUN**; do not claim otherwise. The individual PR test suites passed before merge, and the latest main Vercel build passed its configured typecheck/build/performance-budget command.
+- Previous Section 34's statement that PR #334 remained open is superseded by this section.
+- No Supabase, Vercel environment variable, Production domain alias, OAuth, Meta, WhatsApp/n8n, queue, publishing, customer message, or external provider action changed.
+- NEXT: preserve the proven code fixes; resolve the Preview Supabase isolation root cause from Section 35 only after a complete, reviewed QA schema baseline is available. Keep authenticated owner-path QA and Production-domain parity marked NOT PROVEN until separately evidenced.
