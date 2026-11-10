@@ -662,3 +662,16 @@ No PR was merged or closed. No Production database, job, flag, policy, grant, Ed
 - No new branch, Supabase schema/data/RLS/function/secret change, OAuth change, WhatsApp/n8n action, Meta action, customer message, queue operation, social publish, retry, or republish occurred.
 - Publishing freeze remains in force. Keep PR #334 isolated until independent review completes; then verify the exact updated mainline merge candidate. Do not create a new branch to resolve it.
 - NEXT: finish PR #334 independent review and minimal merge-readiness checks; then perform one consolidated authenticated owner journey only when a safe, non-Production QA identity/environment exists. Do not point Preview at Production or simulate staff roles in Production.
+
+
+## 35. Vercel Preview Supabase configuration — verified read-only, 2026-11-10
+
+- Read the Vercel project environment-variable inventory with decryption disabled. No secret values or credentials were requested or exposed.
+- Confirmed a project-wide Preview `VITE_SUPABASE_URL` points to the legacy Supabase reference `xvsvkewkjutwsfysujls`; this reference is not present in the currently connected Supabase project inventory. The variable has no branch restriction, so ordinary PR Preview deployments inherit this stale endpoint.
+- Confirmed a separate Preview `VITE_SUPABASE_URL` override is scoped only to branch `feat/consolidated-coach-brain-factory-2026-11-06` and points to `command-center-lab` (`kgkwkfxqryxiqagmqloa`). This does not apply to main or the other PR branches.
+- The Preview publishable-key configuration also has branch-scoped entries for that isolated lab branch. No key material was decrypted or read.
+- Production Supabase environment variables remain scoped to Production; no Production values were read or changed.
+- The lab project remains empty (zero public tables and zero migration records), so changing the global Preview URL to the lab would not create a working authenticated QA environment. Do not repoint Preview globally, initialize the lab, replay migrations, or connect Preview to Production as a workaround.
+- **Root cause of ordinary Preview login unavailability is now evidenced:** most Preview branches are built against the stale `xvsv...` Supabase endpoint, not the current lab or Production. The safe remedy requires a properly initialized isolated QA project with a reviewed migration baseline; it is not an environment-variable-only fix.
+- No Vercel environment variable, Supabase project, branch, schema, secret, or credential was changed during this inspection.
+- NEXT: preserve the current configuration; reconcile the historical migration lineage before any lab initialization. Continue code-level verification on main and keep authenticated QA marked NOT PROVEN until an isolated database is genuinely ready.
