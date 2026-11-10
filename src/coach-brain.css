@@ -71,6 +71,10 @@
 .coach-brain__plan-actions { display: flex; flex-wrap: wrap; gap: .65rem; align-items: center; margin-top: 1rem; }
 .coach-brain__sample { margin-top: 1rem; padding: 1rem; border: 1px solid var(--coach-border, #d9dee7); border-radius: 14px; background: var(--coach-surface, #fff); }
 .coach-brain__sample-caption { white-space: pre-wrap; margin: .8rem 0; line-height: 1.65; }
+.coach-brain__sample-design { display: grid; gap: .75rem; margin-top: 1rem; padding: 1rem; border: 1px solid var(--coach-border, #d9dee7); border-radius: 12px; background: var(--coach-surface, #fff); }
+.coach-brain__sample-design label { display: flex; flex-wrap: wrap; align-items: center; gap: .65rem; }
+.coach-brain__sample-design textarea { width: 100%; min-height: 150px; resize: vertical; padding: .8rem; border: 1px solid var(--coach-border, #d9dee7); border-radius: 10px; font: inherit; line-height: 1.5; background: var(--coach-surface, #fff); color: inherit; }
+.coach-brain__sample-design-actions { display: flex; flex-wrap: wrap; gap: .65rem; }
 .coach-brain__sample details { margin-top: .8rem; }
 .coach-brain__sample details p { white-space: pre-wrap; }
 @media (max-width: 900px) { .coach-brain__plan-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

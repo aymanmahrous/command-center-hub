@@ -85,3 +85,26 @@ test("handoff remains available when batch creation fails", () => {
   assert.doesNotMatch(failurePath, /clearCoachBrainFactoryHandoff\(\)/, "the generation failure catch must not clear the handoff");
   assert.equal(readCoachBrainFactoryHandoff(access)?.question, "خطة سباحة للأطفال");
 });
+
+
+const coachBrain = await readFile(new URL("../src/coach-brain.tsx", import.meta.url), "utf8");
+
+test("manual image and video handoff uses static Canva and Runway links with copy-only behavior", () => {
+  const start = coachBrain.indexOf("async function copySampleDesignPrompt()");
+  const end = coachBrain.indexOf("\n  }", start);
+  const copyAction = coachBrain.slice(start, end);
+  assert.ok(coachBrain.includes('href="https://www.canva.com/"'));
+  assert.ok(coachBrain.includes('href="https://app.runwayml.com/"'));
+  assert.ok(!coachBrain.includes("window.open("));
+  assert.ok(copyAction.includes("navigator.clipboard?.writeText"));
+  assert.ok(!copyAction.includes("fetch("));
+  assert.ok(coachBrain.includes("sampleDesignPrompt"));
+  assert.ok(coachBrain.includes("select all, and copy manually"));
+});
+
+test("Coach Brain and Factory share the canonical 1-to-10-day planning window", () => {
+  assert.ok(coachBrain.includes("Math.max(1, Math.min(10, Number(planDays) || 10))"));
+  assert.ok(coachBrain.includes("[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((days)"));
+  assert.ok(contentGrowthHub.includes("const PLAN_WINDOW_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;"));
+  assert.ok(contentGrowthHub.includes("Number.isInteger(value) && value >= 1 && value <= 10"));
+});

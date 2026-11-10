@@ -149,15 +149,21 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [planDays, setPlanDays] = useState("7");
-  const [customDays, setCustomDays] = useState("10");
   const [planMix, setPlanMix] = useState("varied");
   const [planExecution, setPlanExecution] = useState<"best" | "value" | "library" | "design" | "manual">("best");
   const [sampleBusy, setSampleBusy] = useState(false);
   const [sample, setSample] = useState<GeneratedContentSample | null>(null);
   const [sampleError, setSampleError] = useState("");
+  const [sampleVideoDuration, setSampleVideoDuration] = useState<3 | 5 | 8>(5);
+  const [sampleDesignNotice, setSampleDesignNotice] = useState("");
+  const sampleIsVideo = Boolean(sample && /reel|video/i.test(String(sample.contentType)));
+  const sampleBasePrompt = String(sample?.visualPrompt ?? "").trim();
+  const sampleDesignPrompt = sampleBasePrompt
+    ? `${sampleBasePrompt}${sampleIsVideo ? `\n\nFINAL OUTPUT REQUIREMENT: Create one vertical 9:16 video with an exact target duration of ${sampleVideoDuration} seconds. This duration overrides any earlier duration in the brief.` : ""}`.trim()
+    : "";
 
   function selectedPlanDays() {
-    return planDays === "custom" ? Math.max(2, Math.min(30, Number(customDays) || 10)) : Number(planDays);
+    return Math.max(1, Math.min(10, Number(planDays) || 10));
   }
 
   function sendResultToFactory() {
@@ -188,6 +194,26 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
     url.searchParams.set("planExecution", planExecution);
     window.location.assign(url.toString());
   }
+
+  async function copySampleDesignPrompt() {
+    if (!sampleDesignPrompt) {
+      setSampleDesignNotice(language === "ar"
+        ? "لا يوجد برومبت تصميم مكتمل لهذا المحتوى؛ لن ننسخ نصًا ناقصًا."
+        : "No complete design prompt is available; incomplete text will not be copied.");
+      return;
+    }
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("CLIPBOARD_UNAVAILABLE");
+      await navigator.clipboard.writeText(sampleDesignPrompt);
+      setSampleDesignNotice(language === "ar" ? "تم نسخ برومبت التصميم الكامل." : "The complete design prompt was copied.");
+    } catch {
+      setSampleDesignNotice(language === "ar"
+        ? "تعذر النسخ التلقائي. البرومبت ظاهر في المربع؛ اضغط داخله وحدد الكل ثم انسخ يدويًا."
+        : "Automatic copy is unavailable. The prompt is visible below; focus the box, select all, and copy manually.");
+    }
+  }
+
+
 
   async function research(event: FormEvent) {
     event.preventDefault();
@@ -316,14 +342,14 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
           </div>
         </div>
         <div className="coach-brain__plan-grid">
-          <label><span>{language === "ar" ? "المدة" : "Window"}</span><select value={planDays} onChange={(event) => setPlanDays(event.target.value)} disabled={sampleBusy}><option value="2">2 {language === "ar" ? "يوم" : "days"}</option><option value="3">3 {language === "ar" ? "أيام" : "days"}</option><option value="4">4 {language === "ar" ? "أيام" : "days"}</option><option value="7">7 {language === "ar" ? "أيام" : "days"}</option><option value="14">14 {language === "ar" ? "يومًا" : "days"}</option><option value="30">30 {language === "ar" ? "يومًا" : "days"}</option><option value="custom">{language === "ar" ? "مخصص" : "Custom"}</option></select></label>
-          {planDays === "custom" && <label><span>{language === "ar" ? "عدد الأيام" : "Days"}</span><input type="number" min={2} max={30} value={customDays} onChange={(event) => setCustomDays(event.target.value)} disabled={sampleBusy} /></label>}
+          <label><span>{language === "ar" ? "المدة" : "Window"}</span><select value={planDays} onChange={(event) => setPlanDays(event.target.value)} disabled={sampleBusy}>{[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((days) => <option key={days} value={days}>{days} {language === "ar" ? "يوم" : days === 1 ? "day" : "days"}</option>)}</select></label>
+
           <label><span>{language === "ar" ? "نوع المحتوى" : "Content mix"}</span><select value={planMix} onChange={(event) => setPlanMix(event.target.value)} disabled={sampleBusy}><option value="varied">{language === "ar" ? "⭐ متنوع وأفضل توازن" : "⭐ Varied / best balance"}</option><option value="education">{language === "ar" ? "تعليمي" : "Education"}</option><option value="parents">{language === "ar" ? "للأهل" : "Parent tips"}</option><option value="conversion">{language === "ar" ? "تحويل وحجوزات" : "Conversion"}</option></select></label>
           <label><span>{language === "ar" ? "التنفيذ" : "Execution"}</span><select value={planExecution} onChange={(event) => setPlanExecution(event.target.value as typeof planExecution)} disabled={sampleBusy}><option value="best">⭐ {language === "ar" ? "الأفضل" : "Best"}</option><option value="value">💰 {language === "ar" ? "الأوفر" : "Best value"}</option><option value="library">📁 {language === "ar" ? "من مكتبتي" : "From my library"}</option><option value="design">🎨 {language === "ar" ? "أفضل تصميم" : "Best design"}</option><option value="manual">⚙️ {language === "ar" ? "يدوي" : "Manual"}</option></select></label>
         </div>
         <div className="coach-brain__plan-actions">
           <button type="button" className="coach-brain__primary" disabled={sampleBusy} onClick={async () => {
-            setSampleBusy(true); setSampleError(""); setSample(null);
+            setSampleBusy(true); setSampleError(""); setSampleDesignNotice(""); setSample(null);
             try {
               const raw = sessionStorage.getItem("relaxfix-command-session");
               const parsed = raw ? JSON.parse(raw) as { accessToken?: unknown } : {};
@@ -375,7 +401,20 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
           <p>{sample.hook}</p>
           <div className="coach-brain__sample-caption">{sample.caption}</div>
           <small>{sample.platform} · {sample.contentType}</small>
-          <details><summary>{language === "ar" ? "تفاصيل التصميم" : "Design brief"}</summary><p>{sample.visualPrompt}</p></details>
+          <section className="coach-brain__sample-design" aria-label={language === "ar" ? "برومبت التصميم" : "Design prompt"}>
+          <strong>{language === "ar" ? "برومبت التصميم لهذا المحتوى" : "Design prompt for this content"}</strong>
+          {sampleIsVideo && <label><span>{language === "ar" ? "مدة فيديو Runway" : "Runway video length"}</span><select value={sampleVideoDuration} onChange={(event) => setSampleVideoDuration(Number(event.target.value) as 3 | 5 | 8)}><option value={3}>3 {language === "ar" ? "ثوانٍ" : "seconds"}</option><option value={5}>5 {language === "ar" ? "ثوانٍ" : "seconds"}</option><option value={8}>8 {language === "ar" ? "ثوانٍ" : "seconds"}</option></select></label>}
+          {sampleDesignPrompt
+            ? <textarea readOnly rows={6} value={sampleDesignPrompt} onFocus={(event) => event.currentTarget.select()} aria-label={language === "ar" ? "برومبت التصميم الكامل" : "Complete design prompt"} />
+            : <p role="status">{language === "ar" ? "لم يرجع مزود المحتوى برومبت تصميم لهذا العنصر." : "The content provider did not return a design prompt for this item."}</p>}
+          <div className="coach-brain__sample-design-actions">
+            <button type="button" className="coach-brain__reset" disabled={!sampleDesignPrompt} onClick={() => void copySampleDesignPrompt()}>{language === "ar" ? "نسخ البرومبت" : "Copy prompt"}</button>
+            {sampleIsVideo
+              ? <a className="coach-brain__reset" href="https://app.runwayml.com/" target="_blank" rel="noopener noreferrer">{language === "ar" ? "فتح Runway" : "Open Runway"}</a>
+              : <a className="coach-brain__reset" href="https://www.canva.com/" target="_blank" rel="noopener noreferrer">{language === "ar" ? "فتح Canva" : "Open Canva"}</a>}
+          </div>
+          {sampleDesignNotice && <p className="coach-brain__privacy-note" role="status">{sampleDesignNotice}</p>}
+        </section>
         </article>}
       </section>
 
