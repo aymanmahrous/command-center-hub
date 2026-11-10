@@ -690,3 +690,13 @@ No PR was merged or closed. No Production database, job, flag, policy, grant, Ed
 - Previous Section 34's statement that PR #334 remained open is superseded by this section.
 - No Supabase, Vercel environment variable, Production domain alias, OAuth, Meta, WhatsApp/n8n, queue, publishing, customer message, or external provider action changed.
 - NEXT: preserve the proven code fixes; resolve the Preview Supabase isolation root cause from Section 35 only after a complete, reviewed QA schema baseline is available. Keep authenticated owner-path QA and Production-domain parity marked NOT PROVEN until separately evidenced.
+
+
+## 37. Mainline verification trigger — 2026-11-10
+
+- Updated `.github/workflows/verify.yml` on `main` to run the existing Verify Command Center workflow on pushes to `main`, in addition to pull requests and manual dispatch.
+- The workflow still performs the existing locked install, TypeScript typecheck, full `npm test`, and production build. No permissions were expanded; workflow permission remains `contents: read`.
+- Commit: `a49d9e9b7dd13fe2f45bc0d812c9f2e9033c777b`.
+- Vercel main-branch deployment for this commit reached READY: `dpl_EPoj9XCwuy5ULMRHsFi8vcrmrqp8`; target remains null and this is not Production-domain promotion.
+- The connected GitHub workflow-run reader only returns pull-request-triggered runs, so the push-triggered GitHub Actions run for this commit cannot be independently inspected through the available connector. **Do not claim the mainline full test suite passed until its GitHub Actions result is directly visible.**
+- This change makes future mainline commits self-verifying without creating a test branch or relying on manual dispatch. It does not change application behavior, database configuration, or external integrations.
