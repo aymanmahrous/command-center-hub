@@ -638,3 +638,27 @@ No PR was merged or closed. No Production database, job, flag, policy, grant, Ed
 - PR #327 remains a separate OPEN/DRAFT/UNMERGED broad consolidation candidate with unrelated sensitive WhatsApp and database migration changes. Do not merge it independently or combine it blindly with #332.
 - No Production alias, Production deployment, Production Supabase schema/data/RLS, Auth settings, secrets, OAuth, WhatsApp, Meta, or social publishing operation was changed during this work.
 - NEXT: resolve the isolated Preview authentication environment safely; then perform authenticated owner-path QA for login, Coach Brain research, and the existing Factory handoff. Only after that, complete the focused PR review and owner acceptance. Preserve the publishing freeze and avoid repeat scans/builds unless a new commit or concrete failure requires them.
+
+
+## 34. Mainline delivery — 2026-11-10
+
+- Owner explicitly delegated continued technical execution and authorized work to proceed on the existing `main` line without creating a new experimental branch. Existing reviewed PRs were used as bounded delivery units; no new branch was created.
+- Merged PR **#335** (approved academy identity) as squash commit `7a537f92d23f9573b94b55f0a70cfadb0a45968a`.
+  - App title is `Relax Fix · Command Center Hub`.
+  - Media creative briefs use Relax Fix Swimming Academy, Al Mushrif — Abu Dhabi, and the free initial-assessment CTA in Arabic and English.
+  - Owner review / no-auto-publishing safeguards remain unchanged.
+- Merged PR **#336** (truthful Factory AI outcome) as squash commit `57715963857c0d7bf4f063b81e4de7abf56dcfc3`.
+  - The saved batch success notice now distinguishes validated AI-generated content from the academy's standard fallback.
+  - This changes reporting only; it adds no provider call, scheduling, approval, queue, or publishing action.
+- Merged PR **#337** (manual Canva/Runway handoff and planning) as squash commit `7caec495740db7695e79735a8d105395b26e650f`.
+  - Coach Brain and Factory share the 1–10-day planning window.
+  - The owner can view/copy the complete design prompt and open Canva or Runway manually; this is not an automated provider integration and does not call paid provider APIs.
+  - Runway prompt duration options are 3/5/8 seconds.
+- All three PR heads had successful Verify Command Center workflows (dependency install, TypeScript, tests, build); their Vercel Preview checks were READY before merge.
+- Mainline Vercel deployment for exact commit `7caec495740db7695e79735a8d105395b26e650f`: `dpl_8GAJutzKvqfdtUu84pKzmSKtUrW1`, state **READY**, alias `command-center-hub-git-main-swimmingayman-8492s-projects.vercel.app`.
+  - Deployment target is null and only the main-branch Vercel alias is confirmed. This is not evidence that `hub.relaxfixuae.com` or the production alias moved to this deployment.
+  - Authenticated owner-path QA has not been completed; do not claim runtime integration or business outcome from build readiness alone.
+- PR **#334** (explicit RPC rejection must not be reported as success) remains OPEN/UNMERGED at head `6e14d79c7a327a7017c89e08b7570894026ebe6f`. Its exact-head Verify Command Center run #1113 passed and its Vercel Preview reached READY. Independent review is still pending; reviewer `pixelreel2026` was requested. No approval or authenticated owner-path QA is claimed.
+- No new branch, Supabase schema/data/RLS/function/secret change, OAuth change, WhatsApp/n8n action, Meta action, customer message, queue operation, social publish, retry, or republish occurred.
+- Publishing freeze remains in force. Keep PR #334 isolated until independent review completes; then verify the exact updated mainline merge candidate. Do not create a new branch to resolve it.
+- NEXT: finish PR #334 independent review and minimal merge-readiness checks; then perform one consolidated authenticated owner journey only when a safe, non-Production QA identity/environment exists. Do not point Preview at Production or simulate staff roles in Production.
