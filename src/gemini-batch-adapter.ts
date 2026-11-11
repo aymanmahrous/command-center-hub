@@ -45,17 +45,17 @@ async function callGenerateContentBatchEdge(session: GeminiBatchSession, body: R
   return (await response.json().catch(() => ({}))) as GeminiBatchEdgeResponse;
 }
 
-export async function fetchGeminiBatchGenerationStatus(session: GeminiBatchSession): Promise<{ connected: boolean; detail: string }> {
+export async function fetchGeminiBatchGenerationStatus(session: GeminiBatchSession, provider: BatchAiProvider = "auto"): Promise<{ connected: boolean; detail: string }> {
   try {
-    const result = await callGenerateContentBatchEdge(session, { mode: "status" });
-    const connected = result.connected === true;
+    const result = await callGenerateContentBatchEdge(session, { mode: "status", provider });
+    const connected = false; // A read-only credential check never proves generation works.
     return {
       connected,
-      detail: result.detail ?? (connected ? "Gemini batch generation ready." : "Gemini batch generation unavailable."),
+      detail: result.detail ?? "لم تُثبت جاهزية التوليد. Generation readiness has not been verified.",
     };
   } catch (cause) {
     if (cause instanceof Error && cause.message === "SESSION_EXPIRED") throw cause;
-    return { connected: false, detail: "Gemini batch generation status unavailable." };
+    return { connected: false, detail: "تعذر الاتصال بخدمة فحص المزود؛ لم تُثبت صلاحية المفتاح أو التوليد. Provider status service unavailable; credentials and generation remain unverified." };
   }
 }
 
