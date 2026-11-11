@@ -723,7 +723,7 @@ No PR was merged or closed. No Production database, job, flag, policy, grant, Ed
 
 ## 40. Coach Brain → Content Factory unified handoff — 2026-11-11
 
-- **PR:** reviewable PR opened on branch `feat/coach-brain-factory-unified-handoff` (based on `main` at `e1e1683`). PR number recorded below once created.
+- **PR:** #339 — https://github.com/aymanmahrous/command-center-hub/pull/339 (based on `main` at `e1e1683`)
 - **الفرع:** `feat/coach-brain-factory-unified-handoff` على أساس `main` عند `e1e1683`. متوافق مع PR #338 (contentGoal + read-back verification) مضافًا إليه تحسينات ضرورية فقط.
 - **ماذا أضاف (أقل مجموعة تغييرات ضرورية):**
   - `src/coach-brain.tsx`: `contentGoal` أوضح يُفضّل موضوع العينة ثم سؤال المستخدم (`sample.topic || question || "Coach Brain content plan"`، محدّد بـ 500 حرف) بدلاً من السؤال فقط بـ 200 حرف، مع حقل `planStrategy: \`${planMix}:${planExecution}\` يوضح استراتيجية الخطة عند وصولها إلى مصنع المحتوى.
