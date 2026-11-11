@@ -3,6 +3,7 @@ import { groupContentBatches, isDatabaseBatchId, selectPrimaryBatch, buildNextBa
 import { COACH_AYMAN_PROVIDER_ID, contentFingerprint, parseCoachKnowledgeContext, validateCoachAymanBatch, type CoachBrainFactoryContext, type GeneratedBatchItem } from "./content-batch-generator";
 import { attachMediaToCoachAymanBatch, buildCoachAyman30DayBatchWithMedia } from "./media-batch-link";
 import { generateCoachAymanBatchWithProvider, type BatchAiProvider, type GeminiBatchPromptContext } from "./gemini-batch-adapter";
+import { readAiProviderPreference } from "./ai-provider-preference";
 import { parseMediaAssetRecords } from "./media-library-controls";
 import {
   displayCapabilityState,
@@ -45,7 +46,7 @@ function readMediaFactoryHandoff(): MediaFactoryHandoff | null {
 
 function readCoachBrainFactoryContext(): CoachBrainFactoryContext | null {
   const handoff = readCoachBrainFactoryHandoff();
-  return handoff ? { question: handoff.question, answer: handoff.answer, sources: handoff.sources } : null;
+  return handoff ? { question: handoff.question, answer: handoff.answer, sources: handoff.sources, contentGoal: handoff.contentGoal, planStrategy: handoff.planStrategy } : null;
 }
 
 type FactoryGeneratedBatchItem = Awaited<ReturnType<typeof buildCoachAyman30DayBatchWithMedia>>[number];
@@ -397,7 +398,7 @@ export default function ContentGrowthHub({
       };
       let geminiItems: GeneratedBatchItem[] | null = null;
       try {
-        const selectedProvider: BatchAiProvider = planExecution === "value" ? "gemini" : batchAiProvider;
+        const selectedProvider: BatchAiProvider = planExecution === "value" ? "gemini" : readAiProviderPreference();
         geminiItems = await generateCoachAymanBatchWithProvider(session, selectedProvider, nonce, generationStart, promptContext);
       } catch (cause) {
         if (cause instanceof Error && cause.message === "SESSION_EXPIRED") throw cause;
@@ -499,7 +500,7 @@ export default function ContentGrowthHub({
         </div>
       )}
 
-      {coachBrainContext && <div className="content-growth-banner" role="status"><strong>{language === "ar" ? "سياق Coach Brain متاح للمصنع" : "Coach Brain context is available to Factory"}</strong><p>{coachBrainContext.question}</p><small>{language === "ar" ? "يُستخدم كسياق بحثي مساعد فقط؛ المعرفة الأكاديمية الأساسية تبقى من المصدر الحالي." : "Used only as supporting research context; canonical Academy Knowledge remains the existing source."}</small></div>}
+      {coachBrainContext && <div className="content-growth-banner" role="status"><strong>{language === "ar" ? "سياق Coach Brain متاح للمصنع" : "Coach Brain context is available to Factory"}</strong><p>{coachBrainContext.contentGoal || coachBrainContext.question}{coachBrainContext.planStrategy ? ` — ${coachBrainContext.planStrategy}` : ""}</p><small>{language === "ar" ? "يُستخدم كسياق بحثي مساعد فقط؛ المعرفة الأكاديمية الأساسية تبقى من المصدر الحالي." : "Used only as supporting research context; canonical Academy Knowledge remains the existing source."}</small></div>}
       {mediaFactoryHandoff && <div className="content-growth-banner" role="status">
         <strong>{language === "ar" ? "أصل وسائط جاهز داخل المصنع" : "Media asset ready in Factory"}</strong>
         <p>{mediaFactoryHandoff.asset.name} · {mediaFactoryHandoff.asset.provider}</p>

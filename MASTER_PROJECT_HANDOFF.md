@@ -721,3 +721,23 @@ No PR was merged or closed. No Production database, job, flag, policy, grant, Ed
   - **Publishing & External Safety**: live publishing remains frozen, Meta/WhatsApp pathways protected, no unapproved migrations or mutations performed.
 - Current safe point: `main` at commit `52e3a3c83a3e7166f74d996861fc060e242b1ab2` with all 391 tests passing and build verified.
 
+## 40. Coach Brain → Content Factory unified handoff — 2026-11-11
+
+- **PR:** reviewable PR opened on branch `feat/coach-brain-factory-unified-handoff` (based on `main` at `e1e1683`). PR number recorded below once created.
+- **الفرع:** `feat/coach-brain-factory-unified-handoff` على أساس `main` عند `e1e1683`. متوافق مع PR #338 (contentGoal + read-back verification) مضافًا إليه تحسينات ضرورية فقط.
+- **ماذا أضاف (أقل مجموعة تغييرات ضرورية):**
+  - `src/coach-brain.tsx`: `contentGoal` أوضح يُفضّل موضوع العينة ثم سؤال المستخدم (`sample.topic || question || "Coach Brain content plan"`، محدّد بـ 500 حرف) بدلاً من السؤال فقط بـ 200 حرف، مع حقل `planStrategy: \`${planMix}:${planExecution}\` يوضح استراتيجية الخطة عند وصولها إلى مصنع المحتوى.
+  - `src/ai-provider-preference.ts` (جديد): يقرأ تفضيل المزود المملوك من `localStorage` دون تخزين أسرار، ويستخدم في المصنع لتحديد المزود الفعلي (صحة حالة المزود دون ادعاء اتصال غير مثبت).
+  - `src/content-growth-hub.tsx`: يُعرض `planStrategy` في لافتة "سياق Coach Brain متاح للمصنع" لتسهيل فهم المالك لما يحتاج إلى مراجعة؛ يستخدم `readAiProviderPreference()` في اختيار مزود التوليد.
+  - `src/content-batch-generator.ts` و `src/coach-brain-factory-handoff.ts`: حقل `planStrategy?: string` في النوعين وفي القارئ/الكاتب، مع القطع إلى 500 حرف لـ `contentGoal`.
+  - اختبار جديد: 4 اختبارات في `tests/coach-brain-factory-handoff.test.mjs` (contentGoal يفضّل موضوع العينة مع حد 500، planStrategy يُحفظ ويُسترد، planStrategy يُعرض في لافتة المصنع، بالإضافة إلى تحديث اختبار الحد الأقصى إلى 500). نتيجة: 14/14 ناجح.
+- **ما استُبعد من الطلبات القديمة (#322/#323/#325/#327) ولماذا:**
+  - نافذة 2–30 يومًا (#325) و1–45 يومًا (#322): مستبعدة لأن `main` تُستخدم نافذة 1–10 أيام (via PR #337 المدمج) ورابط الدفعة يرفض ما بعد 45 يومًا؛ تغيير النافذة يحتاج هجرة قاعدة بيانات منفصلة (ممنوع).
+  - ترحيل WhatsApp (#327): مستبعد (ممنوع touching Meta/WhatsApp/n8n)، وغير مرتبط بمسار Coach Brain → Factory.
+  - الأزرار اليدوية Canva/Gemini/Runway (#322): موجودة بالفعل على `main` عبر PR #337 المدمج، لا تكرار.
+  - `docs/COACH_BRAIN_STRATEGIC_PARTNER_SKILL.md` (#322): توثيق منفصل، ليس جزءًا من مسار التسليم، غير مضاف.
+  - التسجيل اليدوي لـ provider preference (`writeAiProviderPreference`): غير مضاف لأن لا واجهة مستخدم لضبطه على `main`؛ القيمة تظل `"auto"` (لا ادعاء زائف).
+- **التحقق:** `npm test` → 395/397 ناجح؛ الفشلان (`analyze-staff-media-syntax`, `today-view-schema`) سابقان على `main` وغير متعلقين بهذا التغيير. `typecheck`/`build` لم يُrun محليًا لعدم وجود `node_modules` في sandbox (تم الامتناع عن التثبيت عبر الشبكة لحفظ الرصيد).
+- **أنظمة محمية لم تُمس:** لا Supabase، لا RLS، لا OAuth، لا أسرار، لا نشر إنتاجي، لا WhatsApp، لا Meta، لا شاشة جديدة، لا قاعدة بيانات مكررة، لا دمج PRs.
+- **النقطة الآمنة التالية:** انتظار مراجعة PR ودمجه من قبل A–Z Guardian؛ ثم تُكمل مراجعة PRs #322/#323/#325/#327 المتداخلة كمجموعة واحدة متماسكة إن لزم.
+
