@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { groupContentBatches, isDatabaseBatchId, selectPrimaryBatch, buildNextBatchReadyNotice, type ContentBatchItem } from "./content-batch";
 import { COACH_AYMAN_PROVIDER_ID, contentFingerprint, parseCoachKnowledgeContext, validateCoachAymanBatch, type CoachBrainFactoryContext, type GeneratedBatchItem } from "./content-batch-generator";
 import { attachMediaToCoachAymanBatch, buildCoachAyman30DayBatchWithMedia } from "./media-batch-link";
-import { generateCoachAymanBatchWithProvider, type BatchAiProvider, type GeminiBatchPromptContext } from "./gemini-batch-adapter";
+import { fetchGeminiBatchGenerationStatus, generateCoachAymanBatchWithProvider, type BatchAiProvider, type GeminiBatchPromptContext } from "./gemini-batch-adapter";
 import { parseMediaAssetRecords } from "./media-library-controls";
 import {
   displayCapabilityState,
@@ -180,6 +180,7 @@ export default function ContentGrowthHub({
   const [canvaDesignStatus, setCanvaDesignStatus] = useState<CanvaStatusDiagnostic | null>(null);
   const [generateNotice, setGenerateNotice] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [checkingProvider, setCheckingProvider] = useState(false);
   const [batchAiProvider, setBatchAiProvider] = useState<BatchAiProvider>("auto");
   const handoffParams = new URLSearchParams(window.location.search);
   const storedCoachBrainHandoff = readCoachBrainFactoryHandoff();
@@ -315,7 +316,7 @@ export default function ContentGrowthHub({
   const batchItems = selectedBatch?.items ?? [];
   const mediaLinkCandidates = useMemo(() => batchItems.filter((item) => ["draft", "generated", "needs_review", "approved"].includes(item.status) && !item.mediaAssetId), [batchItems]);
   const strategySummary = useMemo(() => buildStrategySummary(batchItems), [batchItems]);
-  const panelBusy = busy || generating;
+  const panelBusy = busy || generating || checkingProvider;
   useEffect(() => {
     if (!mediaLinkTargetId || !mediaLinkCandidates.some((item) => item.id === mediaLinkTargetId)) {
       setMediaLinkTargetId(mediaLinkCandidates[0]?.id ?? "");
@@ -369,6 +370,20 @@ export default function ContentGrowthHub({
       target.setUTCHours(source.getUTCHours(), source.getUTCMinutes(), 0, 0);
       return { ...item, plannedFor: target.toISOString() };
     });
+  }
+
+  async function checkSelectedProvider() {
+    if (!canWrite || panelBusy) return;
+    setCheckingProvider(true);
+    try {
+      const status = await fetchGeminiBatchGenerationStatus(session, batchAiProvider);
+      setGenerateNotice(status.detail);
+    } catch (cause) {
+      if (cause instanceof Error && cause.message === "SESSION_EXPIRED") onSessionExpired?.();
+      else setGenerateNotice(language === "ar" ? "تعذر فحص المزود؛ لم تُثبت صلاحية المفتاح أو التوليد." : "Provider check failed; credentials and generation remain unverified.");
+    } finally {
+      setCheckingProvider(false);
+    }
   }
 
   async function generateCoachAymanBatch(options: { automatic?: boolean } = {}) {
@@ -600,6 +615,9 @@ export default function ContentGrowthHub({
             <option value="openai">OpenAI</option>
           </select>
         </label>
+        <button type="button" className="secondary" disabled={!canWrite || panelBusy} onClick={() => void checkSelectedProvider()}>
+          {checkingProvider ? (language === "ar" ? "جارٍ فحص المزود…" : "Checking provider…") : (language === "ar" ? "فحص المزود — قراءة فقط دون توليد" : "Check provider — read-only, no generation")}
+        </button>
         <button type="button" className="primary-button" disabled={!canWrite || panelBusy} onClick={() => void generateCoachAymanBatch()}>
           {generating ? copy.generateBusy : copy.generateButton}
         </button>
