@@ -108,3 +108,64 @@ test("Coach Brain and Factory share the canonical 1-to-10-day planning window", 
   assert.ok(contentGrowthHub.includes("const PLAN_WINDOW_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;"));
   assert.ok(contentGrowthHub.includes("Number.isInteger(value) && value >= 1 && value <= 10"));
 });
+
+test("contentGoal is preserved through write and read with a length bound", () => {
+  const local = memoryStorage();
+  const longGoal = "نشر 7 منشورات تعليمية خلال أسبوع".repeat(30);
+  const payload = JSON.stringify({
+    question: "خطة سباحة",
+    answer: "نص الإجابة",
+    sources: [],
+    contentGoal: longGoal,
+    planWindowDays: 7,
+    planMix: "education",
+    planExecution: "manual",
+    createdAt: "2026-01-01T00:00:00.000Z",
+  });
+  assert.equal(writeCoachBrainFactoryHandoff(payload, { sessionStorage: null, localStorage: local }), true);
+  const restored = readCoachBrainFactoryHandoff({ sessionStorage: null, localStorage: local });
+  assert.equal(restored?.contentGoal, longGoal.slice(0, 200));
+  assert.equal(restored?.createdAt, "2026-01-01T00:00:00.000Z");
+});
+
+test("legacy handoff without contentGoal still reads and remains usable", () => {
+  const local = memoryStorage();
+  const payload = JSON.stringify({
+    question: "خطة سباحة للأطفال",
+    answer: "نص الإجابة",
+    sources: [],
+    createdAt: "2026-01-01T00:00:00.000Z",
+  });
+  assert.equal(writeCoachBrainFactoryHandoff(payload, { sessionStorage: null, localStorage: local }), true);
+  const restored = readCoachBrainFactoryHandoff({ sessionStorage: null, localStorage: local });
+  assert.equal(restored?.question, "خطة سباحة للأطفال");
+  assert.equal(restored?.contentGoal, undefined);
+});
+
+test("read-back reflects the written timestamp so save can be verified before navigating", () => {
+  const local = memoryStorage();
+  const createdAt = new Date().toISOString();
+  const payload = JSON.stringify({
+    question: "خطة",
+    answer: "إجابة",
+    sources: [],
+    contentGoal: "الهدف",
+    createdAt,
+  });
+  assert.equal(writeCoachBrainFactoryHandoff(payload, { sessionStorage: null, localStorage: local }), true);
+  assert.equal(readCoachBrainFactoryHandoff({ sessionStorage: null, localStorage: local })?.createdAt, createdAt);
+});
+
+test("non-string contentGoal is ignored on read", () => {
+  const local = memoryStorage();
+  const payload = JSON.stringify({
+    question: "خطة",
+    answer: "إجابة",
+    sources: [],
+    contentGoal: 12345,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  });
+  assert.equal(writeCoachBrainFactoryHandoff(payload, { sessionStorage: null, localStorage: local }), true);
+  const restored = readCoachBrainFactoryHandoff({ sessionStorage: null, localStorage: local });
+  assert.equal(restored?.contentGoal, undefined);
+});

@@ -2,7 +2,7 @@ import { FormEvent, useState } from "react";
 import { AlertTriangle, BookOpen, Brain, Search, ShieldCheck, Sparkles } from "lucide-react";
 import { buildCoachBrainSummaryRequest } from "./coach-brain-conversation";
 import { generateCoachAymanSampleWithProvider, type BatchAiProvider, type GeminiBatchPromptContext, type GeneratedContentSample } from "./gemini-batch-adapter";
-import { writeCoachBrainFactoryHandoff } from "./coach-brain-factory-handoff";
+import { writeCoachBrainFactoryHandoff, readCoachBrainFactoryHandoff } from "./coach-brain-factory-handoff";
 import "./coach-brain.css";
 
 type Source = { title: string; url: string };
@@ -168,10 +168,13 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
 
   function sendResultToFactory() {
     if (!result && !sample) return;
+    const createdAt = new Date().toISOString();
+    const contentGoal = (question.trim() || "Coach Brain content plan").slice(0, 200);
     const handoff = JSON.stringify({
       question: question.trim().slice(0, 1000) || "Coach Brain content plan",
       answer: result?.answer?.slice(0, 4000) || sample?.caption?.slice(0, 4000) || "",
       sources: result?.sources?.slice(0, 5).map((source) => ({ title: source.title, url: source.url })) ?? [],
+      contentGoal,
       planWindowDays: selectedPlanDays(),
       planMix,
       planExecution,
@@ -183,9 +186,14 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
         platform: sample.platform,
         contentType: sample.contentType,
       } : null,
-      createdAt: new Date().toISOString(),
+      createdAt,
     });
     writeCoachBrainFactoryHandoff(handoff);
+    const verified = readCoachBrainFactoryHandoff()?.createdAt === createdAt;
+    if (!verified) {
+      setError(language === "ar" ? "تعذر حفظ المهمة لمصنع المحتوى. يرجى المحاولة مرة أخرى." : "Could not save the task for Content Factory. Please try again.");
+      return;
+    }
     const url = new URL(window.location.href);
     url.searchParams.set("section", "content");
     url.searchParams.set("factoryContext", "coach-brain");
