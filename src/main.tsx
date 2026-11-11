@@ -30,7 +30,7 @@ const C360 = lazy(() => import("./customer-360-panel"));
 const OperationsQueueView = lazy(() => import("./operations-queue-view"));
 const IntegrationsCenter = lazy(() => import("./integrations-center"));
 const AutomationsView = lazy(() => import("./automations-view"));
-const MarketingCompanyView = lazy(() => import("./marketing-company-view"));
+const AIWorkforceView = lazy(() => import("./ai-workforce-view"));
 
 const sections = [
   ["dashboard", LayoutDashboard, "get_staff_command_center"],
@@ -49,6 +49,7 @@ const sections = [
   ["radar", ShieldAlert, "get_staff_radar_opportunities"],
   ["brain", Bot, "x"],
   ["workspace", Library, "x"],
+  ["agents", Bot, "x"],
 ] as const;
 
 type SectionId = (typeof sections)[number][0];
@@ -1277,14 +1278,16 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
 
   const current = useMemo(() => sections.find(([id]) => id === active)!, [active]);
 
+  const currentSectionLabel = current[0] === "agents" ? nav.agents : nav[current[0]];
+
   useEffect(() => {
-    document.title = `${nav[current[0]]} · ${nav.dashboard}`;
-  }, [current, nav]);
+    document.title = `${currentSectionLabel} · ${nav.dashboard}`;
+  }, [currentSectionLabel, nav.dashboard]);
 
   useEffect(() => {
     const controller = new AbortController();
     const section = current[0];
-    if (["archive", "dashboard", "today", "command", "brain", "workspace"].includes(section)) {
+    if (["archive", "dashboard", "today", "command", "brain", "workspace", "agents"].includes(section)) {
       setStatus("ready");
       loadedSectionRef.current = section;
       return () => controller.abort();
@@ -1328,9 +1331,8 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   const moreLabel = language === "ar" ? "المزيد" : "More";
   const toggleMore = () => setMoreOpen(!moreOpen);
   const morePanel = <div className="more-panel">
-    {moreIds.map((id) => <button key={id} onClick={() => go(id)}>
-      {nav[id]}
-    </button>)}
+    {moreIds.map((id) => <button key={id} onClick={() => go(id)}>{nav[id]}</button>)}
+    {session.role === "super_admin" && <button key="agents" onClick={() => go("agents")}>{nav.agents}</button>}
   </div>;
 
   const primary = [
@@ -1372,7 +1374,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
       <header className="owner-header">
         <div>
           <p className="eyebrow">{language === "ar" ? "مركز القيادة" : "OWNER COMMAND CENTER"}</p>
-          <h1>{active === "content" ? nav.factory : active === "dashboard" ? nav.dashboard : nav[current[0]]}</h1>
+          <h1>{active === "content" ? nav.factory : active === "dashboard" ? nav.dashboard : currentSectionLabel}</h1>
         </div>
         <div className="owner-header-actions">
           <button type="button" className="refresh" disabled={status === "loading"} onClick={() => setReloadKey((value) => value + 1)}>{t("common").refresh}</button>
@@ -1406,6 +1408,9 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
           active === "radar" ? <RadarView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "brain" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><CoachBrain language={language} onNavigate={(section) => { if (sections.some(([id]) => id === section)) go(section as SectionId); }} /></Suspense> :
           active === "workspace" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><RealProductFoundation session={session} language={language} /></Suspense> :
+          active === "agents" ? (session.role === "super_admin"
+            ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><AIWorkforceView language={language} onNavigate={go} /></Suspense>
+            : <p className="muted" role="alert">{language === "ar" ? "هذه الصفحة متاحة للمالك فقط." : "This page is available to the owner only."}</p>) :
           null
         )}
       </section>
