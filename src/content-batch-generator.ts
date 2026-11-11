@@ -61,6 +61,7 @@ export type CoachBrainFactoryContext = {
   question: string;
   answer: string;
   sources: Array<{ title: string; url: string }>;
+  contentGoal?: string;
 };
 
 export type CoachKnowledgeContext = {

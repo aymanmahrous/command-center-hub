@@ -91,9 +91,11 @@ export function readCoachBrainFactoryHandoff(access?: StorageAccess): CoachBrain
         question: value.question.slice(0, 1000),
         answer: value.answer.slice(0, 4000),
         sources,
+        contentGoal: typeof value.contentGoal === "string" ? value.contentGoal.slice(0, 200) : undefined,
         planWindowDays: typeof value.planWindowDays === "number" ? value.planWindowDays : undefined,
         planMix: typeof value.planMix === "string" ? value.planMix : undefined,
         planExecution: typeof value.planExecution === "string" ? value.planExecution : undefined,
+        createdAt: typeof value.createdAt === "string" ? value.createdAt : undefined,
       };
     } catch { /* Try the fallback storage. */ }
   }

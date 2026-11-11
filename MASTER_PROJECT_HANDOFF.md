@@ -721,3 +721,19 @@ No PR was merged or closed. No Production database, job, flag, policy, grant, Ed
   - **Publishing & External Safety**: live publishing remains frozen, Meta/WhatsApp pathways protected, no unapproved migrations or mutations performed.
 - Current safe point: `main` at commit `52e3a3c83a3e7166f74d996861fc060e242b1ab2` with all 391 tests passing and build verified.
 
+
+## 39. PR #338: Coach Brain → Content Factory verified handoff — 2026-11-11
+
+- **PR:** #338 — https://github.com/aymanmahrous/command-center-hub/pull/338
+- **الفرع:** `feat/coach-brain-factory-content-goal-handoff`، على أساس `main` عند `e1e1683`.
+- **الcommit:** `74e2bd1` (5 ملفات، +76/−4). حالة PR: OPEN، MERGEABLE، غير مسودة، لم يُدمج، main لم تُعدل.
+- **ماذا أضاف (أصغر تغيير ضروري):**
+  - حقل `contentGoal` منفصل يُصدره Coach Brain إلى هاندوف مصنع المحتوى، معبقاء الحقول القديمة (`question`, `answer`, `sources`, `planWindowDays`, `planMix`, `planExecution`) للتوافق العكسي.
+  - التحقق من نجاح الحفظ قبل الانتقال إلى المصنع: تقارن الكتابة الطابع الزمني `createdAt` عند القراءة العودية؛ إن لم يتطابق، يُعرض خطأ ولا يتم الانتقال — لا نجاح وهمي.
+  - عرض `contentGoal` (باسترجاع `question` إن غاب) في لافتة "سياق Coach Brain متاح للمصنع" داخل Content Factory.
+  - اختبار جديد: 4 اختبارات في `tests/coach-brain-factory-handoff.test.mjs` (دورة حياة `contentGoal` وحدوده، التوافق العكسي مع الحمولات القديمة، التحقق من الطابع الزمني، رفض الحقول غير الصالحة). نتيجة: 11/11 ناجح.
+- **التداخل مع PRs أخرى:** #322، #323، #325، و#327 ما زالت مفتوحة ومتضاربة (CONFLICTING) وغير مدمجة. #338 تغيير إضافي محدود لا يعيد تجميع منطقها ولا يدمج أياً منها. #327 يظل المرشح الموحد للمراجعة.
+- **ما لم يتم:** لم يُ_run `typecheck`/`build` محلياً لأن `node_modules` غير مثبت في بيئة sandbox (تم الامتناع عن التثبيت عبر الشبكة لحفظ الرصيد). المعاينة عبر Vercel غير متاحة بسبب الحد اليومي لبناء الحساب (`build-rate-limit`) — ليست مشكلة في الكود نفسه.
+- **أنظمة محمية لم تُمس:** لا Supabase، لا RLS، لا OAuth، لا أسرار، لا نشر إنتاجي، لا WhatsApp، لا Meta، لا شاشة جديدة، لا قاعدة بيانات مكررة.
+- **النقطة الآمنة التالية:** انتظار مراجعة PR #338 ودمجه من قبل A–Z Guardian؛ بعد ذلك، الخطوة التنفيذية التالية المقترحة هي reconciliation للتغييرات المتداخلة في #322/#323/#325/#327 ضمن مجموعة مراجعة واحدة متماسكة.
+
