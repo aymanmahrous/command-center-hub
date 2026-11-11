@@ -741,3 +741,23 @@ No PR was merged or closed. No Production database, job, flag, policy, grant, Ed
 - **أنظمة محمية لم تُمس:** لا Supabase، لا RLS، لا OAuth، لا أسرار، لا نشر إنتاجي، لا WhatsApp، لا Meta، لا شاشة جديدة، لا قاعدة بيانات مكررة، لا دمج PRs.
 - **النقطة الآمنة التالية:** انتظار مراجعة PR ودمجه من قبل A–Z Guardian؛ ثم تُكمل مراجعة PRs #322/#323/#325/#327 المتداخلة كمجموعة واحدة متماسكة إن لزم.
 
+## 41. إصلاح تمرير اختيار مزود Factory — 2026-11-11
+
+- **بوابة البداية المثبتة:** الفرع `feat/coach-brain-factory-unified-handoff`؛ HEAD المحلي ومرجع GitHub `refs/pull/339/head` تطابقا عند `9cff56f26aa641ced7b4c76f55b858e73c96e548`. لا تغييرات متتبعة ولا ملفات غير متتبعة أخرى بعد استثناء `.clinerules` من التعامل. عولج فشل التقاط الطرفية بتشغيل عملية مستقلة وحفظ نتائجها في ملفات مؤقتة خارج المستودع ثم قراءتها، مع رموز خروج وعلامة اكتمال.
+- **السبب الجذري:** القائمة تحدّث `batchAiProvider` لكن استدعاء التوليد كان يأخذ `planExecution === "value" ? "gemini" : readAiProviderPreference()`؛ لذلك اختيار المالك لا يصل إلى وسيط المزود، وحالة `value` تفرض Gemini.
+- **الإصلاح:** `src/content-growth-hub.tsx` يمرر `batchAiProvider` مباشرة إلى `generateCoachAymanBatchWithProvider` ويزيل استيراد القارئ غير المستخدم فقط. القائمة وتصميمها وسلوكها الافتراضي لم تتغير. هذا يصحح وصف اختيار المزود في القسم 40، ولا يغير مسار عينة Coach Brain.
+- **فحص الاعتمادات:** جرى فحص جميع مراجع `readAiProviderPreference` و`writeAiProviderPreference`: قبل الإصلاح كان استدعاء القارئ الوحيد في Factory ولا توجد استدعاءات للكاتب. بقي `src/ai-provider-preference.ts` دون تعديل أو حذف؛ الاحتفاظ به لا يمنع الإصلاح، وليس تخزين التفضيل عبر الجلسات جزءًا من هذا العمل.
+- **الاختبار السلوكي:** أضيف `Factory passes the owner's selected provider to batch generation` في `tests/gemini-batch-generation.test.mjs`. يستخرج معالج القائمة ومعالج التوليد الفعليين بواسطة TypeScript AST، وينفذهما داخل VM مع بدائل محلية للـRPC ومزود التوليد؛ يتحقق من وسيط المزود الفعلي وعدد الاستدعاءات. لا شبكة ولا مفاتيح ولا توليد مدفوع. ليس اختبار متصفح كاملًا.
+- **إثبات قبل/بعد:** قبل تعديل كود الإنتاج فشلت الحالات الأربع تحديدًا لاختلاف وسيط المزود: `openai → gemini`، `gemini → openai`، `auto → gemini`، و`value + openai → gemini` (تفضيل التخزين البديل متعمد لاكتشاف التجاهل). بعد الإصلاح نجحت `openai → openai` و`gemini → gemini` و`auto → auto` وكذلك `value + openai → openai`.
+- **التحقق الفعلي:**
+  - `node --experimental-strip-types --test tests/gemini-batch-generation.test.mjs tests/coach-brain-factory-handoff.test.mjs`: **29/29 PASS**، exit 0، متضمنة الحالات الأربع الجديدة؛ لم تُشغّل مجموعة الاختبارات الكاملة.
+  - `npm run typecheck`: **PASS**، exit 0.
+  - Production build عبر Vite API باستخدام `build({envFile: false})`: **PASS**، exit 0؛ استخدمت إعدادات المشروع القائمة مع تعطيل تحميل ملفات `.env` لحمايتها، وليس بناءً متصلًا ببيئة الإنتاج.
+  - `node scripts/check-performance-budget.mjs`: **PASS**، exit 0؛ JS `370075` raw / `108612` gzip؛ CSS `32555` raw / `6832` gzip (bytes).
+  - `git diff --check`: **PASS**، exit 0. البيئة المحلية Node `v26.13.0` بينما المشروع يحدد `22.x`؛ لم يُثبت تشغيل الإصلاح على Node 22 أو CI.
+- **الملفات المتغيرة فقط:** `src/content-growth-hub.tsx`، `tests/gemini-batch-generation.test.mjs`، وهذا الملف `MASTER_PROJECT_HANDOFF.md`.
+- **SHA النهائي للكود والاختبار:** `e9f0044121f8dcf71a2dc0b9a0565146eeaa0dca`. يتبعه commit توثيق هذا القسم؛ SHA رأس التسليم النهائي يُثبت في تقرير التسليم وGit، ولا يوضع SHA ذاتي داخل محتوى commit نفسه.
+- **حالة GitHub وقت التحقق:** #339 **OPEN / UNMERGED** عند `9cff56f26aa641ced7b4c76f55b858e73c96e548`؛ `verify` لذلك الرأس القديم SUCCESS، وفحصا Vercel FAILURE، وSupabase Preview SKIPPED؛ سبب فشل Vercel لم يُفحص. #338 **OPEN / UNMERGED** عند `a9455e3b419c9406bcb1175cfc48643aa2d5f2c1` و`mergedAt: null`. هذه أدلة للرؤوس القديمة وليست CI للإصلاح المحلي. لم يُنفذ push أو merge أو deploy.
+- **غير المتحقق منه والحدود المحمية:** صلاحية مفتاح OpenAI، نجاح خدمة خارجية، توليد حقيقي، تجربة متصفح كاملة، CI للرأس الجديد، وPreview/Production لم تُختبر. لا قراءة أو تغيير `.env` أو أسرار؛ لا تغيير main أو Supabase/RLS/OAuth/Meta/WhatsApp/n8n أو مسار النشر، ولا تعامل مع `.clinerules`.
+- **النقطة الآمنة التالية:** إصلاح تمرير المزود مثبت محليًا بالاختبارات ومحفوظ على الفرع فقط. مراجعة commits المحلية ثم رفعها وفق صلاحية مستقلة تراعي تشغيل Preview التلقائي وفشل Vercel السابق؛ لا دمج ولا نشر ضمن هذه المهمة. فحص الاعتماد، إن لزم، مهمة منفصلة لا تتطلب كشف المفتاح.
+
