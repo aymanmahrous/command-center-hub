@@ -3,7 +3,6 @@ import { groupContentBatches, isDatabaseBatchId, selectPrimaryBatch, buildNextBa
 import { COACH_AYMAN_PROVIDER_ID, contentFingerprint, parseCoachKnowledgeContext, validateCoachAymanBatch, type CoachBrainFactoryContext, type GeneratedBatchItem } from "./content-batch-generator";
 import { attachMediaToCoachAymanBatch, buildCoachAyman30DayBatchWithMedia } from "./media-batch-link";
 import { generateCoachAymanBatchWithProvider, type BatchAiProvider, type GeminiBatchPromptContext } from "./gemini-batch-adapter";
-import { readAiProviderPreference } from "./ai-provider-preference";
 import { parseMediaAssetRecords } from "./media-library-controls";
 import {
   displayCapabilityState,
@@ -398,8 +397,7 @@ export default function ContentGrowthHub({
       };
       let geminiItems: GeneratedBatchItem[] | null = null;
       try {
-        const selectedProvider: BatchAiProvider = planExecution === "value" ? "gemini" : readAiProviderPreference();
-        geminiItems = await generateCoachAymanBatchWithProvider(session, selectedProvider, nonce, generationStart, promptContext);
+        geminiItems = await generateCoachAymanBatchWithProvider(session, batchAiProvider, nonce, generationStart, promptContext);
       } catch (cause) {
         if (cause instanceof Error && cause.message === "SESSION_EXPIRED") throw cause;
         geminiItems = null;

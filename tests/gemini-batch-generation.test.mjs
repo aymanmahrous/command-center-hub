@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
+import ts from "typescript";
 
 const adapter = await readFile(new URL("../src/gemini-batch-adapter.ts", import.meta.url), "utf8");
 const edge = await readFile(new URL("../supabase/functions/generate-content-batch/index.ts", import.meta.url), "utf8");
@@ -9,6 +11,74 @@ const slotSpec = await readFile(new URL("../supabase/functions/generate-content-
 const generator = await readFile(new URL("../src/content-batch-generator.ts", import.meta.url), "utf8");
 const hub = await readFile(new URL("../src/content-growth-hub.tsx", import.meta.url), "utf8");
 const coachBrain = await readFile(new URL("../src/coach-brain.tsx", import.meta.url), "utf8");
+
+test("Factory passes the owner's selected provider to batch generation", async (t) => {
+  const source = ts.createSourceFile("content-growth-hub.tsx", hub, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let generationHandler;
+  let providerChangeHandler;
+  function visit(node) {
+    if (ts.isFunctionDeclaration(node) && node.name?.text === "generateCoachAymanBatch") generationHandler = node;
+    if (ts.isJsxOpeningElement(node) && node.tagName.getText(source) === "select") {
+      const attributes = node.attributes.properties;
+      const value = attributes.find((attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "value");
+      if (value?.initializer?.expression?.getText(source) === "batchAiProvider") {
+        const change = attributes.find((attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "onChange");
+        providerChangeHandler = change?.initializer?.expression;
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(source);
+  assert.ok(generationHandler, "execute the real Factory generation handler");
+  assert.ok(providerChangeHandler, "execute the existing provider dropdown handler");
+  const executable = ts.transpileModule(
+    `${generationHandler.getText(source)}\nconst changeProvider = ${providerChangeHandler.getText(source)};`,
+    { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None } },
+  ).outputText;
+
+  for (const [selected, execution] of [["openai", "best"], ["gemini", "best"], ["auto", "best"], ["openai", "value"]]) {
+    await t.test(`${selected} → ${selected} (planExecution=${execution})`, async () => {
+      const session = { accessToken: "local-test-only" };
+      const providerCalls = [];
+      const rpcCalls = [];
+      const sandbox = {
+        canWrite: true, panelBusy: false, planExecution: execution, batchAiProvider: "auto",
+        session, planWindowDays: 10, planFocus: "varied", coachBrainContext: null,
+        BRAND: {}, PLATFORM_GUIDANCE: {}, strategySummary: {}, insights: [],
+        COACH_AYMAN_PROVIDER_ID: "test-provider",
+        copy: { generateConfirm: "Confirm", generateFallback: "Fallback {batchId}", generateSuccess: "AI {batchId}", generateError: "Failed" },
+        window: { confirm: () => true }, crypto: { randomUUID: () => "test-nonce" },
+        setBatchAiProvider(value) { sandbox.batchAiProvider = value; },
+        readAiProviderPreference: () => selected === "gemini" ? "openai" : "gemini",
+        async generateCoachAymanBatchWithProvider(...args) { providerCalls.push(args); return null; },
+        async callRpc(_session, name) {
+          rpcCalls.push(name);
+          if (name === "get_staff_media_assets") return [];
+          if (name === "get_staff_knowledge_management") return null;
+          if (name === "create_staff_generated_content_batch") return { success: true, batchId: "test-batch" };
+          throw new Error(`Unexpected RPC: ${name}`);
+        },
+        parseMediaAssetRecords: (value) => value,
+        parseCoachKnowledgeContext: () => ({ entries: [], researchContext: null }),
+        buildCoachAyman30DayBatchWithMedia: async () => [],
+        fitBatchToPlanWindow: (items) => items,
+        mergeValidatedGeminiCreativeFields: async () => null,
+        clearCoachBrainFactoryHandoff() {}, setGenerating() {}, setGenerateNotice() {},
+        setSelectedBatchId() {}, setMediaAssets() {}, onBatchCreated() {},
+        onSessionExpired() { assert.fail("no external session should be used"); },
+      };
+      const handlers = runInNewContext(`${executable}\n({ changeProvider, generateCoachAymanBatch });`, sandbox);
+      handlers.changeProvider({ target: { value: selected } });
+      assert.equal(sandbox.batchAiProvider, selected);
+      await handlers.generateCoachAymanBatch();
+      assert.equal(providerCalls.length, 1, "the actual provider boundary must be reached exactly once");
+      assert.equal(providerCalls[0][0], session);
+      assert.equal(providerCalls[0][1], selected);
+      assert.equal(providerCalls[0][2], "test-nonce");
+      assert.deepEqual(rpcCalls, ["get_staff_media_assets", "get_staff_knowledge_management", "create_staff_generated_content_batch"]);
+    });
+  }
+});
 
 test("gemini batch adapter calls server edge function only", () => {
   assert.match(adapter, /functions\/v1\/generate-content-batch/);
