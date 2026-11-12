@@ -227,7 +227,7 @@ test("browser API key validation rejects elevated or malformed credentials", () 
 
 test("restored sessions revalidate the JWT and active staff profile", () => {
   assert.match(authSession, /\/auth\/v1\/user/);
-  assert.match(app, /async function restoreSession/);
+  assert.match(app, /import\("\.\/auth-session"\)\.then\(\(\{ restoreAuthSession \}\)/);
   assert.match(authSession, /return loadStaffProfile\(config, \{ accessToken: stored\.accessToken \}, user\.id, signal\)/);
   assert.match(authSession, /active: z\.literal\(true\)/);
   assert.match(authSession, /cache: "no-store"/);
