@@ -140,6 +140,25 @@ export async function restoreAuthSession(
   return loadStaffProfile(config, { accessToken: stored.accessToken }, user.id, signal);
 }
 
+export async function requestPasswordReset(config: AuthConfig, email: string, resetPath: string): Promise<void> {
+  if (resetPath && !resetPath.startsWith("/")) throw new Error("CONFIGURATION_REQUIRED");
+  const redirectTo = resetPath ? new URL(resetPath, window.location.origin).toString() : `${window.location.origin}/`;
+  let response: Response;
+  try {
+    response = await fetch(`${config.supabaseUrl}/auth/v1/recover`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: config.publicKey },
+      body: JSON.stringify({ email, redirect_to: redirectTo }),
+      cache: "no-store",
+    });
+  } catch {
+    throw new Error("NETWORK_UNAVAILABLE");
+  }
+  if (response.status === 429) throw new Error("TOO_MANY_ATTEMPTS");
+  if (response.status === 401 || response.status === 403 || response.status >= 500) throw new Error("SERVICE_UNAVAILABLE");
+  if (!response.ok) throw new Error("LOGIN_FAILED");
+}
+
 export async function revokeLocalSession(config: AuthConfig, session: AuthTokens): Promise<void> {
   try {
     await fetch(`${config.supabaseUrl}/auth/v1/logout?scope=local`, {
