@@ -922,7 +922,6 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
         items={items}
         session={session}
         canWrite={canWrite}
-        canApprove={canApprove}
         busy={panelBusy}
         activeTab={factoryTab}
         onApproveItem={approveBatchItem}

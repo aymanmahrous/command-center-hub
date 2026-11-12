@@ -31,7 +31,7 @@ import "./content-growth-hub.css";
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
 const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
 
-type GrowthSession = { accessToken: string };
+type GrowthSession = { accessToken: string; role: string };
 
 export { COACH_BRAIN_FACTORY_HANDOFF_KEY } from "./coach-brain-factory-handoff";
 
@@ -108,7 +108,6 @@ type ContentGrowthHubProps = {
   items: ContentBatchItem[];
   session: GrowthSession;
   canWrite: boolean;
-  canApprove: boolean;
   busy: boolean;
   activeTab?: "overview" | "strategy" | "factory" | "content" | "designs" | "reels" | "campaigns" | "review" | "connections";
   onApproveItem: (item: ContentBatchItem) => Promise<void>;
@@ -147,7 +146,6 @@ export default function ContentGrowthHub({
   items,
   session,
   canWrite,
-  canApprove,
   busy,
   activeTab,
   onApproveItem,
@@ -747,7 +745,6 @@ export default function ContentGrowthHub({
             designCapabilityDetail={canvaReadiness.detail}
             videoCapabilityState={videoCapabilityState}
             canWrite={canWrite}
-            canApprove={canApprove}
           busy={panelBusy}
           session={session}
           mediaAssets={mediaAssets}

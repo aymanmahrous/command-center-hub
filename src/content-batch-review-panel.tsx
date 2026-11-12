@@ -117,9 +117,8 @@ type ContentBatchReviewPanelProps = {
   items: ContentBatchItem[];
   batch: ContentBatch;
   canWrite: boolean;
-  canApprove: boolean;
   busy: boolean;
-  session?: { accessToken: string };
+  session?: { accessToken: string; role?: string };
   mediaAssets?: MediaAssetRecord[];
   onMediaLinked?: () => void;
   onApproveItem: (item: ContentBatchItem) => Promise<void>;
@@ -149,7 +148,6 @@ export function ContentBatchReviewPanel({
   items,
   batch,
   canWrite,
-  canApprove: canApproveByRole,
   busy,
   session,
   mediaAssets = [],
@@ -198,8 +196,9 @@ export function ContentBatchReviewPanel({
   const summary = useMemo(() => summarizeBatch(batch.items), [batch.items]);
   const batchStatus = overallBatchStatus(batch.items);
   const approveCandidates = approveAllCandidates(batch.items);
+  const canApproveByRole = session?.role === "super_admin";
   const approveAllEnabled = canWrite && canApproveByRole && !busy && approveAllWouldChange(batch.items);
-  const ownerApprovalRequired = language === "ar" ? "اعتماد هذا الإجراء متاح للمالك فقط." : "Only the owner can approve this action.";
+  const ownerApprovalRequired = language === "ar" ? "المالك فقط" : "Owner only";
   const assetById = useMemo(() => new Map(mediaAssets.map((asset) => [asset.id, asset])), [mediaAssets]);
   const workspaceItems = useMemo(() => {
     if (workspaceMode === "designs") return items.filter((item) => !item.mediaAssetId);
@@ -219,7 +218,7 @@ export function ContentBatchReviewPanel({
     : ({ designs: "Design workspace", reels: "Reels workspace", campaigns: "Campaigns and scheduling workspace", review: "Review workspace" } as const)[workspaceMode];
 
   async function handleApproveAll() {
-    if (!canApproveByRole || !approveAllEnabled || approveCandidates.length === 0) return;
+    if (!approveAllEnabled || approveCandidates.length === 0) return;
     const confirmMessage = language === "ar"
       ? `تأكيد اعتماد ${approveCandidates.length} عنصر(عناصر) في هذه الدفعة؟ لن يتم جدولة أو نشر أي عنصر من هذه الشاشة.`
       : `Approve ${approveCandidates.length} item(s) in this batch? Nothing will be scheduled or published from this screen.`;

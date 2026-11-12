@@ -110,12 +110,11 @@ test("AI Inbox mode writes are role-gated, confirmed, and duplicate-safe", () =>
 test("owner-only content approval controls match the Supabase role boundary", () => {
   assert.match(app, /const canApprove = session\.role === "super_admin"/);
   assert.match(app, /if \(!canWrite \|\| !canApprove \|\| busyId \|\| batchBusy\) return/);
-  assert.match(app, /canApprove=\{canApprove\}/);
-  assert.match(growthHub, /canApprove: boolean/);
-  assert.match(growthHub, /canApprove=\{canApprove\}/);
+  assert.match(batchReviewPanel, /session\?: \{ accessToken: string; role\?: string \}/);
+  assert.match(batchReviewPanel, /canApproveByRole = session\?\.role === "super_admin"/);
   assert.match(batchReviewPanel, /approveAllEnabled = canWrite && canApproveByRole/);
   assert.match(batchReviewPanel, /disabled=\{itemLocked \|\| !canApproveByRole\}/);
-  assert.match(batchReviewPanel, /Only the owner can approve this action/);
+  assert.match(batchReviewPanel, /Owner only/);
 });
 
 test("AI Inbox supports the complete server mode allowlist", () => {
