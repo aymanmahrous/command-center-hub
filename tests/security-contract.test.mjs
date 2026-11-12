@@ -40,9 +40,9 @@ test("staff authorization requires an active profile", () => {
 });
 
 test("staff profile lookup matches the production primary-key contract", () => {
-  assert.match(app, /\?id=eq\.\$\{encodeURIComponent\(userId\)\}/);
+  assert.match(authSession, /\?id=eq\.\$\{encodeURIComponent\(userId\)\}/);
   assert.match(authSession, /loadStaffProfile\(config, auth\.tokens, auth\.userId\)/);
-  assert.doesNotMatch(app, /\?user_id=eq\./);
+  assert.doesNotMatch(authSession, /\?user_id=eq\./);
   assert.match(envExample, /primary key `id`/);
 });
 
@@ -230,7 +230,7 @@ test("restored sessions revalidate the JWT and active staff profile", () => {
   assert.match(app, /async function restoreSession/);
   assert.match(authSession, /return loadStaffProfile\(config, \{ accessToken: stored\.accessToken \}, user\.id, signal\)/);
   assert.match(authSession, /active: z\.literal\(true\)/);
-  assert.match(app, /cache: "no-store"/);
+  assert.match(authSession, /cache: "no-store"/);
   assert.match(app, /جاري التحقق من الجلسة والموظف النشط/);
 });
 
