@@ -1,8 +1,15 @@
 import { z } from "zod";
 
+export type AuthRole = "super_admin" | "admin" | "reception" | "coach" | "content_manager";
 export type AuthTokens = { accessToken: string; refreshToken?: string; expiresAt?: number };
+export type AuthSession = AuthTokens & { displayName: string; role: AuthRole };
 export type AuthConfig = { supabaseUrl: string; publicKey: string; staffTable: string };
-export type AuthProfileLoader<TSession extends AuthTokens> = (tokens: AuthTokens, userId: string, signal?: AbortSignal) => Promise<TSession>;
+
+const ProfileSchema = z.object({
+  display_name: z.string().min(1),
+  role: z.enum(["super_admin", "admin", "reception", "coach", "content_manager"]),
+  active: z.literal(true),
+});
 
 const AuthTokenResponseSchema = z.object({
   access_token: z.string().min(1),
@@ -28,12 +35,38 @@ function parseAuthTokens(payload: unknown) {
   };
 }
 
-export async function signInWithPassword<TSession extends AuthTokens>(
+function persistTokens(tokens: AuthTokens) {
+  sessionStorage.setItem("relaxfix-command-session", JSON.stringify({
+    accessToken: tokens.accessToken,
+    ...(tokens.refreshToken ? { refreshToken: tokens.refreshToken } : {}),
+    ...(tokens.expiresAt ? { expiresAt: tokens.expiresAt } : {}),
+  }));
+}
+
+async function loadStaffProfile(config: AuthConfig, tokens: AuthTokens, userId: string, signal?: AbortSignal): Promise<AuthSession> {
+  let response: Response;
+  try {
+    response = await fetch(`${config.supabaseUrl}/rest/v1/${encodeURIComponent(config.staffTable)}?id=eq.${encodeURIComponent(userId)}&select=display_name,role,active&limit=1`, {
+      headers: { apikey: config.publicKey, Authorization: `Bearer ${tokens.accessToken}`, Accept: "application/json" },
+      cache: "no-store",
+      signal,
+    });
+  } catch {
+    throw new Error("NETWORK_UNAVAILABLE");
+  }
+  if (response.status === 401) throw new Error("SESSION_EXPIRED");
+  if (response.status >= 500) throw new Error("SERVICE_UNAVAILABLE");
+  if (!response.ok) throw new Error("PROFILE_CHECK_FAILED");
+  const rows = z.array(ProfileSchema).parse(await response.json());
+  if (rows.length !== 1) throw new Error("STAFF_ACCESS_DENIED");
+  return { ...tokens, displayName: rows[0].display_name, role: rows[0].role };
+}
+
+export async function signInWithPassword(
   config: AuthConfig,
   email: string,
   password: string,
-  loadStaffProfile: AuthProfileLoader<TSession>,
-): Promise<TSession> {
+): Promise<AuthSession> {
   let response: Response;
   try {
     response = await fetch(`${config.supabaseUrl}/auth/v1/token?grant_type=password`, {
@@ -50,7 +83,7 @@ export async function signInWithPassword<TSession extends AuthTokens>(
   if (response.status >= 500) throw new Error("SERVICE_UNAVAILABLE");
   if (!response.ok) throw new Error("INVALID_LOGIN");
   const auth = parseAuthTokens(await response.json());
-  return loadStaffProfile(auth.tokens, auth.userId);
+  return loadStaffProfile(config, auth.tokens, auth.userId);
 }
 
 async function requestRefreshedTokens(config: AuthConfig, refreshToken: string, signal?: AbortSignal) {
@@ -73,30 +106,28 @@ async function requestRefreshedTokens(config: AuthConfig, refreshToken: string, 
   return parseAuthTokens(await response.json());
 }
 
-export async function refreshAuthSession<TSession extends AuthTokens>(
+export async function refreshAuthSession(
   config: AuthConfig,
   refreshToken: string,
   signal: AbortSignal | undefined,
-  loadStaffProfile: AuthProfileLoader<TSession>,
   onTokensRotated?: (tokens: AuthTokens) => void,
-): Promise<TSession> {
+): Promise<AuthSession> {
   const refreshed = await requestRefreshedTokens(config, refreshToken, signal);
   if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
   // Supabase refresh tokens are single-use: persist the rotated pair before profile verification.
+  persistTokens(refreshed.tokens);
   onTokensRotated?.(refreshed.tokens);
-  return loadStaffProfile(refreshed.tokens, refreshed.userId, signal);
+  return loadStaffProfile(config, refreshed.tokens, refreshed.userId, signal);
 }
 
-export async function restoreAuthSession<TSession extends AuthTokens>(
+export async function restoreAuthSession(
   config: AuthConfig,
   storedValue: unknown,
   signal: AbortSignal,
-  loadStaffProfile: AuthProfileLoader<TSession>,
-  onTokensRotated?: (tokens: AuthTokens) => void,
-): Promise<TSession> {
+): Promise<AuthSession> {
   const stored = StoredSessionSchema.parse(storedValue);
   if (stored.refreshToken) {
-    return refreshAuthSession(config, stored.refreshToken, signal, loadStaffProfile, onTokensRotated);
+    return refreshAuthSession(config, stored.refreshToken, signal);
   }
   // Compatibility for existing access-token-only browser sessions.
   const response = await fetch(`${config.supabaseUrl}/auth/v1/user`, {
@@ -106,7 +137,7 @@ export async function restoreAuthSession<TSession extends AuthTokens>(
   });
   if (!response.ok) throw new Error("SESSION_EXPIRED");
   const user = z.object({ id: z.string().uuid() }).parse(await response.json());
-  return loadStaffProfile({ accessToken: stored.accessToken }, user.id, signal);
+  return loadStaffProfile(config, { accessToken: stored.accessToken }, user.id, signal);
 }
 
 export async function revokeLocalSession(config: AuthConfig, session: AuthTokens): Promise<void> {
