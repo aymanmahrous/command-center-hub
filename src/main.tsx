@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, LayoutDashboard, Library, LogOut, Settings2, ShieldAlert, Workflow } from "lucide-react";
 import { z } from "zod";
 import { isSupabaseBrowserConfigurationReady } from "./supabase-config";
+import type { AuthConfig, AuthTokens } from "./auth-session";
 import { canApproveContentItem, sharedDatabaseBatchId, type ContentBatchItem } from "./content-batch";
 import { appendChangeRequest, buildChangeRequestNote, type ChangeRequestKind } from "./content-growth";
 import { formatLocalDateTimeInput } from "./date-utils";
@@ -54,8 +55,7 @@ const sections = [
 type SectionId = (typeof sections)[number][0];
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 type Role = "super_admin" | "admin" | "reception" | "coach" | "content_manager";
-type Session = { accessToken: string; refreshToken?: string; expiresAt?: number; displayName: string; role: Role };
-type AuthTokens = Pick<Session, "accessToken" | "refreshToken" | "expiresAt">;
+type Session = AuthTokens & { displayName: string; role: Role };
 type RadarPriority = "HOT" | "WARM" | "LOW";
 type RadarStatus = "NEW" | "REVIEWED" | "ACTIONED" | "DISMISSED"
   | "CONTACTED" | "CUSTOMER_REPLIED" | "BOOKING_REQUEST" | "BOOKED" | "PAID_CUSTOMER"
@@ -173,15 +173,11 @@ const AnalyticsSchema = z.object({
   attributionReady: z.boolean(), note: z.string(),
 }).passthrough();
 const StoredSessionSchema = z.object({ accessToken: z.string().min(1), refreshToken: z.string().min(1).optional(), expiresAt: z.number().positive().optional() }).passthrough();
-const AuthTokenResponseSchema = z.object({
-  access_token: z.string().min(1), refresh_token: z.string().min(1), expires_in: z.number().positive(),
-  user: z.object({ id: z.string().uuid() }),
-});
-
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
 const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
 const STAFF_TABLE = (import.meta.env.VITE_STAFF_PROFILE_TABLE ?? "staff_profiles").trim();
 const PASSWORD_RESET_PATH = (import.meta.env.VITE_PASSWORD_RESET_PATH ?? "").trim();
+const AUTH_CONFIG: AuthConfig = { supabaseUrl: SUPABASE_URL, publicKey: SUPABASE_PUBLIC_KEY, staffTable: STAFF_TABLE };
 
 const AUTH_MESSAGES = {
   CONFIGURATION_REQUIRED: "إعدادات الاتصال غير مكتملة أو غير آمنة. التطبيق مغلق بأمان.\nConnection settings are incomplete or unsafe. The application is securely locked.",
@@ -245,61 +241,16 @@ async function loadStaffProfile(tokens: AuthTokens, userId: string, signal?: Abo
   return { ...tokens, displayName: rows[0].display_name, role: rows[0].role } satisfies Session;
 }
 
-function parseAuthTokens(payload: unknown) {
-  const auth = AuthTokenResponseSchema.parse(payload);
-  return {
-    userId: auth.user.id,
-    tokens: {
-      accessToken: auth.access_token,
-      refreshToken: auth.refresh_token,
-      expiresAt: Date.now() + auth.expires_in * 1000,
-    } satisfies AuthTokens,
-  };
-}
-
-async function refreshAuthTokens(refreshToken: string, signal?: AbortSignal) {
-  let response: Response;
-  try {
-    response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", apikey: SUPABASE_PUBLIC_KEY },
-      body: JSON.stringify({ refresh_token: refreshToken }),
-      cache: "no-store",
-      signal,
-    });
-  } catch {
-    throw new Error("NETWORK_UNAVAILABLE");
-  }
-  if (response.status === 429) throw new Error("TOO_MANY_ATTEMPTS");
-  if (response.status === 400 || response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
-  if (response.status >= 500) throw new Error("SERVICE_UNAVAILABLE");
-  if (!response.ok) throw new Error("LOGIN_FAILED");
-  return parseAuthTokens(await response.json());
-}
-
 async function refreshStaffSession(refreshToken: string, signal?: AbortSignal, onTokensRotated?: (tokens: AuthTokens) => void): Promise<Session> {
   if (!configurationReady()) throw new Error("CONFIGURATION_REQUIRED");
-  const refreshed = await refreshAuthTokens(refreshToken, signal);
-  if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
-  // Supabase refresh tokens are single-use: persist the rotated pair before profile verification.
-  onTokensRotated?.(refreshed.tokens);
-  return loadStaffProfile(refreshed.tokens, refreshed.userId, signal);
+  const { refreshAuthSession } = await import("./auth-session");
+  return refreshAuthSession(AUTH_CONFIG, refreshToken, signal, loadStaffProfile, onTokensRotated);
 }
 
 async function signIn(email: string, password: string): Promise<Session> {
   if (!configurationReady()) throw new Error("CONFIGURATION_REQUIRED");
-  let authResponse: Response;
-  try {
-    authResponse = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, { method: "POST", headers: { "Content-Type": "application/json", apikey: SUPABASE_PUBLIC_KEY }, body: JSON.stringify({ email, password }) });
-  } catch {
-    throw new Error("NETWORK_UNAVAILABLE");
-  }
-  if (authResponse.status === 429) throw new Error("TOO_MANY_ATTEMPTS");
-  if (authResponse.status === 401 || authResponse.status === 403) throw new Error("INVALID_LOGIN");
-  if (authResponse.status >= 500) throw new Error("SERVICE_UNAVAILABLE");
-  if (!authResponse.ok) throw new Error("INVALID_LOGIN");
-  const auth = parseAuthTokens(await authResponse.json());
-  return loadStaffProfile(auth.tokens, auth.userId);
+  const { signInWithPassword } = await import("./auth-session");
+  return signInWithPassword(AUTH_CONFIG, email, password, loadStaffProfile);
 }
 
 async function requestPasswordReset(email: string): Promise<void> {
@@ -323,27 +274,13 @@ async function requestPasswordReset(email: string): Promise<void> {
 
 async function restoreSession(stored: z.infer<typeof StoredSessionSchema>, signal: AbortSignal): Promise<Session> {
   if (!configurationReady()) throw new Error("CONFIGURATION_REQUIRED");
-  if (stored.refreshToken) return refreshStaffSession(stored.refreshToken, signal, persistAuthTokens);
-  // Compatibility for existing access-token-only browser sessions: validate them once.
-  // They receive automatic refresh after the owner signs in again.
-  const authResponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { apikey: SUPABASE_PUBLIC_KEY, Authorization: `Bearer ${stored.accessToken}`, Accept: "application/json" }, cache: "no-store", signal,
-  });
-  if (!authResponse.ok) throw new Error("SESSION_EXPIRED");
-  const user = z.object({ id: z.string().uuid() }).parse(await authResponse.json());
-  return loadStaffProfile({ accessToken: stored.accessToken }, user.id, signal);
+  const { restoreAuthSession } = await import("./auth-session");
+  return restoreAuthSession(AUTH_CONFIG, stored, signal, loadStaffProfile, persistAuthTokens);
 }
 
 async function revokeLocalSession(session: Session) {
-  try {
-    await fetch(`${SUPABASE_URL}/auth/v1/logout?scope=local`, {
-      method: "POST",
-      headers: { apikey: SUPABASE_PUBLIC_KEY, Authorization: `Bearer ${session.accessToken}`, Accept: "application/json" },
-      cache: "no-store",
-    });
-  } catch {
-    // Local sign-out must still complete if the network is unavailable.
-  }
+  const { revokeLocalSession: revoke } = await import("./auth-session");
+  await revoke(AUTH_CONFIG, session);
 }
 
 async function callRpc(session: Session, rpcName: string, body: Record<string, unknown> = {}, signal?: AbortSignal): Promise<JsonValue> {
