@@ -55,6 +55,7 @@ async function loadStaffProfile(config: AuthConfig, tokens: AuthTokens, userId: 
     throw new Error("NETWORK_UNAVAILABLE");
   }
   if (response.status === 401) throw new Error("SESSION_EXPIRED");
+  if (response.status === 429) throw new Error("TOO_MANY_ATTEMPTS");
   if (response.status >= 500) throw new Error("SERVICE_UNAVAILABLE");
   if (!response.ok) throw new Error("PROFILE_CHECK_FAILED");
   const rows = z.array(ProfileSchema).parse(await response.json());
@@ -130,12 +131,20 @@ export async function restoreAuthSession(
     return refreshAuthSession(config, stored.refreshToken, signal);
   }
   // Compatibility for existing access-token-only browser sessions.
-  const response = await fetch(`${config.supabaseUrl}/auth/v1/user`, {
-    headers: { apikey: config.publicKey, Authorization: `Bearer ${stored.accessToken}`, Accept: "application/json" },
-    cache: "no-store",
-    signal,
-  });
-  if (!response.ok) throw new Error("SESSION_EXPIRED");
+  let response: Response;
+  try {
+    response = await fetch(`${config.supabaseUrl}/auth/v1/user`, {
+      headers: { apikey: config.publicKey, Authorization: `Bearer ${stored.accessToken}`, Accept: "application/json" },
+      cache: "no-store",
+      signal,
+    });
+  } catch {
+    throw new Error("NETWORK_UNAVAILABLE");
+  }
+  if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
+  if (response.status === 429) throw new Error("TOO_MANY_ATTEMPTS");
+  if (response.status >= 500) throw new Error("SERVICE_UNAVAILABLE");
+  if (!response.ok) throw new Error("PROFILE_CHECK_FAILED");
   const user = z.object({ id: z.string().uuid() }).parse(await response.json());
   return loadStaffProfile(config, { accessToken: stored.accessToken }, user.id, signal);
 }
