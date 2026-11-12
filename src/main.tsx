@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, LayoutDashboard, Library, LogOut, Settings2, ShieldAlert, Workflow } from "lucide-react";
 import { z } from "zod";
 import { isSupabaseBrowserConfigurationReady } from "./supabase-config";
-import type { AuthConfig, AuthRole, AuthSession, AuthTokens } from "./auth-session";
+import type { AuthConfig, AuthRole, AuthSession } from "./auth-session";
 import { canApproveContentItem, sharedDatabaseBatchId, type ContentBatchItem } from "./content-batch";
 import { appendChangeRequest, buildChangeRequestNote, type ChangeRequestKind } from "./content-growth";
 import { formatLocalDateTimeInput } from "./date-utils";
@@ -212,12 +212,6 @@ function rpcHeaders(session: Session) { return { apikey: SUPABASE_PUBLIC_KEY, Au
 
 
 
-async function refreshStaffSession(refreshToken: string, signal?: AbortSignal, onTokensRotated?: (tokens: AuthTokens) => void): Promise<Session> {
-  if (!configurationReady()) throw new Error("CONFIGURATION_REQUIRED");
-  const { refreshAuthSession } = await import("./auth-session");
-  return refreshAuthSession(AUTH_CONFIG, refreshToken, signal, onTokensRotated);
-}
-
 async function signIn(email: string, password: string): Promise<Session> {
   if (!configurationReady()) throw new Error("CONFIGURATION_REQUIRED");
   const { signInWithPassword } = await import("./auth-session");
@@ -247,11 +241,6 @@ async function restoreSession(stored: unknown, signal: AbortSignal): Promise<Ses
   if (!configurationReady()) throw new Error("CONFIGURATION_REQUIRED");
   const { restoreAuthSession } = await import("./auth-session");
   return restoreAuthSession(AUTH_CONFIG, stored, signal);
-}
-
-async function revokeLocalSession(session: Session) {
-  const { revokeLocalSession: revoke } = await import("./auth-session");
-  await revoke(AUTH_CONFIG, session);
 }
 
 async function callRpc(session: Session, rpcName: string, body: Record<string, unknown> = {}, signal?: AbortSignal): Promise<JsonValue> {
@@ -1455,7 +1444,8 @@ function App() {
       if (refreshing || controller.signal.aborted) return;
       refreshing = true;
       try {
-        const refreshed = await refreshStaffSession(activeRefreshToken!, controller.signal, (tokens) => {
+        const { refreshAuthSession } = await import("./auth-session");
+        const refreshed = await refreshAuthSession(AUTH_CONFIG, activeRefreshToken!, controller.signal, (tokens) => {
           activeRefreshToken = tokens.refreshToken ?? activeRefreshToken;
         });
         if (controller.signal.aborted) return;
@@ -1487,7 +1477,7 @@ function App() {
     const current = session;
     sessionStorage.removeItem("relaxfix-command-session");
     setSession(null);
-    void revokeLocalSession(current);
+    void import("./auth-session").then(({ revokeLocalSession }) => revokeLocalSession(AUTH_CONFIG, current));
   }} />;
 }
 createRoot(document.getElementById("root")!).render(<LanguageProvider><App /></LanguageProvider>);
