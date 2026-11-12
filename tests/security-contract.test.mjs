@@ -48,9 +48,9 @@ test("staff profile lookup matches the production primary-key contract", () => {
 test("password is not persisted", () => {
   assert.doesNotMatch(app, /setItem\([^\n]*password/i);
   assert.match(app, /sessionStorage/);
-  assert.match(app, /JSON\.stringify\(\{ accessToken: restored\.accessToken \}\)/);
+  assert.match(app, /persistSession\(restored\)/);
   assert.match(loginView, /sessionStorage/);
-  assert.match(loginView, /JSON\.stringify\(\{ accessToken: session\.accessToken \}\)/);
+  assert.match(loginView, /refreshToken: session\.refreshToken/);
   assert.doesNotMatch(loginView, /JSON\.stringify\(session\)/);
 });
 
@@ -231,6 +231,24 @@ test("restored sessions revalidate the JWT and active staff profile", () => {
   assert.match(app, /active: z\.literal\(true\)/);
   assert.match(app, /cache: "no-store"/);
   assert.match(app, /جاري التحقق من الجلسة والموظف النشط/);
+});
+
+
+test("Supabase refresh tokens rotate and active sessions renew before expiry", () => {
+  assert.match(app, /refresh_token: z\.string\(\)\.min\(1\)/);
+  assert.match(app, /grant_type=refresh_token/);
+  assert.match(app, /JSON\.stringify\(\{ refresh_token: refreshToken \}\)/);
+  assert.match(app, /async function refreshStaffSession/);
+  assert.match(app, /session\.expiresAt - Date\.now\(\) - 60000/);
+  assert.match(app, /persistSession\(refreshed\)/);
+  assert.match(app, /if \(stored\.refreshToken\) return refreshStaffSession/);
+  assert.match(loginView, /refreshToken: session\.refreshToken/);
+});
+
+test("logout revokes only the current Supabase session and always clears local access", () => {
+  assert.match(app, /auth\/v1\/logout\?scope=local/);
+  assert.match(app, /void revokeLocalSession\(current\)/);
+  assert.match(app, /sessionStorage\.removeItem\("relaxfix-command-session"\)/);
 });
 
 test("authentication rate limits fail safely without account disclosure", () => {
