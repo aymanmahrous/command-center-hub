@@ -242,7 +242,8 @@ test("Supabase refresh tokens rotate and active sessions renew before expiry", (
   assert.match(app, /async function refreshStaffSession/);
   assert.match(app, /session\.expiresAt - Date\.now\(\) - 60000/);
   assert.match(app, /persistSession\(refreshed\)/);
-  assert.match(app, /if \(stored\.refreshToken\) return refreshStaffSession/);
+  assert.match(authSession, /if \(stored\.refreshToken\)/);
+  assert.match(authSession, /return refreshAuthSession\(config, stored\.refreshToken/);
   assert.match(loginView, /refreshToken: session\.refreshToken/);
 });
 
