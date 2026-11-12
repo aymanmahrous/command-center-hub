@@ -54,7 +54,8 @@ const sections = [
 type SectionId = (typeof sections)[number][0];
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 type Role = "super_admin" | "admin" | "reception" | "coach" | "content_manager";
-type Session = { accessToken: string; displayName: string; role: Role };
+type Session = { accessToken: string; refreshToken?: string; expiresAt?: number; displayName: string; role: Role };
+type AuthTokens = Pick<Session, "accessToken" | "refreshToken" | "expiresAt">;
 type RadarPriority = "HOT" | "WARM" | "LOW";
 type RadarStatus = "NEW" | "REVIEWED" | "ACTIONED" | "DISMISSED"
   | "CONTACTED" | "CUSTOMER_REPLIED" | "BOOKING_REQUEST" | "BOOKED" | "PAID_CUSTOMER"
@@ -171,7 +172,11 @@ const AnalyticsSchema = z.object({
   bookingRequests: z.number().int().nonnegative(), publishedItems: z.number().int().nonnegative(), contentItems: z.number().int().nonnegative(),
   attributionReady: z.boolean(), note: z.string(),
 }).passthrough();
-const StoredSessionSchema = z.object({ accessToken: z.string().min(1) }).passthrough();
+const StoredSessionSchema = z.object({ accessToken: z.string().min(1), refreshToken: z.string().min(1).optional(), expiresAt: z.number().positive().optional() }).passthrough();
+const AuthTokenResponseSchema = z.object({
+  access_token: z.string().min(1), refresh_token: z.string().min(1), expires_in: z.number().positive(),
+  user: z.object({ id: z.string().uuid() }),
+});
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
 const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
@@ -211,15 +216,61 @@ function authMessage(code: string) {
 }
 function rpcHeaders(session: Session) { return { apikey: SUPABASE_PUBLIC_KEY, Authorization: `Bearer ${session.accessToken}`, "Content-Type": "application/json", Accept: "application/json" }; }
 
-async function loadStaffProfile(accessToken: string, userId: string, signal?: AbortSignal) {
+function persistSession(session: Session) {
+  sessionStorage.setItem("relaxfix-command-session", JSON.stringify({
+    accessToken: session.accessToken,
+    ...(session.refreshToken ? { refreshToken: session.refreshToken } : {}),
+    ...(session.expiresAt ? { expiresAt: session.expiresAt } : {}),
+  }));
+}
+
+async function loadStaffProfile(tokens: AuthTokens, userId: string, signal?: AbortSignal) {
   const response = await fetch(`${SUPABASE_URL}/rest/v1/${encodeURIComponent(STAFF_TABLE)}?id=eq.${encodeURIComponent(userId)}&select=display_name,role,active&limit=1`, {
-    headers: { apikey: SUPABASE_PUBLIC_KEY, Authorization: `Bearer ${accessToken}`, Accept: "application/json" }, cache: "no-store", signal,
+    headers: { apikey: SUPABASE_PUBLIC_KEY, Authorization: `Bearer ${tokens.accessToken}`, Accept: "application/json" }, cache: "no-store", signal,
   });
   if (response.status === 401) throw new Error("SESSION_EXPIRED");
   if (!response.ok) throw new Error("PROFILE_CHECK_FAILED");
   const rows = z.array(ProfileSchema).parse(await response.json());
   if (rows.length !== 1) throw new Error("STAFF_ACCESS_DENIED");
-  return { accessToken, displayName: rows[0].display_name, role: rows[0].role } satisfies Session;
+  return { ...tokens, displayName: rows[0].display_name, role: rows[0].role } satisfies Session;
+}
+
+function parseAuthTokens(payload: unknown) {
+  const auth = AuthTokenResponseSchema.parse(payload);
+  return {
+    userId: auth.user.id,
+    tokens: {
+      accessToken: auth.access_token,
+      refreshToken: auth.refresh_token,
+      expiresAt: Date.now() + auth.expires_in * 1000,
+    } satisfies AuthTokens,
+  };
+}
+
+async function refreshAuthTokens(refreshToken: string, signal?: AbortSignal) {
+  let response: Response;
+  try {
+    response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: SUPABASE_PUBLIC_KEY },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+      cache: "no-store",
+      signal,
+    });
+  } catch {
+    throw new Error("NETWORK_UNAVAILABLE");
+  }
+  if (response.status === 429) throw new Error("TOO_MANY_ATTEMPTS");
+  if (response.status === 400 || response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
+  if (response.status >= 500) throw new Error("SERVICE_UNAVAILABLE");
+  if (!response.ok) throw new Error("LOGIN_FAILED");
+  return parseAuthTokens(await response.json());
+}
+
+async function refreshStaffSession(refreshToken: string, signal?: AbortSignal): Promise<Session> {
+  if (!configurationReady()) throw new Error("CONFIGURATION_REQUIRED");
+  const refreshed = await refreshAuthTokens(refreshToken, signal);
+  return loadStaffProfile(refreshed.tokens, refreshed.userId, signal);
 }
 
 async function signIn(email: string, password: string): Promise<Session> {
@@ -234,8 +285,8 @@ async function signIn(email: string, password: string): Promise<Session> {
   if (authResponse.status === 401 || authResponse.status === 403) throw new Error("INVALID_LOGIN");
   if (authResponse.status >= 500) throw new Error("SERVICE_UNAVAILABLE");
   if (!authResponse.ok) throw new Error("INVALID_LOGIN");
-  const auth = z.object({ access_token: z.string(), user: z.object({ id: z.string().uuid() }) }).parse(await authResponse.json());
-  return loadStaffProfile(auth.access_token, auth.user.id);
+  const auth = parseAuthTokens(await authResponse.json());
+  return loadStaffProfile(auth.tokens, auth.userId);
 }
 
 async function requestPasswordReset(email: string): Promise<void> {
@@ -257,14 +308,29 @@ async function requestPasswordReset(email: string): Promise<void> {
   if (!response.ok) throw new Error("LOGIN_FAILED");
 }
 
-async function restoreSession(accessToken: string, signal: AbortSignal): Promise<Session> {
+async function restoreSession(stored: z.infer<typeof StoredSessionSchema>, signal: AbortSignal): Promise<Session> {
   if (!configurationReady()) throw new Error("CONFIGURATION_REQUIRED");
+  if (stored.refreshToken) return refreshStaffSession(stored.refreshToken, signal);
+  // Compatibility for existing access-token-only browser sessions: validate them once.
+  // They receive automatic refresh after the owner signs in again.
   const authResponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { apikey: SUPABASE_PUBLIC_KEY, Authorization: `Bearer ${accessToken}`, Accept: "application/json" }, cache: "no-store", signal,
+    headers: { apikey: SUPABASE_PUBLIC_KEY, Authorization: `Bearer ${stored.accessToken}`, Accept: "application/json" }, cache: "no-store", signal,
   });
   if (!authResponse.ok) throw new Error("SESSION_EXPIRED");
   const user = z.object({ id: z.string().uuid() }).parse(await authResponse.json());
-  return loadStaffProfile(accessToken, user.id, signal);
+  return loadStaffProfile({ accessToken: stored.accessToken }, user.id, signal);
+}
+
+async function revokeLocalSession(session: Session) {
+  try {
+    await fetch(`${SUPABASE_URL}/auth/v1/logout?scope=local`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_PUBLIC_KEY, Authorization: `Bearer ${session.accessToken}`, Accept: "application/json" },
+      cache: "no-store",
+    });
+  } catch {
+    // Local sign-out must still complete if the network is unavailable.
+  }
 }
 
 async function callRpc(session: Session, rpcName: string, body: Record<string, unknown> = {}, signal?: AbortSignal): Promise<JsonValue> {
@@ -1439,9 +1505,9 @@ function App() {
         sessionStorage.removeItem("relaxfix-command-session");
         setRestoring(false);
       }, 12000);
-      restoreSession(stored.accessToken, controller.signal).then((restored) => {
+      restoreSession(stored, controller.signal).then((restored) => {
         if (controller.signal.aborted) return;
-        sessionStorage.setItem("relaxfix-command-session", JSON.stringify({ accessToken: restored.accessToken }));
+        persistSession(restored);
         setSession(restored);
       }).catch((cause) => {
         if (cause instanceof DOMException && cause.name === "AbortError") return;
@@ -1456,9 +1522,47 @@ function App() {
       controller.abort();
     };
   }, []);
+  useEffect(() => {
+    if (!session?.refreshToken || !session.expiresAt) return;
+    const controller = new AbortController();
+    let timeoutId: number | undefined;
+    let refreshing = false;
+    const refresh = async () => {
+      if (refreshing || controller.signal.aborted) return;
+      refreshing = true;
+      try {
+        const refreshed = await refreshStaffSession(session.refreshToken!, controller.signal);
+        if (controller.signal.aborted) return;
+        persistSession(refreshed);
+        setSession(refreshed);
+      } catch (cause) {
+        if (controller.signal.aborted || (cause instanceof DOMException && cause.name === "AbortError")) return;
+        const code = authErrorCode(cause);
+        if (code === "NETWORK_UNAVAILABLE" || code === "SERVICE_UNAVAILABLE" || code === "TOO_MANY_ATTEMPTS") {
+          timeoutId = window.setTimeout(() => void refresh(), 15000);
+          return;
+        }
+        sessionStorage.removeItem("relaxfix-command-session");
+        setSession(null);
+      } finally {
+        refreshing = false;
+      }
+    };
+    const delay = Math.max(0, session.expiresAt - Date.now() - 60000);
+    timeoutId = window.setTimeout(() => void refresh(), delay);
+    return () => {
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [session?.refreshToken, session?.expiresAt]);
   if (isRecoveryFlow) return <Suspense fallback={<main className="login-page"><p className="muted" role="status">{language === "ar" ? "جارٍ تحميل صفحة الاستعادة..." : "Loading recovery page..."}</p></main>}><PasswordRecovery supabaseUrl={SUPABASE_URL} publicKey={SUPABASE_PUBLIC_KEY} configurationReady={configurationReady()} /></Suspense>;
   if (restoring) return <main className="login-page"><p className="muted" role="status">{language === "ar" ? "جاري التحقق من الجلسة والموظف النشط..." : "Verifying session and active staff..."}</p></main>;
   if (!session) return <Suspense fallback={<main className="login-page"><p className="muted" role="status">{language === "ar" ? "جارٍ تحميل صفحة الدخول..." : "Loading sign-in..."}</p></main>}><LoginView onAuthenticated={setSession} onSignIn={signIn} onRequestPasswordReset={requestPasswordReset} authMessage={authMessage} resetSuccess={AUTH_MESSAGES.RESET_SUCCESS} /></Suspense>;
-  return <Dashboard session={session} onLogout={() => { sessionStorage.removeItem("relaxfix-command-session"); setSession(null); }} />;
+  return <Dashboard session={session} onLogout={() => {
+    const current = session;
+    sessionStorage.removeItem("relaxfix-command-session");
+    setSession(null);
+    void revokeLocalSession(current);
+  }} />;
 }
 createRoot(document.getElementById("root")!).render(<LanguageProvider><App /></LanguageProvider>);
