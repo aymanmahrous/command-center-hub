@@ -117,6 +117,7 @@ type ContentBatchReviewPanelProps = {
   items: ContentBatchItem[];
   batch: ContentBatch;
   canWrite: boolean;
+  canApprove: boolean;
   busy: boolean;
   session?: { accessToken: string };
   mediaAssets?: MediaAssetRecord[];
@@ -148,6 +149,7 @@ export function ContentBatchReviewPanel({
   items,
   batch,
   canWrite,
+  canApprove: canApproveByRole,
   busy,
   session,
   mediaAssets = [],
@@ -196,7 +198,8 @@ export function ContentBatchReviewPanel({
   const summary = useMemo(() => summarizeBatch(batch.items), [batch.items]);
   const batchStatus = overallBatchStatus(batch.items);
   const approveCandidates = approveAllCandidates(batch.items);
-  const approveAllEnabled = canWrite && !busy && approveAllWouldChange(batch.items);
+  const approveAllEnabled = canWrite && canApproveByRole && !busy && approveAllWouldChange(batch.items);
+  const ownerApprovalRequired = language === "ar" ? "اعتماد هذا الإجراء متاح للمالك فقط." : "Only the owner can approve this action.";
   const assetById = useMemo(() => new Map(mediaAssets.map((asset) => [asset.id, asset])), [mediaAssets]);
   const workspaceItems = useMemo(() => {
     if (workspaceMode === "designs") return items.filter((item) => !item.mediaAssetId);
@@ -216,7 +219,7 @@ export function ContentBatchReviewPanel({
     : ({ designs: "Design workspace", reels: "Reels workspace", campaigns: "Campaigns and scheduling workspace", review: "Review workspace" } as const)[workspaceMode];
 
   async function handleApproveAll() {
-    if (!approveAllEnabled || approveCandidates.length === 0) return;
+    if (!canApproveByRole || !approveAllEnabled || approveCandidates.length === 0) return;
     const confirmMessage = language === "ar"
       ? `تأكيد اعتماد ${approveCandidates.length} عنصر(عناصر) في هذه الدفعة؟ لن يتم جدولة أو نشر أي عنصر من هذه الشاشة.`
       : `Approve ${approveCandidates.length} item(s) in this batch? Nothing will be scheduled or published from this screen.`;
@@ -586,10 +589,10 @@ export function ContentBatchReviewPanel({
       )}
 
       <div className="content-batch-actions">
-        <button type="button" disabled={!approveAllEnabled} title={!canWrite ? copy.actionDisabledReadOnly : busy ? copy.actionDisabledBusy : approveCandidates.length === 0 ? copy.batchNothingToApprove : undefined} onClick={() => void handleApproveAll()}>
+        <button type="button" disabled={!approveAllEnabled} title={!canWrite ? copy.actionDisabledReadOnly : !canApproveByRole ? ownerApprovalRequired : busy ? copy.actionDisabledBusy : approveCandidates.length === 0 ? copy.batchNothingToApprove : undefined} onClick={() => void handleApproveAll()}>
           {busy ? t("common").saving : copy.approveAllButton}
         </button>
-        {!canWrite ? <small>{copy.actionDisabledReadOnly}</small> : approveCandidates.length === 0 ? <small>{copy.batchNothingToApprove}</small> : null}
+        {!canWrite ? <small>{copy.actionDisabledReadOnly}</small> : !canApproveByRole ? <small>{ownerApprovalRequired}</small> : approveCandidates.length === 0 ? <small>{copy.batchNothingToApprove}</small> : null}
       </div>
       {designNotice && <p className="content-batch-design-notice" role="status">{designNotice}</p>}
       {publishNotice && <p className="content-batch-design-notice" role="status">{publishNotice}</p>}
@@ -629,7 +632,7 @@ export function ContentBatchReviewPanel({
       </div>
       {visibleItems.length === 0 ? <p className="content-review-empty">{language === "ar" ? "لا توجد عناصر في هذه الحالة." : "No items match this status."}</p> : <div className="content-batch-grid">
         {visibleItems.map((item) => {
-          const canApprove = ["draft", "generated", "needs_review"].includes(item.status);
+          const canApproveStatus = ["draft", "generated", "needs_review"].includes(item.status);
           const canRequestChanges = ["draft", "generated", "approved", "scheduled", "failed"].includes(item.status);
           const itemLocked = busy || !canWrite;
           const pillar = readContentPillar(item);
@@ -846,8 +849,8 @@ export function ContentBatchReviewPanel({
                     )}
                   </div>
                 )}
-                {canApprove && (
-                  <button type="button" disabled={itemLocked} title={itemDisabledReason} onClick={() => void onApproveItem(item)}>
+                {canApproveStatus && (
+                  <button type="button" disabled={itemLocked || !canApproveByRole} title={!canApproveByRole ? ownerApprovalRequired : itemDisabledReason} onClick={() => void onApproveItem(item)}>
                     {copy.approveButton}
                   </button>
                 )}

@@ -108,6 +108,7 @@ type ContentGrowthHubProps = {
   items: ContentBatchItem[];
   session: GrowthSession;
   canWrite: boolean;
+  canApprove: boolean;
   busy: boolean;
   activeTab?: "overview" | "strategy" | "factory" | "content" | "designs" | "reels" | "campaigns" | "review" | "connections";
   onApproveItem: (item: ContentBatchItem) => Promise<void>;
@@ -146,6 +147,7 @@ export default function ContentGrowthHub({
   items,
   session,
   canWrite,
+  canApprove,
   busy,
   activeTab,
   onApproveItem,
@@ -745,6 +747,7 @@ export default function ContentGrowthHub({
             designCapabilityDetail={canvaReadiness.detail}
             videoCapabilityState={videoCapabilityState}
             canWrite={canWrite}
+            canApprove={canApprove}
           busy={panelBusy}
           session={session}
           mediaAssets={mediaAssets}
