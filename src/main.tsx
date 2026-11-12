@@ -216,12 +216,16 @@ function authMessage(code: string) {
 }
 function rpcHeaders(session: Session) { return { apikey: SUPABASE_PUBLIC_KEY, Authorization: `Bearer ${session.accessToken}`, "Content-Type": "application/json", Accept: "application/json" }; }
 
-function persistSession(session: Session) {
+function persistAuthTokens(tokens: AuthTokens) {
   sessionStorage.setItem("relaxfix-command-session", JSON.stringify({
-    accessToken: session.accessToken,
-    ...(session.refreshToken ? { refreshToken: session.refreshToken } : {}),
-    ...(session.expiresAt ? { expiresAt: session.expiresAt } : {}),
+    accessToken: tokens.accessToken,
+    ...(tokens.refreshToken ? { refreshToken: tokens.refreshToken } : {}),
+    ...(tokens.expiresAt ? { expiresAt: tokens.expiresAt } : {}),
   }));
+}
+
+function persistSession(session: Session) {
+  persistAuthTokens(session);
 }
 
 async function loadStaffProfile(tokens: AuthTokens, userId: string, signal?: AbortSignal) {
@@ -267,9 +271,12 @@ async function refreshAuthTokens(refreshToken: string, signal?: AbortSignal) {
   return parseAuthTokens(await response.json());
 }
 
-async function refreshStaffSession(refreshToken: string, signal?: AbortSignal): Promise<Session> {
+async function refreshStaffSession(refreshToken: string, signal?: AbortSignal, onTokensRotated?: (tokens: AuthTokens) => void): Promise<Session> {
   if (!configurationReady()) throw new Error("CONFIGURATION_REQUIRED");
   const refreshed = await refreshAuthTokens(refreshToken, signal);
+  if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+  // Supabase refresh tokens are single-use: persist the rotated pair before profile verification.
+  onTokensRotated?.(refreshed.tokens);
   return loadStaffProfile(refreshed.tokens, refreshed.userId, signal);
 }
 
@@ -310,7 +317,7 @@ async function requestPasswordReset(email: string): Promise<void> {
 
 async function restoreSession(stored: z.infer<typeof StoredSessionSchema>, signal: AbortSignal): Promise<Session> {
   if (!configurationReady()) throw new Error("CONFIGURATION_REQUIRED");
-  if (stored.refreshToken) return refreshStaffSession(stored.refreshToken, signal);
+  if (stored.refreshToken) return refreshStaffSession(stored.refreshToken, signal, persistAuthTokens);
   // Compatibility for existing access-token-only browser sessions: validate them once.
   // They receive automatic refresh after the owner signs in again.
   const authResponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
@@ -1527,11 +1534,15 @@ function App() {
     const controller = new AbortController();
     let timeoutId: number | undefined;
     let refreshing = false;
+    let activeRefreshToken = session.refreshToken;
     const refresh = async () => {
       if (refreshing || controller.signal.aborted) return;
       refreshing = true;
       try {
-        const refreshed = await refreshStaffSession(session.refreshToken!, controller.signal);
+        const refreshed = await refreshStaffSession(activeRefreshToken!, controller.signal, (tokens) => {
+          activeRefreshToken = tokens.refreshToken ?? activeRefreshToken;
+          persistAuthTokens(tokens);
+        });
         if (controller.signal.aborted) return;
         persistSession(refreshed);
         setSession(refreshed);
