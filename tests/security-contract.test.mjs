@@ -40,7 +40,7 @@ test("staff authorization requires an active profile", () => {
 
 test("staff profile lookup matches the production primary-key contract", () => {
   assert.match(app, /\?id=eq\.\$\{encodeURIComponent\(userId\)\}/);
-  assert.match(app, /loadStaffProfile\(auth\.access_token, auth\.user\.id\)/);
+  assert.match(app, /loadStaffProfile\(auth\.tokens, auth\.userId\)/);
   assert.doesNotMatch(app, /\?user_id=eq\./);
   assert.match(envExample, /primary key `id`/);
 });
@@ -227,7 +227,7 @@ test("browser API key validation rejects elevated or malformed credentials", () 
 test("restored sessions revalidate the JWT and active staff profile", () => {
   assert.match(app, /\/auth\/v1\/user/);
   assert.match(app, /async function restoreSession/);
-  assert.match(app, /return loadStaffProfile\(accessToken, user\.id, signal\)/);
+  assert.match(app, /return loadStaffProfile\(\{ accessToken: stored\.accessToken \}, user\.id, signal\)/);
   assert.match(app, /active: z\.literal\(true\)/);
   assert.match(app, /cache: "no-store"/);
   assert.match(app, /جاري التحقق من الجلسة والموظف النشط/);
