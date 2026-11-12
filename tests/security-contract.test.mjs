@@ -35,13 +35,13 @@ test("application is excluded from search indexing", () => {
 });
 
 test("staff authorization requires an active profile", () => {
-  assert.match(app, /active: z\.literal\(true\)/);
+  assert.match(authSession, /active: z\.literal\(true\)/);
   assert.match(app, /STAFF_ACCESS_DENIED/);
 });
 
 test("staff profile lookup matches the production primary-key contract", () => {
   assert.match(app, /\?id=eq\.\$\{encodeURIComponent\(userId\)\}/);
-  assert.match(authSession, /loadStaffProfile\(auth\.tokens, auth\.userId\)/);
+  assert.match(authSession, /loadStaffProfile\(config, auth\.tokens, auth\.userId\)/);
   assert.doesNotMatch(app, /\?user_id=eq\./);
   assert.match(envExample, /primary key `id`/);
 });
@@ -49,7 +49,7 @@ test("staff profile lookup matches the production primary-key contract", () => {
 test("password is not persisted", () => {
   assert.doesNotMatch(app, /setItem\([^\n]*password/i);
   assert.match(app, /sessionStorage/);
-  assert.match(app, /persistSession\(restored\)/);
+  assert.match(authSession, /persistTokens\(tokens\)/);
   assert.match(loginView, /sessionStorage/);
   assert.match(loginView, /refreshToken: session\.refreshToken/);
   assert.doesNotMatch(loginView, /JSON\.stringify\(session\)/);
@@ -228,8 +228,8 @@ test("browser API key validation rejects elevated or malformed credentials", () 
 test("restored sessions revalidate the JWT and active staff profile", () => {
   assert.match(authSession, /\/auth\/v1\/user/);
   assert.match(app, /async function restoreSession/);
-  assert.match(authSession, /return loadStaffProfile\(\{ accessToken: stored\.accessToken \}, user\.id, signal\)/);
-  assert.match(app, /active: z\.literal\(true\)/);
+  assert.match(authSession, /return loadStaffProfile\(config, \{ accessToken: stored\.accessToken \}, user\.id, signal\)/);
+  assert.match(authSession, /active: z\.literal\(true\)/);
   assert.match(app, /cache: "no-store"/);
   assert.match(app, /جاري التحقق من الجلسة والموظف النشط/);
 });
@@ -241,7 +241,7 @@ test("Supabase refresh tokens rotate and active sessions renew before expiry", (
   assert.match(authSession, /JSON\.stringify\(\{ refresh_token: refreshToken \}\)/);
   assert.match(app, /async function refreshStaffSession/);
   assert.match(app, /session\.expiresAt - Date\.now\(\) - 60000/);
-  assert.match(app, /persistSession\(refreshed\)/);
+  assert.match(authSession, /persistTokens\(refreshed\.tokens\)/);
   assert.match(authSession, /if \(stored\.refreshToken\)/);
   assert.match(authSession, /return refreshAuthSession\(config, stored\.refreshToken/);
   assert.match(loginView, /refreshToken: session\.refreshToken/);
