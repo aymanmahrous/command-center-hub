@@ -256,7 +256,7 @@ test("logout revokes only the current Supabase session and always clears local a
 test("authentication rate limits fail safely without account disclosure", () => {
   assert.match(authSession, /response\.status === 429/);
   assert.match(authSession, /TOO_MANY_ATTEMPTS/);
-  assert.match(app, /Unable to reach the service/);
+  assert.match(loginView, /Unable to reach the service/);
 });
 
 test("CONFIGURATION_REQUIRED is only returned when configurationReady() is false", () => {
@@ -267,23 +267,23 @@ test("CONFIGURATION_REQUIRED is only returned when configurationReady() is false
 
 test("auth 401 and 403 responses map to invalid credentials, not configuration error", () => {
   assert.match(authSession, /response\.status === 401 \|\| response\.status === 403.*INVALID_LOGIN/s);
-  assert.match(app, /The email or password is incorrect/);
+  assert.match(loginView, /The email or password is incorrect/);
 });
 
 test("login error mapping is explicit and bilingual", () => {
-  assert.match(app, /Connection settings are incomplete or unsafe/);
-  assert.match(app, /The email or password is incorrect/);
-  assert.match(app, /This account is not active for Command Center access/);
-  assert.match(app, /Unable to reach the service/);
-  assert.match(app, /Sign-in failed\. Please try again/);
-  assert.match(app, /authMessage\(code: string\)/);
+  assert.match(loginView, /Connection settings are incomplete or unsafe/);
+  assert.match(loginView, /The email or password is incorrect/);
+  assert.match(loginView, /This account is not active for Command Center access/);
+  assert.match(loginView, /Unable to reach the service/);
+  assert.match(loginView, /Sign-in failed\. Please try again/);
+  assert.match(loginView, /authMessage\(code: string\)/);
 });
 
 test("forgot-password flow uses public recover endpoint with non-enumerating success copy", () => {
   assert.match(app, /requestPasswordReset\(email: string\)/);
   assert.match(authSession, /\/auth\/v1\/recover/);
-  assert.match(app, /RESET_SUCCESS/);
-  assert.match(app, /If the email is registered, a password reset message will be sent/);
+  assert.match(loginView, /RESET_SUCCESS/);
+  assert.match(loginView, /If the email is registered, a password reset message will be sent/);
   assert.match(loginView, /نسيت كلمة المرور؟/);
   assert.match(loginView, /Forgot password\?/);
   assert.match(app, /PASSWORD_RESET_PATH/);
