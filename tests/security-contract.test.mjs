@@ -281,7 +281,7 @@ test("login error mapping is explicit and bilingual", () => {
 
 test("forgot-password flow uses public recover endpoint with non-enumerating success copy", () => {
   assert.match(app, /requestPasswordReset\(email: string\)/);
-  assert.match(app, /\/auth\/v1\/recover/);
+  assert.match(authSession, /\/auth\/v1\/recover/);
   assert.match(app, /RESET_SUCCESS/);
   assert.match(app, /If the email is registered, a password reset message will be sent/);
   assert.match(loginView, /نسيت كلمة المرور؟/);
@@ -304,7 +304,7 @@ test("forgot-password flow uses public recover endpoint with non-enumerating suc
   assert.match(app, /setTimeout\(\(\) => \{/);
   assert.match(app, /}, 12000\)/);
   assert.match(app, /Never leave the sign-in screen stuck indefinitely/);
-  assert.match(app, /passwordResetRedirect\(\)[\s\S]*window.location.origin/);
+  assert.match(authSession, /new URL\(resetPath, window.location.origin\)/);
 });
 
 test("System Polish cancels stale reads and handles session expiry consistently", () => {
