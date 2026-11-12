@@ -229,10 +229,16 @@ function persistSession(session: Session) {
 }
 
 async function loadStaffProfile(tokens: AuthTokens, userId: string, signal?: AbortSignal) {
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/${encodeURIComponent(STAFF_TABLE)}?id=eq.${encodeURIComponent(userId)}&select=display_name,role,active&limit=1`, {
-    headers: { apikey: SUPABASE_PUBLIC_KEY, Authorization: `Bearer ${tokens.accessToken}`, Accept: "application/json" }, cache: "no-store", signal,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${SUPABASE_URL}/rest/v1/${encodeURIComponent(STAFF_TABLE)}?id=eq.${encodeURIComponent(userId)}&select=display_name,role,active&limit=1`, {
+      headers: { apikey: SUPABASE_PUBLIC_KEY, Authorization: `Bearer ${tokens.accessToken}`, Accept: "application/json" }, cache: "no-store", signal,
+    });
+  } catch {
+    throw new Error("NETWORK_UNAVAILABLE");
+  }
   if (response.status === 401) throw new Error("SESSION_EXPIRED");
+  if (response.status >= 500) throw new Error("SERVICE_UNAVAILABLE");
   if (!response.ok) throw new Error("PROFILE_CHECK_FAILED");
   const rows = z.array(ProfileSchema).parse(await response.json());
   if (rows.length !== 1) throw new Error("STAFF_ACCESS_DENIED");
@@ -1518,7 +1524,10 @@ function App() {
         setSession(restored);
       }).catch((cause) => {
         if (cause instanceof DOMException && cause.name === "AbortError") return;
-        sessionStorage.removeItem("relaxfix-command-session");
+        const code = authErrorCode(cause);
+        if (!["NETWORK_UNAVAILABLE", "SERVICE_UNAVAILABLE", "TOO_MANY_ATTEMPTS", "PROFILE_CHECK_FAILED"].includes(code)) {
+          sessionStorage.removeItem("relaxfix-command-session");
+        }
       }).finally(() => {
         if (timeoutId !== undefined) window.clearTimeout(timeoutId);
         if (!controller.signal.aborted) setRestoring(false);
@@ -1549,7 +1558,7 @@ function App() {
       } catch (cause) {
         if (controller.signal.aborted || (cause instanceof DOMException && cause.name === "AbortError")) return;
         const code = authErrorCode(cause);
-        if (code === "NETWORK_UNAVAILABLE" || code === "SERVICE_UNAVAILABLE" || code === "TOO_MANY_ATTEMPTS") {
+        if (code === "NETWORK_UNAVAILABLE" || code === "SERVICE_UNAVAILABLE" || code === "TOO_MANY_ATTEMPTS" || code === "PROFILE_CHECK_FAILED") {
           timeoutId = window.setTimeout(() => void refresh(), 15000);
           return;
         }
