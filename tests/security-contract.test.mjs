@@ -7,6 +7,7 @@ const envExample = await readFile(new URL("../.env.example", import.meta.url), "
 const gitignore = await readFile(new URL("../.gitignore", import.meta.url), "utf8");
 const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
 const app = await readFile(new URL("../src/main.tsx", import.meta.url), "utf8");
+const authSession = await readFile(new URL("../src/auth-session.ts", import.meta.url), "utf8");
 const loginView = await readFile(new URL("../src/login-view.tsx", import.meta.url), "utf8");
 const recovery = await readFile(new URL("../src/password-recovery.tsx", import.meta.url), "utf8");
 const operations = await readFile(new URL("../src/operations-queue-view.tsx", import.meta.url), "utf8");
@@ -40,7 +41,7 @@ test("staff authorization requires an active profile", () => {
 
 test("staff profile lookup matches the production primary-key contract", () => {
   assert.match(app, /\?id=eq\.\$\{encodeURIComponent\(userId\)\}/);
-  assert.match(app, /loadStaffProfile\(auth\.tokens, auth\.userId\)/);
+  assert.match(authSession, /loadStaffProfile\(auth\.tokens, auth\.userId\)/);
   assert.doesNotMatch(app, /\?user_id=eq\./);
   assert.match(envExample, /primary key `id`/);
 });
@@ -225,9 +226,9 @@ test("browser API key validation rejects elevated or malformed credentials", () 
 });
 
 test("restored sessions revalidate the JWT and active staff profile", () => {
-  assert.match(app, /\/auth\/v1\/user/);
+  assert.match(authSession, /\/auth\/v1\/user/);
   assert.match(app, /async function restoreSession/);
-  assert.match(app, /return loadStaffProfile\(\{ accessToken: stored\.accessToken \}, user\.id, signal\)/);
+  assert.match(authSession, /return loadStaffProfile\(\{ accessToken: stored\.accessToken \}, user\.id, signal\)/);
   assert.match(app, /active: z\.literal\(true\)/);
   assert.match(app, /cache: "no-store"/);
   assert.match(app, /جاري التحقق من الجلسة والموظف النشط/);
@@ -235,9 +236,9 @@ test("restored sessions revalidate the JWT and active staff profile", () => {
 
 
 test("Supabase refresh tokens rotate and active sessions renew before expiry", () => {
-  assert.match(app, /refresh_token: z\.string\(\)\.min\(1\)/);
-  assert.match(app, /grant_type=refresh_token/);
-  assert.match(app, /JSON\.stringify\(\{ refresh_token: refreshToken \}\)/);
+  assert.match(authSession, /refresh_token: z\.string\(\)\.min\(1\)/);
+  assert.match(authSession, /grant_type=refresh_token/);
+  assert.match(authSession, /JSON\.stringify\(\{ refresh_token: refreshToken \}\)/);
   assert.match(app, /async function refreshStaffSession/);
   assert.match(app, /session\.expiresAt - Date\.now\(\) - 60000/);
   assert.match(app, /persistSession\(refreshed\)/);
@@ -246,14 +247,14 @@ test("Supabase refresh tokens rotate and active sessions renew before expiry", (
 });
 
 test("logout revokes only the current Supabase session and always clears local access", () => {
-  assert.match(app, /auth\/v1\/logout\?scope=local/);
+  assert.match(authSession, /auth\/v1\/logout\?scope=local/);
   assert.match(app, /void revokeLocalSession\(current\)/);
   assert.match(app, /sessionStorage\.removeItem\("relaxfix-command-session"\)/);
 });
 
 test("authentication rate limits fail safely without account disclosure", () => {
-  assert.match(app, /authResponse\.status === 429/);
-  assert.match(app, /TOO_MANY_ATTEMPTS/);
+  assert.match(authSession, /response\.status === 429/);
+  assert.match(authSession, /TOO_MANY_ATTEMPTS/);
   assert.match(app, /Unable to reach the service/);
 });
 
@@ -264,7 +265,7 @@ test("CONFIGURATION_REQUIRED is only returned when configurationReady() is false
 });
 
 test("auth 401 and 403 responses map to invalid credentials, not configuration error", () => {
-  assert.match(app, /authResponse\.status === 401 \|\| authResponse\.status === 403.*INVALID_LOGIN/s);
+  assert.match(authSession, /response\.status === 401 \|\| response\.status === 403.*INVALID_LOGIN/s);
   assert.match(app, /The email or password is incorrect/);
 });
 
