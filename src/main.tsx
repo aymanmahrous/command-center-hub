@@ -177,15 +177,6 @@ const STAFF_TABLE = (import.meta.env.VITE_STAFF_PROFILE_TABLE ?? "staff_profiles
 const PASSWORD_RESET_PATH = (import.meta.env.VITE_PASSWORD_RESET_PATH ?? "").trim();
 const AUTH_CONFIG: AuthConfig = { supabaseUrl: SUPABASE_URL, publicKey: SUPABASE_PUBLIC_KEY, staffTable: STAFF_TABLE };
 
-const AUTH_MESSAGES = {
-  CONFIGURATION_REQUIRED: "إعدادات الاتصال غير مكتملة أو غير آمنة. التطبيق مغلق بأمان.\nConnection settings are incomplete or unsafe. The application is securely locked.",
-  INVALID_LOGIN: "البريد الإلكتروني أو كلمة المرور غير صحيحة.\nThe email or password is incorrect.",
-  STAFF_ACCESS_DENIED: "هذا الحساب غير مفعّل للوصول إلى لوحة التحكم.\nThis account is not active for Command Center access.",
-  SERVICE_UNAVAILABLE: "تعذر الاتصال بالخدمة. تحقق من الإنترنت ثم حاول لاحقًا.\nUnable to reach the service. Check your connection and try again later.",
-  LOGIN_FAILED: "تعذر تسجيل الدخول. حاول مرة أخرى.\nSign-in failed. Please try again.",
-  RESET_SUCCESS: "إذا كان البريد مسجلاً، فستصلك رسالة لإعادة تعيين كلمة المرور.\nIf the email is registered, a password reset message will be sent.",
-} as const;
-
 function configurationReady() {
   return isSupabaseBrowserConfigurationReady(SUPABASE_URL, SUPABASE_PUBLIC_KEY, STAFF_TABLE);
 }
@@ -194,13 +185,6 @@ function authErrorCode(cause: unknown) {
   return cause instanceof Error ? cause.message : "LOGIN_FAILED";
 }
 
-function authMessage(code: string) {
-  if (code === "CONFIGURATION_REQUIRED") return AUTH_MESSAGES.CONFIGURATION_REQUIRED;
-  if (code === "INVALID_LOGIN") return AUTH_MESSAGES.INVALID_LOGIN;
-  if (code === "STAFF_ACCESS_DENIED") return AUTH_MESSAGES.STAFF_ACCESS_DENIED;
-  if (code === "NETWORK_UNAVAILABLE" || code === "SERVICE_UNAVAILABLE" || code === "TOO_MANY_ATTEMPTS") return AUTH_MESSAGES.SERVICE_UNAVAILABLE;
-  return AUTH_MESSAGES.LOGIN_FAILED;
-}
 function rpcHeaders(session: Session) { return { apikey: SUPABASE_PUBLIC_KEY, Authorization: `Bearer ${session.accessToken}`, "Content-Type": "application/json", Accept: "application/json" }; }
 
 
@@ -1446,7 +1430,7 @@ function App() {
   }, [session?.refreshToken, session?.expiresAt]);
   if (isRecoveryFlow) return <Suspense fallback={<main className="login-page"><p className="muted" role="status">{language === "ar" ? "جارٍ تحميل صفحة الاستعادة..." : "Loading recovery page..."}</p></main>}><PasswordRecovery supabaseUrl={SUPABASE_URL} publicKey={SUPABASE_PUBLIC_KEY} configurationReady={configurationReady()} /></Suspense>;
   if (restoring) return <main className="login-page"><p className="muted" role="status">{language === "ar" ? "جاري التحقق من الجلسة والموظف النشط..." : "Verifying session and active staff..."}</p></main>;
-  if (!session) return <Suspense fallback={<main className="login-page"><p className="muted" role="status">{language === "ar" ? "جارٍ تحميل صفحة الدخول..." : "Loading sign-in..."}</p></main>}><LoginView onAuthenticated={setSession} onSignIn={signIn} onRequestPasswordReset={requestPasswordReset} authMessage={authMessage} resetSuccess={AUTH_MESSAGES.RESET_SUCCESS} /></Suspense>;
+  if (!session) return <Suspense fallback={<main className="login-page"><p className="muted" role="status">{language === "ar" ? "جارٍ تحميل صفحة الدخول..." : "Loading sign-in..."}</p></main>}><LoginView onAuthenticated={setSession} onSignIn={signIn} onRequestPasswordReset={requestPasswordReset} /></Suspense>;
   return <Dashboard session={session} onLogout={() => {
     const current = session;
     sessionStorage.removeItem("relaxfix-command-session");
