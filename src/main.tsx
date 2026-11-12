@@ -217,12 +217,6 @@ async function requestPasswordReset(email: string): Promise<void> {
   return requestReset(AUTH_CONFIG, email, PASSWORD_RESET_PATH);
 }
 
-async function restoreSession(stored: unknown, signal: AbortSignal): Promise<Session> {
-  if (!configurationReady()) throw new Error("CONFIGURATION_REQUIRED");
-  const { restoreAuthSession } = await import("./auth-session");
-  return restoreAuthSession(AUTH_CONFIG, stored, signal);
-}
-
 async function callRpc(session: Session, rpcName: string, body: Record<string, unknown> = {}, signal?: AbortSignal): Promise<JsonValue> {
   const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${encodeURIComponent(rpcName)}`, { method: "POST", headers: rpcHeaders(session), body: JSON.stringify(body), signal });
   if (response.status === 401) throw new Error("SESSION_EXPIRED");
@@ -1395,7 +1389,7 @@ function App() {
         sessionStorage.removeItem("relaxfix-command-session");
         setRestoring(false);
       }, 12000);
-      restoreSession(stored, controller.signal).then((restored) => {
+      import("./auth-session").then(({ restoreAuthSession }) => restoreAuthSession(AUTH_CONFIG, stored, controller.signal)).then((restored) => {
         if (controller.signal.aborted) return;
         setSession(restored);
       }).catch((cause) => {
