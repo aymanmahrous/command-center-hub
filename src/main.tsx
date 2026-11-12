@@ -1446,7 +1446,7 @@ function App() {
     try {
       const raw = sessionStorage.getItem("relaxfix-command-session");
       if (!raw) { setRestoring(false); return () => controller.abort(); }
-      const stored = StoredSessionSchema.parse(JSON.parse(raw));
+      const stored: unknown = JSON.parse(raw);
       // Never leave the sign-in screen stuck indefinitely if auth/profile checks hang.
       timeoutId = window.setTimeout(() => {
         if (controller.signal.aborted) return;
