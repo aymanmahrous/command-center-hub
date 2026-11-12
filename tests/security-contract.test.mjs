@@ -49,7 +49,7 @@ test("staff profile lookup matches the production primary-key contract", () => {
 test("password is not persisted", () => {
   assert.doesNotMatch(app, /setItem\([^\n]*password/i);
   assert.match(app, /sessionStorage/);
-  assert.match(authSession, /persistTokens\(tokens\)/);
+  assert.match(authSession, /persistTokens\(tokens: AuthTokens\)/);
   assert.match(loginView, /sessionStorage/);
   assert.match(loginView, /refreshToken: session\.refreshToken/);
   assert.doesNotMatch(loginView, /JSON\.stringify\(session\)/);
