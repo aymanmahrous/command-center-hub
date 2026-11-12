@@ -197,8 +197,7 @@ export function ContentBatchReviewPanel({
   const batchStatus = overallBatchStatus(batch.items);
   const approveCandidates = approveAllCandidates(batch.items);
   const canApproveByRole = session?.role === "super_admin";
-  const approveAllEnabled = canWrite && canApproveByRole && !busy && approveAllWouldChange(batch.items);
-  const ownerApprovalRequired = language === "ar" ? "المالك فقط" : "Owner only";
+  const approveAllEnabled = canApproveByRole && !busy && approveAllWouldChange(batch.items);
   const assetById = useMemo(() => new Map(mediaAssets.map((asset) => [asset.id, asset])), [mediaAssets]);
   const workspaceItems = useMemo(() => {
     if (workspaceMode === "designs") return items.filter((item) => !item.mediaAssetId);
@@ -588,10 +587,9 @@ export function ContentBatchReviewPanel({
       )}
 
       <div className="content-batch-actions">
-        <button type="button" disabled={!approveAllEnabled} title={!canWrite ? copy.actionDisabledReadOnly : !canApproveByRole ? ownerApprovalRequired : busy ? copy.actionDisabledBusy : approveCandidates.length === 0 ? copy.batchNothingToApprove : undefined} onClick={() => void handleApproveAll()}>
+        {canApproveByRole && <button type="button" disabled={!approveAllEnabled} title={busy ? copy.actionDisabledBusy : approveCandidates.length === 0 ? copy.batchNothingToApprove : undefined} onClick={() => void handleApproveAll()}>
           {busy ? t("common").saving : copy.approveAllButton}
-        </button>
-        {!canWrite ? <small>{copy.actionDisabledReadOnly}</small> : !canApproveByRole ? <small>{ownerApprovalRequired}</small> : approveCandidates.length === 0 ? <small>{copy.batchNothingToApprove}</small> : null}
+        </button>}
       </div>
       {designNotice && <p className="content-batch-design-notice" role="status">{designNotice}</p>}
       {publishNotice && <p className="content-batch-design-notice" role="status">{publishNotice}</p>}
@@ -848,8 +846,8 @@ export function ContentBatchReviewPanel({
                     )}
                   </div>
                 )}
-                {canApproveStatus && (
-                  <button type="button" disabled={itemLocked || !canApproveByRole} title={!canApproveByRole ? ownerApprovalRequired : itemDisabledReason} onClick={() => void onApproveItem(item)}>
+                {canApproveStatus && canApproveByRole && (
+                  <button type="button" disabled={itemLocked} title={itemDisabledReason} onClick={() => void onApproveItem(item)}>
                     {copy.approveButton}
                   </button>
                 )}

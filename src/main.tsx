@@ -30,7 +30,6 @@ const C360 = lazy(() => import("./customer-360-panel"));
 const OperationsQueueView = lazy(() => import("./operations-queue-view"));
 const IntegrationsCenter = lazy(() => import("./integrations-center"));
 const AutomationsView = lazy(() => import("./automations-view"));
-const MarketingCompanyView = lazy(() => import("./marketing-company-view"));
 
 const sections = [
   ["dashboard", LayoutDashboard, "get_staff_command_center"],
@@ -725,7 +724,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
   }
 
   async function undoLastAction() {
-    if (!undoAction || !canWrite || (undoAction.action === "unschedule" && !canApprove) || busyId || batchBusy) return;
+    if (!undoAction || !canWrite || busyId || batchBusy) return;
     const action = undoAction;
     setBusyId(action.itemId); setNotice("");
     try {

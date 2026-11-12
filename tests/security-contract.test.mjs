@@ -114,7 +114,7 @@ test("owner-only content approval controls match the Supabase role boundary", ()
   assert.match(batchReviewPanel, /canApproveByRole = session\?\.role === "super_admin"/);
   assert.match(batchReviewPanel, /approveAllEnabled = canWrite && canApproveByRole/);
   assert.match(batchReviewPanel, /disabled=\{itemLocked \|\| !canApproveByRole\}/);
-  assert.match(batchReviewPanel, /Owner only/);
+  assert.match(batchReviewPanel, /canApproveStatus && canApproveByRole/);
 });
 
 test("AI Inbox supports the complete server mode allowlist", () => {
