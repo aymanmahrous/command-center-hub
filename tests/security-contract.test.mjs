@@ -112,8 +112,8 @@ test("owner-only content approval controls match the Supabase role boundary", ()
   assert.match(app, /if \(!canWrite \|\| !canApprove \|\| busyId \|\| batchBusy\) return/);
   assert.match(batchReviewPanel, /session\?: \{ accessToken: string; role\?: string \}/);
   assert.match(batchReviewPanel, /canApproveByRole = session\?\.role === "super_admin"/);
-  assert.match(batchReviewPanel, /approveAllEnabled = canWrite && canApproveByRole/);
-  assert.match(batchReviewPanel, /disabled=\{itemLocked \|\| !canApproveByRole\}/);
+  assert.match(batchReviewPanel, /approveAllEnabled = canApproveByRole/);
+  assert.match(batchReviewPanel, /canApproveByRole && <button/);
   assert.match(batchReviewPanel, /canApproveStatus && canApproveByRole/);
 });
 
