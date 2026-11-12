@@ -172,7 +172,6 @@ const AnalyticsSchema = z.object({
   bookingRequests: z.number().int().nonnegative(), publishedItems: z.number().int().nonnegative(), contentItems: z.number().int().nonnegative(),
   attributionReady: z.boolean(), note: z.string(),
 }).passthrough();
-const StoredSessionSchema = z.object({ accessToken: z.string().min(1), refreshToken: z.string().min(1).optional(), expiresAt: z.number().positive().optional() }).passthrough();
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
 const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
 const STAFF_TABLE = (import.meta.env.VITE_STAFF_PROFILE_TABLE ?? "staff_profiles").trim();
@@ -272,7 +271,7 @@ async function requestPasswordReset(email: string): Promise<void> {
   if (!response.ok) throw new Error("LOGIN_FAILED");
 }
 
-async function restoreSession(stored: z.infer<typeof StoredSessionSchema>, signal: AbortSignal): Promise<Session> {
+async function restoreSession(stored: unknown, signal: AbortSignal): Promise<Session> {
   if (!configurationReady()) throw new Error("CONFIGURATION_REQUIRED");
   const { restoreAuthSession } = await import("./auth-session");
   return restoreAuthSession(AUTH_CONFIG, stored, signal, loadStaffProfile, persistAuthTokens);
