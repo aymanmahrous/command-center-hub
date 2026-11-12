@@ -190,13 +190,6 @@ function configurationReady() {
   return isSupabaseBrowserConfigurationReady(SUPABASE_URL, SUPABASE_PUBLIC_KEY, STAFF_TABLE);
 }
 
-function passwordResetRedirect() {
-  // Default to the app root so recovery links work without an optional build-time path.
-  if (!PASSWORD_RESET_PATH) return `${window.location.origin}/`;
-  if (!PASSWORD_RESET_PATH.startsWith("/")) throw new Error("CONFIGURATION_REQUIRED");
-  return new URL(PASSWORD_RESET_PATH, window.location.origin).toString();
-}
-
 function authErrorCode(cause: unknown) {
   return cause instanceof Error ? cause.message : "LOGIN_FAILED";
 }
@@ -220,21 +213,8 @@ async function signIn(email: string, password: string): Promise<Session> {
 
 async function requestPasswordReset(email: string): Promise<void> {
   if (!configurationReady()) throw new Error("CONFIGURATION_REQUIRED");
-  const redirectTo = passwordResetRedirect();
-  let response: Response;
-  try {
-    response = await fetch(`${SUPABASE_URL}/auth/v1/recover`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", apikey: SUPABASE_PUBLIC_KEY },
-      body: JSON.stringify({ email, ...(redirectTo ? { redirect_to: redirectTo } : {}) }),
-    });
-  } catch {
-    throw new Error("NETWORK_UNAVAILABLE");
-  }
-  if (response.status === 429) throw new Error("TOO_MANY_ATTEMPTS");
-  if (response.status === 401 || response.status === 403) throw new Error("SERVICE_UNAVAILABLE");
-  if (response.status >= 500) throw new Error("SERVICE_UNAVAILABLE");
-  if (!response.ok) throw new Error("LOGIN_FAILED");
+  const { requestPasswordReset: requestReset } = await import("./auth-session");
+  return requestReset(AUTH_CONFIG, email, PASSWORD_RESET_PATH);
 }
 
 async function restoreSession(stored: unknown, signal: AbortSignal): Promise<Session> {
