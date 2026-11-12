@@ -38,7 +38,11 @@ export default function LoginView({ onAuthenticated, onSignIn, onRequestPassword
     setResetNotice("");
     try {
       const session = await onSignIn(email.trim(), password);
-      sessionStorage.setItem("relaxfix-command-session", JSON.stringify({ accessToken: session.accessToken }));
+      sessionStorage.setItem("relaxfix-command-session", JSON.stringify({
+        accessToken: session.accessToken,
+        ...(session.refreshToken ? { refreshToken: session.refreshToken } : {}),
+        ...(session.expiresAt ? { expiresAt: session.expiresAt } : {}),
+      }));
       onAuthenticated(session);
     } catch (cause) {
       setError(authMessage(authErrorCode(cause)));
