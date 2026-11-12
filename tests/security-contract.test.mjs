@@ -239,7 +239,7 @@ test("Supabase refresh tokens rotate and active sessions renew before expiry", (
   assert.match(authSession, /refresh_token: z\.string\(\)\.min\(1\)/);
   assert.match(authSession, /grant_type=refresh_token/);
   assert.match(authSession, /JSON\.stringify\(\{ refresh_token: refreshToken \}\)/);
-  assert.match(app, /async function refreshStaffSession/);
+  assert.match(app, /const \{ refreshAuthSession \} = await import\("\.\/auth-session"\)/);
   assert.match(app, /session\.expiresAt - Date\.now\(\) - 60000/);
   assert.match(authSession, /persistTokens\(refreshed\.tokens\)/);
   assert.match(authSession, /if \(stored\.refreshToken\)/);
@@ -249,7 +249,7 @@ test("Supabase refresh tokens rotate and active sessions renew before expiry", (
 
 test("logout revokes only the current Supabase session and always clears local access", () => {
   assert.match(authSession, /auth\/v1\/logout\?scope=local/);
-  assert.match(app, /void revokeLocalSession\(current\)/);
+  assert.match(app, /import\("\.\/auth-session"\)\.then\(\(\{ revokeLocalSession \}\)/);
   assert.match(app, /sessionStorage\.removeItem\("relaxfix-command-session"\)/);
 });
 
