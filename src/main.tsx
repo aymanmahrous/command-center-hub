@@ -1379,7 +1379,7 @@ function App() {
       }).catch((cause) => {
         if (cause instanceof DOMException && cause.name === "AbortError") return;
         const code = authErrorCode(cause);
-        if (!["NETWORK_UNAVAILABLE", "SERVICE_UNAVAILABLE", "TOO_MANY_ATTEMPTS", "PROFILE_CHECK_FAILED"].includes(code)) {
+        if (!["NETWORK_UNAVAILABLE", "SERVICE_UNAVAILABLE", "TOO_MANY_ATTEMPTS"].includes(code)) {
           sessionStorage.removeItem("relaxfix-command-session");
         }
       }).finally(() => {
@@ -1411,7 +1411,7 @@ function App() {
       } catch (cause) {
         if (controller.signal.aborted || (cause instanceof DOMException && cause.name === "AbortError")) return;
         const code = authErrorCode(cause);
-        if (code === "NETWORK_UNAVAILABLE" || code === "SERVICE_UNAVAILABLE" || code === "TOO_MANY_ATTEMPTS" || code === "PROFILE_CHECK_FAILED") {
+        if (code === "NETWORK_UNAVAILABLE" || code === "SERVICE_UNAVAILABLE" || code === "TOO_MANY_ATTEMPTS") {
           timeoutId = window.setTimeout(() => void refresh(), 15000);
           return;
         }
