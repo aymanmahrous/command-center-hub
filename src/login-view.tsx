@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { ShieldAlert } from "lucide-react";
 import { useLanguage } from "./i18n";
 
-type LoginSession = { accessToken: string; displayName: string; role: "super_admin" | "admin" | "reception" | "coach" | "content_manager" };
+type LoginSession = { accessToken: string; refreshToken?: string; expiresAt?: number; displayName: string; role: "super_admin" | "admin" | "reception" | "coach" | "content_manager" };
 type LoginViewProps = {
   onAuthenticated: (session: LoginSession) => void;
   onSignIn: (email: string, password: string) => Promise<LoginSession>;
