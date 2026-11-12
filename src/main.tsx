@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, LayoutDashboard, Library, LogOut, Settings2, ShieldAlert, Workflow } from "lucide-react";
 import { z } from "zod";
 import { isSupabaseBrowserConfigurationReady } from "./supabase-config";
-import type { AuthConfig, AuthTokens } from "./auth-session";
+import type { AuthConfig, AuthRole, AuthSession, AuthTokens } from "./auth-session";
 import { canApproveContentItem, sharedDatabaseBatchId, type ContentBatchItem } from "./content-batch";
 import { appendChangeRequest, buildChangeRequestNote, type ChangeRequestKind } from "./content-growth";
 import { formatLocalDateTimeInput } from "./date-utils";
@@ -54,8 +54,8 @@ const sections = [
 
 type SectionId = (typeof sections)[number][0];
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
-type Role = "super_admin" | "admin" | "reception" | "coach" | "content_manager";
-type Session = AuthTokens & { displayName: string; role: Role };
+type Role = AuthRole;
+type Session = AuthSession;
 type RadarPriority = "HOT" | "WARM" | "LOW";
 type RadarStatus = "NEW" | "REVIEWED" | "ACTIONED" | "DISMISSED"
   | "CONTACTED" | "CUSTOMER_REPLIED" | "BOOKING_REQUEST" | "BOOKED" | "PAID_CUSTOMER"
@@ -86,7 +86,6 @@ function sectionUrl(section: SectionId) {
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
-const ProfileSchema = z.object({ display_name: z.string().min(1), role: z.enum(["super_admin", "admin", "reception", "coach", "content_manager"]), active: z.literal(true) });
 const BookingSchema = z.object({
   id: z.string().uuid(), full_name: z.string(), phone: z.string().nullable().optional(), normalized_phone: z.string().nullable().optional(),
   gender: z.string().nullable().optional(), category: z.string().nullable().optional(), location: z.string().nullable().optional(), other_location: z.string().nullable().optional(),
@@ -211,45 +210,18 @@ function authMessage(code: string) {
 }
 function rpcHeaders(session: Session) { return { apikey: SUPABASE_PUBLIC_KEY, Authorization: `Bearer ${session.accessToken}`, "Content-Type": "application/json", Accept: "application/json" }; }
 
-function persistAuthTokens(tokens: AuthTokens) {
-  sessionStorage.setItem("relaxfix-command-session", JSON.stringify({
-    accessToken: tokens.accessToken,
-    ...(tokens.refreshToken ? { refreshToken: tokens.refreshToken } : {}),
-    ...(tokens.expiresAt ? { expiresAt: tokens.expiresAt } : {}),
-  }));
-}
 
-function persistSession(session: Session) {
-  persistAuthTokens(session);
-}
-
-async function loadStaffProfile(tokens: AuthTokens, userId: string, signal?: AbortSignal) {
-  let response: Response;
-  try {
-    response = await fetch(`${SUPABASE_URL}/rest/v1/${encodeURIComponent(STAFF_TABLE)}?id=eq.${encodeURIComponent(userId)}&select=display_name,role,active&limit=1`, {
-      headers: { apikey: SUPABASE_PUBLIC_KEY, Authorization: `Bearer ${tokens.accessToken}`, Accept: "application/json" }, cache: "no-store", signal,
-    });
-  } catch {
-    throw new Error("NETWORK_UNAVAILABLE");
-  }
-  if (response.status === 401) throw new Error("SESSION_EXPIRED");
-  if (response.status >= 500) throw new Error("SERVICE_UNAVAILABLE");
-  if (!response.ok) throw new Error("PROFILE_CHECK_FAILED");
-  const rows = z.array(ProfileSchema).parse(await response.json());
-  if (rows.length !== 1) throw new Error("STAFF_ACCESS_DENIED");
-  return { ...tokens, displayName: rows[0].display_name, role: rows[0].role } satisfies Session;
-}
 
 async function refreshStaffSession(refreshToken: string, signal?: AbortSignal, onTokensRotated?: (tokens: AuthTokens) => void): Promise<Session> {
   if (!configurationReady()) throw new Error("CONFIGURATION_REQUIRED");
   const { refreshAuthSession } = await import("./auth-session");
-  return refreshAuthSession(AUTH_CONFIG, refreshToken, signal, loadStaffProfile, onTokensRotated);
+  return refreshAuthSession(AUTH_CONFIG, refreshToken, signal, onTokensRotated);
 }
 
 async function signIn(email: string, password: string): Promise<Session> {
   if (!configurationReady()) throw new Error("CONFIGURATION_REQUIRED");
   const { signInWithPassword } = await import("./auth-session");
-  return signInWithPassword(AUTH_CONFIG, email, password, loadStaffProfile);
+  return signInWithPassword(AUTH_CONFIG, email, password);
 }
 
 async function requestPasswordReset(email: string): Promise<void> {
@@ -274,7 +246,7 @@ async function requestPasswordReset(email: string): Promise<void> {
 async function restoreSession(stored: unknown, signal: AbortSignal): Promise<Session> {
   if (!configurationReady()) throw new Error("CONFIGURATION_REQUIRED");
   const { restoreAuthSession } = await import("./auth-session");
-  return restoreAuthSession(AUTH_CONFIG, stored, signal, loadStaffProfile, persistAuthTokens);
+  return restoreAuthSession(AUTH_CONFIG, stored, signal);
 }
 
 async function revokeLocalSession(session: Session) {
@@ -1456,7 +1428,6 @@ function App() {
       }, 12000);
       restoreSession(stored, controller.signal).then((restored) => {
         if (controller.signal.aborted) return;
-        persistSession(restored);
         setSession(restored);
       }).catch((cause) => {
         if (cause instanceof DOMException && cause.name === "AbortError") return;
@@ -1486,10 +1457,8 @@ function App() {
       try {
         const refreshed = await refreshStaffSession(activeRefreshToken!, controller.signal, (tokens) => {
           activeRefreshToken = tokens.refreshToken ?? activeRefreshToken;
-          persistAuthTokens(tokens);
         });
         if (controller.signal.aborted) return;
-        persistSession(refreshed);
         setSession(refreshed);
       } catch (cause) {
         if (controller.signal.aborted || (cause instanceof DOMException && cause.name === "AbortError")) return;
