@@ -7,12 +7,18 @@ DECLARE
   v_definition text;
   v_old text := $old$      nullif(btrim(coalesce(p_provider_external_id, '')), ''),$old$;
   v_new text := $new$      NULL,$new$;
+  v_null_pattern text := $re$'needs_review'\s*,\s*NULL\s*,\s*v_language$re$;
 BEGIN
   SELECT pg_get_functiondef(
     'public.create_staff_generated_content_batch(jsonb,text)'::regprocedure
   ) INTO v_definition;
 
   IF position(v_old IN v_definition) = 0 THEN
+    -- Idempotent re-run: the function already stores NULL in the
+    -- provider_external_id position, so there is nothing to replace.
+    IF v_definition ~* v_null_pattern THEN
+      RETURN;
+    END IF;
     RAISE EXCEPTION 'EXPECTED_BATCH_PROVIDER_ASSIGNMENT_NOT_FOUND';
   END IF;
 

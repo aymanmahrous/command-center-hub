@@ -64,4 +64,11 @@ test("generated media completion uses schema-safe states and the link gate requi
   assert.match(generatedMigration, /'ready', 'skipped', 'blocked', 'pending'/);
   assert.match(generatedMigration, /v_asset\.media_status is distinct from 'ready'/);
   assert.match(generatedMigration, /v_asset\.consent_status is distinct from 'consent_confirmed'/);
+  const constraintGuard = generatedMigration.indexOf("media_assets_source_check");
+  const completionRpc = generatedMigration.indexOf("CREATE OR REPLACE FUNCTION public.complete_content_media_job");
+  assert.ok(constraintGuard > -1 && constraintGuard < completionRpc, "source constraint must be widened before the completion RPC is replaced");
+  assert.match(generatedMigration, /DROP CONSTRAINT IF EXISTS media_assets_source_check/);
+  for (const source of ["upload", "ai_generated", "generated", "external", "stock"]) {
+    assert.match(generatedMigration, new RegExp(`'${source}'\\s*::text`));
+  }
 });
