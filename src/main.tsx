@@ -178,7 +178,7 @@ const STAFF_TABLE = (import.meta.env.VITE_STAFF_PROFILE_TABLE ?? "staff_profiles
 const PASSWORD_RESET_PATH = (import.meta.env.VITE_PASSWORD_RESET_PATH ?? "").trim();
 
 const AUTH_MESSAGES = {
-  CONFIGURATION_REQUIRED: "إعدادات الاتصال غير مكتملة أو غير آمنة. التطبيق مغلق بأمان.\nConnection settings are incomplete or unsafe. The application is securely locked.",
+  CONFIGURATION_REQUIRED: "إعدادات الاتصال غير مكتملة أو غير آمنة. تحقق من VITE_SUPABASE_URL ومفتاح VITE_SUPABASE_PUBLISHABLE_KEY أو VITE_SUPABASE_ANON_KEY. استخدم مفتاح publishable/anon فقط، ولا تستخدم مفتاحًا سريًا.\nConnection settings are incomplete or unsafe. Check VITE_SUPABASE_URL and either VITE_SUPABASE_PUBLISHABLE_KEY or VITE_SUPABASE_ANON_KEY. Use a publishable/anon key only, never a secret key.",
   INVALID_LOGIN: "البريد الإلكتروني أو كلمة المرور غير صحيحة.\nThe email or password is incorrect.",
   STAFF_ACCESS_DENIED: "هذا الحساب غير مفعّل للوصول إلى لوحة التحكم.\nThis account is not active for Command Center access.",
   SERVICE_UNAVAILABLE: "تعذر الاتصال بالخدمة. تحقق من الإنترنت ثم حاول لاحقًا.\nUnable to reach the service. Check your connection and try again later.",
