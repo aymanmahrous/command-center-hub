@@ -151,6 +151,16 @@ test("Content batch review approves through approved RPCs only", () => {
   assert.doesNotMatch(app, /graph\.facebook|facebook\.com\/v\d+/i);
 });
 
+test("Content Factory explains the owner publishing freeze and unsupported platforms", () => {
+  assert.match(batchReviewPanel, /OWNER_PUBLISHING_FROZEN:\s*PUBLISHING_FREEZE_COPY/);
+  assert.match(batchReviewPanel, /UNSUPPORTED_PLATFORM:\s*UNSUPPORTED_PLATFORM_COPY/);
+  assert.match(batchReviewPanel, /PLATFORM_NOT_SUPPORTED:\s*UNSUPPORTED_PLATFORM_COPY/);
+  assert.match(batchReviewPanel, /النشر الحي مجمّد بقرار المالك/);
+  assert.match(batchReviewPanel, /Live publishing is frozen by owner decision/);
+  assert.match(batchReviewPanel, /لن يُرسل أي محتوى إلى منصة خارجية/);
+  assert.match(batchReviewPanel, /No content will be sent to an external platform/);
+});
+
 test("Media Library uses staff RPCs and blocks direct table mutation", () => {
   assert.match(app, /get_staff_media_assets/);
   assert.match(app, /import\("\.\/media-library-view"\)/);
