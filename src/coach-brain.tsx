@@ -422,6 +422,7 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
               ? <a className="coach-brain__reset" href="https://app.runwayml.com/" target="_blank" rel="noopener noreferrer">{language === "ar" ? "فتح Runway" : "Open Runway"}</a>
               : <a className="coach-brain__reset" href="https://www.canva.com/" target="_blank" rel="noopener noreferrer">{language === "ar" ? "فتح Canva" : "Open Canva"}</a>}
           </div>
+          <p className="coach-brain__privacy-note">{language === "ar" ? "اللصق يدوي: انسخ البرومبت ثم الصقه داخل Canva أو Runway. لا يوجد اتصال تلقائي." : "Manual paste: copy the prompt, then paste it into Canva or Runway. There is no automatic connection."}</p>
           {sampleDesignNotice && <p className="coach-brain__privacy-note" role="status">{sampleDesignNotice}</p>}
         </section>
         </article>}

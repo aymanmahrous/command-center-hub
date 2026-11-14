@@ -12,6 +12,8 @@ test("batch provider marker is no longer stored as an external publication ID", 
   assert.match(migration, /v_old text := \$old\$[\s\S]*p_provider_external_id[\s\S]*\$old\$/);
   assert.match(migration, /v_new text := \$new\$\s+NULL,/);
   assert.match(migration, /EXPECTED_BATCH_PROVIDER_ASSIGNMENT_NOT_FOUND/);
+  assert.match(migration, /v_null_pattern text := \$re\$[\s\S]*NULL[\s\S]*v_language/);
+  assert.match(migration, /IF v_definition ~\* v_null_pattern THEN\s+RETURN;/);
 });
 
 test("only the known internal batch marker is cleared from historical rows", () => {

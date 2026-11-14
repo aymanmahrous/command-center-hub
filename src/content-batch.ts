@@ -15,9 +15,26 @@ export type ContentBatchItem = {
   cta?: string;
   hashtags?: string[];
   visualPrompt?: string;
+  plannedFor?: string | null;
   scheduledFor: string | null;
   [key: string]: unknown;
 };
+
+export type ApprovalSchedule =
+  | { scheduledFor: string; reason: "ok" }
+  | { scheduledFor: null; reason: "missing" | "past" };
+
+/** Approval must schedule at an explicit future time; never let it fall back to a null slot. */
+export function resolveApprovalSchedule(
+  item: Pick<ContentBatchItem, "scheduledFor"> & { plannedFor?: string | null },
+  now = Date.now(),
+): ApprovalSchedule {
+  const candidate = item.scheduledFor ?? item.plannedFor ?? null;
+  if (!candidate) return { scheduledFor: null, reason: "missing" };
+  const time = new Date(candidate).getTime();
+  if (Number.isNaN(time) || time <= now) return { scheduledFor: null, reason: "past" };
+  return { scheduledFor: candidate, reason: "ok" };
+}
 
 export type ContentBatch = {
   batchId: string;

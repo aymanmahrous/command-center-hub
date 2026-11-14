@@ -1,6 +1,25 @@
 -- Align background-generated media completion with media_assets constraints.
+-- Widen the media source CHECK before the RPC writes 'generated'.
 -- Strengthen the media-to-content link gate so only technically ready assets can be linked.
--- No schema, RLS, storage, provider, or publishing changes.
+-- No RLS, storage, provider, or publishing changes.
+
+-- The completion RPC below writes source = 'generated', so widen the source
+-- vocabulary first. Without this guard, replaying migrations in timestamp order
+-- lets this function run before 20261101104925 widens the constraint and a generated
+-- completion fails the legacy ai_generated-only CHECK. Dropping and recreating the
+-- constraint keeps this idempotent.
+ALTER TABLE public.media_assets
+  DROP CONSTRAINT IF EXISTS media_assets_source_check;
+
+ALTER TABLE public.media_assets
+  ADD CONSTRAINT media_assets_source_check
+  CHECK (source = ANY (ARRAY[
+    'upload'::text,
+    'ai_generated'::text,
+    'generated'::text,
+    'external'::text,
+    'stock'::text
+  ]));
 
 CREATE OR REPLACE FUNCTION public.complete_content_media_job(
   p_job_id uuid,

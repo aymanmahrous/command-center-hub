@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, LayoutDashboard, Library, LogOut, Settings2, ShieldAlert, Workflow } from "lucide-react";
 import { z } from "zod";
 import { isSupabaseBrowserConfigurationReady } from "./supabase-config";
-import { canApproveContentItem, sharedDatabaseBatchId, type ContentBatchItem } from "./content-batch";
+import { canApproveContentItem, resolveApprovalSchedule, sharedDatabaseBatchId, type ContentBatchItem } from "./content-batch";
 import { appendChangeRequest, buildChangeRequestNote, type ChangeRequestKind } from "./content-growth";
 import { formatLocalDateTimeInput } from "./date-utils";
 import { LanguageProvider, useLanguage } from "./i18n";
@@ -30,7 +30,6 @@ const C360 = lazy(() => import("./customer-360-panel"));
 const OperationsQueueView = lazy(() => import("./operations-queue-view"));
 const IntegrationsCenter = lazy(() => import("./integrations-center"));
 const AutomationsView = lazy(() => import("./automations-view"));
-const MarketingCompanyView = lazy(() => import("./marketing-company-view"));
 
 const sections = [
   ["dashboard", LayoutDashboard, "get_staff_command_center"],
@@ -142,7 +141,7 @@ const StaffWhatsappSendSchema = z.object({
   messageId: z.string().uuid().optional(), dryRun: z.boolean().optional(),
 });
 const ContentItemSchema = z.object({
-  id: z.string().uuid(), scheduledFor: z.string().nullable(), platform: z.string(), contentType: z.string(),
+  id: z.string().uuid(), plannedFor: z.string().nullable().optional(), scheduledFor: z.string().nullable(), platform: z.string(), contentType: z.string(),
   topic: z.string(), hook: z.string(), caption: z.string(), cta: z.string(), hashtags: z.array(z.string()),
   visualPrompt: z.string(), status: z.enum(["idea", "draft", "generated", "needs_review", "approved", "scheduled", "published", "failed", "cancelled"]),
   providerExternalId: z.string().nullable(), publishedAt: z.string().nullable(), createdAt: z.string(), updatedAt: z.string(),
@@ -179,7 +178,7 @@ const STAFF_TABLE = (import.meta.env.VITE_STAFF_PROFILE_TABLE ?? "staff_profiles
 const PASSWORD_RESET_PATH = (import.meta.env.VITE_PASSWORD_RESET_PATH ?? "").trim();
 
 const AUTH_MESSAGES = {
-  CONFIGURATION_REQUIRED: "إعدادات الاتصال غير مكتملة أو غير آمنة. التطبيق مغلق بأمان.\nConnection settings are incomplete or unsafe. The application is securely locked.",
+  CONFIGURATION_REQUIRED: "إعدادات الاتصال غير مكتملة أو غير آمنة. تحقق من VITE_SUPABASE_URL ومفتاح VITE_SUPABASE_PUBLISHABLE_KEY أو VITE_SUPABASE_ANON_KEY. استخدم مفتاح publishable/anon فقط، ولا تستخدم مفتاحًا سريًا.\nConnection settings are incomplete or unsafe. Check VITE_SUPABASE_URL and either VITE_SUPABASE_PUBLISHABLE_KEY or VITE_SUPABASE_ANON_KEY. Use a publishable/anon key only, never a secret key.",
   INVALID_LOGIN: "البريد الإلكتروني أو كلمة المرور غير صحيحة.\nThe email or password is incorrect.",
   STAFF_ACCESS_DENIED: "هذا الحساب غير مفعّل للوصول إلى لوحة التحكم.\nThis account is not active for Command Center access.",
   SERVICE_UNAVAILABLE: "تعذر الاتصال بالخدمة. تحقق من الإنترنت ثم حاول لاحقًا.\nUnable to reach the service. Check your connection and try again later.",
@@ -662,6 +661,7 @@ function contentErrorMessage(language: Language, code: string) {
     INVALID_HASHTAG: "أحد الوسوم غير صالح أو يتجاوز 100 حرف.", INVALID_TRANSITION: "هذا الانتقال غير مسموح للحالة الحالية.",
     APPROVAL_REQUIRED: "يجب اعتماد المحتوى قبل الجدولة.", INVALID_SCHEDULE_TIME: "وقت الجدولة يجب أن يكون في المستقبل.",
     SCHEDULE_TOO_FAR: "لا يمكن الجدولة لأكثر من 366 يومًا.", INVALID_ACTION: "الإجراء المطلوب غير مسموح.",
+    APPROVE_AND_SCHEDULE_FAILED: "تعذر إتمام الاعتماد والجدولة؛ لم يتم تغيير العنصر. راجع وقت الجدولة ثم أعد المحاولة.",
   } : {
     STAFF_ACCESS_DENIED: "You don't have permission for this.", NOT_FOUND: "This content item no longer exists.",
     PUBLISHED_CONTENT_IMMUTABLE: "Published content can't be edited.", INVALID_CAPTION: "Caption is required, max 5000 characters.",
@@ -669,6 +669,7 @@ function contentErrorMessage(language: Language, code: string) {
     INVALID_HASHTAG: "A hashtag is invalid or over 100 characters.", INVALID_TRANSITION: "Not allowed for the current status.",
     APPROVAL_REQUIRED: "Content must be approved before scheduling.", INVALID_SCHEDULE_TIME: "Scheduled time must be in the future.",
     SCHEDULE_TOO_FAR: "Can't schedule more than 366 days ahead.", INVALID_ACTION: "This action isn't allowed.",
+    APPROVE_AND_SCHEDULE_FAILED: "Approval and scheduling didn't complete; the item was not changed. Check the schedule time and try again.",
   };
   return messages[code] ?? (language === "ar" ? "تعذر تنفيذ التغيير بأمان؛ لم يتم اعتماد أي تغيير غير مؤكد." : "Update failed safely; no change was made.");
 }
@@ -783,16 +784,26 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
   async function approveBatchItem(item: ContentBatchItem) {
     if (!canWrite || busyId || batchBusy || item.status === "approved") return;
     if (!canApproveContentItem(item)) return;
+    const approval = resolveApprovalSchedule(item);
+    const scheduledFor = approval.scheduledFor;
+    if (!scheduledFor) {
+      setNotice(approval.reason === "past" ? copy.scheduleMustBeFuture : copy.pickScheduleTime);
+      return;
+    }
     const confirmMessage = language === "ar"
       ? `تأكيد اعتماد «${item.topic || "محتوى بدون عنوان"}»؟ سيتم اعتماد المحتوى وجدولته للموعد المحدد.`
       : `Approve "${item.topic || copy.untitled}"? The item will be approved and scheduled for its planned time.`;
     if (!window.confirm(confirmMessage)) return;
     await runMutation(
       item.id,
-      () => callRpc(session, "approve_and_schedule_staff_content_item", {
-        p_content_item_id: item.id,
-        p_scheduled_for: item.scheduledFor,
-      }),
+      async () => {
+        const result = ContentMutationSchema.parse(await callRpc(session, "approve_and_schedule_staff_content_item", {
+          p_content_item_id: item.id,
+          p_scheduled_for: scheduledFor,
+        }));
+        if (!result.success) throw new Error(result.code ?? "APPROVE_AND_SCHEDULE_FAILED");
+        return result;
+      },
       language === "ar" ? "تم اعتماد المحتوى وجدولته." : "Item approved and scheduled.",
       { action: "unschedule", label: language === "ar" ? "إلغاء الجدولة" : "Undo scheduling" },
     );
