@@ -100,6 +100,8 @@ test("manual image and video handoff uses static Canva and Runway links with cop
   assert.ok(!copyAction.includes("fetch("));
   assert.ok(coachBrain.includes("sampleDesignPrompt"));
   assert.ok(coachBrain.includes("select all, and copy manually"));
+  assert.ok(coachBrain.includes("Manual paste: copy the prompt"));
+  assert.ok(coachBrain.includes("اللصق يدوي"));
 });
 
 test("Coach Brain and Factory share the canonical 1-to-10-day planning window", () => {

@@ -161,7 +161,7 @@ export const en = {
     published: "Published",
     failed: "Failed",
     approveAllButton: "Approve all",
-    approveButton: "Approve",
+    approveButton: "Approve & schedule",
     requestChangesButton: "Request changes",
     scheduledFor: "Scheduled for",
     untitled: "Untitled content",

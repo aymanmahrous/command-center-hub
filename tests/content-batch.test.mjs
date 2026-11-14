@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   approveAllCandidates,
@@ -8,6 +9,7 @@ import {
   groupContentBatches,
   isDuplicateScheduleCandidate,
   readBatchId,
+  resolveApprovalSchedule,
   selectPrimaryBatch,
   shouldSkipApprove,
 } from "../src/content-batch.ts";
@@ -41,6 +43,37 @@ test("approve helpers skip already approved or non-reviewable items", () => {
   assert.equal(shouldSkipApprove(approved), true);
   assert.equal(approveAllWouldChange([approved]), false);
   assert.equal(approveAllCandidates([reviewable, approved]).length, 1);
+});
+
+test("approval schedule uses the planned slot and blocks missing or past times", () => {
+  const now = Date.parse("2026-11-14T10:00:00.000Z");
+  assert.deepEqual(
+    resolveApprovalSchedule(item({ scheduledFor: null, plannedFor: "2026-11-15T10:00:00.000Z" }), now),
+    { scheduledFor: "2026-11-15T10:00:00.000Z", reason: "ok" },
+  );
+  assert.deepEqual(
+    resolveApprovalSchedule(item({ scheduledFor: "2026-11-16T10:00:00.000Z", plannedFor: "2026-11-15T10:00:00.000Z" }), now),
+    { scheduledFor: "2026-11-16T10:00:00.000Z", reason: "ok" },
+  );
+  assert.deepEqual(resolveApprovalSchedule(item({ scheduledFor: null }), now), { scheduledFor: null, reason: "missing" });
+  assert.deepEqual(
+    resolveApprovalSchedule(item({ scheduledFor: null, plannedFor: "2026-11-13T10:00:00.000Z" }), now),
+    { scheduledFor: null, reason: "past" },
+  );
+  assert.equal(resolveApprovalSchedule(item({ scheduledFor: "not-a-date" }), now).reason, "past");
+});
+
+const mainSource = await readFile(new URL("../src/main.tsx", import.meta.url), "utf8");
+
+test("owner approval action rejects failed RPCs instead of reporting success", () => {
+  const start = mainSource.indexOf("async function approveBatchItem");
+  const end = mainSource.indexOf("async function requestBatchChanges");
+  assert.ok(start > 0 && end > start);
+  const approval = mainSource.slice(start, end);
+  assert.match(approval, /resolveApprovalSchedule\(item\)/);
+  assert.match(approval, /result\.success/);
+  assert.match(approval, /throw new Error\(result\.code/);
+  assert.doesNotMatch(approval, /p_scheduled_for: item\.scheduledFor/);
 });
 
 test("duplicate schedule guard blocks scheduled and published items", () => {

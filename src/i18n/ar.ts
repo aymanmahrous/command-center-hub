@@ -163,7 +163,7 @@ export const ar: Dictionary = {
     published: "منشور",
     failed: "فشل",
     approveAllButton: "اعتماد الكل",
-    approveButton: "اعتماد",
+    approveButton: "اعتماد وجدولة",
     requestChangesButton: "طلب تعديل",
     scheduledFor: "مجدول في",
     untitled: "محتوى بدون عنوان",
