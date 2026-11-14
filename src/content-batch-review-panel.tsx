@@ -57,8 +57,20 @@ async function requestPublishJob(session: { accessToken: string }, contentItemId
   return result;
 }
 
+const PUBLISHING_FREEZE_COPY = {
+  ar: "النشر المباشر مجمّد حاليًا بقرار المالك. لن يُرسل أي محتوى إلى منصة خارجية حتى يصدر تفويض جديد.",
+  en: "Live publishing is currently frozen by the owner. No content will be sent to an external platform until new authorization is granted.",
+} as const;
+
+const UNSUPPORTED_PLATFORM_COPY = {
+  ar: "هذه المنصة غير مدعومة للنشر الآلي المباشر حاليًا. يمكنك تجهيز النص والوسائط ونشرها يدويًا.",
+  en: "Direct automated publishing is not supported for this platform yet. Prepare the caption and media for manual publishing.",
+} as const;
+
 function publishEnqueueErrorMessage(code: string | undefined, language: "ar" | "en"): string {
   const messages: Record<string, { ar: string; en: string }> = {
+    OWNER_PUBLISHING_FROZEN: PUBLISHING_FREEZE_COPY,
+    UNSUPPORTED_PLATFORM: UNSUPPORTED_PLATFORM_COPY,
     STAFF_ACCESS_DENIED: { ar: "لا تملك صلاحية طلب النشر.", en: "You do not have permission to request publish." },
     CONTENT_NOT_APPROVED: { ar: "يجب اعتماد المحتوى قبل طلب النشر.", en: "Content must be approved before requesting publish." },
     CONTENT_ALREADY_PUBLISHED: { ar: "هذا المحتوى منشور بالفعل.", en: "This content is already published." },
@@ -66,7 +78,7 @@ function publishEnqueueErrorMessage(code: string | undefined, language: "ar" | "
     MEDIA_ASSET_REQUIRED: { ar: "يلزم ربط وسائط جاهزة قبل طلب النشر.", en: "Publish-ready media must be linked before requesting publish." },
     MEDIA_ASSET_NOT_PUBLISHABLE: { ar: "الوسائط المرتبطة غير جاهزة للنشر.", en: "Linked media is not publish-ready." },
     CONTENT_NOT_READY: { ar: "المحتوى غير جاهز للنشر.", en: "Content is not ready to publish." },
-    PLATFORM_NOT_SUPPORTED: { ar: "المنصة غير مدعومة لطلب النشر.", en: "This platform is not supported for publish requests." },
+    PLATFORM_NOT_SUPPORTED: UNSUPPORTED_PLATFORM_COPY,
     ACTIVE_AUTHORIZATION_EXISTS: { ar: "يوجد تفويض نشر نشط لهذا العنصر.", en: "An active publish authorization already exists for this item." },
     META_NOT_CONFIGURED: { ar: "لم يكتمل إعداد Meta الآمن في الخادم.", en: "The secure Meta server configuration is incomplete." },
     MEDIA_MISSING: { ar: "يلزم وجود صورة أو فيديو محفوظ للنشر.", en: "A stored image or video is required for publishing." },
@@ -561,6 +573,11 @@ export function ContentBatchReviewPanel({
         </div>
         <span className={`content-status batch-status-${batchStatus}`}>{batchStatusLabels[batchStatus] ?? batchStatus}</span>
       </header>
+
+      <div className="publish-pipeline-panel" role="status">
+        <strong>{language === "ar" ? "النشر الحي مجمّد بقرار المالك" : "Live publishing is frozen by owner decision"}</strong>
+        <p className="publish-ready-note">{PUBLISHING_FREEZE_COPY[language]}</p>
+      </div>
 
       <div className="content-batch-summary" aria-label={copy.summaryAria}>
         <article><span>{copy.needsReview}</span><strong>{summary.needsReview}</strong></article>
