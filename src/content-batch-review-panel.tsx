@@ -118,7 +118,7 @@ type ContentBatchReviewPanelProps = {
   batch: ContentBatch;
   canWrite: boolean;
   busy: boolean;
-  session?: { accessToken: string };
+  session?: { accessToken: string; role?: string };
   mediaAssets?: MediaAssetRecord[];
   onMediaLinked?: () => void;
   onApproveItem: (item: ContentBatchItem) => Promise<void>;
@@ -196,7 +196,8 @@ export function ContentBatchReviewPanel({
   const summary = useMemo(() => summarizeBatch(batch.items), [batch.items]);
   const batchStatus = overallBatchStatus(batch.items);
   const approveCandidates = approveAllCandidates(batch.items);
-  const approveAllEnabled = canWrite && !busy && approveAllWouldChange(batch.items);
+  const canApproveByRole = session?.role === "super_admin";
+  const approveAllEnabled = canApproveByRole && !busy && approveAllWouldChange(batch.items);
   const assetById = useMemo(() => new Map(mediaAssets.map((asset) => [asset.id, asset])), [mediaAssets]);
   const workspaceItems = useMemo(() => {
     if (workspaceMode === "designs") return items.filter((item) => !item.mediaAssetId);
@@ -586,10 +587,9 @@ export function ContentBatchReviewPanel({
       )}
 
       <div className="content-batch-actions">
-        <button type="button" disabled={!approveAllEnabled} title={!canWrite ? copy.actionDisabledReadOnly : busy ? copy.actionDisabledBusy : approveCandidates.length === 0 ? copy.batchNothingToApprove : undefined} onClick={() => void handleApproveAll()}>
+        {canApproveByRole && <button type="button" disabled={!approveAllEnabled} title={busy ? copy.actionDisabledBusy : approveCandidates.length === 0 ? copy.batchNothingToApprove : undefined} onClick={() => void handleApproveAll()}>
           {busy ? t("common").saving : copy.approveAllButton}
-        </button>
-        {!canWrite ? <small>{copy.actionDisabledReadOnly}</small> : approveCandidates.length === 0 ? <small>{copy.batchNothingToApprove}</small> : null}
+        </button>}
       </div>
       {designNotice && <p className="content-batch-design-notice" role="status">{designNotice}</p>}
       {publishNotice && <p className="content-batch-design-notice" role="status">{publishNotice}</p>}
@@ -629,7 +629,7 @@ export function ContentBatchReviewPanel({
       </div>
       {visibleItems.length === 0 ? <p className="content-review-empty">{language === "ar" ? "لا توجد عناصر في هذه الحالة." : "No items match this status."}</p> : <div className="content-batch-grid">
         {visibleItems.map((item) => {
-          const canApprove = ["draft", "generated", "needs_review"].includes(item.status);
+          const canApproveStatus = ["draft", "generated", "needs_review"].includes(item.status);
           const canRequestChanges = ["draft", "generated", "approved", "scheduled", "failed"].includes(item.status);
           const itemLocked = busy || !canWrite;
           const pillar = readContentPillar(item);
@@ -846,7 +846,7 @@ export function ContentBatchReviewPanel({
                     )}
                   </div>
                 )}
-                {canApprove && (
+                {canApproveStatus && canApproveByRole && (
                   <button type="button" disabled={itemLocked} title={itemDisabledReason} onClick={() => void onApproveItem(item)}>
                     {copy.approveButton}
                   </button>

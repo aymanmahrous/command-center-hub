@@ -100,10 +100,21 @@ test("AI Inbox reads messages and changes mode only through approved RPCs", () =
 });
 
 test("AI Inbox mode writes are role-gated, confirmed, and duplicate-safe", () => {
-  assert.match(app, /canWriteMode = \["super_admin", "admin", "reception", "coach"\]/);
+  assert.match(app, /canWriteMode = \["super_admin", "admin", "reception"\]/);
   assert.match(app, /if \(!canWriteMode \|\| busyId \|\| conversation\.mode === next\) return/);
   assert.match(app, /تأكيد تغيير وضع محادثة/);
   assert.match(app, /Audit Log/);
+});
+
+
+test("owner-only content approval controls match the Supabase role boundary", () => {
+  assert.match(app, /const canApprove = session\.role === "super_admin"/);
+  assert.match(app, /if \(!canWrite \|\| !canApprove \|\| busyId \|\| batchBusy\) return/);
+  assert.match(batchReviewPanel, /session\?: \{ accessToken: string; role\?: string \}/);
+  assert.match(batchReviewPanel, /canApproveByRole = session\?\.role === "super_admin"/);
+  assert.match(batchReviewPanel, /approveAllEnabled = canApproveByRole/);
+  assert.match(batchReviewPanel, /canApproveByRole && <button/);
+  assert.match(batchReviewPanel, /canApproveStatus && canApproveByRole/);
 });
 
 test("AI Inbox supports the complete server mode allowlist", () => {
