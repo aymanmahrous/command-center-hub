@@ -4,7 +4,7 @@ import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, LayoutDashboard, Lib
 import { z } from "zod";
 import { isSupabaseBrowserConfigurationReady } from "./supabase-config";
 import { canApproveContentItem, sharedDatabaseBatchId, type ContentBatchItem } from "./content-batch";
-import { appendChangeRequest, buildChangeRequestNote, type ChangeRequestKind } from "./content-growth";
+import type { ChangeRequestKind } from "./content-growth";
 import { formatLocalDateTimeInput } from "./date-utils";
 import { LanguageProvider, useLanguage } from "./i18n";
 import type { Language } from "./i18n";
@@ -804,7 +804,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
       ? `تأكيد طلب تعديل «${item.topic || "محتوى بدون عنوان"}» وإعادته للمراجعة؟`
       : `Request changes and return "${item.topic || copy.untitled}" to review?`;
     if (!window.confirm(confirmMessage)) return;
-    const changeNote = buildChangeRequestNote(kind, note);
+    const { appendChangeRequest, buildChangeRequestNote } = await import("./content-growth"); const changeNote = buildChangeRequestNote(kind, note);
     const nextVisualPrompt = appendChangeRequest(String(item.visualPrompt ?? ""), changeNote);
     await runMutation(item.id, async () => {
       await updateContentItem(session, item.id, {
