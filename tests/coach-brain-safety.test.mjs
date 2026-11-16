@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
+import { runInNewContext } from "node:vm";
+import ts from "typescript";
 import { BRAND, CONTENT_CYCLE_DAYS, DEFAULT_BATCH_MIX, PLATFORM_GUIDANCE, buildCoachBrainBusinessContext, buildStrategySummary } from "../src/content-strategy.ts";
 
 const view = readFileSync(new URL("../src/coach-brain.tsx", import.meta.url), "utf8");
@@ -39,8 +41,45 @@ test("Business context is reference-only and cannot override research, medical o
   assert.match(edge, /Do not invent or infer prices, branch names, service details, or packages/);
   assert.match(edge, /tools: \[\{ google_search: \{\} \}\]/);
   assert.match(edge, /Academy Knowledge context:/);
-  assert.match(edge, /const GEMINI_MODEL = "gemini-3.7-flash"/);
+  assert.match(edge, /const GEMINI_MODEL = "gemini-3\.8-flash"/);
+  assert.doesNotMatch(edge, /temperature\s*:/);
   assert.ok(edge.indexOf("Do not diagnose ADHD") < edge.indexOf("Business and content strategy context"));
+});
+
+test("Coach Brain loads sanitized academy context through the authenticated knowledge RPC and fails closed", async () => {
+  const source = ts.createSourceFile("research.ts", edge, ts.ScriptTarget.Latest, true);
+  const names = ["sanitizeAcademyText", "buildAcademyContext", "loadAcademyContext"];
+  const declarations = source.statements.filter((node) => ts.isFunctionDeclaration(node) && names.includes(node.name?.text));
+  assert.equal(declarations.length, names.length);
+  const executable = ts.transpileModule(declarations.map((node) => node.getText(source)).join("\n"), {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None },
+  }).outputText;
+  const calls = [];
+  let response = new Response(JSON.stringify({ entries: [{ category: "Swimming", question: "Breathing", content: "Practice safely. test@example.com https://example.com" }] }));
+  const sandbox = {
+    SUPABASE_URL: "https://local-test.invalid", SUPABASE_ANON_KEY: "test-public-key",
+    fetch: async (...args) => { calls.push(args); return response; },
+  };
+  runInNewContext(executable, sandbox);
+  const context = await sandbox.loadAcademyContext("test-staff-token");
+  assert.match(context, /Category: Swimming/);
+  assert.match(context, /Practice safely/);
+  assert.doesNotMatch(context, /test@example\.com|https:\/\/example\.com/);
+  assert.equal(calls[0][0], "https://local-test.invalid/rest/v1/rpc/get_staff_knowledge_management");
+  assert.equal(calls[0][1].method, "POST");
+  assert.equal(calls[0][1].headers.apikey, "test-public-key");
+  assert.equal(calls[0][1].headers.Authorization, "Bearer test-staff-token");
+  assert.deepEqual(JSON.parse(calls[0][1].body), { p_search: null, p_language: null, p_status: "active" });
+  response = new Response(JSON.stringify({ entries: [] }));
+  assert.equal(await sandbox.loadAcademyContext("test-staff-token"), "Academy context unavailable");
+  for (const invalid of [new Response(null, { status: 403 }), new Response("not JSON"), new Response("{}")]) {
+    response = invalid;
+    await assert.rejects(sandbox.loadAcademyContext("test-staff-token"), /ACADEMY_CONTEXT_FAILED/);
+  }
+  sandbox.SUPABASE_ANON_KEY = "";
+  const count = calls.length;
+  await assert.rejects(sandbox.loadAcademyContext("test-staff-token"), /ACADEMY_CONTEXT_FAILED/);
+  assert.equal(calls.length, count, "missing credentials must not call the RPC");
 });
 
 test("Coach Brain exposes non-diagnostic safety boundaries", () => {
