@@ -34,5 +34,5 @@ export function canvaFailureDiagnostic(path: string, response: Response) {
 export function buildCanvaAssetName(contentItemId: string, extension: string): string {
   const compactId = contentItemId.replace(/[^a-zA-Z0-9]/g, "").slice(-12) || "asset";
   const safeExtension = extension.replace(/[^a-zA-Z0-9]/g, "").slice(0, 5) || "png";
-  return `coach-${compactId}.${safeExtension}`.slice(0, 50);
+  return `swimming-academy-${compactId}.${safeExtension}`.slice(0, 50);
 }
