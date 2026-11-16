@@ -123,7 +123,7 @@ test("human reply UI uses edge function and dedicated takeover RPCs", () => {
 
 test("unauthorized coach role cannot send whatsapp replies in UI gate", () => {
   assert.match(app, /canSendReply = \["super_admin", "admin", "reception", "content_manager"\]/);
-  assert.match(app, /canWriteMode = \["super_admin", "admin", "reception", "coach"\]/);
+  assert.match(app, /canWriteMode = \["super_admin", "admin", "reception"\]/);
 });
 
 test("inbox send stays in place without parent reload and composer follows takeover", () => {

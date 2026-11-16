@@ -4,7 +4,7 @@ import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, LayoutDashboard, Lib
 import { z } from "zod";
 import { isSupabaseBrowserConfigurationReady } from "./supabase-config";
 import { canApproveContentItem, sharedDatabaseBatchId, type ContentBatchItem } from "./content-batch";
-import { appendChangeRequest, buildChangeRequestNote, type ChangeRequestKind } from "./content-growth";
+import type { ChangeRequestKind } from "./content-growth";
 import { formatLocalDateTimeInput } from "./date-utils";
 import { LanguageProvider, useLanguage } from "./i18n";
 import type { Language } from "./i18n";
@@ -30,7 +30,6 @@ const C360 = lazy(() => import("./customer-360-panel"));
 const OperationsQueueView = lazy(() => import("./operations-queue-view"));
 const IntegrationsCenter = lazy(() => import("./integrations-center"));
 const AutomationsView = lazy(() => import("./automations-view"));
-const MarketingCompanyView = lazy(() => import("./marketing-company-view"));
 
 const sections = [
   ["dashboard", LayoutDashboard, "get_staff_command_center"],
@@ -414,7 +413,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
   const [conversationPatches, setConversationPatches] = useState<Record<string, Partial<InboxConversation>>>({});
   const [inboxFilter, setInboxFilter] = useState<"all" | "attention" | "unread" | "ai_active">("all");
   const [mobileListOpen, setMobileListOpen] = useState(true);
-  const canWriteMode = ["super_admin", "admin", "reception", "coach"].includes(session.role);
+  const canWriteMode = ["super_admin", "admin", "reception"].includes(session.role);
   const canSendReply = ["super_admin", "admin", "reception", "content_manager"].includes(session.role);
   const conversations = parsed.success
     ? parsed.data.map((conversation) => ({ ...conversation, ...conversationPatches[conversation.id] }))
@@ -694,6 +693,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
   const [contentPage, setContentPage] = useState(1);
   const [expandedContentId, setExpandedContentId] = useState<string | null>(null);
   const canWrite = ["super_admin", "admin", "content_manager"].includes(session.role);
+  const canApprove = session.role === "super_admin";
   const items = parsed.success ? parsed.data : [];
   const filteredItems = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("ar");
@@ -760,7 +760,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
   }
 
   async function transition(item: z.infer<typeof ContentItemSchema>, action: ContentAction, form: HTMLFormElement) {
-    if (!canWrite || busyId || batchBusy) return;
+    if (!canWrite || ((action === "approve" || action === "unschedule") && !canApprove) || busyId || batchBusy) return;
     let scheduledFor: string | null = null;
     if (action === "schedule") {
       const localValue = String(new FormData(form).get("scheduledFor") ?? "").trim();
@@ -774,14 +774,14 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
       ? `تأكيد «${contentActionLabels[action]}» للعنصر «${item.topic || "محتوى بدون عنوان"}»؟ سيتم تسجيل العملية في Audit Log.`
       : `"${contentActionLabelsEn[action]}" for "${item.topic || copy.untitled}"? Recorded in the Audit Log.`;
     if (!window.confirm(confirmMessage)) return;
-    const undo = action === "approve" && item.status !== "published"
+    const undo = action === "approve" && canApprove && item.status !== "published"
       ? { action: "return_to_review" as const, label: language === "ar" ? "تراجع عن الاعتماد" : "Undo approval" }
-      : action === "schedule" ? { action: "unschedule" as const, label: language === "ar" ? "تراجع عن الجدولة" : "Undo scheduling" } : undefined;
+      : action === "schedule" && canApprove ? { action: "unschedule" as const, label: language === "ar" ? "تراجع عن الجدولة" : "Undo scheduling" } : undefined;
     await runMutation(item.id, () => transitionContentItem(session, item.id, action, scheduledFor), language === "ar" ? `تم تنفيذ «${contentActionLabels[action]}» وتسجيل العملية بنجاح.` : `"${contentActionLabelsEn[action]}" completed and recorded.`, undo);
   }
 
   async function approveBatchItem(item: ContentBatchItem) {
-    if (!canWrite || busyId || batchBusy || item.status === "approved") return;
+    if (!canWrite || !canApprove || busyId || batchBusy || item.status === "approved") return;
     if (!canApproveContentItem(item)) return;
     const confirmMessage = language === "ar"
       ? `تأكيد اعتماد «${item.topic || "محتوى بدون عنوان"}»؟ سيتم اعتماد المحتوى وجدولته للموعد المحدد.`
@@ -804,7 +804,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
       ? `تأكيد طلب تعديل «${item.topic || "محتوى بدون عنوان"}» وإعادته للمراجعة؟`
       : `Request changes and return "${item.topic || copy.untitled}" to review?`;
     if (!window.confirm(confirmMessage)) return;
-    const changeNote = buildChangeRequestNote(kind, note);
+    const { appendChangeRequest, buildChangeRequestNote } = await import("./content-growth"); const changeNote = buildChangeRequestNote(kind, note);
     const nextVisualPrompt = appendChangeRequest(String(item.visualPrompt ?? ""), changeNote);
     await runMutation(item.id, async () => {
       await updateContentItem(session, item.id, {
@@ -852,7 +852,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
   }
 
   async function approveAllBatch(candidates: ContentBatchItem[]) {
-    if (!canWrite || busyId || batchBusy) return;
+    if (!canWrite || !canApprove || busyId || batchBusy) return;
     const pending = candidates.filter(canApproveContentItem);
     if (pending.length === 0) {
       setNotice(t("contentBatch").batchNothingToApprove);
@@ -970,10 +970,10 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
         <form className="content-actions" onSubmit={(event) => event.preventDefault()}>
           <label>{copy.scheduleTimeLabel}<input name="scheduledFor" type="datetime-local" defaultValue={scheduledLocal} disabled={!canWrite || busyId !== null || !["approved", "scheduled"].includes(item.status)} /></label>
           <div>
-            {["draft", "generated", "needs_review"].includes(item.status) && <button type="button" disabled={!canWrite || busyId !== null} onClick={(event) => void transition(item, "approve", event.currentTarget.form!)}>{copy.approveButton}</button>}
+            {canApprove && ["draft", "generated", "needs_review"].includes(item.status) && <button type="button" disabled={!canWrite || busyId !== null} onClick={(event) => void transition(item, "approve", event.currentTarget.form!)}>{copy.approveButton}</button>}
             {["draft", "generated", "approved", "scheduled", "failed"].includes(item.status) && <button type="button" className="secondary" disabled={!canWrite || busyId !== null} onClick={(event) => void transition(item, "return_to_review", event.currentTarget.form!)}>{copy.returnToReviewButton}</button>}
             {["approved", "scheduled"].includes(item.status) && <button type="button" disabled={!canWrite || busyId !== null} onClick={(event) => void transition(item, "schedule", event.currentTarget.form!)}>{item.status === "scheduled" ? copy.rescheduleButton : copy.scheduleButton}</button>}
-            {item.status === "scheduled" && <button type="button" className="secondary" disabled={!canWrite || busyId !== null} onClick={(event) => void transition(item, "unschedule", event.currentTarget.form!)}>{copy.unscheduleButton}</button>}
+            {canApprove && item.status === "scheduled" && <button type="button" className="secondary" disabled={!canWrite || busyId !== null} onClick={(event) => void transition(item, "unschedule", event.currentTarget.form!)}>{copy.unscheduleButton}</button>}
           </div>
         </form>
         <footer><span>{copy.lastUpdated}: {formatBookingDateTime(language, item.updatedAt)}</span>{item.publishedAt && <span>{copy.published}: {formatBookingDateTime(language, item.publishedAt)}</span>}{!canWrite && <span>{t("common").readOnlyNote}</span>}{item.status === "published" && <span>{copy.publishedLocked}</span>}</footer>

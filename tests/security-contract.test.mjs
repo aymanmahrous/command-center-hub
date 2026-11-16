@@ -100,10 +100,21 @@ test("AI Inbox reads messages and changes mode only through approved RPCs", () =
 });
 
 test("AI Inbox mode writes are role-gated, confirmed, and duplicate-safe", () => {
-  assert.match(app, /canWriteMode = \["super_admin", "admin", "reception", "coach"\]/);
+  assert.match(app, /canWriteMode = \["super_admin", "admin", "reception"\]/);
   assert.match(app, /if \(!canWriteMode \|\| busyId \|\| conversation\.mode === next\) return/);
   assert.match(app, /تأكيد تغيير وضع محادثة/);
   assert.match(app, /Audit Log/);
+});
+
+
+test("owner-only content approval controls match the Supabase role boundary", () => {
+  assert.match(app, /const canApprove = session\.role === "super_admin"/);
+  assert.match(app, /if \(!canWrite \|\| !canApprove \|\| busyId \|\| batchBusy\) return/);
+  assert.match(batchReviewPanel, /session\?: \{ accessToken: string; role\?: string \}/);
+  assert.match(batchReviewPanel, /canApproveByRole = session\?\.role === "super_admin"/);
+  assert.match(batchReviewPanel, /approveAllEnabled = canApproveByRole/);
+  assert.match(batchReviewPanel, /canApproveByRole && <button/);
+  assert.match(batchReviewPanel, /canApproveStatus && canApproveByRole/);
 });
 
 test("AI Inbox supports the complete server mode allowlist", () => {
@@ -149,6 +160,16 @@ test("Content batch review approves through approved RPCs only", () => {
   assert.match(app, /canApproveContentItem/);
   assert.match(app, /sharedDatabaseBatchId/);
   assert.doesNotMatch(app, /graph\.facebook|facebook\.com\/v\d+/i);
+});
+
+test("Content Factory explains the owner publishing freeze and unsupported platforms", () => {
+  assert.match(batchReviewPanel, /OWNER_PUBLISHING_FROZEN:\s*PUBLISHING_FREEZE_COPY/);
+  assert.match(batchReviewPanel, /UNSUPPORTED_PLATFORM:\s*UNSUPPORTED_PLATFORM_COPY/);
+  assert.match(batchReviewPanel, /PLATFORM_NOT_SUPPORTED:\s*UNSUPPORTED_PLATFORM_COPY/);
+  assert.match(batchReviewPanel, /النشر الحي مجمّد بقرار المالك/);
+  assert.match(batchReviewPanel, /Live publishing is frozen by owner decision/);
+  assert.match(batchReviewPanel, /لن يُرسل أي محتوى إلى منصة خارجية/);
+  assert.match(batchReviewPanel, /No content will be sent to an external platform/);
 });
 
 test("Media Library uses staff RPCs and blocks direct table mutation", () => {
