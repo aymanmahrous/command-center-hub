@@ -60,8 +60,8 @@ function pricingBlock(language, offerType) {
 function skipStateIfKnown(state, knownFacts, ledger, conflicts) {
   if (state === "awaiting_offer_type" && shouldAskQuestion("lesson_type", knownFacts, ledger, conflicts) === "skip") {
     const lessonType = knownFacts.lesson_type ?? ledger.known_facts?.lesson_type;
-    if (lessonType === "private") return "awaiting_fear_of_water";
-    if (lessonType === "group" || lessonType === "siblings") return "presented_pricing";
+    if (lessonType === "private" || lessonType === "group") return "awaiting_fear_of_water";
+    if (lessonType === "siblings") return "presented_pricing";
   }
 
   if (state === "awaiting_fear_of_water" && shouldAskQuestion("fear_of_water", knownFacts, ledger, conflicts) === "skip") {
