@@ -58,7 +58,7 @@ const copy = {
     actions: ["جهز لي خطة محتوى 10 أيام", "أعطني أفكارًا متنوعة لمحتوى السباحة", "جهز لي تصميم صورة", "جهز لي تصميم فيديو", "راجع هذا النص وحسّنه", "لخّص هذه المحادثة واقترح الخطوة التالية"],
     summaryPrompt: "لخّص إجابة البحث الأخيرة واقترح خطوة عملية تالية.", designImagePrompt: "أريد تصميم صورة تسويقية للسباحة. جهز لي Brief واضحًا للتصميم واقترح أفضل مزود متصل ومتحقق، ثم أعطني بدائل حقيقية يمكنني اختيارها بحرية.", designVideoPrompt: "أريد تصميم فيديو قصير للسباحة. جهز لي Brief واضحًا للفيديو واقترح أفضل مزود متصل ومتحقق، ثم أعطني بدائل حقيقية يمكنني اختيارها بحرية.",
     error: "تعذر تنفيذ البحث الآن. لم يتم حفظ السؤال أو إنشاء أي بيانات.",
-    privacyNote: "البحث يتم عبر خادم آمن، ومفتاح Gemini لا يصل إلى الهاتف.",
+    privacyNote: "البحث يتم عبر خادم آمن؛ Gemini أولًا وOpenAI بديل تلقائي عند توفر مفتاحه، وقد تُحتسب تكلفة API. المفاتيح لا تصل إلى الهاتف.",
     examples: [
       "طفل يخاف من الماء وعنده صعوبات انتباه، كيف أبدأ تدريبه تدريجيًا؟",
       "سباح 12 سنة، كيف أطور تكنيك وانسيابية 100م حرة وفق الأدلة؟",
@@ -99,7 +99,7 @@ const copy = {
     actions: ["Prepare a 10-day content plan", "Give me varied swimming content ideas", "Prepare an image design", "Prepare a video design", "Review and improve this copy", "Summarize this conversation and suggest the next step"],
     summaryPrompt: "Summarize the latest research answer and suggest one practical next step.", designImagePrompt: "I want a swimming marketing image. Prepare a clear design brief, recommend the best connected and verified provider, and show real alternatives I can freely choose.", designVideoPrompt: "I want a short swimming video. Prepare a clear video brief, recommend the best connected and verified provider, and show real alternatives I can freely choose.",
     error: "The research could not be completed. The question was not saved and no swimmer record was created.",
-    privacyNote: "Research runs through a secure server; the Gemini key never reaches the phone.",
+    privacyNote: "Research uses a secure server: Gemini first, then OpenAI when configured. API charges may apply; keys never reach the phone.",
     examples: [
       "A child has water fear and attention difficulties. How to begin step by step?",
       "How to improve a 12-year-old swimmer's 100m freestyle technique based on evidence?",
@@ -167,7 +167,7 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
   }
 
   function sendResultToFactory() {
-    if (!result && !sample) return;
+    if (!result && !sample && !question.trim()) return;
     const createdAt = new Date().toISOString();
     const contentGoal = (sample?.topic?.trim() || question.trim() || "Coach Brain content plan").slice(0, 500);
     const handoff = JSON.stringify({
@@ -255,7 +255,7 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
       setResult({ question: value, answer: payload.answer, isSummary: Boolean(reference), sources: Array.isArray(payload.sources) ? payload.sources : [], searchQueries: payload.searchQueries, usage: payload.usage ?? null });
     } catch (cause) {
       const code = cause instanceof Error ? cause.message : "RESEARCH_FAILED";
-      if (code === "NEEDS_CREDENTIAL") setError(language === "ar" ? "Coach Brain يحتاج مفتاح Gemini في Supabase Edge Function باسم GEMINI_API_KEY. لا تضع المفتاح داخل التطبيق." : "Coach Brain needs the Gemini key in Supabase Edge Function secrets as GEMINI_API_KEY. Do not put the key in the app.");
+      if (code === "NEEDS_CREDENTIAL") setError(language === "ar" ? "لا يتوفر مفتاح Gemini أو OpenAI على الخادم. استخدم البديل اليدوي أدناه؛ لا تضع المفاتيح داخل التطبيق." : "Neither Gemini nor OpenAI credentials are configured on the server. Use the manual alternative below; never put keys in the app.");
       else if (code === "AUTH_REQUIRED" || code === "STAFF_ACCESS_DENIED") setError(language === "ar" ? "جلسة الدخول غير صالحة أو لا تملك صلاحية Coach Brain. سجّل الدخول مرة أخرى." : "The staff session is invalid or does not have Coach Brain access. Sign in again.");
       else if (code === "ACADEMY_CONTEXT_FAILED") setError(language === "ar" ? "Coach Brain وصل للخدمة لكن لم يستطع تحميل Academy Knowledge. سأحتاج إصلاح مسار المعرفة، وليس مفتاحًا جديدًا." : "Coach Brain reached the service but could not load Academy Knowledge. This needs a knowledge-path fix, not a new key.");
       else setError(t.error);
@@ -447,6 +447,23 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
       </section>
 
       {error && <section className="coach-brain__error" role="alert"><AlertTriangle size={18} /> {error}</section>}
+
+      <section className="coach-brain__card" aria-label={language === "ar" ? "البديل اليدوي بدون API" : "Manual alternative without API"}>
+        <strong>{language === "ar" ? "بديل دائم بدون رصيد API" : "Always available without API credits"}</strong>
+        <p>{language === "ar" ? "انسخ المهمة وافتح الأداة باشتراكك الخاص؛ قد تطلب الأداة اشتراكًا. لا إرسال تلقائي ولا نشر. تجنب البيانات الشخصية." : "Copy the task and open a tool with your own account; tool subscriptions may apply. No automatic submission or publishing. Avoid personal data."}</p>
+        <div className="coach-brain__sample-design-actions">
+          <button type="button" className="coach-brain__reset" disabled={!question.trim()} onClick={async () => {
+            try { await navigator.clipboard.writeText(question.trim()); setSampleDesignNotice(language === "ar" ? "تم نسخ البرومبت." : "Prompt copied."); }
+            catch { setSampleDesignNotice(language === "ar" ? "تعذر النسخ؛ حدد النص من مربع السؤال وانسخه يدويًا." : "Copy failed; select the question text and copy manually."); }
+          }}>{language === "ar" ? "نسخ البرومبت" : "Copy prompt"}</button>
+          <a className="coach-brain__reset" href="https://gemini.google.com/" target="_blank" rel="noopener noreferrer">{language === "ar" ? "فتح Gemini" : "Open Gemini"}</a>
+          <a className="coach-brain__reset" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">{language === "ar" ? "فتح ChatGPT" : "Open ChatGPT"}</a>
+          <a className="coach-brain__reset" href="https://www.canva.com/" target="_blank" rel="noopener noreferrer">{language === "ar" ? "فتح Canva" : "Open Canva"}</a>
+          <a className="coach-brain__reset" href="https://app.runwayml.com/" target="_blank" rel="noopener noreferrer">{language === "ar" ? "فتح Runway" : "Open Runway"}</a>
+          <button type="button" className="coach-brain__reset" disabled={busy || (!question.trim() && !result && !sample)} onClick={sendResultToFactory}>{language === "ar" ? "إرسال إلى مصنع المحتوى" : "Send to Content Factory"}</button>
+        </div>
+        {sampleDesignNotice && <p role="status">{sampleDesignNotice}</p>}
+      </section>
 
       {!result && !busy && !error && <section className="coach-brain__empty"><BookOpen size={32} /><strong>{t.empty}</strong></section>}
 

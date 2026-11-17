@@ -7,7 +7,9 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const GEMINI_API_KEY = (Deno.env.get("GEMINI_API_KEY") ?? "").trim();
+const OPENAI_API_KEY = (Deno.env.get("OPENAI_API_KEY") ?? "").trim();
 const GEMINI_MODEL = "gemini-3.8-flash";
+const OPENAI_MODEL = (Deno.env.get("OPENAI_MODEL") ?? "gpt-6-luna").trim();
 const ALLOWED_ROLES = new Set(["super_admin", "admin", "coach", "reception"]);
 const CORS_HEADERS = { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, apikey, content-type", "access-control-allow-methods": "POST, OPTIONS" };
 
@@ -131,6 +133,8 @@ async function callGemini(prompt: string) {
     method: "POST",
     headers: { "content-type": "application/json", "x-goog-api-key": GEMINI_API_KEY },
     body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], tools: [{ google_search: {} }] }),
+    signal: AbortSignal.timeout(60_000),
+    redirect: "error",
   });
   if (!response.ok) {
     return { error: json({ success: false, code: "GEMINI_REQUEST_FAILED", providerStatus: response.status }, 502) };
@@ -152,11 +156,43 @@ async function callGemini(prompt: string) {
   });
   return { data: { answer: String(text), sources: [...new Map(sources.map((source) => [source.url, source])).values()], searchQueries: Array.isArray(grounding?.webSearchQueries) ? grounding.webSearchQueries : [], usage } };
 }
+async function callOpenAI(prompt: string) {
+  try {
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
+      body: JSON.stringify({ model: OPENAI_MODEL, input: prompt, instructions: "No live web search tool is available on this fallback. Explicitly disclose that live source verification was unavailable; never claim to have searched or verified current sources. Preserve the requested response structure and all medical and water-safety boundaries." }),
+      signal: AbortSignal.timeout(60_000),
+      redirect: "error",
+    });
+    if (!response.ok) return { error: json({ success: false, code: "OPENAI_REQUEST_FAILED", providerStatus: response.status }, 502) };
+    const payload = await response.json().catch(() => null) as JsonObject | null;
+    const output = Array.isArray(payload?.output) ? payload.output as JsonObject[] : [];
+    const answer = output.filter((item) => item.type === "message").flatMap((item) => Array.isArray(item.content) ? item.content as JsonObject[] : [])
+      .filter((item) => item.type === "output_text" && typeof item.text === "string").map((item) => item.text as string).join("\n").trim();
+    if (!answer || payload?.status === "incomplete" || payload?.status === "failed") return { error: json({ success: false, code: "OPENAI_EMPTY_RESPONSE" }, 502) };
+    return { data: { answer, sources: [], searchQueries: [], usage: null, provider: "openai", model: OPENAI_MODEL } };
+  } catch {
+    return { error: json({ success: false, code: "OPENAI_CONNECTION_FAILED" }, 502) };
+  }
+}
+async function callResearchProvider(prompt: string) {
+  if (GEMINI_API_KEY) {
+    try {
+      const result = await callGemini(prompt);
+      if (result.data || !OPENAI_API_KEY) return result;
+    } catch {
+      if (!OPENAI_API_KEY) return { error: json({ success: false, code: "GEMINI_CONNECTION_FAILED" }, 502) };
+    }
+  }
+  if (OPENAI_API_KEY) return callOpenAI(prompt);
+  return { error: json({ success: false, code: "NEEDS_CREDENTIAL" }, 424) };
+}
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
   if (request.method !== "POST") return json({ success: false, code: "METHOD_NOT_ALLOWED" }, 405);
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) return json({ success: false, code: "SERVER_MISCONFIGURED" }, 500);
-  if (!GEMINI_API_KEY) return json({ success: false, code: "NEEDS_CREDENTIAL" }, 424);
+  if (!GEMINI_API_KEY && !OPENAI_API_KEY) return json({ success: false, code: "NEEDS_CREDENTIAL" }, 424);
   const token = bearerToken(request);
   if (!token) return json({ success: false, code: "AUTH_REQUIRED" }, 401);
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
@@ -168,7 +204,7 @@ Deno.serve(async (request) => {
   if (!question) return json({ success: false, code: "QUESTION_REQUIRED" }, 400);
   let academyContext: string;
   try { academyContext = await loadAcademyContext(token); } catch { return json({ success: false, code: "ACADEMY_CONTEXT_FAILED" }, 502); }
-  const result = await callGemini(buildPrompt(question, academyContext, referenceAnswer || undefined));
+  const result = await callResearchProvider(buildPrompt(question, academyContext, referenceAnswer || undefined));
   if ("error" in result && result.error) return result.error;
   return json({ success: true, query: question, ...(result.data as JsonObject) });
 });

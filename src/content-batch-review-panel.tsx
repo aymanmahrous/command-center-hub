@@ -714,6 +714,17 @@ export function ContentBatchReviewPanel({
                 </div>
               </details>
               <footer>
+                <div className="content-design-provider-picker" role="group" aria-label={language === "ar" ? "تصميم يدوي بدون API" : "Manual design without API"}>
+                  <details><summary>{language === "ar" ? "برومبت التصميم" : "Design prompt"}</summary><textarea readOnly rows={4} value={String(item.visualPrompt || item.caption || item.topic || "")} onFocus={(event) => event.currentTarget.select()} /></details>
+                  <button type="button" className="secondary" disabled={!String(item.visualPrompt || item.caption || item.topic || "").trim()} onClick={async () => {
+                    try { await navigator.clipboard.writeText(String(item.visualPrompt || item.caption || item.topic || "")); setDesignNotice(language === "ar" ? "تم نسخ برومبت التصميم." : "Design prompt copied."); }
+                    catch { setDesignNotice(language === "ar" ? "تعذر النسخ؛ افتح برومبت التصميم وحدد النص وانسخه يدويًا." : "Copy failed; expand the design prompt, select the text and copy manually."); }
+                  }}>{language === "ar" ? "نسخ برومبت التصميم" : "Copy design prompt"}</button>
+                  <a href="https://gemini.google.com/" target="_blank" rel="noopener noreferrer">{language === "ar" ? "فتح Gemini" : "Open Gemini"}</a>
+                  <a href="https://www.canva.com/" target="_blank" rel="noopener noreferrer">{language === "ar" ? "فتح Canva" : "Open Canva"}</a>
+                  <a href="https://app.runwayml.com/" target="_blank" rel="noopener noreferrer">{language === "ar" ? "فتح Runway" : "Open Runway"}</a>
+                  <small>{language === "ar" ? "صمّم خارجيًا ثم اربط الأصل أو ارفعه بالخيارات الموجودة؛ تبقى الموافقات وأقفال النشر مطلوبة." : "Design externally, then link or upload using the existing controls; approval and publishing locks still apply."}</small>
+                </div>
                 {session && Boolean(item.mediaAssetId) && item.status !== "published" && (
                   <div className="content-media-replace-toggle">
                     <button

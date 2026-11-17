@@ -82,6 +82,81 @@ test("Coach Brain loads sanitized academy context through the authenticated know
   assert.equal(calls.length, count, "missing credentials must not call the RPC");
 });
 
+test("Coach Brain falls back once to OpenAI without changing the safety prompt or inventing sources and cost", async (t) => {
+  const source = ts.createSourceFile("research.ts", edge, ts.ScriptTarget.Latest, true);
+  const names = ["json", "buildPrompt", "callGemini", "callOpenAI", "callResearchProvider"];
+  const declarations = source.statements.filter((node) => ts.isFunctionDeclaration(node) && names.includes(node.name?.text));
+  assert.equal(declarations.length, names.length);
+  const executable = ts.transpileModule(declarations.map((node) => node.getText(source)).join("\n"), {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None },
+  }).outputText;
+  const scenarios = [
+    { name: "Gemini success", gemini: "ok", openai: "ok", expected: "gemini" },
+    { name: "no Gemini key", gemini: "missing", openai: "ok", expected: "openai" },
+    ...[403, 429, 500, "network", "invalid-json", "empty"].map((gemini) => ({ name: `Gemini ${gemini}`, gemini, openai: "ok", expected: "openai" })),
+    { name: "neither credential", gemini: "missing", openai: "missing", code: "NEEDS_CREDENTIAL" },
+    { name: "no fallback credential", gemini: 403, openai: "missing", code: "GEMINI_REQUEST_FAILED" },
+    { name: "both fail", gemini: 429, openai: 403, code: "OPENAI_REQUEST_FAILED" },
+    ...["empty", "invalid-json", "network", "incomplete", "refusal"].map((openai) => ({ name: `OpenAI ${openai}`, gemini: "missing", openai, code: openai === "network" ? "OPENAI_CONNECTION_FAILED" : "OPENAI_EMPTY_RESPONSE" })),
+  ];
+  for (const scenario of scenarios) await t.test(scenario.name, async () => {
+    const calls = [];
+    const sandbox = {
+      GEMINI_API_KEY: scenario.gemini === "missing" ? "" : "synthetic-gemini-secret",
+      OPENAI_API_KEY: scenario.openai === "missing" ? "" : "synthetic-openai-secret",
+      GEMINI_MODEL: "gemini-3.8-flash", OPENAI_MODEL: "configured-model", CORS_HEADERS: {}, Response, AbortSignal,
+      buildCoachBrainBusinessContext: () => null, buildGeminiUsageSummary: () => ({ requestedModel: "gemini-3.8-flash" }),
+      fetch: async (url, options) => {
+        const isOpenAI = url === "https://api.openai.com/v1/responses";
+        const state = isOpenAI ? scenario.openai : scenario.gemini;
+        const body = JSON.parse(options.body);
+        calls.push(isOpenAI ? "openai" : "gemini");
+        assert.equal(options.method, "POST");
+        assert.equal(options.redirect, "error");
+        assert.ok(options.signal);
+        const prompt = isOpenAI ? body.input : body.contents[0].parts[0].text;
+        assert.match(prompt, /Never diagnose medical/);
+        assert.match(prompt, /الخلاصة والرأي الموصى به/);
+        assert.match(prompt, /أفضل خطوة تالية/);
+        assert.match(prompt, /التكلفة المتوقعة والمخاطر/);
+        if (isOpenAI) {
+          assert.equal(options.headers.Authorization, "Bearer synthetic-openai-secret");
+          assert.equal(body.model, "configured-model");
+          assert.equal(body.text, undefined, "research preserves the three-part plain text answer, not batch JSON");
+        }
+        if (state === "network") throw new Error("synthetic-secret-provider-error");
+        if (typeof state === "number") return new Response("synthetic-secret-provider-error", { status: state });
+        if (state === "invalid-json") return new Response("not JSON");
+        if (state === "empty") return new Response("{}");
+        return new Response(JSON.stringify(isOpenAI
+          ? { status: state === "incomplete" ? "incomplete" : "completed", output: [{ type: "message", content: [{ type: state === "refusal" ? "refusal" : "output_text", text: "Safe answer" }] }] }
+          : { candidates: [{ content: { parts: [{ text: "Safe answer" }] } }] }));
+      },
+    };
+    runInNewContext(executable, sandbox);
+    const result = await sandbox.callResearchProvider(sandbox.buildPrompt("Swimming question", "Academy context"));
+    if (scenario.expected) {
+      assert.equal(result.data.answer, "Safe answer");
+      assert.equal(calls.at(-1), scenario.expected);
+      if (scenario.expected === "openai") {
+        assert.equal(result.data.provider, "openai");
+        assert.equal(result.data.usage, null);
+        assert.equal(result.data.sources.length, 0);
+        assert.equal(result.data.searchQueries.length, 0);
+      }
+    } else {
+      const payload = await result.error.json();
+      assert.equal(payload.code, scenario.code);
+      assert.doesNotMatch(JSON.stringify(payload), /synthetic|secret/);
+    }
+    assert.ok(calls.filter((provider) => provider === "openai").length <= 1, "no paid retry loop");
+    if (scenario.expected === "gemini") assert.deepEqual(calls, ["gemini"]);
+    if (scenario.gemini === "missing") assert.ok(!calls.includes("gemini"));
+  });
+  assert.match(edge, /callResearchProvider\(buildPrompt\(question, academyContext, referenceAnswer \|\| undefined\)\)/);
+  assert.match(edge, /if \(!GEMINI_API_KEY && !OPENAI_API_KEY\)/);
+});
+
 test("Coach Brain exposes non-diagnostic safety boundaries", () => {
   assert.match(view, /does not diagnose|لا يشخّص/);
   assert.match(view, /medical treatment|علاجًا طبيًا/);
@@ -91,6 +166,47 @@ test("Coach Brain exposes non-diagnostic safety boundaries", () => {
   assert.match(app, /<CoachBrain language=\{language\}/);
   assert.match(app, /onNavigate=\{\(section\) =>/);
   assert.match(app, /go\(section as SectionId\)/);
+});
+
+test("manual alternatives stay available without research and hand off the original task without an invented answer", () => {
+  const panel = readFileSync(new URL("../src/content-batch-review-panel.tsx", import.meta.url), "utf8");
+  for (const [text, urls] of [[view, ["https://gemini.google.com/", "https://chatgpt.com/", "https://www.canva.com/", "https://app.runwayml.com/"]], [panel, ["https://gemini.google.com/", "https://www.canva.com/", "https://app.runwayml.com/"]]]) {
+    for (const url of urls) assert.ok(text.includes(`href="${url}" target="_blank" rel="noopener noreferrer"`));
+  }
+  assert.match(view, /نسخ البرومبت/);
+  assert.match(panel, /نسخ برومبت التصميم/);
+  assert.match(panel, /handleLinkMedia\(item, selectedAssetByItem\[item.id\]\)/);
+  assert.match(panel, /uploadStaffMediaFile/);
+  const source = ts.createSourceFile("brain.tsx", view, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let handler;
+  function visit(node) {
+    if (ts.isFunctionDeclaration(node) && node.name?.text === "sendResultToFactory") handler = node;
+    ts.forEachChild(node, visit);
+  }
+  visit(source);
+  assert.ok(handler);
+  const executable = ts.transpileModule(handler.getText(source), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None } }).outputText;
+  let stored;
+  let destination;
+  const sandbox = {
+    question: "Prepare a safe swimming plan", result: null, sample: null, language: "en",
+    selectedPlanDays: () => 7, planMix: "varied", planExecution: "manual", URL,
+    writeCoachBrainFactoryHandoff: (value) => { stored = JSON.parse(value); },
+    readCoachBrainFactoryHandoff: () => stored,
+    setError: () => assert.fail("successful handoff should not report an error"),
+    window: { location: { href: "https://local-test.invalid/", assign: (url) => { destination = url; } } },
+  };
+  runInNewContext(executable, sandbox);
+  sandbox.sendResultToFactory();
+  assert.equal(stored.question, sandbox.question);
+  assert.equal(stored.contentGoal, sandbox.question);
+  assert.equal(stored.answer, "");
+  assert.deepEqual(stored.sources, []);
+  assert.equal(new URL(destination).searchParams.get("factoryContext"), "coach-brain");
+  stored = null;
+  sandbox.question = "  ";
+  sandbox.sendResultToFactory();
+  assert.equal(stored, null, "empty task must not create a handoff");
 });
 
 test("Coach Brain includes a no-forced-submersion boundary", () => {
