@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, LayoutDashboard, Library, LogOut, Settings2, ShieldAlert, Workflow } from "lucide-react";
 import { z } from "zod";
 import { isSupabaseBrowserConfigurationReady } from "./supabase-config";
-import { canApproveContentItem, sharedDatabaseBatchId, type ContentBatchItem } from "./content-batch";
+import { assertSuccessfulContentMutation, canApproveContentItem, sharedDatabaseBatchId, type ContentBatchItem } from "./content-batch";
 import type { ChangeRequestKind } from "./content-growth";
 import { formatLocalDateTimeInput } from "./date-utils";
 import { LanguageProvider, useLanguage } from "./i18n";
@@ -789,10 +789,13 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
     if (!window.confirm(confirmMessage)) return;
     await runMutation(
       item.id,
-      () => callRpc(session, "approve_and_schedule_staff_content_item", {
-        p_content_item_id: item.id,
-        p_scheduled_for: item.scheduledFor,
-      }),
+      async () => assertSuccessfulContentMutation(
+        ContentMutationSchema.parse(await callRpc(session, "approve_and_schedule_staff_content_item", {
+          p_content_item_id: item.id,
+          p_scheduled_for: item.scheduledFor,
+        })),
+        "APPROVE_AND_SCHEDULE_FAILED",
+      ),
       language === "ar" ? "تم اعتماد المحتوى وجدولته." : "Item approved and scheduled.",
       { action: "unschedule", label: language === "ar" ? "إلغاء الجدولة" : "Undo scheduling" },
     );
