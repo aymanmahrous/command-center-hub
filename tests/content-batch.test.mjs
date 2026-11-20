@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   approveAllCandidates,
+  assertSuccessfulContentMutation,
   approveAllWouldChange,
   buildDayNineReminder,
   canApproveContentItem,
@@ -41,6 +42,19 @@ test("approve helpers skip already approved or non-reviewable items", () => {
   assert.equal(shouldSkipApprove(approved), true);
   assert.equal(approveAllWouldChange([approved]), false);
   assert.equal(approveAllCandidates([reviewable, approved]).length, 1);
+});
+
+test("approval RPC failures are not treated as successful mutations", () => {
+  assert.throws(
+    () => assertSuccessfulContentMutation({ success: false, code: "INVALID_SCHEDULE_TIME" }),
+    /INVALID_SCHEDULE_TIME/,
+  );
+  assert.throws(
+    () => assertSuccessfulContentMutation({ success: false }, "APPROVE_AND_SCHEDULE_FAILED"),
+    /APPROVE_AND_SCHEDULE_FAILED/,
+  );
+  const success = { success: true, status: "scheduled" };
+  assert.equal(assertSuccessfulContentMutation(success), success);
 });
 
 test("duplicate schedule guard blocks scheduled and published items", () => {
