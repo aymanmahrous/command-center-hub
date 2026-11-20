@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 import {
   approveAllCandidates,
   assertSuccessfulContentMutation,
@@ -43,6 +44,20 @@ test("approve helpers skip already approved or non-reviewable items", () => {
   assert.equal(shouldSkipApprove(approved), true);
   assert.equal(approveAllWouldChange([approved]), false);
   assert.equal(approveAllCandidates([reviewable, approved]).length, 1);
+});
+
+const mainSource = await readFile(new URL("../src/main.tsx", import.meta.url), "utf8");
+
+test("owner batch approval uses planned schedule and validates the RPC result", () => {
+  const start = mainSource.indexOf("async function approveBatchItem");
+  const end = mainSource.indexOf("async function requestBatchChanges");
+  assert.ok(start > 0 && end > start);
+  const approval = mainSource.slice(start, end);
+  assert.match(approval, /!canApprove/);
+  assert.match(approval, /resolveApprovalSchedule\\(item\\)/);
+  assert.match(approval, /assertSuccessfulContentMutation/);
+  assert.match(approval, /p_scheduled_for: scheduledFor/);
+  assert.doesNotMatch(approval, /p_scheduled_for: item\\.scheduledFor/);
 });
 
 test("approval schedule falls back to plannedFor and rejects missing or past times", () => {
