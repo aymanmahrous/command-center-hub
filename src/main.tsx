@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, LayoutDashboard, Library, LogOut, Settings2, ShieldAlert, Workflow } from "lucide-react";
 import { z } from "zod";
 import { isSupabaseBrowserConfigurationReady } from "./supabase-config";
-import { assertSuccessfulContentMutation, canApproveContentItem, sharedDatabaseBatchId, type ContentBatchItem } from "./content-batch";
+import { assertSuccessfulContentMutation, canApproveContentItem, resolveApprovalSchedule, sharedDatabaseBatchId, type ContentBatchItem } from "./content-batch";
 import type { ChangeRequestKind } from "./content-growth";
 import { formatLocalDateTimeInput } from "./date-utils";
 import { LanguageProvider, useLanguage } from "./i18n";
@@ -141,7 +141,7 @@ const StaffWhatsappSendSchema = z.object({
   messageId: z.string().uuid().optional(), dryRun: z.boolean().optional(),
 });
 const ContentItemSchema = z.object({
-  id: z.string().uuid(), scheduledFor: z.string().nullable(), platform: z.string(), contentType: z.string(),
+  id: z.string().uuid(), plannedFor: z.string().nullable().optional(), scheduledFor: z.string().nullable(), platform: z.string(), contentType: z.string(),
   topic: z.string(), hook: z.string(), caption: z.string(), cta: z.string(), hashtags: z.array(z.string()),
   visualPrompt: z.string(), status: z.enum(["idea", "draft", "generated", "needs_review", "approved", "scheduled", "published", "failed", "cancelled"]),
   providerExternalId: z.string().nullable(), publishedAt: z.string().nullable(), createdAt: z.string(), updatedAt: z.string(),
@@ -783,6 +783,12 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
   async function approveBatchItem(item: ContentBatchItem) {
     if (!canWrite || !canApprove || busyId || batchBusy || item.status === "approved") return;
     if (!canApproveContentItem(item)) return;
+    const approval = resolveApprovalSchedule(item);
+    const scheduledFor = approval.scheduledFor;
+    if (!scheduledFor) {
+      setNotice(approval.reason === "past" ? copy.scheduleMustBeFuture : copy.pickScheduleTime);
+      return;
+    }
     const confirmMessage = language === "ar"
       ? `تأكيد اعتماد «${item.topic || "محتوى بدون عنوان"}»؟ سيتم اعتماد المحتوى وجدولته للموعد المحدد.`
       : `Approve "${item.topic || copy.untitled}"? The item will be approved and scheduled for its planned time.`;
@@ -792,7 +798,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
       async () => assertSuccessfulContentMutation(
         ContentMutationSchema.parse(await callRpc(session, "approve_and_schedule_staff_content_item", {
           p_content_item_id: item.id,
-          p_scheduled_for: item.scheduledFor,
+          p_scheduled_for: scheduledFor,
         })),
         "APPROVE_AND_SCHEDULE_FAILED",
       ),
