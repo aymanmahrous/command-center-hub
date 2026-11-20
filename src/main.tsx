@@ -659,14 +659,14 @@ function contentErrorMessage(language: Language, code: string) {
     PUBLISHED_CONTENT_IMMUTABLE: "المحتوى المنشور غير قابل للتحرير.", INVALID_CAPTION: "النص مطلوب ويجب ألا يتجاوز 5000 حرف.",
     CONTENT_FIELD_TOO_LONG: "أحد الحقول يتجاوز الحد المسموح.", TOO_MANY_HASHTAGS: "الحد الأقصى 30 وسمًا.",
     INVALID_HASHTAG: "أحد الوسوم غير صالح أو يتجاوز 100 حرف.", INVALID_TRANSITION: "هذا الانتقال غير مسموح للحالة الحالية.",
-    APPROVAL_REQUIRED: "يجب اعتماد المحتوى قبل الجدولة.", INVALID_SCHEDULE_TIME: "وقت الجدولة يجب أن يكون في المستقبل.",
+    APPROVAL_REQUIRED: "يجب اعتماد المحتوى قبل الجدولة.", APPROVE_AND_SCHEDULE_FAILED: "تعذر اعتماد المحتوى وجدولته. لم يتم تغيير العنصر؛ تحقق من الموعد ودعم المنصة ثم حاول مرة أخرى.", INVALID_SCHEDULE_TIME: "وقت الجدولة يجب أن يكون في المستقبل.",
     SCHEDULE_TOO_FAR: "لا يمكن الجدولة لأكثر من 366 يومًا.", INVALID_ACTION: "الإجراء المطلوب غير مسموح.",
   } : {
     STAFF_ACCESS_DENIED: "You don't have permission for this.", NOT_FOUND: "This content item no longer exists.",
     PUBLISHED_CONTENT_IMMUTABLE: "Published content can't be edited.", INVALID_CAPTION: "Caption is required, max 5000 characters.",
     CONTENT_FIELD_TOO_LONG: "One field exceeds the allowed length.", TOO_MANY_HASHTAGS: "Max 30 hashtags.",
     INVALID_HASHTAG: "A hashtag is invalid or over 100 characters.", INVALID_TRANSITION: "Not allowed for the current status.",
-    APPROVAL_REQUIRED: "Content must be approved before scheduling.", INVALID_SCHEDULE_TIME: "Scheduled time must be in the future.",
+    APPROVAL_REQUIRED: "Content must be approved before scheduling.", APPROVE_AND_SCHEDULE_FAILED: "Approval and scheduling could not be completed. The item was not changed; check the time and supported platform, then try again.", INVALID_SCHEDULE_TIME: "Scheduled time must be in the future.",
     SCHEDULE_TOO_FAR: "Can't schedule more than 366 days ahead.", INVALID_ACTION: "This action isn't allowed.",
   };
   return messages[code] ?? (language === "ar" ? "تعذر تنفيذ التغيير بأمان؛ لم يتم اعتماد أي تغيير غير مؤكد." : "Update failed safely; no change was made.");
