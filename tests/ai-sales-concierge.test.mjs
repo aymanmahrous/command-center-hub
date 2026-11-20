@@ -58,6 +58,24 @@ test("qualification asks short offer-type question before pricing", () => {
   assert.match(result.draftReply, /private swimming lesson or a group lesson/i);
 });
 
+test("known group lesson asks about fear of water when unknown", () => {
+  const result = turn("Hello", { intent: "concierge:awaiting_offer_type", knownFacts: { lesson_type: "group" } });
+  assert.equal(result.nextIntent, "concierge:awaiting_fear_of_water");
+  assert.match(result.draftReply, /fear of water/i);
+});
+
+test("known siblings lesson proceeds to pricing without a fear question", () => {
+  const result = turn("Hello", { intent: "concierge:awaiting_offer_type", knownFacts: { lesson_type: "siblings" } });
+  assert.equal(result.nextIntent, "concierge:presented_pricing");
+  assert.match(result.draftReply, /Siblings discount/i);
+});
+
+test("known fear fact skips the group fear question", () => {
+  const result = turn("Hello", { intent: "concierge:awaiting_offer_type", knownFacts: { lesson_type: "group", fear_of_water: "false" } });
+  assert.equal(result.nextIntent, "concierge:presented_pricing");
+  assert.doesNotMatch(result.draftReply, /fear of water/i);
+});
+
 test("human handoff routes to human review without auto apology draft", () => {
   const result = turn("I want to speak to Coach Ayman");
   assert.equal(result.humanHandoff, true);
