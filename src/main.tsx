@@ -1370,7 +1370,8 @@ function App() {
       timeoutId = window.setTimeout(() => {
         if (controller.signal.aborted) return;
         controller.abort();
-        sessionStorage.removeItem("relaxfix-command-session");
+        // A slow network or profile service must not destroy a still-refreshable session.
+        // Keep the stored token pair so the next restore attempt can resume safely.
         setRestoring(false);
       }, 12000);
       import("./auth-session").then(({ restoreAuthSession }) => restoreAuthSession(AUTH_CONFIG, stored, controller.signal)).then((restored) => {
