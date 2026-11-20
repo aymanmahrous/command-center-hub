@@ -1363,7 +1363,22 @@ function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [restoring, setRestoring] = useState(true);
   const [isRecoveryFlow] = useState(() => new URLSearchParams(window.location.hash.replace(/^#/, "")).get("type") === "recovery");
-  useEffect(() => { void registerServiceWorker(); }, []);
+  useEffect(() => {
+    if (AUTH_PREVIEW_DISABLED) {
+      if ("serviceWorker" in navigator) {
+        void navigator.serviceWorker.getRegistrations()
+          .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+          .catch(() => {});
+      }
+      if ("caches" in window) {
+        void window.caches.keys()
+          .then((keys) => Promise.all(keys.map((key) => window.caches.delete(key))))
+          .catch(() => {});
+      }
+      return;
+    }
+    void registerServiceWorker();
+  }, []);
   useEffect(() => {
     const handleStorage = (event: StorageEvent) => {
       if (event.key !== "relaxfix-command-logout-pending" || event.newValue !== "1") return;

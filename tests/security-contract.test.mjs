@@ -66,6 +66,8 @@ test("passwords and refresh tokens are never persisted in browser storage", () =
   assert.match(viteConfig, /localAuthApiPlugin/);
   assert.match(app, /AUTH_PREVIEW_DISABLED = __VERCEL_ENV__ === "preview"/);
   assert.match(app, /isRecoveryFlow && AUTH_PREVIEW_DISABLED/);
+  assert.match(app, /navigator\.serviceWorker\.getRegistrations\(\)/);
+  assert.match(app, /window\.caches\.keys\(\)/);
   assert.match(serverAuth, /previewAuthDisabled\(\)/);
 });
 
