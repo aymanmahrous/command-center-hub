@@ -8,6 +8,11 @@ const gitignore = await readFile(new URL("../.gitignore", import.meta.url), "utf
 const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
 const app = await readFile(new URL("../src/main.tsx", import.meta.url), "utf8");
 const authSession = await readFile(new URL("../src/auth-session.ts", import.meta.url), "utf8");
+const serverAuth = await readFile(new URL("../server/auth.ts", import.meta.url), "utf8");
+const authBootstrap = await readFile(new URL("../api/auth/bootstrap.ts", import.meta.url), "utf8");
+const authRefresh = await readFile(new URL("../api/auth/session.ts", import.meta.url), "utf8");
+const authLogout = await readFile(new URL("../api/auth/logout.ts", import.meta.url), "utf8");
+const viteConfig = await readFile(new URL("../vite.config.ts", import.meta.url), "utf8");
 const loginView = await readFile(new URL("../src/login-view.tsx", import.meta.url), "utf8");
 const recovery = await readFile(new URL("../src/password-recovery.tsx", import.meta.url), "utf8");
 const operations = await readFile(new URL("../src/operations-queue-view.tsx", import.meta.url), "utf8");
@@ -41,18 +46,26 @@ test("staff authorization requires an active profile", () => {
 
 test("staff profile lookup matches the production primary-key contract", () => {
   assert.match(authSession, /\?id=eq\.\$\{encodeURIComponent\(userId\)\}/);
-  assert.match(authSession, /loadStaffProfile\(config, auth\.tokens, auth\.userId\)/);
+  assert.match(serverAuth, /\?id=eq\.\$\{encodeURIComponent\(userId\)\}/);
+  assert.match(serverAuth, /active: z\.literal\(true\)/);
   assert.doesNotMatch(authSession, /\?user_id=eq\./);
   assert.match(envExample, /primary key `id`/);
 });
 
-test("password is not persisted", () => {
-  assert.doesNotMatch(app, /setItem\([^\n]*password/i);
-  assert.match(app, /sessionStorage/);
-  assert.match(authSession, /persistTokens\(tokens: AuthTokens\)/);
-  assert.match(loginView, /sessionStorage/);
-  assert.match(loginView, /refreshToken: session\.refreshToken/);
-  assert.doesNotMatch(loginView, /JSON\.stringify\(session\)/);
+test("passwords and refresh tokens are never persisted in browser storage", () => {
+  assert.doesNotMatch(app, /sessionStorage\.setItem/);
+  assert.doesNotMatch(loginView, /sessionStorage/);
+  assert.doesNotMatch(authSession, /sessionStorage\.setItem/);
+  assert.match(authSession, /bootstrapSession\(auth\.refresh_token/);
+  assert.match(serverAuth, /Path=\/api\/auth; HttpOnly; Secure; SameSite=Strict/);
+  assert.match(serverAuth, /__Secure-relaxfix-command-refresh/);
+  assert.doesNotMatch(serverAuth, /SUPABASE_SERVICE_ROLE_KEY|SUPABASE_SECRET_KEY/);
+  assert.match(authBootstrap, /handleAuthBootstrap/);
+  assert.match(authRefresh, /handleAuthSession/);
+  assert.match(viteConfig, /localAuthApiPlugin/);
+  assert.match(app, /AUTH_PREVIEW_DISABLED = __VERCEL_ENV__ === "preview"/);
+  assert.match(app, /isRecoveryFlow && AUTH_PREVIEW_DISABLED/);
+  assert.match(serverAuth, /previewAuthDisabled\\(\\)/);
 });
 
 test("booking writes use the approved RPC and never direct table mutation", () => {
@@ -246,30 +259,37 @@ test("browser API key validation rejects elevated or malformed credentials", () 
   assert.doesNotMatch(configGuard, /publicKey\.length > 20/);
 });
 
-test("restored sessions revalidate the JWT and active staff profile", () => {
+test("restored sessions revalidate the user and active staff profile", () => {
   assert.match(authSession, /\/auth\/v1\/user/);
   assert.match(app, /import\("\.\/auth-session"\)\.then\(\(\{ restoreAuthSession \}\)/);
-  assert.match(authSession, /return loadStaffProfile\(config, \{ accessToken: stored\.accessToken \}, user\.id, signal\)/);
-  assert.match(authSession, /active: z\.literal\(true\)/);
+  assert.match(authSession, /loadStaffProfile\(config, stored\.accessToken, user\.id, signal\)/);
+  assert.match(serverAuth, /loadStaffProfile\(config, tokens\.access_token, tokens\.user\.id\)/);
+  assert.match(serverAuth, /active: z\.literal\(true\)/);
   assert.match(authSession, /cache: "no-store"/);
   assert.match(app, /جاري التحقق من الجلسة والموظف النشط/);
 });
 
 
-test("Supabase refresh tokens rotate and active sessions renew before expiry", () => {
-  assert.match(authSession, /refresh_token: z\.string\(\)\.min\(1\)/);
-  assert.match(authSession, /grant_type=refresh_token/);
-  assert.match(authSession, /JSON\.stringify\(\{ refresh_token: refreshToken \}\)/);
+test("Supabase refresh tokens rotate only behind the HttpOnly server cookie", () => {
+  assert.match(serverAuth, /grant_type=refresh_token/);
+  assert.match(serverAuth, /JSON\.stringify\(\{ refresh_token: refreshToken \}\)/);
+  assert.match(serverAuth, /Set-Cookie/);
+  assert.match(serverAuth, /SameSite=Strict/);
+  assert.match(serverAuth, /Path=\/api\/auth/);
+  assert.match(authSession, /fetchAuthApi\("\/api\/auth\/bootstrap"/);
+  assert.match(authSession, /fetchAuthApi\("\/api\/auth\/session"/);
+  assert.match(authSession, /navigator\.locks\?\.request/);
   assert.match(app, /const \{ refreshAuthSession \} = await import\("\.\/auth-session"\)/);
   assert.match(app, /session\.expiresAt - Date\.now\(\) - 60000/);
-  assert.match(authSession, /persistTokens\(refreshed\.tokens\)/);
-  assert.match(authSession, /if \(stored\.refreshToken\)/);
-  assert.match(authSession, /return refreshAuthSession\(config, stored\.refreshToken/);
-  assert.match(loginView, /refreshToken: session\.refreshToken/);
+  assert.match(authSession, /if \(stored\.refreshToken\) return bootstrapSession/);
+  assert.doesNotMatch(app, /session\?\.refreshToken/);
+  assert.doesNotMatch(authSession, /persistTokens|sessionStorage\.setItem/);
 });
 
-test("logout revokes only the current Supabase session and always clears local access", () => {
-  assert.match(authSession, /auth\/v1\/logout\?scope=local/);
+test("logout clears the HttpOnly cookie and revokes only the current Supabase session", () => {
+  assert.match(serverAuth, /auth\/v1\/logout\?scope=local/);
+  assert.match(authSession, /fetch\("\/api\/auth\/logout"/);
+  assert.match(authLogout, /handleAuthLogout/);
   assert.match(app, /import\("\.\/auth-session"\)\.then\(\(\{ revokeLocalSession \}\)/);
   assert.match(app, /sessionStorage\.removeItem\("relaxfix-command-session"\)/);
 });

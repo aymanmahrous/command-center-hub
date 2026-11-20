@@ -1429,6 +1429,7 @@ function App() {
       controller.abort();
     };
   }, [session?.refreshToken, session?.expiresAt]);
+  if (isRecoveryFlow && AUTH_PREVIEW_DISABLED) return <main className="login-page"><p className="muted" role="status">{language === "ar" ? "استعادة الحساب معطّلة في المعاينة لحماية بيانات الإنتاج." : "Account recovery is disabled in Preview to protect production data."}</p></main>;
   if (isRecoveryFlow) return <Suspense fallback={<main className="login-page"><p className="muted" role="status">{language === "ar" ? "جارٍ تحميل صفحة الاستعادة..." : "Loading recovery page..."}</p></main>}><PasswordRecovery supabaseUrl={SUPABASE_URL} publicKey={SUPABASE_PUBLIC_KEY} configurationReady={configurationReady()} /></Suspense>;
   if (restoring) return <main className="login-page"><p className="muted" role="status">{language === "ar" ? "جاري التحقق من الجلسة والموظف النشط..." : "Verifying session and active staff..."}</p></main>;
   if (!session) return <Suspense fallback={<main className="login-page"><p className="muted" role="status">{language === "ar" ? "جارٍ تحميل صفحة الدخول..." : "Loading sign-in..."}</p></main>}><LoginView onAuthenticated={setSession} onSignIn={signIn} onRequestPasswordReset={requestPasswordReset} /></Suspense>;
