@@ -175,7 +175,7 @@ async function loadStaffProfile(config: ReturnType<typeof getSupabaseConfig>, ac
           Accept: "application/json",
         },
         cache: "no-store",
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(4000),
       },
     );
   } catch {
@@ -211,7 +211,7 @@ async function rotateAndVerify(
       headers: { "Content-Type": "application/json", apikey: config.publicKey },
       body: JSON.stringify({ refresh_token: refreshToken }),
       cache: "no-store",
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(4000),
     });
   } catch {
     throw new AuthApiError("SERVICE_UNAVAILABLE", 503);
