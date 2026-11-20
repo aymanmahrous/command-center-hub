@@ -54,10 +54,10 @@ test("owner batch approval uses planned schedule and validates the RPC result", 
   assert.ok(start > 0 && end > start);
   const approval = mainSource.slice(start, end);
   assert.match(approval, /!canApprove/);
-  assert.match(approval, /resolveApprovalSchedule\\(item\\)/);
+  assert.match(approval, /resolveApprovalSchedule\(item\)/);
   assert.match(approval, /assertSuccessfulContentMutation/);
   assert.match(approval, /p_scheduled_for: scheduledFor/);
-  assert.doesNotMatch(approval, /p_scheduled_for: item\\.scheduledFor/);
+  assert.doesNotMatch(approval, /p_scheduled_for: item\.scheduledFor/);
 });
 
 test("approval schedule falls back to plannedFor and rejects missing or past times", () => {
