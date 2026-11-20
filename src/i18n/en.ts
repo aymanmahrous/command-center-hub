@@ -124,7 +124,7 @@ export const en = {
     visualPromptLabel: "Visual description",
     saveButton: "Save and return to review",
     scheduleTimeLabel: "Scheduled time",
-    approveButton: "Approve",
+    approveButton: "Approve & schedule",
     returnToReviewButton: "Return to review",
     scheduleButton: "Schedule",
     rescheduleButton: "Reschedule",

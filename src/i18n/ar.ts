@@ -126,7 +126,7 @@ export const ar: Dictionary = {
     visualPromptLabel: "وصف الوسائط",
     saveButton: "حفظ وإعادة للمراجعة",
     scheduleTimeLabel: "وقت الجدولة",
-    approveButton: "اعتماد",
+    approveButton: "اعتماد وجدولة",
     returnToReviewButton: "إعادة للمراجعة",
     scheduleButton: "جدولة",
     rescheduleButton: "إعادة الجدولة",

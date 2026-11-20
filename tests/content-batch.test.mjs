@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 import {
   approveAllCandidates,
+  assertSuccessfulContentMutation,
+  resolveApprovalSchedule,
   approveAllWouldChange,
   buildDayNineReminder,
   canApproveContentItem,
@@ -41,6 +44,51 @@ test("approve helpers skip already approved or non-reviewable items", () => {
   assert.equal(shouldSkipApprove(approved), true);
   assert.equal(approveAllWouldChange([approved]), false);
   assert.equal(approveAllCandidates([reviewable, approved]).length, 1);
+});
+
+const mainSource = await readFile(new URL("../src/main.tsx", import.meta.url), "utf8");
+
+test("owner batch approval uses planned schedule and validates the RPC result", () => {
+  const start = mainSource.indexOf("async function approveBatchItem");
+  const end = mainSource.indexOf("async function requestBatchChanges");
+  assert.ok(start > 0 && end > start);
+  const approval = mainSource.slice(start, end);
+  assert.match(approval, /!canApprove/);
+  assert.match(approval, /resolveApprovalSchedule\(item\)/);
+  assert.match(approval, /assertSuccessfulContentMutation/);
+  assert.match(approval, /p_scheduled_for: scheduledFor/);
+  assert.doesNotMatch(approval, /p_scheduled_for: item\.scheduledFor/);
+});
+
+test("approval schedule falls back to plannedFor and rejects missing or past times", () => {
+  const now = Date.parse("2026-11-20T08:00:00.000Z");
+  assert.deepEqual(
+    resolveApprovalSchedule(item({ scheduledFor: null, plannedFor: "2026-11-21T08:00:00.000Z" }), now),
+    { scheduledFor: "2026-11-21T08:00:00.000Z", reason: "ok" },
+  );
+  assert.deepEqual(
+    resolveApprovalSchedule(item({ scheduledFor: "2026-11-22T08:00:00.000Z", plannedFor: "2026-11-21T08:00:00.000Z" }), now),
+    { scheduledFor: "2026-11-22T08:00:00.000Z", reason: "ok" },
+  );
+  assert.deepEqual(resolveApprovalSchedule(item({ scheduledFor: null }), now), { scheduledFor: null, reason: "missing" });
+  assert.deepEqual(
+    resolveApprovalSchedule(item({ scheduledFor: null, plannedFor: "2026-11-19T08:00:00.000Z" }), now),
+    { scheduledFor: null, reason: "past" },
+  );
+  assert.equal(resolveApprovalSchedule(item({ scheduledFor: "invalid-date" }), now).reason, "past");
+});
+
+test("approval RPC failures are not treated as successful mutations", () => {
+  assert.throws(
+    () => assertSuccessfulContentMutation({ success: false, code: "INVALID_SCHEDULE_TIME" }),
+    /INVALID_SCHEDULE_TIME/,
+  );
+  assert.throws(
+    () => assertSuccessfulContentMutation({ success: false }, "APPROVE_AND_SCHEDULE_FAILED"),
+    /APPROVE_AND_SCHEDULE_FAILED/,
+  );
+  const success = { success: true, status: "scheduled" };
+  assert.equal(assertSuccessfulContentMutation(success), success);
 });
 
 test("duplicate schedule guard blocks scheduled and published items", () => {
