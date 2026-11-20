@@ -803,3 +803,14 @@ No PR was merged or closed. No Production database, job, flag, policy, grant, Ed
 - **التحقق المحلي:** `npm run verify` EXIT 0؛ TypeScript + **436/436** اختبارًا + build. JS initial **367708 raw / 108067 gzip** (<108700 بـ633 بايت)، CSS **32555 raw / 6832 gzip**. اختبار سلوكي للمزودين يغطي 16 سيناريو، بينها 403/429/500 والشبكة وJSON الفاسد وغياب المفاتيح ورفض OpenAI/الاستجابة غير المكتملة. اختبار handoff ينفذ المعالج الفعلي دون API ويثبت المهمة والهدف والإجابة الفارغة. `git diff --check` ناجح، ولا تغير في المكتبات أو budget أو migrations أو الناشر أو WhatsApp. التشغيل Node 26.13.1؛ لم يُثبت هنا Node 22 أو اختبار متصفح تفاعلي أو اتصال مزود حي. سجل verify في `%TEMP%\coach-brain-fallback-verify-20261117.log`.
 - **حدود الحماية:** لا تغييرات قاعدة بيانات أو بيانات أو أسرار أو OAuth أو أقفال نشر، ولا generation مدفوع أو نشر محتوى أو نشر Supabase. مجلد `supabase/.temp/` غير المتتبع السابق للطلب تُرك كما هو ولم يُضف. نجاح GitHub/push وCI يُبلغ عنه من النتيجة الفعلية؛ لا يساوي نشر Edge Function أو تحقق التشغيل الحي.
 
+## 46. AI Sales Concierge — تصحيح سؤال الخوف للمجموعات — 2026-11-20
+
+- **المرحلة:** إصلاح ذري على فرع منفصل مبني مباشرة على main c17dbbf7913ab9b161f24a49a0245a9109941e85؛ لا يعتمد على PR #343 القديم المتأخر 15 commit.
+- **السبب الجذري:** skipStateIfKnown كان يعامل group مثل siblings عند وجود نوع الحصة مسبقًا؛ فيتجاوز سؤال الخوف من الماء للمجموعات، رغم أن مسار التحية واختيار العرض يطلبانه.
+- **التغيير:** في src/ai-sales-concierge/logic.mjs أصبحت private وgroup تنتقلان إلى awaiting_fear_of_water، بينما siblings فقط تتجه مباشرة إلى presented_pricing.
+- **الاختبارات:** أضيفت 3 حالات إلى tests/ai-sales-concierge.test.mjs: مجموعة وخوف غير معروف، إخوة يتجاوزون سؤال الخوف، ومجموعة مع حقيقة خوف معروفة تتجاوز السؤال.
+- **الملفات المتغيرة:** src/ai-sales-concierge/logic.mjs وtests/ai-sales-concierge.test.mjs وهذا الملف.
+- **Git:** الفرع fix/concierge-group-fear-current-main-2026-11-20؛ commits الكود/الاختبار 7f33f85cb246f1a2e8467aca0e1dc0b6ebe7c8f3 وf7db1aa5eb7656fac69dd1b209aaaae3291ba39d. لا merge أو نشر.
+- **الحماية:** لا قاعدة بيانات أو WhatsApp أو رسائل أو OAuth أو أسرار أو نشر أو جدولة أو تغيير صلاحيات. outboundEnabled: false محفوظ.
+- **التحقق المتبقي:** انتظار CI على رأس الفرع الدقيق، ثم مراجعة diff والنتائج. لا تعتبر المرحلة VERIFIED قبل نجاح الاختبارات على الرأس النهائي.
+- **القرار:** إصلاح PR #343 القديم لا يدمج كما هو؛ هذه إعادة تطبيق محدودة على main الحالي لتجنب دمج التاريخ المتباعد.
