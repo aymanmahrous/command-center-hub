@@ -179,7 +179,8 @@ export async function restoreAuthSession(
   if (!response.ok) throw new Error("PROFILE_CHECK_FAILED");
   const user = z.object({ id: z.string().uuid() }).parse(await response.json());
   const profile = await loadStaffProfile(config, stored.accessToken, user.id, signal);
-  return { ...profile, expiresAt: stored.expiresAt ?? profile.expiresAt };
+  // Legacy access-only sessions have no HttpOnly refresh cookie; do not schedule an early refresh that must fail.
+  return { ...profile, expiresAt: undefined };
 }
 
 export async function requestPasswordReset(config: AuthConfig, email: string, resetPath: string): Promise<void> {

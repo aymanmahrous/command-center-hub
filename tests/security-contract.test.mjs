@@ -266,6 +266,7 @@ test("restored sessions revalidate the user and active staff profile", () => {
   assert.match(authSession, /\/auth\/v1\/user/);
   assert.match(app, /import\("\.\/auth-session"\)\.then\(\(\{ restoreAuthSession \}\)/);
   assert.match(authSession, /loadStaffProfile\(config, stored\.accessToken, user\.id, signal\)/);
+  assert.match(authSession, /return \{ \.\.\.profile, expiresAt: undefined \}/);
   assert.match(serverAuth, /loadStaffProfile\(config, tokens\.access_token, tokens\.user\.id\)/);
   assert.match(serverAuth, /active: z\.literal\(true\)/);
   assert.match(authSession, /cache: "no-store"/);
