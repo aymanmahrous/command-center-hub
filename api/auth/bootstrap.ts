@@ -1,3 +1,3 @@
-import { handleAuthBootstrap } from "../../server/auth";
+import { handleAuthBootstrap } from "../../server/auth.js";
 
 export default handleAuthBootstrap;

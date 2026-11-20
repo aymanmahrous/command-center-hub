@@ -1,3 +1,3 @@
-import { handleAuthLogout } from "../../server/auth";
+import { handleAuthLogout } from "../../server/auth.js";
 
 export default handleAuthLogout;
