@@ -77,6 +77,15 @@ export function canApproveContentItem(item: ContentBatchItem): boolean {
   return REVIEWABLE_FOR_APPROVAL.has(item.status);
 }
 
+/** Treat a negative RPC payload as a failed mutation, never as a successful UI action. */
+export function assertSuccessfulContentMutation<T extends { success: boolean; code?: string }>(
+  result: T,
+  fallbackCode = "UPDATE_FAILED",
+): T {
+  if (!result.success) throw new Error(result.code ?? fallbackCode);
+  return result;
+}
+
 export function shouldSkipApprove(item: ContentBatchItem): boolean {
   return !canApproveContentItem(item) || POST_APPROVAL_STATUSES.has(item.status);
 }
