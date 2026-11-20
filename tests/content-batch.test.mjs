@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   approveAllCandidates,
   assertSuccessfulContentMutation,
+  resolveApprovalSchedule,
   approveAllWouldChange,
   buildDayNineReminder,
   canApproveContentItem,
@@ -42,6 +43,24 @@ test("approve helpers skip already approved or non-reviewable items", () => {
   assert.equal(shouldSkipApprove(approved), true);
   assert.equal(approveAllWouldChange([approved]), false);
   assert.equal(approveAllCandidates([reviewable, approved]).length, 1);
+});
+
+test("approval schedule falls back to plannedFor and rejects missing or past times", () => {
+  const now = Date.parse("2026-11-20T08:00:00.000Z");
+  assert.deepEqual(
+    resolveApprovalSchedule(item({ scheduledFor: null, plannedFor: "2026-11-21T08:00:00.000Z" }), now),
+    { scheduledFor: "2026-11-21T08:00:00.000Z", reason: "ok" },
+  );
+  assert.deepEqual(
+    resolveApprovalSchedule(item({ scheduledFor: "2026-11-22T08:00:00.000Z", plannedFor: "2026-11-21T08:00:00.000Z" }), now),
+    { scheduledFor: "2026-11-22T08:00:00.000Z", reason: "ok" },
+  );
+  assert.deepEqual(resolveApprovalSchedule(item({ scheduledFor: null }), now), { scheduledFor: null, reason: "missing" });
+  assert.deepEqual(
+    resolveApprovalSchedule(item({ scheduledFor: null, plannedFor: "2026-11-19T08:00:00.000Z" }), now),
+    { scheduledFor: null, reason: "past" },
+  );
+  assert.equal(resolveApprovalSchedule(item({ scheduledFor: "invalid-date" }), now).reason, "past");
 });
 
 test("approval RPC failures are not treated as successful mutations", () => {
