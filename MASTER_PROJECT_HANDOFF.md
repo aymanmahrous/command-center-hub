@@ -871,3 +871,15 @@ No PR was merged or closed. No Production database, job, flag, policy, grant, Ed
 - **Security alert status:** the original CodeQL inline review thread is resolved/outdated after the storage sink was removed. The actual code-scanning alert record could not be independently queried through the available GitHub interface; do not claim the alert is closed without a fresh code-scanning result.
 - **Release gate:** PR #345 remains Draft. No merge, Production deployment, Vercel environment change, Supabase project setting/database/schema/RLS/data change, secrets change, Meta/OAuth, WhatsApp, n8n, publishing, or outbound message occurred.
 - This section supersedes the pending-verification status in section 50 for the branch implementation and automated/Preview checks. Live isolated Auth testing remains a separate authorization gate.
+
+
+## 52. Auth BFF verification refresh — legacy session timing hardening — 2026-11-20
+
+- **Verified code head:** `7507dad63c252fcf70a8b58c9767996955ed3ae1`.
+- **GitHub Actions run #44692498112:** SUCCESS — TypeScript, **448/448 tests passed (0 failed)**, Vite build and performance budget.
+- **Bundle budget:** initial JavaScript `366,335 raw / 107,399 gzip bytes`; CSS `32,555 raw / 6,832 gzip bytes`. Existing JS limits remain `371,000 raw / 108,700 gzip`.
+- **Latest Vercel Preview:** `dpl_5Bjt7MRMdCz4WzMk57H7aCNKpZ6S` READY. The stable branch alias root returns HTTP 200. GET to `/api/auth/session` and `/api/auth/logout` returns HTTP 405 with `Allow: POST`, confirming both serverless entrypoints start and enforce their method contract. The earlier ESM module-resolution failure is no longer reproduced.
+- **Legacy access-only sessions:** do not schedule a refresh 60 seconds early when no refresh cookie exists. They are validated and remain memory-only until the access token expires; a new sign-in establishes the HttpOnly refresh-cookie session. This avoids prematurely signing out existing users during migration.
+- **Cross-tab logout:** the only browser-persisted logout state is the non-sensitive marker `relaxfix-command-logout-pending`; no access or refresh token is persisted. A failed logout request keeps the marker so another tab cannot silently restore the cookie-backed session.
+- **Release status unchanged:** Preview authentication remains disabled because its current Supabase URL points to Production. All integration tests use mocked upstream responses. No live Supabase Auth call or Supabase Auth/database mutation was made. No merge or Production deployment.
+- This section supersedes the code-head and pending legacy-session note in section 51. PR #345 remains Draft pending isolated lab Auth validation and independent confirmation of the CodeQL alert record.
