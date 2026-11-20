@@ -325,6 +325,8 @@ test("forgot-password flow uses public recover endpoint with non-enumerating suc
   assert.match(app, /setTimeout\(\(\) => \{/);
   assert.match(app, /}, 12000\)/);
   assert.match(app, /Never leave the sign-in screen stuck indefinitely/);
+  assert.match(app, /A slow network or profile service must not destroy a still-refreshable session/);
+  assert.doesNotMatch(app, /controller\.abort\(\);\s*sessionStorage\.removeItem\("relaxfix-command-session"\);\s*setRestoring\(false\)/);
   assert.match(authSession, /new URL\(resetPath, window.location.origin\)/);
 });
 
