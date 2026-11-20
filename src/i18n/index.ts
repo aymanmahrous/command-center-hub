@@ -35,7 +35,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     document.documentElement.lang = language;
     document.documentElement.dir = dir;
-  }, [dir, englishDictionary, language]);
+  }, [dir, language]);
 
   useEffect(() => {
     if (language !== "en" || englishDictionary) return;
@@ -63,7 +63,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       setLanguage,
       t: (section) => dictionary[section],
     };
-  }, [dir, language]);
+  }, [dir, englishDictionary, language]);
 
   return React.createElement(LanguageContext.Provider, { value }, children);
 }
