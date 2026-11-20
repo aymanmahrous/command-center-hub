@@ -825,3 +825,12 @@ No PR was merged or closed. No Production database, job, flag, policy, grant, Ed
 - **قرار الدمج:** PR #345 **غير جاهز للدمج** رغم نجاح CI وPreview. لا merge، ولا Production deploy. يلزم تصميم تخزين جلسة لا يعرّض refresh token إلى JavaScript/Web Storage (المسار المرجح BFF/server-side مع Cookie من نوع HttpOnly/Secure/SameSite أو حل مكافئ مثبت)، ثم مراجعة أمنية واختبارات جديدة. لا يكفي تشفير الرمز بمفتاح متاح للواجهة.
 - **النطاق المحمي:** لم يحدث أي تغيير في Production أو Supabase schema/RLS/data/secrets/Auth settings/Edge Functions أو Meta/OAuth/Facebook/Instagram/WhatsApp/n8n أو النشر والرسائل. لا يوجد اختبار live sign-in أو refresh exchange.
 - **الخطوة الآمنة التالية:** إعادة تصميم جلسة المصادقة لمعالجة CodeQL من الجذر، مع تقييم أثرها على Vite SPA ومسارات Supabase الحالية قبل أي تغيير backend أو إعدادات Production. إبقاء PR #345 و#340 دون دمج إلى أن ينجح هذا المسار.
+
+
+## 48. Auth lifecycle code review — additional correctness findings — 2026-11-20
+
+- **Restore behavior:** `restoreAuthSession` currently refreshes whenever a stored refresh token exists, without first checking whether the stored access token is still valid. This causes an unnecessary single-use refresh-token rotation on every page reload.
+- **Multi-tab race:** the pair is stored in `sessionStorage`, which is tab-scoped. Two tabs can therefore hold the same parent refresh token; a refresh in one tab does not update the other tab's copy. Concurrent or later refresh attempts from the second tab can fail after rotation. This is an additional correctness risk independent of the CodeQL finding.
+- **Required design direction:** do not patch this with a longer retry loop or move the refresh token into another JavaScript-readable storage. A safe repair needs a shared, HttpOnly refresh-cookie/session boundary and coordinated refresh behavior, with the access token kept only in memory where practical. Preserve the existing Supabase staff-profile and role checks.
+- **Architecture evidence:** current main is a Vite SPA with static `dist` output and no existing `api/auth/*` server endpoints; adding a server-side session boundary is therefore a real backend/API addition, not a one-line storage substitution. No endpoint, environment variable, cookie, or Production setting was changed in this review.
+- **Decision:** keep PR #345 open and unmerged. Resolve the clear-text storage alert and the reload/multi-tab rotation behavior together, then run CI, Preview, and a controlled non-Production auth test before considering merge. No live Supabase auth exchange was performed.
