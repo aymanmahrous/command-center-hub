@@ -7,6 +7,12 @@ const envExample = await readFile(new URL("../.env.example", import.meta.url), "
 const gitignore = await readFile(new URL("../.gitignore", import.meta.url), "utf8");
 const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
 const app = await readFile(new URL("../src/main.tsx", import.meta.url), "utf8");
+const authSession = await readFile(new URL("../src/auth-session.ts", import.meta.url), "utf8");
+const serverAuth = await readFile(new URL("../server/auth.ts", import.meta.url), "utf8");
+const authBootstrap = await readFile(new URL("../api/auth/bootstrap.ts", import.meta.url), "utf8");
+const authRefresh = await readFile(new URL("../api/auth/session.ts", import.meta.url), "utf8");
+const authLogout = await readFile(new URL("../api/auth/logout.ts", import.meta.url), "utf8");
+const viteConfig = await readFile(new URL("../vite.config.ts", import.meta.url), "utf8");
 const loginView = await readFile(new URL("../src/login-view.tsx", import.meta.url), "utf8");
 const recovery = await readFile(new URL("../src/password-recovery.tsx", import.meta.url), "utf8");
 const operations = await readFile(new URL("../src/operations-queue-view.tsx", import.meta.url), "utf8");
@@ -34,24 +40,35 @@ test("application is excluded from search indexing", () => {
 });
 
 test("staff authorization requires an active profile", () => {
-  assert.match(app, /active: z\.literal\(true\)/);
+  assert.match(authSession, /active: z\.literal\(true\)/);
   assert.match(app, /STAFF_ACCESS_DENIED/);
 });
 
 test("staff profile lookup matches the production primary-key contract", () => {
-  assert.match(app, /\?id=eq\.\$\{encodeURIComponent\(userId\)\}/);
-  assert.match(app, /loadStaffProfile\(auth\.access_token, auth\.user\.id\)/);
-  assert.doesNotMatch(app, /\?user_id=eq\./);
+  assert.match(authSession, /\?id=eq\.\$\{encodeURIComponent\(userId\)\}/);
+  assert.match(serverAuth, /\?id=eq\.\$\{encodeURIComponent\(userId\)\}/);
+  assert.match(serverAuth, /active: z\.literal\(true\)/);
+  assert.doesNotMatch(authSession, /\?user_id=eq\./);
   assert.match(envExample, /primary key `id`/);
 });
 
-test("password is not persisted", () => {
-  assert.doesNotMatch(app, /setItem\([^\n]*password/i);
-  assert.match(app, /sessionStorage/);
-  assert.match(app, /JSON\.stringify\(\{ accessToken: restored\.accessToken \}\)/);
-  assert.match(loginView, /sessionStorage/);
-  assert.match(loginView, /JSON\.stringify\(\{ accessToken: session\.accessToken \}\)/);
-  assert.doesNotMatch(loginView, /JSON\.stringify\(session\)/);
+test("passwords and refresh tokens are never persisted in browser storage", () => {
+  assert.doesNotMatch(app, /sessionStorage\.setItem/);
+  assert.doesNotMatch(loginView, /sessionStorage/);
+  assert.doesNotMatch(authSession, /sessionStorage\.setItem/);
+  assert.doesNotMatch(app, /localStorage\.setItem\([^\n]*(refreshToken|accessToken)/i);
+  assert.match(authSession, /bootstrapSession\(auth\.refresh_token/);
+  assert.match(serverAuth, /Path=\/api\/auth; HttpOnly; Secure; SameSite=Strict/);
+  assert.match(serverAuth, /__Secure-relaxfix-command-refresh/);
+  assert.doesNotMatch(serverAuth, /SUPABASE_SERVICE_ROLE_KEY|SUPABASE_SECRET_KEY/);
+  assert.match(authBootstrap, /handleAuthBootstrap/);
+  assert.match(authRefresh, /handleAuthSession/);
+  assert.match(viteConfig, /localAuthApiPlugin/);
+  assert.match(app, /AUTH_PREVIEW_DISABLED = __VERCEL_ENV__ === "preview"/);
+  assert.match(app, /isRecoveryFlow && AUTH_PREVIEW_DISABLED/);
+  assert.match(app, /navigator\.serviceWorker\.getRegistrations\(\)/);
+  assert.match(app, /window\.caches\.keys\(\)/);
+  assert.match(serverAuth, /previewAuthDisabled\(\)/);
 });
 
 test("booking writes use the approved RPC and never direct table mutation", () => {
@@ -245,19 +262,48 @@ test("browser API key validation rejects elevated or malformed credentials", () 
   assert.doesNotMatch(configGuard, /publicKey\.length > 20/);
 });
 
-test("restored sessions revalidate the JWT and active staff profile", () => {
-  assert.match(app, /\/auth\/v1\/user/);
-  assert.match(app, /async function restoreSession/);
-  assert.match(app, /return loadStaffProfile\(accessToken, user\.id, signal\)/);
-  assert.match(app, /active: z\.literal\(true\)/);
-  assert.match(app, /cache: "no-store"/);
+test("restored sessions revalidate the user and active staff profile", () => {
+  assert.match(authSession, /\/auth\/v1\/user/);
+  assert.match(app, /import\("\.\/auth-session"\)\.then\(\(\{ restoreAuthSession \}\)/);
+  assert.match(authSession, /loadStaffProfile\(config, stored\.accessToken, user\.id, signal\)/);
+  assert.match(authSession, /return \{ \.\.\.profile, expiresAt: undefined \}/);
+  assert.match(serverAuth, /loadStaffProfile\(config, tokens\.access_token, tokens\.user\.id\)/);
+  assert.match(serverAuth, /active: z\.literal\(true\)/);
+  assert.match(authSession, /cache: "no-store"/);
   assert.match(app, /جاري التحقق من الجلسة والموظف النشط/);
 });
 
+
+test("Supabase refresh tokens rotate only behind the HttpOnly server cookie", () => {
+  assert.match(serverAuth, /grant_type=refresh_token/);
+  assert.match(serverAuth, /JSON\.stringify\(\{ refresh_token: refreshToken \}\)/);
+  assert.match(serverAuth, /Set-Cookie/);
+  assert.match(serverAuth, /SameSite=Strict/);
+  assert.match(serverAuth, /Path=\/api\/auth/);
+  assert.match(authSession, /postAuthApi\("\/api\/auth\/bootstrap"/);
+  assert.match(authSession, /postAuthApi\("\/api\/auth\/session"/);
+  assert.match(authSession, /navigator\.locks\?\.request/);
+  assert.match(app, /const \{ refreshAuthSession \} = await import\("\.\/auth-session"\)/);
+  assert.match(app, /session\.expiresAt - Date\.now\(\) - 60000/);
+  assert.match(authSession, /if \(stored\.refreshToken\) return bootstrapSession/);
+  assert.doesNotMatch(app, /session\?\.refreshToken/);
+  assert.doesNotMatch(authSession, /persistTokens|sessionStorage\.setItem/);
+});
+
+test("logout clears the HttpOnly cookie and revokes only the current Supabase session", () => {
+  assert.match(serverAuth, /auth\/v1\/logout\?scope=local/);
+  assert.match(authSession, /fetch\("\/api\/auth\/logout"/);
+  assert.match(authLogout, /handleAuthLogout/);
+  assert.match(app, /import\("\.\/auth-session"\)\.then\(\(\{ revokeLocalSession \}\)/);
+  assert.match(app, /sessionStorage\.removeItem\("relaxfix-command-session"\)/);
+  assert.match(app, /localStorage\.setItem\("relaxfix-command-logout-pending", "1"\)/);
+  assert.match(app, /window\.addEventListener\("storage", handleStorage\)/);
+});
+
 test("authentication rate limits fail safely without account disclosure", () => {
-  assert.match(app, /authResponse\.status === 429/);
-  assert.match(app, /TOO_MANY_ATTEMPTS/);
-  assert.match(app, /Unable to reach the service/);
+  assert.match(authSession, /response\.status === 429/);
+  assert.match(authSession, /TOO_MANY_ATTEMPTS/);
+  assert.match(loginView, /Unable to reach the service/);
 });
 
 test("CONFIGURATION_REQUIRED is only returned when configurationReady() is false", () => {
@@ -267,24 +313,24 @@ test("CONFIGURATION_REQUIRED is only returned when configurationReady() is false
 });
 
 test("auth 401 and 403 responses map to invalid credentials, not configuration error", () => {
-  assert.match(app, /authResponse\.status === 401 \|\| authResponse\.status === 403.*INVALID_LOGIN/s);
-  assert.match(app, /The email or password is incorrect/);
+  assert.match(authSession, /response\.status === 401 \|\| response\.status === 403.*INVALID_LOGIN/s);
+  assert.match(loginView, /The email or password is incorrect/);
 });
 
 test("login error mapping is explicit and bilingual", () => {
-  assert.match(app, /Connection settings are incomplete or unsafe/);
-  assert.match(app, /The email or password is incorrect/);
-  assert.match(app, /This account is not active for Command Center access/);
-  assert.match(app, /Unable to reach the service/);
-  assert.match(app, /Sign-in failed\. Please try again/);
-  assert.match(app, /authMessage\(code: string\)/);
+  assert.match(loginView, /Connection settings are incomplete or unsafe/);
+  assert.match(loginView, /The email or password is incorrect/);
+  assert.match(loginView, /This account is not active for Command Center access/);
+  assert.match(loginView, /Unable to reach the service/);
+  assert.match(loginView, /Sign-in failed\. Please try again/);
+  assert.match(loginView, /authMessage\(code: string\)/);
 });
 
 test("forgot-password flow uses public recover endpoint with non-enumerating success copy", () => {
   assert.match(app, /requestPasswordReset\(email: string\)/);
-  assert.match(app, /\/auth\/v1\/recover/);
-  assert.match(app, /RESET_SUCCESS/);
-  assert.match(app, /If the email is registered, a password reset message will be sent/);
+  assert.match(authSession, /\/auth\/v1\/recover/);
+  assert.match(loginView, /RESET_SUCCESS/);
+  assert.match(loginView, /If the email is registered, a password reset message will be sent/);
   assert.match(loginView, /نسيت كلمة المرور؟/);
   assert.match(loginView, /Forgot password\?/);
   assert.match(app, /PASSWORD_RESET_PATH/);
@@ -304,8 +350,10 @@ test("forgot-password flow uses public recover endpoint with non-enumerating suc
   assert.match(app, /const \[isRecoveryFlow\] = useState\(\(\) => new URLSearchParams/);
   assert.match(app, /setTimeout\(\(\) => \{/);
   assert.match(app, /}, 12000\)/);
-  assert.match(app, /Never leave the sign-in screen stuck indefinitely/);
-  assert.match(app, /passwordResetRedirect\(\)[\s\S]*window.location.origin/);
+  assert.match(app, /Cookie-backed sessions restore through the same-origin server endpoint/);
+  assert.match(app, /localStorage\.getItem\("relaxfix-command-logout-pending"\)/);
+  assert.doesNotMatch(app, /controller\.abort\(\);\s*sessionStorage\.removeItem\("relaxfix-command-session"\);\s*setRestoring\(false\)/);
+  assert.match(authSession, /new URL\(resetPath, window.location.origin\)/);
 });
 
 test("System Polish cancels stale reads and handles session expiry consistently", () => {

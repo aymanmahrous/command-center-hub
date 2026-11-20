@@ -5,4 +5,5 @@ declare global {
     CC_SUPABASE_URL: string;
     CC_SUPABASE_KEY: string;
   }
+  const __VERCEL_ENV__: string;
 }

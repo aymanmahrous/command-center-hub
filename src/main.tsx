@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BarChart3, Bot, CalendarDays, ContactRound, Inbox, LayoutDashboard, Library, LogOut, Settings2, ShieldAlert, Workflow } from "lucide-react";
 import { z } from "zod";
 import { isSupabaseBrowserConfigurationReady } from "./supabase-config";
+import type { AuthConfig, AuthRole, AuthSession } from "./auth-session";
 import { canApproveContentItem, sharedDatabaseBatchId, type ContentBatchItem } from "./content-batch";
 import type { ChangeRequestKind } from "./content-growth";
 import { formatLocalDateTimeInput } from "./date-utils";
@@ -52,8 +53,8 @@ const sections = [
 
 type SectionId = (typeof sections)[number][0];
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
-type Role = "super_admin" | "admin" | "reception" | "coach" | "content_manager";
-type Session = { accessToken: string; displayName: string; role: Role };
+type Role = AuthRole;
+type Session = AuthSession;
 type RadarPriority = "HOT" | "WARM" | "LOW";
 type RadarStatus = "NEW" | "REVIEWED" | "ACTIONED" | "DISMISSED"
   | "CONTACTED" | "CUSTOMER_REPLIED" | "BOOKING_REQUEST" | "BOOKED" | "PAID_CUSTOMER"
@@ -84,7 +85,6 @@ function sectionUrl(section: SectionId) {
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
-const ProfileSchema = z.object({ display_name: z.string().min(1), role: z.enum(["super_admin", "admin", "reception", "coach", "content_manager"]), active: z.literal(true) });
 const BookingSchema = z.object({
   id: z.string().uuid(), full_name: z.string(), phone: z.string().nullable().optional(), normalized_phone: z.string().nullable().optional(),
   gender: z.string().nullable().optional(), category: z.string().nullable().optional(), location: z.string().nullable().optional(), other_location: z.string().nullable().optional(),
@@ -170,100 +170,39 @@ const AnalyticsSchema = z.object({
   bookingRequests: z.number().int().nonnegative(), publishedItems: z.number().int().nonnegative(), contentItems: z.number().int().nonnegative(),
   attributionReady: z.boolean(), note: z.string(),
 }).passthrough();
-const StoredSessionSchema = z.object({ accessToken: z.string().min(1) }).passthrough();
-
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\/$/, "");
 const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
 const STAFF_TABLE = (import.meta.env.VITE_STAFF_PROFILE_TABLE ?? "staff_profiles").trim();
 const PASSWORD_RESET_PATH = (import.meta.env.VITE_PASSWORD_RESET_PATH ?? "").trim();
-
-const AUTH_MESSAGES = {
-  CONFIGURATION_REQUIRED: "إعدادات الاتصال غير مكتملة أو غير آمنة. التطبيق مغلق بأمان.\nConnection settings are incomplete or unsafe. The application is securely locked.",
-  INVALID_LOGIN: "البريد الإلكتروني أو كلمة المرور غير صحيحة.\nThe email or password is incorrect.",
-  STAFF_ACCESS_DENIED: "هذا الحساب غير مفعّل للوصول إلى لوحة التحكم.\nThis account is not active for Command Center access.",
-  SERVICE_UNAVAILABLE: "تعذر الاتصال بالخدمة. تحقق من الإنترنت ثم حاول لاحقًا.\nUnable to reach the service. Check your connection and try again later.",
-  LOGIN_FAILED: "تعذر تسجيل الدخول. حاول مرة أخرى.\nSign-in failed. Please try again.",
-  RESET_SUCCESS: "إذا كان البريد مسجلاً، فستصلك رسالة لإعادة تعيين كلمة المرور.\nIf the email is registered, a password reset message will be sent.",
-} as const;
+const AUTH_CONFIG: AuthConfig = { supabaseUrl: SUPABASE_URL, publicKey: SUPABASE_PUBLIC_KEY, staffTable: STAFF_TABLE };
+const AUTH_PREVIEW_DISABLED = __VERCEL_ENV__ === "preview";
 
 function configurationReady() {
   return isSupabaseBrowserConfigurationReady(SUPABASE_URL, SUPABASE_PUBLIC_KEY, STAFF_TABLE);
-}
-
-function passwordResetRedirect() {
-  // Default to the app root so recovery links work without an optional build-time path.
-  if (!PASSWORD_RESET_PATH) return `${window.location.origin}/`;
-  if (!PASSWORD_RESET_PATH.startsWith("/")) throw new Error("CONFIGURATION_REQUIRED");
-  return new URL(PASSWORD_RESET_PATH, window.location.origin).toString();
 }
 
 function authErrorCode(cause: unknown) {
   return cause instanceof Error ? cause.message : "LOGIN_FAILED";
 }
 
-function authMessage(code: string) {
-  if (code === "CONFIGURATION_REQUIRED") return AUTH_MESSAGES.CONFIGURATION_REQUIRED;
-  if (code === "INVALID_LOGIN") return AUTH_MESSAGES.INVALID_LOGIN;
-  if (code === "STAFF_ACCESS_DENIED") return AUTH_MESSAGES.STAFF_ACCESS_DENIED;
-  if (code === "NETWORK_UNAVAILABLE" || code === "SERVICE_UNAVAILABLE" || code === "TOO_MANY_ATTEMPTS") return AUTH_MESSAGES.SERVICE_UNAVAILABLE;
-  return AUTH_MESSAGES.LOGIN_FAILED;
-}
 function rpcHeaders(session: Session) { return { apikey: SUPABASE_PUBLIC_KEY, Authorization: `Bearer ${session.accessToken}`, "Content-Type": "application/json", Accept: "application/json" }; }
 
-async function loadStaffProfile(accessToken: string, userId: string, signal?: AbortSignal) {
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/${encodeURIComponent(STAFF_TABLE)}?id=eq.${encodeURIComponent(userId)}&select=display_name,role,active&limit=1`, {
-    headers: { apikey: SUPABASE_PUBLIC_KEY, Authorization: `Bearer ${accessToken}`, Accept: "application/json" }, cache: "no-store", signal,
-  });
-  if (response.status === 401) throw new Error("SESSION_EXPIRED");
-  if (!response.ok) throw new Error("PROFILE_CHECK_FAILED");
-  const rows = z.array(ProfileSchema).parse(await response.json());
-  if (rows.length !== 1) throw new Error("STAFF_ACCESS_DENIED");
-  return { accessToken, displayName: rows[0].display_name, role: rows[0].role } satisfies Session;
-}
+
 
 async function signIn(email: string, password: string): Promise<Session> {
+  if (AUTH_PREVIEW_DISABLED) throw new Error("PREVIEW_AUTH_DISABLED");
   if (!configurationReady()) throw new Error("CONFIGURATION_REQUIRED");
-  let authResponse: Response;
-  try {
-    authResponse = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, { method: "POST", headers: { "Content-Type": "application/json", apikey: SUPABASE_PUBLIC_KEY }, body: JSON.stringify({ email, password }) });
-  } catch {
-    throw new Error("NETWORK_UNAVAILABLE");
-  }
-  if (authResponse.status === 429) throw new Error("TOO_MANY_ATTEMPTS");
-  if (authResponse.status === 401 || authResponse.status === 403) throw new Error("INVALID_LOGIN");
-  if (authResponse.status >= 500) throw new Error("SERVICE_UNAVAILABLE");
-  if (!authResponse.ok) throw new Error("INVALID_LOGIN");
-  const auth = z.object({ access_token: z.string(), user: z.object({ id: z.string().uuid() }) }).parse(await authResponse.json());
-  return loadStaffProfile(auth.access_token, auth.user.id);
+  const { signInWithPassword } = await import("./auth-session");
+  const session = await signInWithPassword(AUTH_CONFIG, email, password);
+  try { localStorage.removeItem("relaxfix-command-logout-pending"); } catch { /* Storage may be disabled by the browser. */ }
+  return session;
 }
 
 async function requestPasswordReset(email: string): Promise<void> {
+  if (AUTH_PREVIEW_DISABLED) throw new Error("PREVIEW_AUTH_DISABLED");
   if (!configurationReady()) throw new Error("CONFIGURATION_REQUIRED");
-  const redirectTo = passwordResetRedirect();
-  let response: Response;
-  try {
-    response = await fetch(`${SUPABASE_URL}/auth/v1/recover`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", apikey: SUPABASE_PUBLIC_KEY },
-      body: JSON.stringify({ email, ...(redirectTo ? { redirect_to: redirectTo } : {}) }),
-    });
-  } catch {
-    throw new Error("NETWORK_UNAVAILABLE");
-  }
-  if (response.status === 429) throw new Error("TOO_MANY_ATTEMPTS");
-  if (response.status === 401 || response.status === 403) throw new Error("SERVICE_UNAVAILABLE");
-  if (response.status >= 500) throw new Error("SERVICE_UNAVAILABLE");
-  if (!response.ok) throw new Error("LOGIN_FAILED");
-}
-
-async function restoreSession(accessToken: string, signal: AbortSignal): Promise<Session> {
-  if (!configurationReady()) throw new Error("CONFIGURATION_REQUIRED");
-  const authResponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { apikey: SUPABASE_PUBLIC_KEY, Authorization: `Bearer ${accessToken}`, Accept: "application/json" }, cache: "no-store", signal,
-  });
-  if (!authResponse.ok) throw new Error("SESSION_EXPIRED");
-  const user = z.object({ id: z.string().uuid() }).parse(await authResponse.json());
-  return loadStaffProfile(accessToken, user.id, signal);
+  const { requestPasswordReset: requestReset } = await import("./auth-session");
+  return requestReset(AUTH_CONFIG, email, PASSWORD_RESET_PATH);
 }
 
 async function callRpc(session: Session, rpcName: string, body: Record<string, unknown> = {}, signal?: AbortSignal): Promise<JsonValue> {
@@ -1424,41 +1363,131 @@ function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [restoring, setRestoring] = useState(true);
   const [isRecoveryFlow] = useState(() => new URLSearchParams(window.location.hash.replace(/^#/, "")).get("type") === "recovery");
-  useEffect(() => { void registerServiceWorker(); }, []);
+  useEffect(() => {
+    if (AUTH_PREVIEW_DISABLED) {
+      if ("serviceWorker" in navigator) {
+        void navigator.serviceWorker.getRegistrations()
+          .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+          .catch(() => {});
+      }
+      if ("caches" in window) {
+        void window.caches.keys()
+          .then((keys) => Promise.all(keys.map((key) => window.caches.delete(key))))
+          .catch(() => {});
+      }
+      return;
+    }
+    void registerServiceWorker();
+  }, []);
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== "relaxfix-command-logout-pending" || event.newValue !== "1") return;
+      sessionStorage.removeItem("relaxfix-command-session");
+      setSession(null);
+      setRestoring(false);
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
   useEffect(() => {
     const controller = new AbortController();
     let timeoutId: number | undefined;
     try {
+      if (localStorage.getItem("relaxfix-command-logout-pending") === "1") {
+        sessionStorage.removeItem("relaxfix-command-session");
+        setRestoring(false);
+        return () => controller.abort();
+      }
+    } catch { /* Continue with the server cookie if browser storage is unavailable. */ }
+    if (AUTH_PREVIEW_DISABLED) {
+      sessionStorage.removeItem("relaxfix-command-session");
+      setRestoring(false);
+      return () => controller.abort();
+    }
+    try {
       const raw = sessionStorage.getItem("relaxfix-command-session");
-      if (!raw) { setRestoring(false); return () => controller.abort(); }
-      const stored = StoredSessionSchema.parse(JSON.parse(raw));
-      // Never leave the sign-in screen stuck indefinitely if auth/profile checks hang.
+      const stored: unknown = raw ? JSON.parse(raw) : null;
+      // Cookie-backed sessions restore through the same-origin server endpoint.
+      // Legacy browser tokens are migrated once, then removed after successful validation.
       timeoutId = window.setTimeout(() => {
         if (controller.signal.aborted) return;
         controller.abort();
-        sessionStorage.removeItem("relaxfix-command-session");
         setRestoring(false);
       }, 12000);
-      restoreSession(stored.accessToken, controller.signal).then((restored) => {
+      import("./auth-session").then(({ restoreAuthSession }) => restoreAuthSession(AUTH_CONFIG, stored, controller.signal)).then((restored) => {
         if (controller.signal.aborted) return;
-        sessionStorage.setItem("relaxfix-command-session", JSON.stringify({ accessToken: restored.accessToken }));
+        if (raw) sessionStorage.removeItem("relaxfix-command-session");
         setSession(restored);
       }).catch((cause) => {
         if (cause instanceof DOMException && cause.name === "AbortError") return;
-        sessionStorage.removeItem("relaxfix-command-session");
+        const code = authErrorCode(cause);
+        if (!["NETWORK_UNAVAILABLE", "SERVICE_UNAVAILABLE", "TOO_MANY_ATTEMPTS"].includes(code)) {
+          sessionStorage.removeItem("relaxfix-command-session");
+          if (code === "SESSION_EXPIRED" || code === "STAFF_ACCESS_DENIED") {
+            try { localStorage.setItem("relaxfix-command-logout-pending", "1"); } catch { /* Best-effort cross-tab logout marker. */ }
+          }
+        }
       }).finally(() => {
         if (timeoutId !== undefined) window.clearTimeout(timeoutId);
         if (!controller.signal.aborted) setRestoring(false);
       });
-    } catch { sessionStorage.removeItem("relaxfix-command-session"); setRestoring(false); }
+    } catch {
+      sessionStorage.removeItem("relaxfix-command-session");
+      setRestoring(false);
+    }
     return () => {
       if (timeoutId !== undefined) window.clearTimeout(timeoutId);
       controller.abort();
     };
   }, []);
+  useEffect(() => {
+    if (!session?.expiresAt || AUTH_PREVIEW_DISABLED) return;
+    const controller = new AbortController();
+    let timeoutId: number | undefined;
+    let refreshing = false;
+    const refresh = async () => {
+      if (refreshing || controller.signal.aborted) return;
+      refreshing = true;
+      try {
+        const { refreshAuthSession } = await import("./auth-session");
+        const refreshed = await refreshAuthSession(controller.signal);
+        if (controller.signal.aborted) return;
+        setSession(refreshed);
+      } catch (cause) {
+        if (controller.signal.aborted || (cause instanceof DOMException && cause.name === "AbortError")) return;
+        const code = authErrorCode(cause);
+        if (code === "NETWORK_UNAVAILABLE" || code === "SERVICE_UNAVAILABLE" || code === "TOO_MANY_ATTEMPTS") {
+          timeoutId = window.setTimeout(() => void refresh(), 15000);
+          return;
+        }
+        sessionStorage.removeItem("relaxfix-command-session");
+        try { localStorage.setItem("relaxfix-command-logout-pending", "1"); } catch { /* Best-effort cross-tab logout marker. */ }
+        setSession(null);
+      } finally {
+        refreshing = false;
+      }
+    };
+    const delay = Math.max(0, session.expiresAt - Date.now() - 60000);
+    timeoutId = window.setTimeout(() => void refresh(), delay);
+    return () => {
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [session?.expiresAt]);
+  if (isRecoveryFlow && AUTH_PREVIEW_DISABLED) return <main className="login-page"><p className="muted" role="status">{language === "ar" ? "استعادة الحساب معطّلة في المعاينة لحماية بيانات الإنتاج." : "Account recovery is disabled in Preview to protect production data."}</p></main>;
   if (isRecoveryFlow) return <Suspense fallback={<main className="login-page"><p className="muted" role="status">{language === "ar" ? "جارٍ تحميل صفحة الاستعادة..." : "Loading recovery page..."}</p></main>}><PasswordRecovery supabaseUrl={SUPABASE_URL} publicKey={SUPABASE_PUBLIC_KEY} configurationReady={configurationReady()} /></Suspense>;
   if (restoring) return <main className="login-page"><p className="muted" role="status">{language === "ar" ? "جاري التحقق من الجلسة والموظف النشط..." : "Verifying session and active staff..."}</p></main>;
-  if (!session) return <Suspense fallback={<main className="login-page"><p className="muted" role="status">{language === "ar" ? "جارٍ تحميل صفحة الدخول..." : "Loading sign-in..."}</p></main>}><LoginView onAuthenticated={setSession} onSignIn={signIn} onRequestPasswordReset={requestPasswordReset} authMessage={authMessage} resetSuccess={AUTH_MESSAGES.RESET_SUCCESS} /></Suspense>;
-  return <Dashboard session={session} onLogout={() => { sessionStorage.removeItem("relaxfix-command-session"); setSession(null); }} />;
+  if (!session) return <Suspense fallback={<main className="login-page"><p className="muted" role="status">{language === "ar" ? "جارٍ تحميل صفحة الدخول..." : "Loading sign-in..."}</p></main>}><LoginView authDisabled={AUTH_PREVIEW_DISABLED} onAuthenticated={setSession} onSignIn={signIn} onRequestPasswordReset={requestPasswordReset} /></Suspense>;
+  return <Dashboard session={session} onLogout={() => {
+    const current = session;
+    sessionStorage.removeItem("relaxfix-command-session");
+    try { localStorage.setItem("relaxfix-command-logout-pending", "1"); } catch { /* Best-effort cross-tab logout marker. */ }
+    setSession(null);
+    void import("./auth-session").then(({ revokeLocalSession }) => revokeLocalSession(current)).then(() => {
+      try { localStorage.removeItem("relaxfix-command-logout-pending"); } catch { /* The server cookie is already cleared. */ }
+    }).catch(() => {
+      // Keep the non-sensitive logout marker so another tab cannot restore the cookie-backed session.
+    });
+  }} />;
 }
 createRoot(document.getElementById("root")!).render(<LanguageProvider><App /></LanguageProvider>);
