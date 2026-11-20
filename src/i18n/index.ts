@@ -1,13 +1,11 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { ar } from "./ar";
-import { en } from "./en";
 import type { Dictionary } from "./en";
 
 export type Language = "ar" | "en";
 export type { Dictionary };
 
 const STORAGE_KEY = "relaxfix-language";
-const dictionaries: Record<Language, Dictionary> = { ar, en };
 
 function readStoredLanguage(): Language {
   try {
@@ -31,12 +29,22 @@ const LanguageContext = createContext<LanguageContextValue | null>(null);
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<Language>(() => readStoredLanguage());
+  const [englishDictionary, setEnglishDictionary] = useState<Dictionary | null>(null);
   const dir: "rtl" | "ltr" = language === "ar" ? "rtl" : "ltr";
 
   useEffect(() => {
     document.documentElement.lang = language;
     document.documentElement.dir = dir;
-  }, [dir, language]);
+  }, [dir, englishDictionary, language]);
+
+  useEffect(() => {
+    if (language !== "en" || englishDictionary) return;
+    void import("./en")
+      .then((module) => setEnglishDictionary(module.en))
+      .catch(() => {
+        // Keep the Arabic fallback if the optional English chunk cannot be loaded.
+      });
+  }, [englishDictionary, language]);
 
   function setLanguage(next: Language) {
     setLanguageState(next);
@@ -48,7 +56,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   }
 
   const value = useMemo<LanguageContextValue>(() => {
-    const dictionary = dictionaries[language];
+    const dictionary = language === "en" && englishDictionary ? englishDictionary : (ar as unknown as Dictionary);
     return {
       language,
       dir,
