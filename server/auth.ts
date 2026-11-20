@@ -21,12 +21,15 @@ const BootstrapBodySchema = z.object({ refreshToken: z.string().min(1).max(4096)
 const LogoutBodySchema = z.object({ accessToken: z.string().min(1).max(8192) });
 
 class AuthApiError extends Error {
-  constructor(
-    readonly code: string,
-    readonly status: number,
-    readonly clearCookie = false,
-  ) {
+  readonly code: string;
+  readonly status: number;
+  readonly clearCookie: boolean;
+
+  constructor(code: string, status: number, clearCookie = false) {
     super(code);
+    this.code = code;
+    this.status = status;
+    this.clearCookie = clearCookie;
   }
 }
 
@@ -195,7 +198,11 @@ async function loadStaffProfile(config: ReturnType<typeof getSupabaseConfig>, ac
   return { displayName: rows[0].display_name, role: rows[0].role };
 }
 
-async function rotateAndVerify(refreshToken: string, response: ServerResponse) {
+async function rotateAndVerify(
+  refreshToken: string,
+  response: ServerResponse,
+  options: { clearCookieOnInvalid?: boolean; previousRefreshToken?: string | null } = {},
+) {
   const config = getSupabaseConfig();
   let upstream: Response;
   try {
@@ -211,7 +218,7 @@ async function rotateAndVerify(refreshToken: string, response: ServerResponse) {
   }
 
   if (upstream.status === 400 || upstream.status === 401 || upstream.status === 403) {
-    throw new AuthApiError("SESSION_EXPIRED", 401, true);
+    throw new AuthApiError("SESSION_EXPIRED", 401, options.clearCookieOnInvalid ?? true);
   }
   if (upstream.status === 429) throw new AuthApiError("TOO_MANY_ATTEMPTS", 503);
   if (upstream.status >= 500) throw new AuthApiError("SERVICE_UNAVAILABLE", 503);
@@ -236,7 +243,12 @@ async function rotateAndVerify(refreshToken: string, response: ServerResponse) {
       role: profile.role,
     };
   } catch (cause) {
-    if (cause instanceof AuthApiError && cause.clearCookie) clearRefreshCookie(response);
+    if (cause instanceof AuthApiError && cause.clearCookie) {
+      const previous = options.previousRefreshToken;
+      if (previous && previous.length <= 4096) setRefreshCookie(response, previous);
+      else clearRefreshCookie(response);
+      throw new AuthApiError(cause.code, cause.status, false);
+    }
     throw cause;
   }
 }
@@ -263,7 +275,10 @@ export const handleAuthBootstrap: AuthHandler = async (request, response) => run
   if (previewAuthDisabled()) throw new AuthApiError("PREVIEW_AUTH_DISABLED", 503);
   const body = BootstrapBodySchema.safeParse(await readJsonBody(request));
   if (!body.success) throw new AuthApiError("INVALID_REQUEST", 400);
-  const session = await rotateAndVerify(body.data.refreshToken, response);
+  const session = await rotateAndVerify(body.data.refreshToken, response, {
+    clearCookieOnInvalid: false,
+    previousRefreshToken: readRefreshCookie(request),
+  });
   sendJson(response, 200, { success: true, ...session });
 });
 

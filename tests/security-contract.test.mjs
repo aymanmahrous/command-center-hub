@@ -56,6 +56,7 @@ test("passwords and refresh tokens are never persisted in browser storage", () =
   assert.doesNotMatch(app, /sessionStorage\.setItem/);
   assert.doesNotMatch(loginView, /sessionStorage/);
   assert.doesNotMatch(authSession, /sessionStorage\.setItem/);
+  assert.doesNotMatch(app, /localStorage\.setItem\([^\n]*(refreshToken|accessToken)/i);
   assert.match(authSession, /bootstrapSession\(auth\.refresh_token/);
   assert.match(serverAuth, /Path=\/api\/auth; HttpOnly; Secure; SameSite=Strict/);
   assert.match(serverAuth, /__Secure-relaxfix-command-refresh/);
@@ -65,7 +66,7 @@ test("passwords and refresh tokens are never persisted in browser storage", () =
   assert.match(viteConfig, /localAuthApiPlugin/);
   assert.match(app, /AUTH_PREVIEW_DISABLED = __VERCEL_ENV__ === "preview"/);
   assert.match(app, /isRecoveryFlow && AUTH_PREVIEW_DISABLED/);
-  assert.match(serverAuth, /previewAuthDisabled\\(\\)/);
+  assert.match(serverAuth, /previewAuthDisabled\(\)/);
 });
 
 test("booking writes use the approved RPC and never direct table mutation", () => {
@@ -276,8 +277,8 @@ test("Supabase refresh tokens rotate only behind the HttpOnly server cookie", ()
   assert.match(serverAuth, /Set-Cookie/);
   assert.match(serverAuth, /SameSite=Strict/);
   assert.match(serverAuth, /Path=\/api\/auth/);
-  assert.match(authSession, /fetchAuthApi\("\/api\/auth\/bootstrap"/);
-  assert.match(authSession, /fetchAuthApi\("\/api\/auth\/session"/);
+  assert.match(authSession, /postAuthApi\("\/api\/auth\/bootstrap"/);
+  assert.match(authSession, /postAuthApi\("\/api\/auth\/session"/);
   assert.match(authSession, /navigator\.locks\?\.request/);
   assert.match(app, /const \{ refreshAuthSession \} = await import\("\.\/auth-session"\)/);
   assert.match(app, /session\.expiresAt - Date\.now\(\) - 60000/);
@@ -292,6 +293,8 @@ test("logout clears the HttpOnly cookie and revokes only the current Supabase se
   assert.match(authLogout, /handleAuthLogout/);
   assert.match(app, /import\("\.\/auth-session"\)\.then\(\(\{ revokeLocalSession \}\)/);
   assert.match(app, /sessionStorage\.removeItem\("relaxfix-command-session"\)/);
+  assert.match(app, /localStorage\.setItem\("relaxfix-command-logout-pending", "1"\)/);
+  assert.match(app, /window\.addEventListener\("storage", handleStorage\)/);
 });
 
 test("authentication rate limits fail safely without account disclosure", () => {
@@ -344,8 +347,8 @@ test("forgot-password flow uses public recover endpoint with non-enumerating suc
   assert.match(app, /const \[isRecoveryFlow\] = useState\(\(\) => new URLSearchParams/);
   assert.match(app, /setTimeout\(\(\) => \{/);
   assert.match(app, /}, 12000\)/);
-  assert.match(app, /Never leave the sign-in screen stuck indefinitely/);
-  assert.match(app, /A slow network or profile service must not destroy a still-refreshable session/);
+  assert.match(app, /Cookie-backed sessions restore through the same-origin server endpoint/);
+  assert.match(app, /localStorage\.getItem\("relaxfix-command-logout-pending"\)/);
   assert.doesNotMatch(app, /controller\.abort\(\);\s*sessionStorage\.removeItem\("relaxfix-command-session"\);\s*setRestoring\(false\)/);
   assert.match(authSession, /new URL\(resetPath, window.location.origin\)/);
 });

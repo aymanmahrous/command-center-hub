@@ -202,17 +202,14 @@ export async function requestPasswordReset(config: AuthConfig, email: string, re
 }
 
 export async function revokeLocalSession(session: AuthSession): Promise<void> {
-  try {
-    await withAuthCookieLock(async () => {
-      await fetch("/api/auth/logout", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ accessToken: session.accessToken }),
-        cache: "no-store",
-      });
+  await withAuthCookieLock(async () => {
+    const response = await fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ accessToken: session.accessToken }),
+      cache: "no-store",
     });
-  } catch {
-    // The UI clears the local session even if the server cannot be reached.
-  }
+    if (!response.ok) throw new Error("LOGOUT_UNAVAILABLE");
+  });
 }

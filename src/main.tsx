@@ -193,7 +193,9 @@ async function signIn(email: string, password: string): Promise<Session> {
   if (AUTH_PREVIEW_DISABLED) throw new Error("PREVIEW_AUTH_DISABLED");
   if (!configurationReady()) throw new Error("CONFIGURATION_REQUIRED");
   const { signInWithPassword } = await import("./auth-session");
-  return signInWithPassword(AUTH_CONFIG, email, password);
+  const session = await signInWithPassword(AUTH_CONFIG, email, password);
+  try { localStorage.removeItem("relaxfix-command-logout-pending"); } catch { /* Storage may be disabled by the browser. */ }
+  return session;
 }
 
 async function requestPasswordReset(email: string): Promise<void> {
@@ -1363,8 +1365,25 @@ function App() {
   const [isRecoveryFlow] = useState(() => new URLSearchParams(window.location.hash.replace(/^#/, "")).get("type") === "recovery");
   useEffect(() => { void registerServiceWorker(); }, []);
   useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== "relaxfix-command-logout-pending" || event.newValue !== "1") return;
+      sessionStorage.removeItem("relaxfix-command-session");
+      setSession(null);
+      setRestoring(false);
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+  useEffect(() => {
     const controller = new AbortController();
     let timeoutId: number | undefined;
+    try {
+      if (localStorage.getItem("relaxfix-command-logout-pending") === "1") {
+        sessionStorage.removeItem("relaxfix-command-session");
+        setRestoring(false);
+        return () => controller.abort();
+      }
+    } catch { /* Continue with the server cookie if browser storage is unavailable. */ }
     if (AUTH_PREVIEW_DISABLED) {
       sessionStorage.removeItem("relaxfix-command-session");
       setRestoring(false);
@@ -1389,6 +1408,9 @@ function App() {
         const code = authErrorCode(cause);
         if (!["NETWORK_UNAVAILABLE", "SERVICE_UNAVAILABLE", "TOO_MANY_ATTEMPTS"].includes(code)) {
           sessionStorage.removeItem("relaxfix-command-session");
+          if (code === "SESSION_EXPIRED" || code === "STAFF_ACCESS_DENIED") {
+            try { localStorage.setItem("relaxfix-command-logout-pending", "1"); } catch { /* Best-effort cross-tab logout marker. */ }
+          }
         }
       }).finally(() => {
         if (timeoutId !== undefined) window.clearTimeout(timeoutId);
@@ -1424,6 +1446,7 @@ function App() {
           return;
         }
         sessionStorage.removeItem("relaxfix-command-session");
+        try { localStorage.setItem("relaxfix-command-logout-pending", "1"); } catch { /* Best-effort cross-tab logout marker. */ }
         setSession(null);
       } finally {
         refreshing = false;
@@ -1443,8 +1466,13 @@ function App() {
   return <Dashboard session={session} onLogout={() => {
     const current = session;
     sessionStorage.removeItem("relaxfix-command-session");
+    try { localStorage.setItem("relaxfix-command-logout-pending", "1"); } catch { /* Best-effort cross-tab logout marker. */ }
     setSession(null);
-    void import("./auth-session").then(({ revokeLocalSession }) => revokeLocalSession(current));
+    void import("./auth-session").then(({ revokeLocalSession }) => revokeLocalSession(current)).then(() => {
+      try { localStorage.removeItem("relaxfix-command-logout-pending"); } catch { /* The server cookie is already cleared. */ }
+    }).catch(() => {
+      // Keep the non-sensitive logout marker so another tab cannot restore the cookie-backed session.
+    });
   }} />;
 }
 createRoot(document.getElementById("root")!).render(<LanguageProvider><App /></LanguageProvider>);

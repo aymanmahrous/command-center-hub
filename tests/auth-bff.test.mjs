@@ -208,3 +208,51 @@ test("logout clears the cookie before attempting local-scope Supabase revocation
     assert.equal(calls.length, 1);
   });
 });
+
+test("a failed bootstrap does not erase an existing browser session cookie", async () => {
+  configureEnv();
+  await withServer(handleAuthBootstrap, async (baseUrl) => {
+    installFetchMock(baseUrl, async () => new Response("{}", { status: 400 }));
+    const response = await fetch(`${baseUrl}/api/auth/bootstrap`, {
+      method: "POST",
+      headers: browserHeaders(baseUrl, { Cookie: "__Secure-relaxfix-command-refresh=existing-user-token" }),
+      body: JSON.stringify({ refreshToken: "invalid-new-login-token" }),
+    });
+    assert.equal(response.status, 401);
+    assert.equal(response.headers.get("set-cookie"), null);
+  });
+});
+
+test("an inactive account cannot overwrite a previously valid browser session cookie", async () => {
+  configureEnv();
+  await withServer(handleAuthBootstrap, async (baseUrl) => {
+    installFetchMock(baseUrl, async (url) => {
+      if (url.includes("/auth/v1/token?grant_type=refresh_token")) return tokenResponse("new-inactive-account-token");
+      if (url.includes("/rest/v1/staff_profiles")) return profileResponse([]);
+      throw new Error("Unexpected upstream request");
+    });
+    const response = await fetch(`${baseUrl}/api/auth/bootstrap`, {
+      method: "POST",
+      headers: browserHeaders(baseUrl, { Cookie: "__Secure-relaxfix-command-refresh=previous-valid-user-token" }),
+      body: JSON.stringify({ refreshToken: "inactive-account-refresh-token" }),
+    });
+    assert.equal(response.status, 403);
+    const cookie = response.headers.get("set-cookie") ?? "";
+    assert.match(cookie, /previous-valid-user-token/);
+    assert.doesNotMatch(cookie, /new-inactive-account-token/);
+  });
+});
+
+test("logout still clears the local cookie when Supabase revocation is unavailable", async () => {
+  configureEnv();
+  await withServer(handleAuthLogout, async (baseUrl) => {
+    installFetchMock(baseUrl, async () => { throw new Error("Temporary upstream failure"); });
+    const response = await fetch(`${baseUrl}/api/auth/logout`, {
+      method: "POST",
+      headers: browserHeaders(baseUrl),
+      body: JSON.stringify({ accessToken: "current-access-token" }),
+    });
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get("set-cookie") ?? "", /Max-Age=0/);
+  });
+});
