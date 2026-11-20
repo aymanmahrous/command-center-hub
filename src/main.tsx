@@ -175,6 +175,7 @@ const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || im
 const STAFF_TABLE = (import.meta.env.VITE_STAFF_PROFILE_TABLE ?? "staff_profiles").trim();
 const PASSWORD_RESET_PATH = (import.meta.env.VITE_PASSWORD_RESET_PATH ?? "").trim();
 const AUTH_CONFIG: AuthConfig = { supabaseUrl: SUPABASE_URL, publicKey: SUPABASE_PUBLIC_KEY, staffTable: STAFF_TABLE };
+const AUTH_PREVIEW_DISABLED = __VERCEL_ENV__ === "preview";
 
 function configurationReady() {
   return isSupabaseBrowserConfigurationReady(SUPABASE_URL, SUPABASE_PUBLIC_KEY, STAFF_TABLE);
@@ -189,12 +190,14 @@ function rpcHeaders(session: Session) { return { apikey: SUPABASE_PUBLIC_KEY, Au
 
 
 async function signIn(email: string, password: string): Promise<Session> {
+  if (AUTH_PREVIEW_DISABLED) throw new Error("PREVIEW_AUTH_DISABLED");
   if (!configurationReady()) throw new Error("CONFIGURATION_REQUIRED");
   const { signInWithPassword } = await import("./auth-session");
   return signInWithPassword(AUTH_CONFIG, email, password);
 }
 
 async function requestPasswordReset(email: string): Promise<void> {
+  if (AUTH_PREVIEW_DISABLED) throw new Error("PREVIEW_AUTH_DISABLED");
   if (!configurationReady()) throw new Error("CONFIGURATION_REQUIRED");
   const { requestPasswordReset: requestReset } = await import("./auth-session");
   return requestReset(AUTH_CONFIG, email, PASSWORD_RESET_PATH);
@@ -1362,20 +1365,24 @@ function App() {
   useEffect(() => {
     const controller = new AbortController();
     let timeoutId: number | undefined;
+    if (AUTH_PREVIEW_DISABLED) {
+      sessionStorage.removeItem("relaxfix-command-session");
+      setRestoring(false);
+      return () => controller.abort();
+    }
     try {
       const raw = sessionStorage.getItem("relaxfix-command-session");
-      if (!raw) { setRestoring(false); return () => controller.abort(); }
-      const stored: unknown = JSON.parse(raw);
-      // Never leave the sign-in screen stuck indefinitely if auth/profile checks hang.
+      const stored: unknown = raw ? JSON.parse(raw) : null;
+      // Cookie-backed sessions restore through the same-origin server endpoint.
+      // Legacy browser tokens are migrated once, then removed after successful validation.
       timeoutId = window.setTimeout(() => {
         if (controller.signal.aborted) return;
         controller.abort();
-        // A slow network or profile service must not destroy a still-refreshable session.
-        // Keep the stored token pair so the next restore attempt can resume safely.
         setRestoring(false);
       }, 12000);
       import("./auth-session").then(({ restoreAuthSession }) => restoreAuthSession(AUTH_CONFIG, stored, controller.signal)).then((restored) => {
         if (controller.signal.aborted) return;
+        if (raw) sessionStorage.removeItem("relaxfix-command-session");
         setSession(restored);
       }).catch((cause) => {
         if (cause instanceof DOMException && cause.name === "AbortError") return;
@@ -1387,26 +1394,26 @@ function App() {
         if (timeoutId !== undefined) window.clearTimeout(timeoutId);
         if (!controller.signal.aborted) setRestoring(false);
       });
-    } catch { sessionStorage.removeItem("relaxfix-command-session"); setRestoring(false); }
+    } catch {
+      sessionStorage.removeItem("relaxfix-command-session");
+      setRestoring(false);
+    }
     return () => {
       if (timeoutId !== undefined) window.clearTimeout(timeoutId);
       controller.abort();
     };
   }, []);
   useEffect(() => {
-    if (!session?.refreshToken || !session.expiresAt) return;
+    if (!session?.expiresAt || AUTH_PREVIEW_DISABLED) return;
     const controller = new AbortController();
     let timeoutId: number | undefined;
     let refreshing = false;
-    let activeRefreshToken = session.refreshToken;
     const refresh = async () => {
       if (refreshing || controller.signal.aborted) return;
       refreshing = true;
       try {
         const { refreshAuthSession } = await import("./auth-session");
-        const refreshed = await refreshAuthSession(AUTH_CONFIG, activeRefreshToken!, controller.signal, (tokens) => {
-          activeRefreshToken = tokens.refreshToken ?? activeRefreshToken;
-        });
+        const refreshed = await refreshAuthSession(controller.signal);
         if (controller.signal.aborted) return;
         setSession(refreshed);
       } catch (cause) {
@@ -1428,16 +1435,16 @@ function App() {
       if (timeoutId !== undefined) window.clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [session?.refreshToken, session?.expiresAt]);
+  }, [session?.expiresAt]);
   if (isRecoveryFlow && AUTH_PREVIEW_DISABLED) return <main className="login-page"><p className="muted" role="status">{language === "ar" ? "استعادة الحساب معطّلة في المعاينة لحماية بيانات الإنتاج." : "Account recovery is disabled in Preview to protect production data."}</p></main>;
   if (isRecoveryFlow) return <Suspense fallback={<main className="login-page"><p className="muted" role="status">{language === "ar" ? "جارٍ تحميل صفحة الاستعادة..." : "Loading recovery page..."}</p></main>}><PasswordRecovery supabaseUrl={SUPABASE_URL} publicKey={SUPABASE_PUBLIC_KEY} configurationReady={configurationReady()} /></Suspense>;
   if (restoring) return <main className="login-page"><p className="muted" role="status">{language === "ar" ? "جاري التحقق من الجلسة والموظف النشط..." : "Verifying session and active staff..."}</p></main>;
-  if (!session) return <Suspense fallback={<main className="login-page"><p className="muted" role="status">{language === "ar" ? "جارٍ تحميل صفحة الدخول..." : "Loading sign-in..."}</p></main>}><LoginView onAuthenticated={setSession} onSignIn={signIn} onRequestPasswordReset={requestPasswordReset} /></Suspense>;
+  if (!session) return <Suspense fallback={<main className="login-page"><p className="muted" role="status">{language === "ar" ? "جارٍ تحميل صفحة الدخول..." : "Loading sign-in..."}</p></main>}><LoginView authDisabled={AUTH_PREVIEW_DISABLED} onAuthenticated={setSession} onSignIn={signIn} onRequestPasswordReset={requestPasswordReset} /></Suspense>;
   return <Dashboard session={session} onLogout={() => {
     const current = session;
     sessionStorage.removeItem("relaxfix-command-session");
     setSession(null);
-    void import("./auth-session").then(({ revokeLocalSession }) => revokeLocalSession(AUTH_CONFIG, current));
+    void import("./auth-session").then(({ revokeLocalSession }) => revokeLocalSession(current));
   }} />;
 }
 createRoot(document.getElementById("root")!).render(<LanguageProvider><App /></LanguageProvider>);
