@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { runInNewContext } from "node:vm";
 import { createElement } from "react";
 import ts from "typescript";
-import { BRAND, CONTENT_CYCLE_DAYS, DEFAULT_BATCH_MIX, PLATFORM_GUIDANCE, buildCoachBrainBusinessContext, buildStrategySummary } from "../src/content-strategy.ts";
+import { BRAND, CONTENT_CYCLE_DAYS, DEFAULT_BATCH_MIX, PLATFORM_GUIDANCE, buildCoachBrainBusinessContext, buildManualDesignPrompt, buildStrategySummary } from "../src/content-strategy.ts";
 
 const view = readFileSync(new URL("../src/coach-brain.tsx", import.meta.url), "utf8");
 const style = readFileSync(new URL("../src/coach-brain.css", import.meta.url), "utf8");
@@ -225,7 +225,7 @@ test("personal-account buttons open the fixed site and copy the displayed text o
     const controls = [];
     function visit(node) {
       if (ts.isVariableStatement(node) && node.declarationList.declarations.some(({ name }) =>
-        ["personalDesignSites", "manualDesignSites", "designPrompt"].includes(name.getText(source)))) declarations.push(node.getText(source));
+        ["personalDesignSites", "manualDesignSites", "designPrompt", "questionDesignPrompt", "sampleBasePrompt", "sampleDesignPrompt"].includes(name.getText(source)))) declarations.push(node.getText(source));
       if (ts.isFunctionDeclaration(node) && ["openPersonalDesignSite", "personalDesignButton"].includes(node.name?.text))
         declarations.push(node.getText(source));
       if (ts.isJsxExpression(node) && node.expression) {
@@ -243,7 +243,7 @@ test("personal-account buttons open the fixed site and copy the displayed text o
     for (const clipboardState of ["allowed", "denied", "missing"]) {
       const opened = [], copied = [], notices = [];
       const sandbox = {
-        React: { createElement }, language: "ar", sampleIsVideo: true, sampleDesignPrompt: "عينة فيديو 9:16",
+        React: { createElement }, language: "ar", sampleIsVideo: true, sample: { visualPrompt: "عينة فيديو" }, sampleVideoDuration: 8, buildManualDesignPrompt,
         question: "  سؤال المالك  ", item: { visualPrompt: "تصميم المنشور", caption: "تعليق مختلف" },
         window: { open: (...args) => opened.push(args) },
         navigator: { clipboard: clipboardState === "missing" ? undefined : { writeText: async (text) => {
@@ -262,12 +262,17 @@ test("personal-account buttons open the fixed site and copy the displayed text o
         const clicked = button.props.onClick();
         assert.deepEqual(opened.splice(0), [[expectedSites[site], "_blank", "noopener,noreferrer"]]);
         await clicked;
-        const prompt = screen === "factory" ? sandbox.item.visualPrompt : i === 0 ? sandbox.sampleDesignPrompt : sandbox.question.trim();
-        assert.deepEqual(copied.splice(0), clipboardState === "missing" ? [] : [prompt]);
-        const hint = screen === "factory" ? /افتح برومبت التصميم/ : i === 0 ? /مربع برومبت التصميم/ : /مربع السؤال/;
+        if (clipboardState === "missing") assert.deepEqual(copied, []);
+        else {
+          const [prompt] = copied.splice(0);
+          assert.ok(prompt.startsWith(screen === "factory" ? sandbox.item.visualPrompt : i === 0 ? sandbox.sample.visualPrompt : sandbox.question.trim()));
+          for (const required of [BRAND.name, BRAND.locations[0], BRAND.whatsapp, BRAND.phone, "official Relax Fix UAE logo", "natural lighting", "Never invent customer numbers", "testimonials", "timelines or medical outcomes"]) assert.ok(prompt.includes(required), required);
+          if (screen === "brain" && i === 0) assert.match(prompt, /exact target duration of 8 seconds/);
+        }
+        const hint = screen === "brain" && i === 0 ? /مربع برومبت التصميم/ : /افتح برومبت التصميم/;
         assert.match(notices.shift(), clipboardState === "allowed" ? /تم نسخ/ : hint);
       }
-      const empty = runInNewContext(js, { ...sandbox, question: " ", sampleDesignPrompt: "", item: {} });
+      const empty = runInNewContext(js, { ...sandbox, question: " ", sample: null, item: {} });
       assert.ok(empty.every((button) => button.props.disabled));
     }
   }

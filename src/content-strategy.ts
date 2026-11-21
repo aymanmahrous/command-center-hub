@@ -21,6 +21,16 @@ export const BRAND = {
 
 export const RELAXFIX_WHATSAPP_E164 = "971588219130";
 
+export function buildManualDesignPrompt(brief: string): string {
+  if (!brief.trim()) return "";
+  return [
+    brief.trim(),
+    `Create a modern luxury photographic advertisement for ${BRAND.name} with refined natural lighting. Place the official Relax Fix UAE logo. If the logo file is unavailable, leave space for it.`,
+    `Include the location (${BRAND.locations[0]}), booking WhatsApp ${BRAND.whatsapp}, and administration phone ${BRAND.phone}.`,
+    "Never invent customer numbers, statistics or testimonials. Do not make unsupported promises about timelines or medical outcomes.",
+  ].join("\n\n");
+}
+
 export function ensureRelaxFixBrandLead(caption: string): string {
   if (/relax fix(?: uae)?(?: swimming academy)?/i.test(caption)) return caption;
   return `${BRAND.withCoach}\n\n${caption}`;

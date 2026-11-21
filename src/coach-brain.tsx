@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 import { AlertTriangle, BookOpen, Brain, Search, ShieldCheck, Sparkles } from "lucide-react";
 import { buildCoachBrainSummaryRequest } from "./coach-brain-conversation";
+import { buildManualDesignPrompt } from "./content-strategy";
 import { generateCoachAymanSampleWithProvider, type BatchAiProvider, type GeminiBatchPromptContext, type GeneratedContentSample } from "./gemini-batch-adapter";
 import { writeCoachBrainFactoryHandoff, readCoachBrainFactoryHandoff } from "./coach-brain-factory-handoff";
 import "./coach-brain.css";
@@ -162,7 +163,8 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
   const [sampleVideoDuration, setSampleVideoDuration] = useState<3 | 5 | 8>(5);
   const [sampleDesignNotice, setSampleDesignNotice] = useState("");
   const sampleIsVideo = Boolean(sample && /reel|video/i.test(String(sample.contentType)));
-  const sampleBasePrompt = String(sample?.visualPrompt ?? "").trim();
+  const questionDesignPrompt = buildManualDesignPrompt(question);
+  const sampleBasePrompt = buildManualDesignPrompt(String(sample?.visualPrompt ?? ""));
   const sampleDesignPrompt = sampleBasePrompt
     ? `${sampleBasePrompt}${sampleIsVideo ? `\n\nFINAL OUTPUT REQUIREMENT: Create one vertical 9:16 video with an exact target duration of ${sampleVideoDuration} seconds. This duration overrides any earlier duration in the brief.` : ""}`.trim()
     : "";
@@ -467,13 +469,14 @@ export default function CoachBrain({ language = "ar", onNavigate = () => undefin
         <strong>{language === "ar" ? "بديل دائم بدون رصيد API" : "Always available without API credits"}</strong>
         <p>{language === "ar" ? "اختر أداة التصميم لنسخ المهمة وفتح الموقع، ثم الصق النص بنفسك. قد تتطلب الأداة اشتراكًا شخصيًا. تجنّب البيانات الشخصية." : "Choose a design tool to copy the task and open its site, then paste the text yourself. A personal subscription may be required. Avoid personal data."}</p>
         <div className="coach-brain__sample-design-actions">
-          <button type="button" className="coach-brain__reset" disabled={!question.trim()} onClick={async () => {
-            try { await navigator.clipboard.writeText(question.trim()); setSampleDesignNotice(language === "ar" ? "تم نسخ البرومبت." : "Prompt copied."); }
-            catch { setSampleDesignNotice(language === "ar" ? "تعذر النسخ؛ حدد النص من مربع السؤال وانسخه يدويًا." : "Copy failed; select the question text and copy manually."); }
+          {questionDesignPrompt && <details><summary>{language === "ar" ? "برومبت التصميم" : "Design prompt"}</summary><textarea readOnly rows={5} value={questionDesignPrompt} onFocus={(event) => event.currentTarget.select()} /></details>}
+          <button type="button" className="coach-brain__reset" disabled={!questionDesignPrompt} onClick={async () => {
+            try { await navigator.clipboard.writeText(questionDesignPrompt); setSampleDesignNotice(language === "ar" ? "تم نسخ البرومبت." : "Prompt copied."); }
+            catch { setSampleDesignNotice(language === "ar" ? "تعذر النسخ. افتح برومبت التصميم وانسخه يدويًا." : "Copy failed. Expand the design prompt and copy it manually."); }
           }}>{language === "ar" ? "نسخ البرومبت" : "Copy prompt"}</button>
-          {(["Gemini", "Canva", "Runway"] as const).map((site) => personalDesignButton(site, question.trim(), language === "ar"
-            ? "تعذر النسخ. حدد النص من مربع السؤال وانسخه يدويًا."
-            : "Copy failed. Select the question text and copy it manually."))}
+          {(["Gemini", "Canva", "Runway"] as const).map((site) => personalDesignButton(site, questionDesignPrompt, language === "ar"
+            ? "تعذر النسخ. افتح برومبت التصميم وانسخه يدويًا."
+            : "Copy failed. Expand the design prompt and copy it manually."))}
           <a className="coach-brain__reset" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">{language === "ar" ? "فتح ChatGPT" : "Open ChatGPT"}</a>
           <button type="button" className="coach-brain__reset" disabled={busy || (!question.trim() && !result && !sample)} onClick={sendResultToFactory}>{language === "ar" ? "إرسال إلى مصنع المحتوى" : "Send to Content Factory"}</button>
         </div>

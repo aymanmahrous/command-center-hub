@@ -14,7 +14,7 @@ import {
   parsePublicationReceipts,
   resolvePublishPipelineStage,
 } from "./content-publishing";
-import { readContentPillar, readTimeSlot } from "./content-strategy";
+import { buildManualDesignPrompt, readContentPillar, readTimeSlot } from "./content-strategy";
 import { readPublishingCopy } from "./content-publishing-copy";
 import { ContentBatchMediaPreview } from "./content-batch-media-preview";
 import { canvaDesignErrorMessage, generateCanvaDesignForContentItem } from "./canva-design-adapter";
@@ -692,7 +692,7 @@ export function ContentBatchReviewPanel({
       </div>
       {visibleItems.length === 0 ? <p className="content-review-empty">{language === "ar" ? "لا توجد عناصر في هذه الحالة." : "No items match this status."}</p> : <div className="content-batch-grid">
         {visibleItems.map((item) => {
-          const designPrompt = String(item.visualPrompt || item.caption || item.topic || "");
+          const designPrompt = buildManualDesignPrompt(String(item.visualPrompt || item.caption || item.topic || ""));
           const canApproveStatus = ["draft", "generated", "needs_review"].includes(item.status);
           const canRequestChanges = ["draft", "generated", "approved", "scheduled", "failed"].includes(item.status);
           const itemLocked = busy || !canWrite;

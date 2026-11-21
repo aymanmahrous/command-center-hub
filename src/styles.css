@@ -104,3 +104,4 @@ button:disabled { cursor: not-allowed; }
 .login-card input:focus { border-color: #22d3ee; box-shadow: 0 0 0 4px rgba(34,211,238,.12); }
 .login-card button { background: linear-gradient(135deg,#22d3ee,#34d399); color: #06111d; }
 .login-card .eyebrow { color: #67e8f9; }
+.app-shell .panel .capability-limited strong { color: #78350f; }
