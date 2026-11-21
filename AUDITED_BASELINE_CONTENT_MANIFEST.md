@@ -1,6 +1,6 @@
 # AUDITED_BASELINE_CONTENT_MANIFEST_COMMAND_CENTER_HUB_V1
 
-> Historical provenance record: the statuses and next action below apply only to the original pre-implementation capture. They do not supersede the current repository state or `PROJECT_HANDOFF.md`.
+> Historical provenance record: the statuses and next action below apply only to the original pre-implementation capture. They do not supersede the current repository state in `MASTER_PROJECT_HANDOFF.md`.
 
 ## Manifest identity
 

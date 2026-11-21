@@ -9,9 +9,21 @@ test("factory generation stays manual and requires owner confirmation", () => {
   assert.doesNotMatch(hub, /autoFactoryRun/);
   assert.doesNotMatch(hub, /futurePlanned/);
   assert.doesNotMatch(hub, /generateCoachAymanBatch\(\{ automatic: true \}\)/);
-  assert.match(hub, /window\.confirm\(copy\.generateConfirm\)/);
+  assert.match(hub, /window\.confirm\(useApi \? copy\.generateConfirm : copy\.generateLocalConfirm\)/);
   assert.match(hub, /No batch is generated automatically/);
   assert.match(hub, /content-growth-hub/);
+});
+
+test("factory confirmation discloses optional API usage and a no-API path", async () => {
+  const englishCopy = await readFile(new URL("../src/i18n/en.ts", import.meta.url), "utf8");
+  const arabicCopy = await readFile(new URL("../src/i18n/ar.ts", import.meta.url), "utf8");
+  assert.match(englishCopy, /may use API credits/);
+  assert.match(englishCopy, /Cancel to avoid API use/);
+  assert.match(englishCopy, /Create calendar without API credits/);
+  assert.match(arabicCopy, /قد يستهلك مزود AI رصيد API/);
+  assert.match(arabicCopy, /ألغِ لتجنب استخدام API/);
+  assert.match(arabicCopy, /إنشاء تقويم بدون رصيد API/);
+  assert.match(hub, /generateCoachAymanBatch\(\{ useApi: false \}\)/);
 });
 
 test("factory generation remains review-first and duplicate-safe", () => {

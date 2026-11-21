@@ -112,18 +112,11 @@ export function MediaProviderStrip({ session, canWrite = false }: { session?: Co
     const callback = readCanvaCallbackNotice(window.location.search);
     if (!callback || !session) return;
     const canvaCode = new URL(window.location.href).searchParams.get("canva_code") ?? undefined;
-    if (callback === "connected") setCanvaNotice(language === "ar" ? "تم الاتصال بـ Canva بنجاح." : "Canva connected successfully.");
-    else setCanvaNotice(canvaConnectErrorMessage(canvaCode, language));
+    setCanvaNotice(callback === "connected" ? callback : canvaConnectErrorMessage(canvaCode, language));
     const url = new URL(window.location.href);
     url.searchParams.delete("canva");
     url.searchParams.delete("canva_code");
     window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
-    fetchCanvaIntegrationStatus(session)
-      .then((status) => {
-        setCanvaStatus(status.integrationStatus);
-        setCanvaDetail(status.detail);
-      })
-      .catch(() => setCanvaStatus("NOT CONNECTED"));
   }, [session, language]);
 
   async function connectCanva() {
@@ -143,6 +136,9 @@ export function MediaProviderStrip({ session, canWrite = false }: { session?: Co
   }
 
   const canvaConnected = canvaStatus === "CONNECTED";
+  const notice = canvaNotice === "connected"
+    ? canvaConnected && (language === "ar" ? "تم الاتصال بـ Canva بنجاح." : "Canva connected successfully.")
+    : canvaNotice;
   const providers = readMediaProviderStatuses({ canva: canvaConnected });
 
   return (
@@ -175,7 +171,7 @@ export function MediaProviderStrip({ session, canWrite = false }: { session?: Co
           </>
         )}
       </div>
-      {canvaNotice && <p className="canva-connect-notice" role="status">{canvaNotice}</p>}
+      {notice && <p className="canva-connect-notice" role="status">{notice}</p>}
     </div>
   );
 }

@@ -25,4 +25,5 @@ test("Today dashboard content schema accepts cancelled items from Supabase", () 
 test("Today dashboard skips automation RPC for roles without server access", () => {
   assert.match(todayView, /AUTOMATION_STATUS_ROLES/);
   assert.match(todayView, /AUTOMATION_STATUS_ROLES\.has\(session\.role\)/);
+  assert.match(todayView, /\[copy\.loadError, onSessionExpired, refreshToken, reloadKey, session\]/);
 });

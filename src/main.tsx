@@ -339,21 +339,23 @@ async function getRadarSourcePerformance(session: Session, signal?: AbortSignal)
   return z.array(RadarSourcePerformanceSchema).parse(await callRpc(session, "get_staff_radar_source_performance", {}, signal));
 }
 
-async function updateContentItem(session: Session, contentItemId: string, fields: { topic: string; hook: string; caption: string; cta: string; hashtags: string[]; visualPrompt: string }) {
-  const result = ContentMutationSchema.parse(await callRpc(session, "update_staff_content_item", {
-    p_content_item_id: contentItemId, p_topic: fields.topic, p_hook: fields.hook, p_caption: fields.caption,
-    p_cta: fields.cta, p_hashtags: fields.hashtags, p_visual_prompt: fields.visualPrompt,
-  }));
+async function mutateContent(session: Session, rpcName: string, body: Record<string, unknown>) {
+  const result = ContentMutationSchema.parse(await callRpc(session, rpcName, body));
   if (!result.success) throw new Error(result.code ?? "UPDATE_REJECTED");
   return result;
 }
 
-async function transitionContentItem(session: Session, contentItemId: string, action: ContentAction, scheduledFor: string | null = null) {
-  const result = ContentMutationSchema.parse(await callRpc(session, "transition_staff_content_item", {
+function updateContentItem(session: Session, contentItemId: string, fields: { topic: string; hook: string; caption: string; cta: string; hashtags: string[]; visualPrompt: string }) {
+  return mutateContent(session, "update_staff_content_item", {
+    p_content_item_id: contentItemId, p_topic: fields.topic, p_hook: fields.hook, p_caption: fields.caption,
+    p_cta: fields.cta, p_hashtags: fields.hashtags, p_visual_prompt: fields.visualPrompt,
+  });
+}
+
+function transitionContentItem(session: Session, contentItemId: string, action: ContentAction, scheduledFor: string | null = null) {
+  return mutateContent(session, "transition_staff_content_item", {
     p_content_item_id: contentItemId, p_action: action, p_scheduled_for: scheduledFor,
-  }));
-  if (!result.success) throw new Error(result.code ?? "UPDATE_REJECTED");
-  return result;
+  });
 }
 
 async function approveStaffContentBatch(session: Session, batchId: string) {
@@ -405,6 +407,11 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
   const modeLabels = conversationModeLabels[language];
   const parsed = useMemo(() => z.array(ConversationSchema).safeParse(value), [value]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const activeId = useRef(selectedId);
+  function selectConversation(id: string | null) {
+    activeId.current = id;
+    setSelectedId(id);
+  }
   const [messages, setMessages] = useState<z.infer<typeof MessageSchema>[]>([]);
   const [messageStatus, setMessageStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -429,8 +436,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
   useEffect(() => {
     if (!parsed.success) return;
     const firstActionable = conversations.find((conversation) => conversation.needsAttention || conversation.humanRequired || conversation.mode === "human_required" || conversation.mode === "human_takeover") ?? conversations[0];
-    if (!selectedId && firstActionable) setSelectedId(firstActionable.id);
-    if (selectedId && !conversations.some((conversation) => conversation.id === selectedId)) setSelectedId(firstActionable?.id ?? null);
+    if (!selected) selectConversation(firstActionable?.id ?? null);
   }, [conversations, parsed.success, selectedId]);
 
   useEffect(() => {
@@ -511,20 +517,28 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
   async function handleSendReply(conversation: InboxConversation) {
     if (!canSendReply || busyId || !replyBody.trim()) return;
     const body = replyBody.trim();
-    setBusyId(conversation.id); setNotice("");
+    const id = conversation.id;
+    setBusyId(id); setNotice("");
     try {
-      const result = await sendStaffWhatsappMessage(session, conversation.id, body);
-      setReplyBody("");
-      setNotice(result.dryRun ? copy.sendDryRunSuccess : copy.sendSuccess);
+      const result = await sendStaffWhatsappMessage(session, id, body);
       setConversationPatches((current) => ({
         ...current,
-        [conversation.id]: { ...current[conversation.id], lastMessage: body, mode: "human_takeover" },
+        [id]: { ...current[id], lastMessage: body, mode: "human_takeover" },
       }));
-      const refreshed = await getConversationMessages(session, conversation.id);
-      setMessages(refreshed);
-      setMessageStatus("ready");
+      if (activeId.current !== id) return;
+      setReplyBody("");
+      setNotice(result.dryRun ? copy.sendDryRunSuccess : copy.sendSuccess);
+      try {
+        const refreshed = await getConversationMessages(session, id);
+        if (activeId.current !== id) return;
+        setMessages(refreshed);
+        setMessageStatus("ready");
+      } catch (cause) {
+        if (cause instanceof Error && cause.message === "SESSION_EXPIRED") onSessionExpired();
+        else if (activeId.current === id) setMessageStatus("error");
+      }
     } catch (cause) {
-      handleInboxError(cause);
+      if (activeId.current === id) handleInboxError(cause);
     } finally { setBusyId(null); }
   }
 
@@ -558,7 +572,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
     <div className={`inbox-layout ${mobileListOpen ? "mobile-list-open" : "mobile-conversation-open"}`}>
       <div className="conversation-list" aria-label={copy.listAriaLabel}>
         {visibleConversations.length === 0 && <p className="inbox-filter-empty">{language === "ar" ? "لا توجد محادثات في هذا التصنيف." : "No conversations in this filter."}</p>}
-        {visibleConversations.map((conversation) => <button type="button" key={conversation.id} className={selectedId === conversation.id ? "selected" : ""} onClick={() => { setSelectedId(conversation.id); setMobileListOpen(false); setNotice(""); setReplyBody(""); }}>
+        {visibleConversations.map((conversation) => <button type="button" key={conversation.id} className={selectedId === conversation.id ? "selected" : ""} onClick={() => { selectConversation(conversation.id); setMobileListOpen(false); setNotice(""); setReplyBody(""); }}>
           <span><strong>{conversation.leadName}</strong><span className="conversation-badges">{conversation.unread > 0 && <b className="unread-count">{conversation.unread}</b>}{(conversation.needsAttention || conversation.humanRequired || conversation.mode === "human_required" || conversation.mode === "human_takeover") && <b className="attention-badge" title={copy.needsAttention}>{copy.attentionBadge}</b>}</span></span>
           <small>{conversation.lastMessage || copy.noMessages}</small>
           <em>{conversation.channel} · {modeLabels[conversation.mode]}</em>
@@ -583,7 +597,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
           </article>)}
         </div>
         {selected && canSendReply && selected.channel === "whatsapp" && selected.mode === "human_takeover" && <form className="inbox-compose" onSubmit={(event) => { event.preventDefault(); void handleSendReply(selected); }}>
-          <label htmlFor="inbox-reply">{copy.replyLabel}<textarea id="inbox-reply" rows={3} value={replyBody} disabled={busyId !== null} onChange={(event) => setReplyBody(event.target.value)} placeholder={copy.replyPlaceholder} /></label>
+          <label htmlFor="inbox-reply">{copy.replyLabel}<textarea id="inbox-reply" rows={3} value={replyBody} disabled={busyId === selected.id} onChange={(event) => setReplyBody(event.target.value)} placeholder={copy.replyPlaceholder} /></label>
           <button type="submit" disabled={busyId !== null || !replyBody.trim()}>{busyId === selected.id ? copy.sendingReply : copy.sendButton}</button>
         </form>}
         {!canSendReply && canWriteMode && <p className="read-only-note">{copy.replyReadOnlyNote}</p>}
@@ -715,7 +729,8 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
   async function runMutation(itemId: string, operation: () => Promise<unknown>, successMessage: string, undo?: { action: "return_to_review" | "unschedule"; label: string }) {
     if (!canWrite || busyId || batchBusy) return;
     setBusyId(itemId); setNotice("");
-    try { await operation(); setUndoAction(undo ? { itemId, ...undo } : null); setNotice(successMessage); onChanged(); }
+    if (undo) setUndoAction(null);
+    try { await operation(); setUndoAction(undo ? { itemId, ...undo } : null); setNotice(successMessage); onChanged(); return true; }
     catch (cause) {
       const code = cause instanceof Error ? cause.message : "UPDATE_FAILED";
       if (code === "SESSION_EXPIRED") { onSessionExpired(); return; }
@@ -724,19 +739,9 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
   }
 
   async function undoLastAction() {
-    if (!undoAction || !canWrite || busyId || batchBusy) return;
-    const action = undoAction;
-    setBusyId(action.itemId); setNotice("");
-    try {
-      await transitionContentItem(session, action.itemId, action.action);
-      setUndoAction(null);
-      setNotice(language === "ar" ? "تم التراجع عن آخر تغيير فقط." : "The last change was undone.");
-      onChanged();
-    } catch (cause) {
-      const code = cause instanceof Error ? cause.message : "UPDATE_FAILED";
-      if (code === "SESSION_EXPIRED") { onSessionExpired(); return; }
-      setNotice(contentErrorMessage(language, code));
-    } finally { setBusyId(null); }
+    if (!undoAction) return;
+    await runMutation(undoAction.itemId, () => transitionContentItem(session, undoAction.itemId, undoAction.action),
+      language === "ar" ? "تم التراجع عن آخر تغيير فقط." : "The last change was undone.");
   }
 
   async function save(item: z.infer<typeof ContentItemSchema>, form: HTMLFormElement) {
@@ -783,13 +788,9 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
   async function approveBatchItem(item: ContentBatchItem) {
     if (!canWrite || !canApprove || busyId || batchBusy || item.status === "approved") return;
     if (!canApproveContentItem(item)) return;
-    const confirmMessage = language === "ar"
-      ? `تأكيد اعتماد «${item.topic || "محتوى بدون عنوان"}»؟ سيتم اعتماد المحتوى وجدولته للموعد المحدد.`
-      : `Approve "${item.topic || copy.untitled}"? The item will be approved and scheduled for its planned time.`;
-    if (!window.confirm(confirmMessage)) return;
     await runMutation(
       item.id,
-      () => callRpc(session, "approve_and_schedule_staff_content_item", {
+      () => mutateContent(session, "approve_and_schedule_staff_content_item", {
         p_content_item_id: item.id,
         p_scheduled_for: item.scheduledFor,
       }),
@@ -798,48 +799,35 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
     );
   }
 
-  async function requestBatchChanges(item: ContentBatchItem, kind: ChangeRequestKind, note: string) {
+  async function requestBatchChanges(item: ContentBatchItem, kind: ChangeRequestKind, note: string, onSaved?: () => void) {
     if (!canWrite || busyId || batchBusy || item.status === "needs_review") return;
-    const confirmMessage = language === "ar"
-      ? `تأكيد طلب تعديل «${item.topic || "محتوى بدون عنوان"}» وإعادته للمراجعة؟`
-      : `Request changes and return "${item.topic || copy.untitled}" to review?`;
-    if (!window.confirm(confirmMessage)) return;
-    const { appendChangeRequest, buildChangeRequestNote } = await import("./content-growth"); const changeNote = buildChangeRequestNote(kind, note);
-    const nextVisualPrompt = appendChangeRequest(String(item.visualPrompt ?? ""), changeNote);
-    await runMutation(item.id, async () => {
-      await updateContentItem(session, item.id, {
-        topic: item.topic,
-        hook: String(item.hook ?? ""),
-        caption: item.caption,
-        cta: String(item.cta ?? ""),
-        hashtags: Array.isArray(item.hashtags) ? item.hashtags : [],
-        visualPrompt: nextVisualPrompt,
-      });
+    const saved = await runMutation(item.id, async () => {
+      const { appendChangeRequest, buildChangeRequestNote } = await import("./content-growth");
+      await updateBatchPrompt(item, appendChangeRequest(String(item.visualPrompt ?? ""), buildChangeRequestNote(kind, note)));
       await transitionContentItem(session, item.id, "return_to_review");
     }, language === "ar" ? "تم إرسال طلب التعديل وإعادة العنصر للمراجعة." : "Change request sent and item returned to review.");
+    if (saved) onSaved?.();
   }
 
-  async function editBatchItem(item: ContentBatchItem, visualPrompt: string, scheduledFor: string | null) {
+  function updateBatchPrompt(item: ContentBatchItem, visualPrompt: string) {
+    return updateContentItem(session, item.id, {
+      topic: item.topic, hook: String(item.hook ?? ""), caption: item.caption, cta: String(item.cta ?? ""),
+      hashtags: Array.isArray(item.hashtags) ? item.hashtags : [], visualPrompt,
+    });
+  }
+
+  async function editBatchItem(item: ContentBatchItem, visualPrompt: string, scheduledFor: string | null, onSaved?: () => void) {
     if (!canWrite || busyId || batchBusy || item.status === "published") return;
     const contentChanged = visualPrompt !== String(item.visualPrompt ?? "");
-    const scheduleChanged = scheduledFor !== item.scheduledFor;
+    const scheduleChanged = scheduledFor !== item.scheduledFor && (scheduledFor !== null || item.status === "scheduled");
     if (!contentChanged && !scheduleChanged) {
       setNotice(language === "ar" ? "لا تغيير." : "No change.");
       return;
     }
     const confirmMessage = language === "ar" ? "تأكيد التعديل؟" : "Confirm edit?";
     if (!window.confirm(confirmMessage)) return;
-    await runMutation(item.id, async () => {
-      if (contentChanged) {
-        await updateContentItem(session, item.id, {
-          topic: item.topic,
-          hook: String(item.hook ?? ""),
-          caption: item.caption,
-          cta: String(item.cta ?? ""),
-          hashtags: Array.isArray(item.hashtags) ? item.hashtags : [],
-          visualPrompt,
-        });
-      }
+    const saved = await runMutation(item.id, async () => {
+      if (contentChanged) await updateBatchPrompt(item, visualPrompt);
       if (scheduleChanged) {
         if (scheduledFor) await transitionContentItem(session, item.id, "schedule", scheduledFor);
         else if (item.status === "scheduled") await transitionContentItem(session, item.id, "unschedule", null);
@@ -849,6 +837,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
       : contentChanged
         ? (language === "ar" ? "تم حفظ طلب التصميم." : "Design request saved.")
         : (language === "ar" ? "تم تحديث الموعد." : "Time updated."));
+    if (saved) onSaved?.();
   }
 
   async function approveAllBatch(candidates: ContentBatchItem[]) {
@@ -1392,7 +1381,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
         {status === "error" && <div className="error-box" role="alert">{error}</div>}
         {status === "ready" && (
           active === "dashboard" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><ControlTowerV2 key={`home-${reloadKey}`} session={session} onNavigate={(section) => { if (sections.some(([id]) => id === section)) go(section as SectionId); }} onSessionExpired={onLogout} /></Suspense> :
-          active === "today" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><TodayView session={session} onNavigate={go} onSessionExpired={onLogout} /></Suspense> :
+          active === "today" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><TodayView session={session} reloadKey={reloadKey} onNavigate={go} onSessionExpired={onLogout} /></Suspense> :
           active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :

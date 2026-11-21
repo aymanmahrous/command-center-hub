@@ -6,6 +6,11 @@ const migration = await readFile(new URL("../supabase/migrations/20260920130000_
 const view = await readFile(new URL("../src/integrations-center.tsx", import.meta.url), "utf8");
 const app = await readFile(new URL("../src/main.tsx", import.meta.url), "utf8");
 
+test("saving an integration shows a success message before the separate connection check", () => {
+  assert.match(view, /INTEGRATION_SAVED:\s*\{ ar: "تم حفظ بيانات الربط\. يمكنك الآن فحص الإعداد\.", en: "Connection details saved\./);
+  assert.match(view, /if \(!result\.success\) throw new Error\([^;]+; setNotice\(message\(language, result\.code\)\)/);
+});
+
 test("connected status reports a successful local configuration check, not external operation", () => {
   assert.match(view, /connected: "اجتاز اختبار الإعداد المحلي"/);
   assert.match(view, /connected: "Local config test passed"/);

@@ -386,9 +386,10 @@ export default function ContentGrowthHub({
     }
   }
 
-  async function generateCoachAymanBatch(options: { automatic?: boolean } = {}) {
+  async function generateCoachAymanBatch(options: { automatic?: boolean; useApi?: boolean } = {}) {
     if (!canWrite || panelBusy) return;
-    if (!options.automatic && !window.confirm(copy.generateConfirm)) return;
+    const useApi = options.useApi !== false;
+    if (!options.automatic && !window.confirm(useApi ? copy.generateConfirm : copy.generateLocalConfirm)) return;
     setGenerating(true);
     setGenerateNotice("");
     try {
@@ -411,11 +412,13 @@ export default function ContentGrowthHub({
         performanceGuidance: insights,
       };
       let geminiItems: GeneratedBatchItem[] | null = null;
-      try {
-        geminiItems = await generateCoachAymanBatchWithProvider(session, batchAiProvider, nonce, generationStart, promptContext);
-      } catch (cause) {
-        if (cause instanceof Error && cause.message === "SESSION_EXPIRED") throw cause;
-        geminiItems = null;
+      if (useApi) {
+        try {
+          geminiItems = await generateCoachAymanBatchWithProvider(session, batchAiProvider, nonce, generationStart, promptContext);
+        } catch (cause) {
+          if (cause instanceof Error && cause.message === "SESSION_EXPIRED") throw cause;
+          geminiItems = null;
+        }
       }
       let saved: { success?: boolean; batchId?: string; code?: string } | null = null;
 
@@ -424,7 +427,8 @@ export default function ContentGrowthHub({
         const start = new Date(generationStart);
         start.setUTCDate(start.getUTCDate() + shiftDays);
         const batchNonce = shiftDays === 0 ? nonce : `${nonce}-${shiftDays}`;
-        const canonicalItems = await buildCoachAyman30DayBatchWithMedia(assets, start, batchNonce, knowledgeContext);
+        // Existing library designs stay out of newly generated batches.
+        const canonicalItems = await buildCoachAyman30DayBatchWithMedia([], start, batchNonce, knowledgeContext);
         const windowedCanonicalItems = fitBatchToPlanWindow(canonicalItems, planWindowDays, start);
         const validatedAiItems = await mergeValidatedGeminiCreativeFields(geminiItems, windowedCanonicalItems, batchNonce);
         const items = validatedAiItems ?? windowedCanonicalItems;
@@ -441,10 +445,9 @@ export default function ContentGrowthHub({
           throw cause;
         }
       }
-
       if (!saved?.success || !saved.batchId) throw new Error(saved?.code ?? "GENERATE_FAILED");
       clearCoachBrainFactoryHandoff();
-      const outcomeCopy = usedAiGeneration ? copy.generateSuccess : copy.generateFallback;
+      const outcomeCopy = !useApi ? copy.generateLocalSuccess : usedAiGeneration ? copy.generateSuccess : copy.generateFallback;
       setGenerateNotice(outcomeCopy.replace("{batchId}", saved.batchId));
       setSelectedBatchId(saved.batchId);
       setMediaAssets(assets);
@@ -621,6 +624,10 @@ export default function ContentGrowthHub({
         <button type="button" className="primary-button" disabled={!canWrite || panelBusy} onClick={() => void generateCoachAymanBatch()}>
           {generating ? copy.generateBusy : copy.generateButton}
         </button>
+        <button type="button" className="secondary" disabled={!canWrite || panelBusy} onClick={() => void generateCoachAymanBatch({ useApi: false })}>
+          {copy.generateLocalButton}
+        </button>
+        <p className="batch-meta">{copy.generateLocalHint}</p>
         <p className="batch-meta" role="status">
           {language === "ar"
             ? "لا يتم توليد أي دفعة تلقائيًا. استخدم زر التوليد بعد مراجعة الخطة وتأكيدك؛ كل العناصر تبدأ للمراجعة ولا يتم نشرها تلقائيًا."

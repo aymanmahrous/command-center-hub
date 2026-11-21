@@ -184,7 +184,7 @@
   .app-shell > aside > nav { grid-column:1/-1; }
   .app-shell > aside > nav .nav-group { gap:5px; }
   .app-shell > aside > nav button { min-height:38px; padding:8px 10px; font-size:12px; }
-  .app-shell .workspace { padding:16px 12px 90px; }
+  .app-shell .workspace { padding:16px 12px calc(90px + env(safe-area-inset-bottom, 0px) + 12px); }
   .app-shell .owner-header { align-items:flex-start; }
   .app-shell .owner-header h1 { font-size:clamp(1.4rem,6vw,1.9rem); }
   .app-shell .owner-status-strip { gap:8px; padding:10px; }

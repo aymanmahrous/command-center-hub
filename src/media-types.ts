@@ -90,6 +90,16 @@ export function canUseInMarketingBatch(
   return asset.publishabilityStatus === "ready_for_review";
 }
 
+export function isNewMediaAssetForContentItem(
+  asset: Pick<MediaAssetRecord, "contentItemId" | "createdAt">,
+  contentItemCreatedAt: string,
+): boolean {
+  if (asset.contentItemId) return false;
+  const assetCreatedAt = Date.parse(asset.createdAt);
+  const contentCreatedAt = Date.parse(contentItemCreatedAt);
+  return Number.isFinite(assetCreatedAt) && Number.isFinite(contentCreatedAt) && assetCreatedAt > contentCreatedAt;
+}
+
 export function isConsentNotApplicable(
   source: MediaSourceKind,
   metadata: Record<string, unknown>,

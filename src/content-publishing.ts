@@ -147,18 +147,22 @@ export function buildExternalPostLink(platform: string, externalPostId: string |
   if (normalized === "facebook") {
     return `https://www.facebook.com/${FACEBOOK_PAGE_ID}/posts/${normalizeFacebookPostId(id)}`;
   }
-  if (normalized === "instagram") return `https://www.instagram.com/p/${id.replace(/^\/+/, "")}/`;
+  if (normalized === "instagram") {
+    const shortcode = id.replace(/^\/+/, "");
+    if (/^[\w-]+$/.test(shortcode) && !/^\d+$/.test(shortcode)) return `https://www.instagram.com/p/${shortcode}/`;
+  }
   return null;
 }
 
 export function resolvePublishPipelineStage(item: ContentBatchItem): PublishPipelineStage {
   if (item.status === "failed") return "failed";
-  if (item.status === "published" || item.publishedAt) return "published_live";
+  const platformReceipt = latestReceiptForPlatform(item, item.platform);
+  const status = platformReceipt?.status.toLowerCase();
+  if (status === "failed" || status === "ambiguous") return "failed";
+  if ((item.status === "published" || item.publishedAt) && (!platformReceipt || status === "published")) return "published_live";
   if (item.status === "scheduled") return "scheduled";
 
-  const platformReceipt = latestReceiptForPlatform(item, item.platform);
-  if (platformReceipt?.status === "published") return "published_live";
-  if (platformReceipt?.status === "failed" || platformReceipt?.status === "ambiguous") return "failed";
+  if (status === "published") return "published_live";
 
   if (item.status === "approved" && PUBLISH_PLATFORMS.has(String(item.platform).toLowerCase())) {
     return platformReceipt ? "awaiting_n8n" : "approved_ready";

@@ -2,6 +2,7 @@ import { test } from "node:test";
 import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import { runInNewContext } from "node:vm";
+import { createElement } from "react";
 import ts from "typescript";
 import { BRAND, CONTENT_CYCLE_DAYS, DEFAULT_BATCH_MIX, PLATFORM_GUIDANCE, buildCoachBrainBusinessContext, buildStrategySummary } from "../src/content-strategy.ts";
 
@@ -91,6 +92,7 @@ test("Coach Brain falls back once to OpenAI without changing the safety prompt o
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None },
   }).outputText;
   const scenarios = [
+    { name: "no API consent calls no provider", gemini: "ok", openai: "ok", allowApiUsage: false, code: "API_CONSENT_REQUIRED" },
     { name: "Gemini success", gemini: "ok", openai: "ok", expected: "gemini" },
     { name: "no Gemini key", gemini: "missing", openai: "ok", expected: "openai" },
     ...[403, 429, 500, "network", "invalid-json", "empty"].map((gemini) => ({ name: `Gemini ${gemini}`, gemini, openai: "ok", expected: "openai" })),
@@ -134,7 +136,7 @@ test("Coach Brain falls back once to OpenAI without changing the safety prompt o
       },
     };
     runInNewContext(executable, sandbox);
-    const result = await sandbox.callResearchProvider(sandbox.buildPrompt("Swimming question", "Academy context"));
+    const result = await sandbox.callResearchProvider(sandbox.buildPrompt("Swimming question", "Academy context"), scenario.allowApiUsage !== false);
     if (scenario.expected) {
       assert.equal(result.data.answer, "Safe answer");
       assert.equal(calls.at(-1), scenario.expected);
@@ -148,13 +150,18 @@ test("Coach Brain falls back once to OpenAI without changing the safety prompt o
       const payload = await result.error.json();
       assert.equal(payload.code, scenario.code);
       assert.doesNotMatch(JSON.stringify(payload), /synthetic|secret/);
+      if (scenario.allowApiUsage === false) assert.deepEqual(calls, [], "no provider request is made without consent");
     }
     assert.ok(calls.filter((provider) => provider === "openai").length <= 1, "no paid retry loop");
     if (scenario.expected === "gemini") assert.deepEqual(calls, ["gemini"]);
     if (scenario.gemini === "missing") assert.ok(!calls.includes("gemini"));
   });
-  assert.match(edge, /callResearchProvider\(buildPrompt\(question, academyContext, referenceAnswer \|\| undefined\)\)/);
+  assert.match(edge, /callResearchProvider\(buildPrompt\(question, academyContext, referenceAnswer \|\| undefined\), allowApiUsage\)/);
   assert.match(edge, /if \(!GEMINI_API_KEY && !OPENAI_API_KEY\)/);
+  const requestHandler = edge.slice(edge.indexOf("Deno.serve("));
+  const consentGuard = requestHandler.indexOf('if (!allowApiUsage) return json({ success: false, code: "API_CONSENT_REQUIRED" }, 403)');
+  const contextLoad = requestHandler.indexOf("loadAcademyContext(token)");
+  assert.ok(consentGuard >= 0 && consentGuard < contextLoad, "reject unapproved API use before loading provider context");
 });
 
 test("Coach Brain exposes non-diagnostic safety boundaries", () => {
@@ -170,11 +177,8 @@ test("Coach Brain exposes non-diagnostic safety boundaries", () => {
 
 test("manual alternatives stay available without research and hand off the original task without an invented answer", () => {
   const panel = readFileSync(new URL("../src/content-batch-review-panel.tsx", import.meta.url), "utf8");
-  for (const [text, urls] of [[view, ["https://gemini.google.com/", "https://chatgpt.com/", "https://www.canva.com/", "https://app.runwayml.com/"]], [panel, ["https://gemini.google.com/", "https://www.canva.com/", "https://app.runwayml.com/"]]]) {
-    for (const url of urls) assert.ok(text.includes(`href="${url}" target="_blank" rel="noopener noreferrer"`));
-  }
-  assert.match(view, /نسخ البرومبت/);
-  assert.match(panel, /نسخ برومبت التصميم/);
+  assert.match(view, /href="https:\/\/chatgpt\.com\/" target="_blank" rel="noopener noreferrer"/);
+  assert.match(panel, /<textarea readOnly[^>]+value=\{designPrompt\}/);
   assert.match(panel, /handleLinkMedia\(item, selectedAssetByItem\[item.id\]\)/);
   assert.match(panel, /uploadStaffMediaFile/);
   const source = ts.createSourceFile("brain.tsx", view, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -207,6 +211,78 @@ test("manual alternatives stay available without research and hand off the origi
   sandbox.question = "  ";
   sandbox.sendResultToFactory();
   assert.equal(stored, null, "empty task must not create a handoff");
+});
+
+test("personal-account buttons open the fixed site and copy the displayed text on one click", async () => {
+  const panel = readFileSync(new URL("../src/content-batch-review-panel.tsx", import.meta.url), "utf8");
+  const expectedSites = {
+    Canva: "https://www.canva.com/", Gemini: "https://gemini.google.com/", Runway: "https://app.runwayml.com/",
+  };
+  // Execute the actual JSX controls in isolation, with only clipboard, navigation and status feedback.
+  for (const [screen, code] of [["brain", view], ["factory", panel]]) {
+    const source = ts.createSourceFile("screen.tsx", code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const declarations = [];
+    const controls = [];
+    function visit(node) {
+      if (ts.isVariableStatement(node) && node.declarationList.declarations.some(({ name }) =>
+        ["personalDesignSites", "manualDesignSites", "designPrompt"].includes(name.getText(source)))) declarations.push(node.getText(source));
+      if (ts.isFunctionDeclaration(node) && ["openPersonalDesignSite", "personalDesignButton"].includes(node.name?.text))
+        declarations.push(node.getText(source));
+      if (ts.isJsxExpression(node) && node.expression) {
+        const expression = node.expression.getText(source);
+        if (expression.startsWith("personalDesignButton(sampleIsVideo") || expression.startsWith('(["Gemini", "Canva", "Runway"]') || expression.startsWith("manualDesignSites.map("))
+          controls.push(expression);
+      }
+      ts.forEachChild(node, visit);
+    }
+    visit(source);
+    assert.equal(controls.length, screen === "brain" ? 2 : 1);
+    const js = ts.transpileModule(declarations.join("\n") + "\n[" + controls.join(",") + "].flat()", {
+      fileName: "controls.tsx", compilerOptions: { target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React },
+    }).outputText;
+    for (const clipboardState of ["allowed", "denied", "missing"]) {
+      const opened = [], copied = [], notices = [];
+      const sandbox = {
+        React: { createElement }, language: "ar", sampleIsVideo: true, sampleDesignPrompt: "عينة فيديو 9:16",
+        question: "  سؤال المالك  ", item: { visualPrompt: "تصميم المنشور", caption: "تعليق مختلف" },
+        window: { open: (...args) => opened.push(args) },
+        navigator: { clipboard: clipboardState === "missing" ? undefined : { writeText: async (text) => {
+          copied.push(text);
+          if (clipboardState === "denied") throw new Error("NotAllowedError");
+        } } },
+        setSampleDesignNotice: (text) => notices.push(text), setDesignNotice: (text) => notices.push(text),
+      };
+      const buttons = runInNewContext(js, sandbox);
+      assert.deepEqual(Array.from(buttons, (button) => button.props.children[1]).sort(),
+        (screen === "brain" ? ["Canva", "Gemini", "Runway", "Runway"] : ["Canva", "Gemini", "Runway"]));
+      for (const [i, button] of buttons.entries()) {
+        const [label, site] = button.props.children;
+        assert.equal(label, "نسخ البرومبت وفتح ");
+        assert.equal(button.props.disabled, false);
+        const clicked = button.props.onClick();
+        assert.deepEqual(opened.splice(0), [[expectedSites[site], "_blank", "noopener,noreferrer"]]);
+        await clicked;
+        const prompt = screen === "factory" ? sandbox.item.visualPrompt : i === 0 ? sandbox.sampleDesignPrompt : sandbox.question.trim();
+        assert.deepEqual(copied.splice(0), clipboardState === "missing" ? [] : [prompt]);
+        const hint = screen === "factory" ? /افتح برومبت التصميم/ : i === 0 ? /مربع برومبت التصميم/ : /مربع السؤال/;
+        assert.match(notices.shift(), clipboardState === "allowed" ? /تم نسخ/ : hint);
+      }
+      const empty = runInNewContext(js, { ...sandbox, question: " ", sampleDesignPrompt: "", item: {} });
+      assert.ok(empty.every((button) => button.props.disabled));
+    }
+  }
+});
+
+test("Coach Brain asks before calling a provider and keeps the manual route available", () => {
+  const start = view.indexOf("async function research(event: FormEvent)");
+  const end = view.indexOf("\n  return (", start);
+  const handler = view.slice(start, end);
+  const consent = handler.indexOf("window.confirm(");
+  const providerRequest = handler.indexOf('await fetch(`${baseUrl}/functions/v1/coach-brain-research`');
+  assert.ok(consent >= 0 && consent < providerRequest, "consent must come before the provider request");
+  assert.match(handler, /if \(!allowApiUsage\) return;/);
+  assert.match(handler, /allowApiUsage,/);
+  assert.match(view, /بديل دائم بدون رصيد API/);
 });
 
 test("Coach Brain includes a no-forced-submersion boundary", () => {

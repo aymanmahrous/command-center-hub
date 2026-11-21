@@ -89,17 +89,10 @@ test("handoff remains available when batch creation fails", () => {
 
 const coachBrain = await readFile(new URL("../src/coach-brain.tsx", import.meta.url), "utf8");
 
-test("manual image and video handoff uses static Canva and Runway links with copy-only behavior", () => {
-  const start = coachBrain.indexOf("async function copySampleDesignPrompt()");
-  const end = coachBrain.indexOf("\n  }", start);
-  const copyAction = coachBrain.slice(start, end);
-  assert.ok(coachBrain.includes('href="https://www.canva.com/"'));
-  assert.ok(coachBrain.includes('href="https://app.runwayml.com/"'));
-  assert.ok(!coachBrain.includes("window.open("));
-  assert.ok(copyAction.includes("navigator.clipboard?.writeText"));
-  assert.ok(!copyAction.includes("fetch("));
-  assert.ok(coachBrain.includes("sampleDesignPrompt"));
-  assert.ok(coachBrain.includes("select all, and copy manually"));
+test("sample design handoff uses the displayed prompt and keeps the selected video duration", () => {
+  assert.match(coachBrain, /personalDesignButton\(sampleIsVideo \? "Runway" : "Canva", sampleDesignPrompt/);
+  assert.match(coachBrain, /exact target duration of \$\{sampleVideoDuration\} seconds/);
+  assert.match(coachBrain, /<textarea readOnly[^>]+value=\{sampleDesignPrompt\}/);
 });
 
 test("Coach Brain and Factory share the canonical 1-to-10-day planning window", () => {

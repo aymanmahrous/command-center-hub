@@ -27,6 +27,7 @@ export function attachMediaToCoachAymanBatch(
 ): Array<GeneratedBatchItem & BatchMediaAttachment> {
   const eligible = assets
     .filter((asset) => asset.assetType === "image" || asset.assetType === "video")
+    .filter((asset) => !asset.contentItemId)
     .filter(canUseInMarketingBatch)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 

@@ -176,7 +176,8 @@ async function callOpenAI(prompt: string) {
     return { error: json({ success: false, code: "OPENAI_CONNECTION_FAILED" }, 502) };
   }
 }
-async function callResearchProvider(prompt: string) {
+async function callResearchProvider(prompt: string, allowApiUsage = false) {
+  if (!allowApiUsage) return { error: json({ success: false, code: "API_CONSENT_REQUIRED" }, 403) };
   if (GEMINI_API_KEY) {
     try {
       const result = await callGemini(prompt);
@@ -202,9 +203,11 @@ Deno.serve(async (request) => {
   const referenceAnswer = sanitizeQuestion(body.referenceAnswer, 4000);
   const question = sanitizeQuestion(body.question, referenceAnswer ? 1000 : 5000);
   if (!question) return json({ success: false, code: "QUESTION_REQUIRED" }, 400);
+  const allowApiUsage = body.allowApiUsage === true;
+  if (!allowApiUsage) return json({ success: false, code: "API_CONSENT_REQUIRED" }, 403);
   let academyContext: string;
   try { academyContext = await loadAcademyContext(token); } catch { return json({ success: false, code: "ACADEMY_CONTEXT_FAILED" }, 502); }
-  const result = await callResearchProvider(buildPrompt(question, academyContext, referenceAnswer || undefined));
+  const result = await callResearchProvider(buildPrompt(question, academyContext, referenceAnswer || undefined), allowApiUsage);
   if ("error" in result && result.error) return result.error;
   return json({ success: true, query: question, ...(result.data as JsonObject) });
 });
