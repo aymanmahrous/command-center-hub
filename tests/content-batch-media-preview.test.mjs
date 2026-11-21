@@ -50,7 +50,9 @@ test("batch review panel integrates direct library picker and safe upload regist
   assert.match(panel, /register_staff_media_upload/);
   assert.match(panel, /linkMediaToItem/);
   assert.match(panel, /canUseInMarketingBatch\(asset\)/);
-  assert.match(panel, /الرفع لا يثبت الموافقة/);
+  assert.match(panel, /لدي موافقة نشر من كل شخص ظاهر أو وليّ أمره/);
+  assert.match(panel, /mediaErrors\[item.id\] && <p className="error-box" role="alert"/);
+  assert.match(panel, /!item.mediaAssetId && !mediaErrors\[item.id\] && <ContentBatchMediaPreview/);
 });
 
 test("media changes warn before cancelling scheduled content and do not upload against published items", () => {

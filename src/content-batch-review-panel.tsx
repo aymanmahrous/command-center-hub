@@ -136,7 +136,7 @@ type ContentBatchReviewPanelProps = {
   busy: boolean;
   session?: { accessToken: string; role?: string };
   mediaAssets?: MediaAssetRecord[];
-  onMediaLinked?: () => void;
+  onMediaLinked?: (showReviewCard?: boolean) => void;
   onApproveItem: (item: ContentBatchItem) => Promise<void>;
   onEditItem?: (item: ContentBatchItem, visualPrompt: string, scheduledFor: string | null, onSaved: () => void) => Promise<void>;
   onRequestChanges: (item: ContentBatchItem, kind: ChangeRequestKind, note: string, onSaved: () => void) => Promise<void>;
@@ -208,6 +208,9 @@ export function ContentBatchReviewPanel({
   const [replacingMediaItemId, setReplacingMediaItemId] = useState<string | null>(null);
   const [selectedAssetByItem, setSelectedAssetByItem] = useState<Record<string, string>>({});
   const [mediaActionBusyId, setMediaActionBusyId] = useState<string | null>(null);
+  const [presenceByItem, setPresenceByItem] = useState<Record<string, string>>({});
+  const [mediaErrors, setMediaErrors] = useState<Record<string, string>>({});
+  const [scheduleTimes, setScheduleTimes] = useState<Record<string, string>>({});
   const requestPublishCopy = REQUEST_PUBLISH_COPY[language];
 
   const summary = useMemo(() => summarizeBatch(batch.items), [batch.items]);
@@ -243,11 +246,14 @@ export function ContentBatchReviewPanel({
   }
 
   function confirmApproval(item: ContentBatchItem) {
+    const selectedTime = scheduleTimes[item.id] ?? item.scheduledFor;
+    const time = selectedTime ? new Date(selectedTime) : null;
+    if (!time || !(time.getTime() > Date.now())) return;
     const topic = item.topic || copy.untitled;
     const confirmMessage = language === "ar"
-      ? `تأكيد اعتماد «${topic}»؟ سيتم اعتماد المحتوى وجدولته للموعد المحدد.`
-      : `Approve "${topic}"? The item will be approved and scheduled for its planned time.`;
-    if (window.confirm(confirmMessage)) return onApproveItem(item);
+      ? `اعتماد «${topic}» وجدولته في ${formatWhen(language, time.toISOString())}؟`
+      : `Approve "${topic}" and schedule it for ${formatWhen(language, time.toISOString())}?`;
+    if (window.confirm(confirmMessage)) return onApproveItem({ ...item, scheduledFor: time.toISOString() });
   }
 
   async function submitChangeRequest(item: ContentBatchItem) {
@@ -368,9 +374,9 @@ export function ContentBatchReviewPanel({
     }
   }
 
-  async function linkMediaToItem(itemId: string, assetId: string) {
+  async function mediaRpc(name: string, body: Record<string, unknown>, failure: string) {
     if (!session) throw new Error("AUTH_REQUIRED");
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/link_staff_media_to_content_item`, {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
       method: "POST",
       headers: {
         apikey: SUPABASE_PUBLIC_KEY,
@@ -378,13 +384,19 @@ export function ContentBatchReviewPanel({
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      body: JSON.stringify({ p_content_item_id: itemId, p_media_asset_id: assetId }),
+      body: JSON.stringify(body),
       cache: "no-store",
     });
-    if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
+    if (response.status === 401) throw new Error("SESSION_EXPIRED");
+    if (response.status === 403) throw new Error("MEDIA_ACCESS_DENIED");
     const res = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-    if (!response.ok || res.success !== true) throw new Error(typeof res.code === "string" ? res.code : "MEDIA_LINK_FAILED");
+    if (!response.ok || res.success !== true) throw new Error(typeof res.code === "string" ? res.code : failure);
     return res;
+  }
+
+  async function linkMediaToItem(itemId: string, assetId: string) {
+    await mediaRpc("link_staff_media_to_content_item", { p_content_item_id: itemId, p_media_asset_id: assetId }, "MEDIA_LINK_FAILED");
+    setMediaErrors((current) => ({ ...current, [itemId]: "" }));
   }
 
   function scheduledMediaChangeWarning(): string {
@@ -428,8 +440,10 @@ export function ContentBatchReviewPanel({
         ar: "تعذر ربط الوسائط بالمحتوى.",
         en: "Failed to link media to content.",
       },
+      MEDIA_ACCESS_DENIED: { ar: "حسابك لا يملك صلاحية إكمال ربط الصورة.", en: "Your account cannot complete this media link." },
+      MEDIA_REVIEW_FAILED: { ar: "تعذر حفظ تصنيف التصميم أو تأكيد مراجعته.", en: "The design classification or review could not be saved." },
     };
-    return (code && messages[code]?.[language]) ?? (code || (language === "ar" ? "تعذر ربط الوسائط." : "Media link failed."));
+    return messages[code ?? ""]?.[language] ?? ((language === "ar" ? "تعذر إكمال ربط الوسائط" : "Media link failed") + (code ? ` (${code})` : "."));
   }
 
   async function handleLinkMedia(item: ContentBatchItem, assetId: string) {
@@ -444,49 +458,67 @@ export function ContentBatchReviewPanel({
       onMediaLinked?.();
     } catch (cause) {
       if (cause instanceof Error && cause.message === "SESSION_EXPIRED") onSessionExpired?.();
-      else setDesignNotice(mediaLinkErrorMessage(cause instanceof Error ? cause.message : undefined));
+      else setMediaErrors((current) => ({ ...current, [item.id]: mediaLinkErrorMessage(cause instanceof Error ? cause.message : undefined) }));
     } finally {
       setMediaActionBusyId(null);
     }
   }
 
   async function handleUploadMedia(item: ContentBatchItem, file: File) {
-    if (!session || !canWrite || busy || mediaActionBusyId || !file) return;
+    if (!session || !canWrite || busy || mediaActionBusyId || !file || item.status === "published") return;
+    const presence = presenceByItem[item.id];
+    if (presence !== "none" && presence !== "consented") {
+      setMediaErrors((current) => ({ ...current, [item.id]: language === "ar" ? "اختر حالة الأشخاص في التصميم أولًا." : "Select who appears in the design first." }));
+      return;
+    }
+    const containsPeople = presence === "consented";
+    const attestation = containsPeople
+      ? (language === "ar" ? "لدي موافقة نشر من كل شخص ظاهر أو وليّ أمره." : "I have permission to publish from everyone shown or their guardian.")
+      : (language === "ar" ? "لا يظهر أي شخص حقيقي في التصميم." : "No real person appears in this design.");
+    if (!window.confirm((language === "ar"
+      ? `أؤكد أن «${file.name}» تصميم لنشاط السباحة، مطابق لهوية الأكاديمية وجاهز للنشر. ${attestation}\nاعتماد الصورة وربطها بالمنشور للمراجعة؟`
+      : `I confirm "${file.name}" is a swimming business design, matches the academy brand and is ready to publish. ${attestation}\nApprove the media and link it to this post for review?`))) return;
     if (!confirmScheduledMediaChange(item)) return;
     setMediaActionBusyId(item.id);
     setDesignNotice("");
+    let registered = false;
     try {
       const uploaded = await uploadStaffMediaFile(session, file);
-      const registerRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/register_staff_media_upload`, {
-        method: "POST",
-        headers: {
-          apikey: SUPABASE_PUBLIC_KEY,
-          Authorization: `Bearer ${session.accessToken}`,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
-          p_asset_type: uploaded.assetType,
-          p_storage_path: uploaded.storagePath,
-          p_metadata: { file_name: uploaded.fileName, mime_type: file.type || null },
-        }),
-      });
-      if (registerRes.status === 401 || registerRes.status === 403) throw new Error("SESSION_EXPIRED");
-      const reg = (await registerRes.json().catch(() => ({}))) as Record<string, unknown>;
+      const reg = await mediaRpc("register_staff_media_upload", {
+        p_asset_type: uploaded.assetType,
+        p_storage_path: uploaded.storagePath,
+        p_metadata: { file_name: uploaded.fileName, mime_type: file.type || null },
+      }, "UPLOAD_REGISTRATION_FAILED");
       const newAssetId = typeof reg.mediaAssetId === "string" ? reg.mediaAssetId : "";
-      if (!registerRes.ok || !newAssetId) throw new Error("UPLOAD_REGISTRATION_FAILED");
+      if (!newAssetId) throw new Error("UPLOAD_REGISTRATION_FAILED");
+      registered = true;
+      const asset = { p_media_asset_id: newAssetId };
+      await mediaRpc("attest_media_person_presence", { ...asset, p_contains_real_person: containsPeople }, "MEDIA_REVIEW_FAILED");
+      await mediaRpc(session.role === "super_admin" ? "update_owner_media_asset" : "update_staff_media_asset", {
+        ...asset, p_category: "swimming_business", p_media_status: "ready",
+        ...(containsPeople ? { p_consent_status: "consent_confirmed" } : {}),
+      }, "MEDIA_REVIEW_FAILED");
+      await mediaRpc("review_staff_media_asset", { ...asset, p_review_status: "approved" }, "MEDIA_REVIEW_FAILED");
       await linkMediaToItem(item.id, newAssetId);
 
       setDesignNotice(language === "ar"
-        ? "تم الرفع والربط للمراجعة؛ الرفع لا يثبت الموافقة، ولا نشر تلقائي."
-        : "Uploaded and linked for review; upload isn't consent; no auto-publish.");
+        ? "رُبط التصميم بالمنشور. اختر موعدًا مستقبليًا على البطاقة قبل الاعتماد والجدولة."
+        : "Design linked. Choose a future time on the card before approving and scheduling.");
       setReplacingMediaItemId(null);
-      onMediaLinked?.();
+      setItemFilter("all");
+      setScheduleTimes((current) => ({ ...current, [item.id]: "" }));
+      onMediaLinked?.(true);
     } catch (cause) {
       if (cause instanceof Error && cause.message === "SESSION_EXPIRED") onSessionExpired?.();
-      else setDesignNotice(mediaLinkErrorMessage(cause instanceof Error ? cause.message : "UPLOAD_FAILED"));
+      else {
+        const reason = mediaLinkErrorMessage(cause instanceof Error ? cause.message : "UPLOAD_FAILED");
+        const recovery = registered ? (language === "ar" ? " حُفظ الملف في المكتبة. يمكنك إكمال مراجعته هناك ثم اختيار «ربط هذا الأصل»." : " The file is in the library. Finish its review there, then choose Link asset.") : "";
+        setMediaErrors((current) => ({ ...current, [item.id]: reason + recovery }));
+        if (registered) onMediaLinked?.();
+      }
     } finally {
       setMediaActionBusyId(null);
+      setPresenceByItem((current) => ({ ...current, [item.id]: "" }));
     }
   }
 
@@ -626,7 +658,8 @@ export function ContentBatchReviewPanel({
         <p className="publish-ready-note">{PUBLISHING_FREEZE_COPY[language]}</p>
       </div>
 
-      <div className="content-batch-summary" aria-label={copy.summaryAria}>
+      <h3 id="batch-summary-heading">{language === "ar" ? "هذه الدفعة فقط" : "This batch only"}</h3>
+      <div className="content-batch-summary" aria-labelledby="batch-summary-heading">
         <article><span>{copy.needsReview}</span><strong>{summary.needsReview}</strong></article>
         <article><span>{copy.approved}</span><strong>{summary.approved}</strong></article>
         <article><span>{copy.scheduled}</span><strong>{summary.scheduled}</strong></article>
@@ -710,6 +743,8 @@ export function ContentBatchReviewPanel({
           const mediaReadyForPublish = Boolean(linkedMediaAsset && canUseInMarketingBatch(linkedMediaAsset));
           const canRegenerateDesign = Boolean(linkedMediaAsset && !canUseInMarketingBatch(linkedMediaAsset));
           const showingEditForm = editTargetId === item.id;
+          const scheduledTime = scheduleTimes[item.id] ?? item.scheduledFor;
+          const futureTime = Boolean(scheduledTime && new Date(scheduledTime).getTime() > Date.now());
           return (
             <article className="content-batch-item" key={item.id}>
               <header>
@@ -723,10 +758,12 @@ export function ContentBatchReviewPanel({
                 </div>
                 <span className={`content-status status-${item.status}`}>{itemStatusLabels[item.status as keyof typeof itemStatusLabels] ?? item.status}</span>
               </header>
+              {mediaErrors[item.id] && <p className="error-box" role="alert">{mediaErrors[item.id]}</p>}
+              {linkedMediaAssetId && (!mediaErrors[item.id] || linkedMediaAsset?.storagePath) && <ContentBatchMediaPreview item={item} session={session} assetById={assetById} labels={previewLabels} />}
               <details className="content-item-details">
                 <summary>{language === "ar" ? "المزيد والتفاصيل" : "More details"}</summary>
                 <p className="item-caption">{item.caption.trim() || copy.noCaption}</p>
-                <ContentBatchMediaPreview item={item} session={session} assetById={assetById} labels={previewLabels} />
+                {!item.mediaAssetId && !mediaErrors[item.id] && <ContentBatchMediaPreview item={item} session={session} assetById={assetById} labels={previewLabels} />}
               {(Boolean(item.mediaSource) || Boolean(item.mediaAssetId) || item.mediaPlan != null) && (
                 <p className="item-meta">
                   {copy.mediaSourceLabel}: {String(item.mediaSource ?? "—").toUpperCase()}
@@ -792,7 +829,7 @@ export function ContentBatchReviewPanel({
                     </button>
                   </div>
                 )}
-                {session && (!item.mediaAssetId || replacingMediaItemId === item.id) && item.status !== "published" && (
+                {session && (!item.mediaAssetId || replacingMediaItemId === item.id || posterItemId === item.id) && item.status !== "published" && (
                   <div className="content-media-source-selector" role="group" aria-label={language === "ar" ? "ربط أصل أو رفعه" : "Link or upload asset"}>
                     <div className="content-media-source-header">
                       <strong>{language === "ar" ? "📁 اختر من أصول المكتبة أو ارفع صورة" : "📁 Choose Library Asset or Upload"}</strong>
@@ -827,13 +864,21 @@ export function ContentBatchReviewPanel({
                         </button>
                       </div>
                     )}
+                    <label>{language === "ar" ? "قبل الرفع لنشاط السباحة، من يظهر في التصميم؟" : "Before uploading this swimming business design, who appears in it?"}
+                      <select value={presenceByItem[item.id] ?? ""} disabled={itemLocked || Boolean(mediaActionBusyId)}
+                        onChange={(event) => setPresenceByItem({ ...presenceByItem, [item.id]: event.target.value })}>
+                        <option value="">{language === "ar" ? "اختر حالة الأشخاص" : "Select person presence"}</option>
+                        <option value="none">{language === "ar" ? "لا يظهر أشخاص حقيقيون" : "No real people appear"}</option>
+                        <option value="consented">{language === "ar" ? "توجد موافقة نشر لكل من يظهر" : "Everyone shown has given permission to publish"}</option>
+                      </select>
+                    </label>
                     <label className="secondary-button-label">
                       <span>{mediaActionBusyId === item.id ? (language === "ar" ? "جاري الرفع للمكتبة…" : "Uploading…") : (language === "ar" ? "📤 رفع صورة/فيديو للمكتبة" : "📤 Upload to Media Library")}</span>
                       <input
                         type="file"
                         accept="image/*,video/*"
                         className="sr-only"
-                        disabled={itemLocked || mediaActionBusyId === item.id}
+                        disabled={itemLocked || Boolean(mediaActionBusyId) || !presenceByItem[item.id]}
                         onChange={(e) => {
                           const file = e.target.files?.[0];
                           if (file) void handleUploadMedia(item, file);
@@ -928,9 +973,16 @@ export function ContentBatchReviewPanel({
                   </div>
                 )}
                 {canApproveStatus && canApproveByRole && (
-                  <button type="button" disabled={itemLocked} title={itemDisabledReason} onClick={() => confirmApproval(item)}>
-                    {copy.approveButton}
-                  </button>
+                  <>
+                    {(!item.scheduledFor || !(Date.parse(item.scheduledFor) > Date.now()) || scheduleTimes[item.id] !== undefined) &&
+                      <label>{language === "ar" ? "اختر موعدًا مستقبليًا للاعتماد والجدولة" : "Choose a future time to approve and schedule"}
+                        <input type="datetime-local" value={scheduleTimes[item.id] ?? ""} disabled={itemLocked}
+                          onChange={(event) => setScheduleTimes({ ...scheduleTimes, [item.id]: event.target.value })} />
+                      </label>}
+                    <button type="button" disabled={itemLocked || !futureTime || Boolean(mediaActionBusyId)} title={itemDisabledReason} onClick={() => confirmApproval(item)}>
+                      {language === "ar" ? "اعتماد وجدولة" : "Approve and schedule"}
+                    </button>
+                  </>
                 )}
                 {canRequestChanges && (
                   <button

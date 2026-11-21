@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { groupContentBatches, isDatabaseBatchId, selectPrimaryBatch, buildNextBatchReadyNotice, type ContentBatchItem } from "./content-batch";
+import { groupContentBatches, selectPrimaryBatch, buildNextBatchReadyNotice, type ContentBatchItem } from "./content-batch";
 import { COACH_AYMAN_PROVIDER_ID, contentFingerprint, parseCoachKnowledgeContext, validateCoachAymanBatch, type CoachBrainFactoryContext, type GeneratedBatchItem } from "./content-batch-generator";
 import { attachMediaToCoachAymanBatch, buildCoachAyman30DayBatchWithMedia } from "./media-batch-link";
 import { fetchGeminiBatchGenerationStatus, generateCoachAymanBatchWithProvider, type BatchAiProvider, type GeminiBatchPromptContext } from "./gemini-batch-adapter";
@@ -32,6 +32,15 @@ const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\
 const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
 
 type GrowthSession = { accessToken: string; role: string };
+
+function batchName(language: "ar" | "en", createdAt: string) {
+  const date = new Date(createdAt);
+  const prefix = language === "ar" ? "دفعة" : "Batch";
+  if (!Number.isFinite(date.getTime())) return prefix;
+  return prefix + " " + date.toLocaleString(language === "ar" ? "ar-AE-u-nu-arab" : "en-AE", {
+    month: "long", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Dubai",
+  });
+}
 
 export { COACH_BRAIN_FACTORY_HANDOFF_KEY } from "./coach-brain-factory-handoff";
 
@@ -178,7 +187,7 @@ export default function ContentGrowthHub({
   const [automationStatus, setAutomationStatus] = useState<unknown>(null);
   const [staffIntegrations, setStaffIntegrations] = useState<Array<{ provider: string; status: string; lastTestedAt?: string | null }>>([]);
   const [canvaDesignStatus, setCanvaDesignStatus] = useState<CanvaStatusDiagnostic | null>(null);
-  const [generateNotice, setGenerateNotice] = useState("");
+  const [generateNotice, setGenerateNotice] = useState<string | { template: string; batchId: string; createdAt: string }>("");
   const [generating, setGenerating] = useState(false);
   const [checkingProvider, setCheckingProvider] = useState(false);
   const [batchAiProvider, setBatchAiProvider] = useState<BatchAiProvider>("auto");
@@ -448,7 +457,7 @@ export default function ContentGrowthHub({
       if (!saved?.success || !saved.batchId) throw new Error(saved?.code ?? "GENERATE_FAILED");
       clearCoachBrainFactoryHandoff();
       const outcomeCopy = !useApi ? copy.generateLocalSuccess : usedAiGeneration ? copy.generateSuccess : copy.generateFallback;
-      setGenerateNotice(outcomeCopy.replace("{batchId}", saved.batchId));
+      setGenerateNotice({ template: outcomeCopy, batchId: saved.batchId, createdAt: new Date().toISOString() });
       setSelectedBatchId(saved.batchId);
       setMediaAssets(assets);
       onBatchCreated?.();
@@ -539,7 +548,9 @@ export default function ContentGrowthHub({
       {mediaLinkNotice && <div className="notice-box" role="status" aria-live="polite">{mediaLinkNotice}</div>}
 
       {canvaStatusNotice && <div className="notice-box" role="status" aria-live="polite">{canvaStatusNotice}</div>}
-      {generateNotice && <div className="notice-box" aria-live="polite">{generateNotice}</div>}
+      {generateNotice && <div className="notice-box" aria-live="polite">{typeof generateNotice === "string" ? generateNotice
+        : generateNotice.template.replace(/(?:Batch ID: )?\{batchId\}/, batchName(language,
+          batches.find((batch) => batch.batchId === generateNotice.batchId)?.createdAt ?? generateNotice.createdAt))}</div>}
 
       {activeFactoryTab === "overview" && facebookAudit && (
         <section className="content-growth-section facebook-audit-section" aria-labelledby="facebook-audit-heading">
@@ -608,7 +619,7 @@ export default function ContentGrowthHub({
         </header>
         <p className="batch-meta">{copy.generateBody}</p>
         <p className="batch-meta">
-          {copy.activeBatchLabel}: {selectedBatch && isDatabaseBatchId(selectedBatch.batchId) ? selectedBatch.batchId : copy.notConnected}
+          {copy.activeBatchLabel}: {selectedBatch ? batchName(language, selectedBatch.createdAt) : copy.notConnected}
         </p>
         <label className="batch-ai-provider">
           <span>{language === "ar" ? "مزود الذكاء" : "AI provider"}</span>
@@ -641,9 +652,9 @@ export default function ContentGrowthHub({
       {showReviewWorkspace && <section id="content-review" className="content-growth-section" aria-labelledby="content-pipeline-heading">
         <header>
           <p>{copy.pipelineEyebrow}</p>
-          <h3 id="content-pipeline-heading">{copy.pipelineTitle}</h3>
+          <h3 id="content-pipeline-heading">{language === "ar" ? "إجمالي كل الدفعات" : "All batches combined"}</h3>
         </header>
-        <div className="content-pipeline-grid" aria-label={copy.pipelineTitle}>
+        <div className="content-pipeline-grid" aria-labelledby="content-pipeline-heading">
           <article><span>{copy.needsReview}</span><strong>{pipeline.needsReview}</strong></article>
           <article><span>{copy.approved}</span><strong>{pipeline.approved}</strong></article>
           <article><span>{copy.scheduled}</span><strong>{pipeline.scheduled}</strong></article>
@@ -730,12 +741,12 @@ export default function ContentGrowthHub({
             value={selectedBatch?.batchId ?? ""}
             onChange={(event) => setSelectedBatchId(event.target.value)}
           >
-            {batches.map((batch, index) => {
+            {batches.map((batch) => {
               const needsReview = batch.items.filter((item) => ["draft", "generated", "needs_review"].includes(item.status)).length;
               const approved = batch.items.filter((item) => item.status === "approved").length;
               return (
                 <option key={batch.batchId} value={batch.batchId}>
-                  {(batch.isExplicitBatch ? batch.batchId : `${copy.reviewWindow} ${index + 1}`)} · {batch.items.length} {language === "ar" ? "عنصر" : "items"} · {needsReview} {language === "ar" ? "مراجعة" : "to review"} · {approved} {language === "ar" ? "معتمد" : "approved"}
+                  {batchName(language, batch.createdAt)} · {batch.items.length} {language === "ar" ? "عنصر" : "items"} · {needsReview} {language === "ar" ? "مراجعة" : "to review"} · {approved} {language === "ar" ? "معتمد" : "approved"}
                 </option>
               );
             })}
@@ -755,7 +766,11 @@ export default function ContentGrowthHub({
           busy={panelBusy}
           session={session}
           mediaAssets={mediaAssets}
-          onMediaLinked={() => {
+          onMediaLinked={(showReviewCard) => {
+            if (showReviewCard && (activeFactoryTab === "designs" || activeFactoryTab === "campaigns")) {
+              setActiveFactoryTab("review");
+              onTabChange?.("review");
+            }
             void callRpc(session, "get_staff_media_assets", {})
               .then((raw) => setMediaAssets(parseMediaAssetRecords(raw)))
               .catch(() => undefined);

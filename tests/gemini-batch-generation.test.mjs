@@ -182,7 +182,9 @@ test("Factory saves a local batch without calling an AI provider when no-API mod
     "get_staff_knowledge_management",
     "create_staff_generated_content_batch",
   ]);
-  assert.equal(notices.at(-1), "Local batch local-batch");
+  assert.equal(notices.at(-1).template, localSuccess);
+  assert.equal(notices.at(-1).batchId, "local-batch");
+  assert.ok(Number.isFinite(Date.parse(notices.at(-1).createdAt)));
 });
 
 test("OpenAI status verifies authentication and configured model without generation or secret disclosure", async (t) => {

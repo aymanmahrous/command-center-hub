@@ -44,18 +44,83 @@ function contentFixture(confirm, response) {
 test("atomic approval shows success and undo only for a confirmed success response", async () => {
   for (const success of [false, true]) {
     const { state, handlers } = contentFixture(true, () => ({ success, code: "INVALID_SCHEDULE_TIME" }));
-    const approval = (confirm) => loadHandlers(panel, ["confirmApproval"], {
-      window: { confirm: () => confirm }, language: "en", onApproveItem: handlers.approveBatchItem,
+    const time = new Date(Date.now() + 86400000).toISOString();
+    const approval = (confirm, selectedTime = time) => loadHandlers(panel, ["confirmApproval", "formatWhen"], {
+      scheduleTimes: { post: selectedTime }, window: { confirm: () => confirm }, language: "en", onApproveItem: handlers.approveBatchItem,
     }).confirmApproval(item);
+    await approval(true, "");
+    await approval(true, "2000-01-01");
     await approval(false);
     assert.equal(state.calls.length, 0);
     await approval(true);
     assert.equal(state.calls[0].rpc, "approve_and_schedule_staff_content_item");
+    assert.equal(state.calls[0].body.p_scheduled_for, time);
     assert.equal(state.changes, Number(success));
     assert.equal(state.notice, success ? "Item approved and scheduled." : "Scheduled time must be in the future.");
     if (success) assert.equal(state.undo.action, "unschedule");
     else assert.equal(state.undo, null);
   }
+});
+
+test("Factory confirms the actual file and person consent before preparing and linking it", async () => {
+  const file = { name: "swim.png", type: "image/png" };
+  const run = async (presence, { confirm = true, failure, scheduled = false } = {}) => {
+    const calls = [], prompts = [], refresh = [];
+    let errors = {};
+    const handlers = loadHandlers(panel, ["handleUploadMedia", "mediaRpc", "linkMediaToItem", "mediaLinkErrorMessage",
+      "confirmScheduledMediaChange", "scheduledMediaChangeWarning"], {
+      session: { role: "super_admin", accessToken: "local" }, language: "ar", canWrite: true, busy: false,
+      mediaActionBusyId: null, presenceByItem: { post: presence }, SUPABASE_URL: "", SUPABASE_PUBLIC_KEY: "",
+      window: { confirm: message => { prompts.push(message); return scheduled ? prompts.length === 1 : confirm; } },
+      setMediaErrors: update => { errors = update(errors); }, setMediaActionBusyId() {}, setDesignNotice() {},
+      setScheduleTimes() {}, setPresenceByItem() {}, setReplacingMediaItemId() {}, setItemFilter() {},
+      onMediaLinked: showCard => refresh.push(showCard),
+      uploadStaffMediaFile: async () => { calls.push(["upload"]); return { assetType: "image", storagePath: "local/swim.png", fileName: file.name }; },
+      fetch: async (url, options) => {
+        const name = url.split("/").at(-1);
+        calls.push([name, JSON.parse(options.body)]);
+        return { ok: true, status: 200, json: async () => name === failure
+          ? { success: false, code: "MEDIA_ASSET_NOT_PUBLISHABLE" } : { success: true, mediaAssetId: "asset" } };
+      },
+    });
+    await handlers.handleUploadMedia({ ...item, status: scheduled ? "scheduled" : "draft" }, file);
+    return { calls, prompts, refresh, errors };
+  };
+  const order = ["upload", "register_staff_media_upload", "attest_media_person_presence", "update_owner_media_asset", "review_staff_media_asset", "link_staff_media_to_content_item"];
+  for (const presence of ["none", "consented"]) {
+    const { calls, prompts, refresh } = await run(presence);
+    assert.match(prompts[0], /swim\.png/);
+    assert.match(prompts[0], presence === "none" ? /لا يظهر أي شخص/ : /موافقة نشر من كل شخص/);
+    assert.deepEqual(calls.map(([name]) => name), order);
+    assert.equal(calls[2][1].p_contains_real_person, presence === "consented");
+    assert.equal(calls[3][1].p_consent_status, presence === "consented" ? "consent_confirmed" : undefined);
+    assert.equal(calls[3][1].p_category, "swimming_business");
+    assert.equal(calls[3][1].p_media_status, "ready");
+    assert.equal(calls[4][1].p_review_status, "approved");
+    assert.deepEqual(calls.at(-1)[1], { p_content_item_id: "post", p_media_asset_id: "asset" });
+    assert.deepEqual(refresh, [true]);
+  }
+  assert.deepEqual((await run("")).calls, []);
+  assert.deepEqual((await run("none", { confirm: false })).calls, []);
+  assert.deepEqual((await run("none", { scheduled: true })).calls, []);
+  for (const failure of order.slice(2)) {
+    const result = await run("none", { failure });
+    assert.deepEqual(result.calls.map(([name]) => name), order.slice(0, order.indexOf(failure) + 1));
+    assert.match(result.errors.post, /الأصل غير جاهز.*حُفظ الملف في المكتبة/);
+    assert.deepEqual(result.refresh, [undefined]);
+  }
+});
+
+test("Factory uses a Dubai date and time for the same batch in all three visible labels", () => {
+  const hub = "../src/content-growth-hub.tsx";
+  const source = readFileSync(new URL(hub, import.meta.url), "utf8");
+  const { batchName } = loadHandlers(hub, ["batchName"], {});
+  const label = batchName("ar", "2026-11-22T06:30:00Z");
+  assert.match(label, /دفعة.*٢٢.*نوفمبر.*١٠:٣٠/);
+  assert.match(source, /batchName\(language, selectedBatch.createdAt\)/);
+  assert.match(source, /batchName\(language, batch.createdAt\)/);
+  assert.match(source, /generateNotice.template.replace[\s\S]*?batchName\(language,[\s\S]*?generateNotice.createdAt/);
+  assert.match(source, /إجمالي كل الدفعات/);
 });
 
 for (const form of ["edit", "change request"]) {
