@@ -51,3 +51,7 @@ test('Command Center guidance is derived from current summary data and cannot ex
   assert.match(view, /never executes actions automatically/);
   assert.match(view, /Review All/);
 });
+
+test('Escape dismisses both full-screen home overlays', () => {
+  assert.match(view, /if \(event\.key === "Escape"\) \{ setCommandOpen\(false\); setSelectedActionSection\(null\); \}/);
+});

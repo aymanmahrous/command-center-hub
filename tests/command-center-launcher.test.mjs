@@ -22,7 +22,7 @@ test("authenticated V2 navigation exposes existing Today, Command, and Coach Bra
   assert.match(app, /\["today", CalendarDays, "x"\]/);
   assert.match(app, /\["command", Bot, "x"\]/);
   assert.match(app, /\["brain", Bot, "x"\]/);
-  assert.match(app, /<TodayView session=\{session\} onNavigate=\{go\} onSessionExpired=\{onLogout\} \/>/);
+  assert.match(app, /<TodayView session=\{session\} reloadKey=\{reloadKey\} onNavigate=\{go\} onSessionExpired=\{onLogout\} \/>/);
   assert.match(app, /function normalizeOwnerSection\(section: SectionId\)/);
   assert.match(app, /return section === "command" \? "dashboard" : section;/);
   assert.match(app, /active === "dashboard" \? .*ControlTowerV2/s);

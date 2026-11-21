@@ -131,14 +131,14 @@ async function hmacProof(accessToken: string): Promise<string> {
   return Array.from(new Uint8Array(signature), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-async function resolveFacebookAccessToken(): Promise<string | null> {
+async function resolveAccessToken(platform: Platform): Promise<string | null> {
   try {
-    const url = `${SUPABASE_URL}/rest/v1/staff_integrations?provider=eq.facebook&select=id,status&limit=1`;
+    const url = `${SUPABASE_URL}/rest/v1/staff_integrations?provider=eq.${platform}&select=id,status&limit=1`;
     const res = await fetch(url, { headers: serviceHeaders() });
     if (res.ok) {
       const rows = await res.json() as Array<{ id?: string; status?: string }>;
       const integration = rows[0];
-      if (integration?.id && (integration.status === "connected" || integration.status === "needs_test")) {
+      if (integration?.id && (integration.status === "connected" || integration.status === "needs_test" || (platform === "instagram" && integration.status === "pending"))) {
         const secretUrl = `${SUPABASE_URL}/rest/v1/staff_integration_secrets?integration_id=eq.${encodeURIComponent(integration.id)}&select=secret_value&limit=1`;
         const secretRes = await fetch(secretUrl, { headers: serviceHeaders() });
         if (secretRes.ok) {
@@ -151,7 +151,8 @@ async function resolveFacebookAccessToken(): Promise<string | null> {
   } catch {
     // Keep credential lookup details out of logs and responses.
   }
-  return FACEBOOK_TOKEN_FALLBACK.trim() || null;
+  const fallback = platform === "instagram" ? INSTAGRAM_ACCESS_TOKEN : FACEBOOK_TOKEN_FALLBACK;
+  return fallback.trim() || null;
 }
 
 function buildCaption(item: PublishItem): string {
@@ -160,7 +161,7 @@ function buildCaption(item: PublishItem): string {
 }
 
 async function publishFacebook(caption: string, mediaUrl: string | null, assetType: "image" | "video"): Promise<PublishOutcome> {
-  const accessToken = await resolveFacebookAccessToken();
+  const accessToken = await resolveAccessToken("facebook");
   if (!accessToken || !Deno.env.get("META_APP_SECRET")) return { success: false, errorCode: "META_NOT_CONFIGURED" };
   if (!mediaUrl) return { success: false, errorCode: "MEDIA_MISSING" };
   const proof = await hmacProof(accessToken);
@@ -182,11 +183,12 @@ async function publishFacebook(caption: string, mediaUrl: string | null, assetTy
 
 async function publishInstagram(caption: string, mediaUrl: string | null, assetType: "image" | "video"): Promise<PublishOutcome> {
   if (!mediaUrl) return { success: false, errorCode: "MEDIA_MISSING" };
-  if (!INSTAGRAM_ACCESS_TOKEN || !Deno.env.get("META_APP_SECRET")) return { success: false, errorCode: "META_NOT_CONFIGURED" };
-  const proof = await hmacProof(INSTAGRAM_ACCESS_TOKEN);
+  const accessToken = await resolveAccessToken("instagram");
+  if (!accessToken || !Deno.env.get("META_APP_SECRET")) return { success: false, errorCode: "META_NOT_CONFIGURED" };
+  const proof = await hmacProof(accessToken);
   const createParams = assetType === "video"
-    ? new URLSearchParams({ access_token: INSTAGRAM_ACCESS_TOKEN, appsecret_proof: proof, media_type: "REELS", video_url: mediaUrl, caption, share_to_feed: "true" })
-    : new URLSearchParams({ access_token: INSTAGRAM_ACCESS_TOKEN, appsecret_proof: proof, image_url: mediaUrl, caption });
+    ? new URLSearchParams({ access_token: accessToken, appsecret_proof: proof, media_type: "REELS", video_url: mediaUrl, caption, share_to_feed: "true" })
+    : new URLSearchParams({ access_token: accessToken, appsecret_proof: proof, image_url: mediaUrl, caption });
   const createRes = await fetch(`https://graph.facebook.com/${META_GRAPH_VERSION}/${INSTAGRAM_ACCOUNT_ID}/media`, { method: "POST", body: createParams });
   const created = await createRes.json().catch(() => ({})) as { id?: string; error?: { code?: number | string } };
   const containerId = confirmedExternalPostId(created as Record<string, unknown>);
@@ -196,7 +198,7 @@ async function publishInstagram(caption: string, mediaUrl: string | null, assetT
   if (assetType === "video") {
     let finished = false;
     for (let attempt = 0; attempt < 12; attempt += 1) {
-      const statusRes = await fetch(`https://graph.facebook.com/${META_GRAPH_VERSION}/${containerId}?fields=status_code,status&access_token=${encodeURIComponent(INSTAGRAM_ACCESS_TOKEN)}&appsecret_proof=${encodeURIComponent(proof)}`);
+      const statusRes = await fetch(`https://graph.facebook.com/${META_GRAPH_VERSION}/${containerId}?fields=status_code,status&access_token=${encodeURIComponent(accessToken)}&appsecret_proof=${encodeURIComponent(proof)}`);
       const statusData = await statusRes.json().catch(() => ({})) as { status_code?: string; error?: { code?: number | string } };
       if (!statusRes.ok || statusData.error) return { success: false, errorCode: "META_REEL_STATUS_FAILED" };
       const status = String(statusData.status_code ?? "").toUpperCase();
@@ -206,7 +208,7 @@ async function publishInstagram(caption: string, mediaUrl: string | null, assetT
     }
     if (!finished) return { success: false, errorCode: "META_REEL_PROCESSING_TIMEOUT" };
   }
-  const publishParams = new URLSearchParams({ access_token: INSTAGRAM_ACCESS_TOKEN, appsecret_proof: proof, creation_id: containerId });
+  const publishParams = new URLSearchParams({ access_token: accessToken, appsecret_proof: proof, creation_id: containerId });
   const publishRes = await fetch(`https://graph.facebook.com/${META_GRAPH_VERSION}/${INSTAGRAM_ACCOUNT_ID}/media_publish`, { method: "POST", body: publishParams });
   const published = await publishRes.json().catch(() => ({})) as { id?: string; error?: { code?: number | string } };
   const publishedId = confirmedExternalPostId(published as Record<string, unknown>);

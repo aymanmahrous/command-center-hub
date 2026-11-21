@@ -20,11 +20,17 @@ import { ContentBatchMediaPreview } from "./content-batch-media-preview";
 import { canvaDesignErrorMessage, generateCanvaDesignForContentItem } from "./canva-design-adapter";
 import { resolveDesignProvider, type DesignProvider } from "./canva-readiness";
 import { uploadStaffMediaFile } from "./staff-media-storage";
-import { canUseInMarketingBatch, type MediaAssetRecord } from "./media-types";
+import { canUseInMarketingBatch, isNewMediaAssetForContentItem, type MediaAssetRecord } from "./media-types";
 import type { CapabilityState } from "./content-growth";
 import { useLanguage } from "./i18n";
 import { formatLocalDateTimeInput } from "./date-utils";
 import "./content-batch-review.css";
+
+const manualDesignSites = [
+  ["Gemini", "https://gemini.google.com/"],
+  ["Canva", "https://www.canva.com/"],
+  ["Runway", "https://app.runwayml.com/"],
+] as const;
 
 const BrandedPosterStudio = lazy(() =>
   import("./branded-poster-studio").then((module) => ({ default: module.BrandedPosterStudio }))
@@ -90,24 +96,21 @@ function publishEnqueueErrorMessage(code: string | undefined, language: "ar" | "
   return language === "ar" ? "تعذر طلب النشر." : "Publish request failed.";
 }
 
-function canRequestPublish(item: ContentBatchItem): boolean {
-  if (item.status !== "approved") return false;
+function canShowPublishAction(item: ContentBatchItem): boolean {
   if (item.publishedAt) return false;
   if (typeof item.providerExternalId === "string" && item.providerExternalId.trim()) return false;
   const receipt = latestReceiptForPlatform(item, item.platform);
   // An ambiguous external result must be manually reconciled before any retry.
   if (receipt?.status.toLowerCase() === "published" || receipt?.status.toLowerCase() === "ambiguous") return false;
-  return true;
-}
-
-function canRequestPublishWithMedia(item: ContentBatchItem, asset: MediaAssetRecord | undefined): boolean {
-  return canRequestPublish(item) && Boolean(asset && canUseInMarketingBatch(asset));
+  return item.status === "approved"
+    || (item.status === "failed" && receipt?.status.toLowerCase() === "failed" && !receipt.externalPostId?.trim());
 }
 
 const REQUEST_PUBLISH_COPY = {
   en: {
     button: "Publish Now",
     retryButton: "Retry confirmed failure",
+    retryNeedsApproval: "This item needs review and approval again before you can retry publishing.",
     confirm: "Publish this approved item to its connected platform now? The existing secure publisher will publish immediately and record the real result.",
     retryConfirm: "The last result is a confirmed failure. Retry publishing this approved item now? Ambiguous results are blocked from retry.",
     success: "Publish request completed. Refresh to see the recorded result.",
@@ -117,6 +120,7 @@ const REQUEST_PUBLISH_COPY = {
   ar: {
     button: "نشر الآن",
     retryButton: "إعادة محاولة فشل مؤكد",
+    retryNeedsApproval: "يحتاج هذا المنشور إلى المراجعة والاعتماد مجددًا قبل إعادة محاولة نشره.",
     confirm: "نشر هذا العنصر المعتمد الآن على المنصة المتصلة؟ مسار النشر الآمن الحالي سينفذ النشر ويسجل النتيجة.",
     retryConfirm: "النتيجة السابقة فشل مؤكد. هل تريد إعادة محاولة نشر هذا العنصر المعتمد؟ النتائج الملتبسة ممنوعة من إعادة المحاولة.",
     success: "اكتمل طلب النشر. حدّث الشاشة لرؤية النتيجة المسجلة.",
@@ -134,8 +138,8 @@ type ContentBatchReviewPanelProps = {
   mediaAssets?: MediaAssetRecord[];
   onMediaLinked?: () => void;
   onApproveItem: (item: ContentBatchItem) => Promise<void>;
-  onEditItem?: (item: ContentBatchItem, visualPrompt: string, scheduledFor: string | null) => Promise<void>;
-  onRequestChanges: (item: ContentBatchItem, kind: ChangeRequestKind, note: string) => Promise<void>;
+  onEditItem?: (item: ContentBatchItem, visualPrompt: string, scheduledFor: string | null, onSaved: () => void) => Promise<void>;
+  onRequestChanges: (item: ContentBatchItem, kind: ChangeRequestKind, note: string, onSaved: () => void) => Promise<void>;
   onApproveAll: (items: ContentBatchItem[]) => Promise<void>;
   onPublishRequested?: () => void;
   onSessionExpired?: () => void;
@@ -193,6 +197,7 @@ export function ContentBatchReviewPanel({
   const [designProviderByItem, setDesignProviderByItem] = useState<Record<string, string>>({});
   const [publishBusyId, setPublishBusyId] = useState<string | null>(null);
   const [publishNotice, setPublishNotice] = useState("");
+  const [metaSetupItemId, setMetaSetupItemId] = useState<string | null>(null);
   const [videoTargetId, setVideoTargetId] = useState<string | null>(null);
   const [videoDuration, setVideoDuration] = useState<4 | 6 | 8>(8);
   const [videoResolution, setVideoResolution] = useState<"720p" | "1080p">("720p");
@@ -237,12 +242,33 @@ export function ContentBatchReviewPanel({
     await onApproveAll(approveCandidates);
   }
 
+  function confirmApproval(item: ContentBatchItem) {
+    const topic = item.topic || copy.untitled;
+    const confirmMessage = language === "ar"
+      ? `تأكيد اعتماد «${topic}»؟ سيتم اعتماد المحتوى وجدولته للموعد المحدد.`
+      : `Approve "${topic}"? The item will be approved and scheduled for its planned time.`;
+    if (window.confirm(confirmMessage)) return onApproveItem(item);
+  }
+
   async function submitChangeRequest(item: ContentBatchItem) {
     if (!changeNote.trim()) return;
-    await onRequestChanges(item, changeKind, changeNote.trim());
-    setChangeTargetId(null);
-    setChangeNote("");
-    setChangeKind("caption");
+    const topic = item.topic || copy.untitled;
+    const confirmMessage = language === "ar"
+      ? `تأكيد طلب تعديل «${topic}» وإعادته للمراجعة؟`
+      : `Request changes and return "${topic}" to review?`;
+    if (!window.confirm(confirmMessage)) return;
+    await onRequestChanges(item, changeKind, changeNote.trim(), () => {
+      setChangeTargetId(null);
+      setChangeNote("");
+      setChangeKind("caption");
+    });
+  }
+
+  async function submitEdit(item: ContentBatchItem, form: HTMLFormElement) {
+    const data = new FormData(form);
+    const localDate = String(data.get("scheduledFor") ?? "").trim();
+    const scheduledFor = localDate ? new Date(localDate).toISOString() : null;
+    await onEditItem?.(item, String(data.get("visualPrompt") ?? "").trim(), scheduledFor, () => setEditTargetId(null));
   }
 
   function recommendedDesignProvider(item: ContentBatchItem): Exclude<DesignProvider, "auto"> {
@@ -297,6 +323,7 @@ export function ContentBatchReviewPanel({
         return;
       }
       if (provider === "gemini") {
+        if (!confirmScheduledMediaChange(item)) return;
         const { estimateGeminiImageGeneration, generateGeminiImageForContentItem } = await import("./gemini-image-design-adapter");
         const estimate = await estimateGeminiImageGeneration(session);
         const confirmed = window.confirm(language === "ar"
@@ -318,6 +345,7 @@ export function ContentBatchReviewPanel({
           : provider === "runway" ? "Runway is the video choice, but automated execution requires a verified connection. No unsupported generation is claimed." : provider === "capcut" ? "CapCut is available here as a manual editing path; the brief is ready." : "Manual path selected; use the prepared brief.");
         return;
       }
+      if (!confirmScheduledMediaChange(item)) return;
       const generated = await generateCanvaDesignForContentItem(session, item);
       setDesignNotice(generated.imageApplied
         ? copy.designGeneratedNotice
@@ -359,6 +387,17 @@ export function ContentBatchReviewPanel({
     return res;
   }
 
+  function scheduledMediaChangeWarning(): string {
+    return language === "ar"
+      ? "سيُلغى موعد النشر ويُعاد المحتوى للمراجعة."
+      : "This cancels scheduling and returns the content to review.";
+  }
+
+  function confirmScheduledMediaChange(item: ContentBatchItem): boolean {
+    if (item.status !== "scheduled") return true;
+    return window.confirm(`${scheduledMediaChangeWarning()} ${language === "ar" ? "هل تتابع؟" : "Continue?"}`);
+  }
+
   function mediaLinkErrorMessage(code: string | undefined): string {
     const messages: Record<string, { ar: string; en: string }> = {
       MEDIA_ASSET_NOT_PUBLISHABLE: {
@@ -395,6 +434,7 @@ export function ContentBatchReviewPanel({
 
   async function handleLinkMedia(item: ContentBatchItem, assetId: string) {
     if (!session || !canWrite || busy || mediaActionBusyId || !assetId) return;
+    if (!confirmScheduledMediaChange(item)) return;
     setMediaActionBusyId(item.id);
     setDesignNotice("");
     try {
@@ -412,6 +452,7 @@ export function ContentBatchReviewPanel({
 
   async function handleUploadMedia(item: ContentBatchItem, file: File) {
     if (!session || !canWrite || busy || mediaActionBusyId || !file) return;
+    if (!confirmScheduledMediaChange(item)) return;
     setMediaActionBusyId(item.id);
     setDesignNotice("");
     try {
@@ -498,8 +539,12 @@ export function ContentBatchReviewPanel({
       const costUsd = typeof estimate.estimatedCostUsd === "number" ? estimate.estimatedCostUsd : null;
       const confirmed = window.confirm(
         language === "ar"
-          ? "فيديو رأسي " + videoDuration + " ثوانٍ بدقة " + videoResolution + ". التكلفة التقديرية: $" + (costUsd == null ? "غير معروفة" : costUsd.toFixed(2)) + ". إنشاء الفيديو الآن؟"
-          : "Vertical " + videoDuration + "s video at " + videoResolution + ". Estimated cost: $" + (costUsd == null ? "unknown" : costUsd.toFixed(2)) + ". Generate now?",
+          ? "فيديو رأسي " + videoDuration + " ثوانٍ بدقة " + videoResolution + ". التكلفة التقديرية: $" + (costUsd == null ? "غير معروفة" : costUsd.toFixed(2)) + "."
+            + (item.status === "scheduled" ? " " + scheduledMediaChangeWarning() : "")
+            + " إنشاء الفيديو الآن؟"
+          : "Vertical " + videoDuration + "s video at " + videoResolution + ". Estimated cost: $" + (costUsd == null ? "unknown" : costUsd.toFixed(2)) + "."
+            + (item.status === "scheduled" ? " " + scheduledMediaChangeWarning() : "")
+            + " Generate now?",
       );
       if (!confirmed) return;
       setVideoEstimate(costUsd == null ? null : { costUsd, model: typeof estimate.model === "string" ? estimate.model : "veo-3.1-lite-generate-preview" });
@@ -526,17 +571,18 @@ export function ContentBatchReviewPanel({
   }
 
   async function handleRequestPublish(item: ContentBatchItem) {
-    if (!session || !canWrite || busy || publishBusyId || !canRequestPublish(item)) return;
+    if (!session || !canWrite || busy || publishBusyId || item.status !== "approved" || !canShowPublishAction(item)) return;
     const priorReceipt = latestReceiptForPlatform(item, item.platform);
     const confirmedFailure = priorReceipt?.status.toLowerCase() === "failed";
     if (!window.confirm(confirmedFailure ? requestPublishCopy.retryConfirm : requestPublishCopy.confirm)) return;
     setPublishBusyId(item.id);
     setPublishNotice("");
+    setMetaSetupItemId(null);
     try {
       const result = await requestPublishJob(session, item.id);
       if (!result.success) {
         if (result.code === "META_NOT_CONFIGURED") {
-          onOpenConnections?.();
+          setMetaSetupItemId(item.id);
           return;
         }
         setPublishNotice(publishEnqueueErrorMessage(result.code, language));
@@ -646,11 +692,13 @@ export function ContentBatchReviewPanel({
       </div>
       {visibleItems.length === 0 ? <p className="content-review-empty">{language === "ar" ? "لا توجد عناصر في هذه الحالة." : "No items match this status."}</p> : <div className="content-batch-grid">
         {visibleItems.map((item) => {
+          const designPrompt = String(item.visualPrompt || item.caption || item.topic || "");
           const canApproveStatus = ["draft", "generated", "needs_review"].includes(item.status);
           const canRequestChanges = ["draft", "generated", "approved", "scheduled", "failed"].includes(item.status);
           const itemLocked = busy || !canWrite;
           const pillar = readContentPillar(item);
           const timeSlot = readTimeSlot(item);
+          const selectableMediaAssets = mediaAssets.filter((asset) => isNewMediaAssetForContentItem(asset, item.createdAt));
           const showingForm = changeTargetId === item.id;
           const pipelineStage = resolvePublishPipelineStage(item);
           const receipts = parsePublicationReceipts(item);
@@ -659,6 +707,7 @@ export function ContentBatchReviewPanel({
           const itemDisabledReason = !canWrite ? copy.actionDisabledReadOnly : busy ? copy.actionDisabledBusy : undefined;
           const linkedMediaAssetId = typeof item.mediaAssetId === "string" ? item.mediaAssetId : "";
           const linkedMediaAsset = assetById.get(linkedMediaAssetId);
+          const mediaReadyForPublish = Boolean(linkedMediaAsset && canUseInMarketingBatch(linkedMediaAsset));
           const canRegenerateDesign = Boolean(linkedMediaAsset && !canUseInMarketingBatch(linkedMediaAsset));
           const showingEditForm = editTargetId === item.id;
           return (
@@ -715,14 +764,18 @@ export function ContentBatchReviewPanel({
               </details>
               <footer>
                 <div className="content-design-provider-picker" role="group" aria-label={language === "ar" ? "تصميم يدوي بدون API" : "Manual design without API"}>
-                  <details><summary>{language === "ar" ? "برومبت التصميم" : "Design prompt"}</summary><textarea readOnly rows={4} value={String(item.visualPrompt || item.caption || item.topic || "")} onFocus={(event) => event.currentTarget.select()} /></details>
-                  <button type="button" className="secondary" disabled={!String(item.visualPrompt || item.caption || item.topic || "").trim()} onClick={async () => {
-                    try { await navigator.clipboard.writeText(String(item.visualPrompt || item.caption || item.topic || "")); setDesignNotice(language === "ar" ? "تم نسخ برومبت التصميم." : "Design prompt copied."); }
-                    catch { setDesignNotice(language === "ar" ? "تعذر النسخ؛ افتح برومبت التصميم وحدد النص وانسخه يدويًا." : "Copy failed; expand the design prompt, select the text and copy manually."); }
-                  }}>{language === "ar" ? "نسخ برومبت التصميم" : "Copy design prompt"}</button>
-                  <a href="https://gemini.google.com/" target="_blank" rel="noopener noreferrer">{language === "ar" ? "فتح Gemini" : "Open Gemini"}</a>
-                  <a href="https://www.canva.com/" target="_blank" rel="noopener noreferrer">{language === "ar" ? "فتح Canva" : "Open Canva"}</a>
-                  <a href="https://app.runwayml.com/" target="_blank" rel="noopener noreferrer">{language === "ar" ? "فتح Runway" : "Open Runway"}</a>
+                  <details><summary>{language === "ar" ? "برومبت التصميم" : "Design prompt"}</summary><textarea readOnly rows={4} value={designPrompt} onFocus={(event) => event.currentTarget.select()} /></details>
+                  {manualDesignSites.map(([site, url]) => (
+                    <button key={site} type="button" className="secondary" disabled={!designPrompt.trim()} onClick={async () => {
+                      window.open(url, "_blank", "noopener,noreferrer");
+                      try {
+                        await navigator.clipboard.writeText(designPrompt);
+                        setDesignNotice(language === "ar" ? "تم نسخ برومبت التصميم." : "Design prompt copied.");
+                      } catch {
+                        setDesignNotice(language === "ar" ? "تعذر النسخ. افتح برومبت التصميم وحدد النص وانسخه يدويًا." : "Copy failed. Expand the design prompt, select the text and copy manually.");
+                      }
+                    }}>{language === "ar" ? "نسخ البرومبت وفتح " : "Copy prompt and open "}{site}</button>
+                  ))}
                   <small>{language === "ar" ? "صمّم خارجيًا ثم اربط الأصل أو ارفعه بالخيارات الموجودة؛ تبقى الموافقات وأقفال النشر مطلوبة." : "Design externally, then link or upload using the existing controls; approval and publishing locks still apply."}</small>
                 </div>
                 {session && Boolean(item.mediaAssetId) && item.status !== "published" && (
@@ -743,9 +796,9 @@ export function ContentBatchReviewPanel({
                   <div className="content-media-source-selector" role="group" aria-label={language === "ar" ? "ربط أصل أو رفعه" : "Link or upload asset"}>
                     <div className="content-media-source-header">
                       <strong>{language === "ar" ? "📁 اختر من أصول المكتبة أو ارفع صورة" : "📁 Choose Library Asset or Upload"}</strong>
-                      <small>{language === "ar" ? "الأسهل والأوفر: استخدم أصلًا موجودًا أو صورة من جهازك لتجنب التكرار والتكلفة." : "Easiest & most cost-effective: use an existing asset or your own photo."}</small>
+                      <small>{language === "ar" ? "لن نعيد استخدام تصميم قديم. ارفع تصميمًا جديدًا بعد إنشاء هذه المسودة ليظهر هنا." : "Old designs are not reused. Upload a new design after creating this draft to make it available here."}</small>
                     </div>
-                    {mediaAssets.length > 0 && (
+                    {selectableMediaAssets.length > 0 && (
                       <div className="content-media-library-picker">
                         <select
                           aria-label={language === "ar" ? "اختر من مكتبة الوسائط" : "Choose from library"}
@@ -754,7 +807,7 @@ export function ContentBatchReviewPanel({
                           disabled={itemLocked || mediaActionBusyId === item.id}
                         >
                           <option value="">{language === "ar" ? "— اختر صورة/فيديو من المكتبة —" : "— Select asset from library —"}</option>
-                          {mediaAssets.map((asset) => {
+                          {selectableMediaAssets.map((asset) => {
                             const assetName = typeof asset.metadata?.file_name === "string" ? asset.metadata.file_name : typeof asset.metadata?.name === "string" ? asset.metadata.name : asset.id.slice(0, 8);
                             const ready = canUseInMarketingBatch(asset);
                             return (
@@ -875,7 +928,7 @@ export function ContentBatchReviewPanel({
                   </div>
                 )}
                 {canApproveStatus && canApproveByRole && (
-                  <button type="button" disabled={itemLocked} title={itemDisabledReason} onClick={() => void onApproveItem(item)}>
+                  <button type="button" disabled={itemLocked} title={itemDisabledReason} onClick={() => confirmApproval(item)}>
                     {copy.approveButton}
                   </button>
                 )}
@@ -913,23 +966,37 @@ export function ContentBatchReviewPanel({
                     {showingEditForm ? (language === "ar" ? "إغلاق" : "Close") : (language === "ar" ? "تعديل" : "Edit")}
                   </button>
                 )}
-                {canRequestPublish(item) && session && (
-                  <button
-                    type="button"
-                    className="primary-button"
-                    disabled={itemLocked || publishBusyId === item.id || !canRequestPublishWithMedia(item, linkedMediaAsset)}
-                    title={itemDisabledReason ?? (!canRequestPublishWithMedia(item, linkedMediaAsset) ? (language === "ar" ? "الوسائط المرتبطة ليست جاهزة للنشر." : "Linked media is not publish-ready.") : undefined)}
-                    onClick={() => void handleRequestPublish(item)}
-                  >
-                    {publishBusyId === item.id ? requestPublishCopy.busy : platformReceipt?.status.toLowerCase() === "failed" ? requestPublishCopy.retryButton : requestPublishCopy.button}
-                  </button>
+                {canShowPublishAction(item) && session && (
+                  <>
+                    <button
+                      type="button"
+                      className="primary-button"
+                      disabled={itemLocked || publishBusyId === item.id || item.status === "failed" || !mediaReadyForPublish}
+                      aria-describedby={item.status === "failed" ? `retry-approval-${item.id}` : undefined}
+                      title={itemDisabledReason ?? (!mediaReadyForPublish ? (language === "ar" ? "الوسائط المرتبطة ليست جاهزة للنشر." : "Linked media is not publish-ready.") : undefined)}
+                      onClick={() => void handleRequestPublish(item)}
+                    >
+                      {publishBusyId === item.id ? requestPublishCopy.busy : platformReceipt?.status.toLowerCase() === "failed" ? requestPublishCopy.retryButton : requestPublishCopy.button}
+                    </button>
+                    {item.status === "failed" && (
+                      <small id={`retry-approval-${item.id}`} className="item-action-disabled-reason">{requestPublishCopy.retryNeedsApproval}</small>
+                    )}
+                  </>
                 )}
-                {item.status === "approved" && !canRequestPublishWithMedia(item, linkedMediaAsset) && (
+                {item.status === "approved" && !mediaReadyForPublish && (
                   <small className="item-action-disabled-reason">
                     {language === "ar" ? "طلب النشر متوقف: اربط وسائط معتمدة ومؤكدة الموافقة أولًا." : "Publish request blocked: attach approved media with confirmed consent first."}
                   </small>
                 )}
               </footer>
+              {metaSetupItemId === item.id && (
+                <div className="content-batch-design-notice">
+                  <p role="alert">{publishEnqueueErrorMessage("META_NOT_CONFIGURED", language)}</p>
+                  <button type="button" className="secondary" onClick={() => window.dispatchEvent(new CustomEvent("command-center:navigate", { detail: { section: "connections" } }))}>
+                    {language === "ar" ? "فتح مركز الاتصالات" : "Open Connections Center"}
+                  </button>
+                </div>
+              )}
               {itemDisabledReason && <small className="item-action-disabled-reason">{itemDisabledReason}</small>}
               {posterItemId === item.id && (
                 <Suspense
@@ -939,7 +1006,7 @@ export function ContentBatchReviewPanel({
                     </p>
                   }
                 >
-                  <BrandedPosterStudio item={item} language={language} onClose={() => setPosterItemId(null)} onSaveDesign={session && canWrite ? (file) => handleUploadMedia(item, file) : undefined} />
+                  <BrandedPosterStudio item={item} language={language} onClose={() => setPosterItemId(null)} onSaveDesign={session && canWrite && item.status !== "published" ? (file) => handleUploadMedia(item, file) : undefined} />
                 </Suspense>
               )}
               {showingForm && (
@@ -976,10 +1043,7 @@ export function ContentBatchReviewPanel({
                   className="change-request-form factory-edit-form"
                   onSubmit={(event) => {
                     event.preventDefault();
-                    const data = new FormData(event.currentTarget);
-                    const localDate = String(data.get("scheduledFor") ?? "").trim();
-                    const scheduledFor = localDate ? new Date(localDate).toISOString() : null;
-                    void onEditItem(item, String(data.get("visualPrompt") ?? "").trim(), scheduledFor).then(() => setEditTargetId(null));
+                    void submitEdit(item, event.currentTarget);
                   }}
                 >
                   <label>{language === "ar" ? "موعد النشر" : "Publish time"}<input name="scheduledFor" type="datetime-local" defaultValue={formatLocalDateTimeInput(item.scheduledFor)} disabled={!canWrite || item.status === "published"} /></label>

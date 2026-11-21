@@ -55,6 +55,25 @@ test("facebook post links normalize pageId_postId receipts", () => {
   );
 });
 
+test("the latest platform receipt can contradict a stored publication status or date", () => {
+  const published = { platform: "instagram", status: "published", publishedAt: "2026-01-02" };
+  const older = { platform: "instagram", status: "published", updatedAt: "2026-01-01" };
+  for (const status of ["failed", "ambiguous", "pending", "unknown"]) {
+    const receipts = [older, { ...older, status, updatedAt: "2026-01-03" }];
+    const stage = resolvePublishPipelineStage({ ...published, receipts });
+    assert.notEqual(stage, "published_live", status);
+    if (status === "failed" || status === "ambiguous") assert.equal(stage, "failed");
+    assert.equal(summarizeLivePublishingReadiness([{ ...published, receipts }], "instagram").publishedLiveCount, 0);
+  }
+  assert.equal(resolvePublishPipelineStage({ ...published, receipts: [{ ...older, platform: "facebook", status: "failed" }] }), "published_live");
+});
+
+test("Instagram links use a public shortcode or supplied permalink", () => {
+  const url = "https://www.instagram.com/p/Ab_12-x/";
+  for (const id of ["17841400516801494", " /12345 ", "invalid/path"]) assert.equal(buildExternalPostLink("instagram", id), null);
+  for (const id of ["Ab_12-x", "/Ab_12-x", url]) assert.equal(buildExternalPostLink("instagram", id), url);
+});
+
 test("readiness prioritizes authorized facebook publish item", () => {
   const readiness = summarizeLivePublishingReadiness([
     {

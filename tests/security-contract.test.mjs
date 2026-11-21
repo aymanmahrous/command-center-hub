@@ -146,7 +146,7 @@ test("Content Studio honors server status and action allowlists", () => {
 
 test("Content batch generation uses approved RPC and confirms before write", () => {
   assert.match(growthHub, /create_staff_generated_content_batch/);
-  assert.match(growthHub, /window\.confirm\(copy\.generateConfirm\)/);
+  assert.match(growthHub, /window\.confirm\(useApi \? copy\.generateConfirm : copy\.generateLocalConfirm\)/);
   assert.match(growthCopyEn, /Nothing will be scheduled or published/i);
   assert.doesNotMatch(growthHub, /graph\.facebook|buffer\.com/i);
 });

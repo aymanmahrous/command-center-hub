@@ -19,3 +19,11 @@ test("coach ayman batch with media is wired through growth hub RPC flow", () => 
   assert.match(growthHub, /create_staff_generated_content_batch/);
   assert.match(growthHub, /buildCoachAyman30DayBatchWithMedia/);
 });
+
+test("batch generation excludes media already linked to an earlier content item", () => {
+  assert.match(batchLink, /\.filter\(\(asset\) => !asset\.contentItemId\)/);
+});
+
+test("new batches never auto-attach assets already in the media library", () => {
+  assert.match(growthHub, /buildCoachAyman30DayBatchWithMedia\(\[\], start, batchNonce, knowledgeContext\)/);
+});

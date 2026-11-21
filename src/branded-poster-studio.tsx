@@ -1,7 +1,168 @@
-import { useState } from "react";
-import { Download, Sparkles, Check, Copy, ExternalLink, RefreshCw, Image as ImageIcon, Save } from "lucide-react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Download, Sparkles, Check, Copy, ExternalLink, RefreshCw, Save } from "lucide-react";
 import type { ContentBatchItem } from "./content-batch";
 import { BRAND } from "./content-strategy";
+
+const posterStyles = [
+  { id: "luxury", ar: "فاخر حديث", en: "Modern Luxury", paper: "#101f24", ink: "#faf4e5", accent: "#d9ae70" },
+  { id: "sport", ar: "رياضي نشيط", en: "Sporty Dynamic", paper: "#05465f", ink: "#ffffff", accent: "#a8ffde" },
+  { id: "editorial", ar: "تعليمي نظيف", en: "Clean Editorial", paper: "#f0f5f1", ink: "#133b3e", accent: "#20766f" },
+  { id: "family", ar: "عائلي دافئ", en: "Warm Family", paper: "#ffefd9", ink: "#49372f", accent: "#944b36" },
+] as const;
+
+type PosterStyle = (typeof posterStyles)[number];
+type Ratio = "1:1" | "4:5" | "9:16";
+
+// Wrap first, then reduce the font to keep all copy inside its reserved area.
+function drawTextBlock(ctx: CanvasRenderingContext2D, text: string, x: number, top: number, width: number,
+  height: number, size: number, weight: number, family: string) {
+  const words = text.trim().split(/\s+/);
+  for (let fontSize = size; fontSize >= 12; fontSize -= 2) {
+    ctx.font = `${weight} ${fontSize}px ${family}`;
+    const lines: string[] = [];
+    let line = "";
+    for (const word of words) {
+      const next = line ? `${line} ${word}` : word;
+      if (line && ctx.measureText(next).width > width) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = next;
+      }
+    }
+    lines.push(line);
+    const leading = fontSize * 1.35;
+    if (lines.length * leading > height && fontSize > 13) continue;
+    const step = Math.min(leading, height / lines.length);
+    const first = top + (height - lines.length * step) / 2 + step * 0.74;
+    lines.forEach((value, index) => ctx.fillText(value, x, first + index * step, width));
+    return;
+  }
+}
+
+function drawPoster(canvas: HTMLCanvasElement, style: PosterStyle, ratio: Ratio, isAr: boolean, headline: string, points: string[]) {
+  const width = canvas.width = 1080;
+  const height = canvas.height = ratio === "9:16" ? 1920 : ratio === "4:5" ? 1350 : 1080;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const sans = "'Segoe UI', system-ui, sans-serif";
+  const centered = style.id === "family";
+  const edge = isAr ? width - 96 : 96;
+  ctx.fillStyle = style.paper;
+  ctx.fillRect(0, 0, width, height);
+
+  switch (style.id) {
+    case "luxury":
+      ctx.strokeStyle = style.accent;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(32, 32, width - 64, height - 64);
+      ctx.fillStyle = style.accent;
+      ctx.fillRect(isAr ? width - 232 : 96, height * 0.22, 136, 4);
+      break;
+    case "sport": {
+      const water = ctx.createLinearGradient(0, height, width, 0);
+      water.addColorStop(0, "#062e54");
+      water.addColorStop(1, "#007d87");
+      ctx.fillStyle = water;
+      ctx.fillRect(0, 0, width, height);
+      ctx.strokeStyle = "#51dbca";
+      ctx.lineWidth = 12;
+      for (let lane = 0; lane < 3; lane++) {
+        const x = isAr ? 210 + lane * 48 : width - 210 - lane * 48;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x + (isAr ? -230 : 230), height * 0.23);
+        ctx.stroke();
+      }
+      break;
+    }
+    case "editorial":
+      ctx.fillStyle = style.accent;
+      ctx.fillRect(0, 0, width, 18);
+      ctx.fillRect(72, height * 0.20, width - 144, 2);
+      break;
+    case "family":
+      ctx.fillStyle = "#f8cb8e";
+      ctx.beginPath();
+      ctx.arc(0, 0, 235, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#b7d8cd";
+      ctx.beginPath();
+      ctx.moveTo(0, height * 0.79);
+      ctx.bezierCurveTo(340, height * 0.70, 680, height * 0.87, width, height * 0.76);
+      ctx.lineTo(width, height);
+      ctx.lineTo(0, height);
+      ctx.closePath();
+      ctx.fill();
+      break;
+  }
+
+  // Preserve the studio's swimmer-and-wave emblem on each palette.
+  const markX = centered ? width / 2 : isAr ? width - 124 : 124;
+  const markY = centered ? 78 : height * 0.115;
+  ctx.strokeStyle = ctx.fillStyle = style.accent;
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.arc(markX, markY, 38, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(markX, markY - 9, 6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(markX - 23, markY + 8);
+  ctx.bezierCurveTo(markX - 9, markY + 20, markX + 9, markY - 2, markX + 23, markY + 8);
+  ctx.stroke();
+
+  ctx.textAlign = centered ? "center" : isAr ? "right" : "left";
+  const brandX = centered ? width / 2 : edge + (isAr ? -90 : 90);
+  ctx.fillStyle = style.ink;
+  ctx.font = `700 30px ${sans}`;
+  ctx.fillText(BRAND.publicLine, brandX, centered ? 158 : markY - 2);
+  ctx.font = `500 24px ${sans}`;
+  ctx.fillText("أكاديمية ريلاكس فيكس للسباحة", brandX, centered ? 195 : markY + 36);
+
+  ctx.direction = isAr ? "rtl" : "ltr";
+  const titleTop = height * 0.225;
+  drawTextBlock(ctx, headline, centered ? width / 2 : edge, titleTop, width - 192, height * 0.205,
+    style.id === "sport" ? 84 : 68, style.id === "sport" ? 900 : 650,
+    style.id === "luxury" ? "Georgia, 'Segoe UI', serif" : sans);
+
+  const rowHeight = height * 0.092;
+  points.forEach((point, index) => {
+    const top = height * 0.46 + rowHeight * index;
+    if (style.id === "editorial" || centered) {
+      ctx.fillStyle = centered ? "#fff7ed" : "#ffffff";
+      ctx.beginPath();
+      ctx.roundRect(76, top, width - 152, rowHeight - 10, centered ? 38 : 8);
+      ctx.fill();
+    }
+    ctx.fillStyle = style.accent;
+    if (style.id === "editorial") {
+      ctx.font = `700 29px ${sans}`;
+      ctx.fillText(String(index + 1).padStart(2, "0"), edge, top + rowHeight / 2 + 5);
+    } else if (!centered) {
+      ctx.fillRect(isAr ? edge - 32 : edge, top + rowHeight / 2 - 4, 32, style.id === "sport" ? 9 : 2);
+    }
+    ctx.fillStyle = style.ink;
+    drawTextBlock(ctx, point, centered ? width / 2 : edge + (isAr ? -64 : 64), top, width - 320,
+      rowHeight - 10, 34, 500, sans);
+  });
+
+  const footerTop = height * 0.80;
+  ctx.fillStyle = style.accent;
+  ctx.fillRect(96, footerTop, width - 192, 2);
+  ctx.fillStyle = style.ink;
+  ctx.textAlign = "center";
+  ctx.font = `700 30px ${sans}`;
+  const location = BRAND.locations.map(place => isAr && place === "Al Mushrif · Abu Dhabi" ? "المشرف · أبوظبي" : place).join(" • ");
+  ctx.fillText(location, width / 2, footerTop + (height - footerTop) * 0.27);
+  // Isolate the international numbers so Arabic bidirectional layout keeps the leading plus.
+  ctx.font = `600 27px ${sans}`;
+  const booking = isAr ? "واتساب للرسائل والحجز" : "WhatsApp · messages & booking";
+  const calls = isAr ? "هاتف الإدارة للمكالمات فقط" : "Admin · phone calls only";
+  ctx.fillText(`${booking}   \u2066${BRAND.whatsapp}\u2069`, width / 2, footerTop + (height - footerTop) * 0.52);
+  ctx.fillText(`${calls}   \u2066${BRAND.phone}\u2069`, width / 2, footerTop + (height - footerTop) * 0.74);
+}
 
 interface BrandedPosterStudioProps {
   item: ContentBatchItem;
@@ -34,214 +195,20 @@ export function BrandedPosterStudio({ item, language, onClose, onSaveDesign }: B
 
   const isReelOrStory = /reel|story|9:16/i.test(item.contentType || item.platform);
   const [ratio, setRatio] = useState<"1:1" | "4:5" | "9:16">(isReelOrStory ? "9:16" : "1:1");
+  const [style, setStyle] = useState<PosterStyle>(posterStyles[0]);
+  const preview = useRef<HTMLCanvasElement>(null);
   const [headline, setHeadline] = useState(hook);
   const [pointsText, setPointsText] = useState(keyPoints.join("\n"));
-  const editableKeyPoints = pointsText.split("\n").map((point) => point.trim()).filter(Boolean).slice(0, 3);
+  const editableKeyPoints = useMemo(() => pointsText.split("\n").map((point) => point.trim()).filter(Boolean).slice(0, 3), [pointsText]);
+  useLayoutEffect(() => {
+    if (preview.current) drawPoster(preview.current, style, ratio, isAr, headline, editableKeyPoints);
+  }, [style, ratio, isAr, headline, editableKeyPoints]);
 
   const handlePosterAction = async (mode: "download" | "save" | "save-and-download" = "download") => {
     setDownloading(true);
     try {
-      const width = 1080;
-      const height = ratio === "9:16" ? 1920 : ratio === "4:5" ? 1350 : 1080;
-
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) throw new Error("Canvas context not available");
-
-      // 1. Deep Ocean Gradient
-      const bgGrad = ctx.createLinearGradient(0, 0, width, height);
-      bgGrad.addColorStop(0, "#020617");
-      bgGrad.addColorStop(0.35, "#082f49");
-      bgGrad.addColorStop(0.7, "#0369a1");
-      bgGrad.addColorStop(1, "#0284c7");
-      ctx.fillStyle = bgGrad;
-      ctx.fillRect(0, 0, width, height);
-
-      // 2. Ambient Water Glow
-      ctx.save();
-      ctx.globalAlpha = 0.18;
-      const glowGrad = ctx.createRadialGradient(width * 0.5, height * 0.3, 50, width * 0.5, height * 0.3, width * 0.6);
-      glowGrad.addColorStop(0, "#38bdf8");
-      glowGrad.addColorStop(1, "transparent");
-      ctx.fillStyle = glowGrad;
-      ctx.fillRect(0, 0, width, height);
-      ctx.restore();
-
-      // Ambient decorative curves
-      ctx.save();
-      ctx.strokeStyle = "rgba(56, 189, 248, 0.25)";
-      ctx.lineWidth = 3;
-      for (let i = 0; i < 4; i++) {
-        ctx.beginPath();
-        const yOffset = height * 0.45 + i * 140;
-        ctx.moveTo(0, yOffset);
-        ctx.bezierCurveTo(width * 0.25, yOffset - 60, width * 0.75, yOffset + 60, width, yOffset);
-        ctx.stroke();
-      }
-      ctx.restore();
-
-      // 3. Top Emblem
-      const emblemCenterY = height > 1400 ? 220 : 180;
-      const emblemRadius = 75;
-
-      ctx.save();
-      ctx.shadowColor = "#38bdf8";
-      ctx.shadowBlur = 25;
-      ctx.beginPath();
-      ctx.arc(width / 2, emblemCenterY, emblemRadius, 0, Math.PI * 2);
-      ctx.fillStyle = "#0f172a";
-      ctx.fill();
-      ctx.lineWidth = 6;
-      ctx.strokeStyle = "#f59e0b"; // Gold accent
-      ctx.stroke();
-      ctx.restore();
-
-      // Inner cyan circle
-      ctx.beginPath();
-      ctx.arc(width / 2, emblemCenterY, emblemRadius - 8, 0, Math.PI * 2);
-      ctx.lineWidth = 2.5;
-      ctx.strokeStyle = "#06b6d4";
-      ctx.stroke();
-
-      // Swimmer wave icon
-      ctx.save();
-      ctx.fillStyle = "#38bdf8";
-      ctx.beginPath();
-      const headX = width / 2;
-      const headY = emblemCenterY - 20;
-      ctx.arc(headX, headY, 12, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.strokeStyle = "#38bdf8";
-      ctx.lineWidth = 4;
-      ctx.lineCap = "round";
-      ctx.beginPath();
-      ctx.moveTo(width / 2 - 40, emblemCenterY + 10);
-      ctx.bezierCurveTo(width / 2 - 20, emblemCenterY + 25, width / 2 + 20, emblemCenterY - 5, width / 2 + 40, emblemCenterY + 10);
-      ctx.stroke();
-      ctx.restore();
-
-      // Brand Title
-      ctx.textAlign = "center";
-      ctx.font = "bold 32px 'Segoe UI', system-ui, sans-serif";
-      ctx.fillStyle = "#ffffff";
-      ctx.fillText(BRAND.publicLine.toUpperCase(), width / 2, emblemCenterY + 115);
-
-      ctx.font = "600 24px 'Segoe UI', system-ui, sans-serif";
-      ctx.fillStyle = "#38bdf8";
-      ctx.fillText("أكاديمية ريلاكس فيكس للسباحة · أبوظبي", width / 2, emblemCenterY + 155);
-
-      // Badge pill
-      const badgeY = emblemCenterY + 205;
-      ctx.save();
-      ctx.fillStyle = "rgba(6, 182, 212, 0.25)";
-      ctx.strokeStyle = "rgba(6, 182, 212, 0.6)";
-      ctx.lineWidth = 2;
-      const badgeW = 460;
-      const badgeH = 46;
-      ctx.beginPath();
-      ctx.roundRect((width - badgeW) / 2, badgeY, badgeW, badgeH, 23);
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.font = "bold 20px 'Segoe UI', system-ui, sans-serif";
-      ctx.fillStyle = "#e0f2fe";
-      ctx.fillText(
-        ratio === "9:16" ? "🎯 تصحيح التكنيك وتطوير المهارات" : "🏊‍♂️ تدريب سباحة احترافي في أبوظبي",
-        width / 2,
-        badgeY + 30
-      );
-      ctx.restore();
-
-      // 4. Headline
-      const hookStartY = badgeY + 110;
-      ctx.font = `bold ${height > 1400 ? 54 : 44}px 'Segoe UI', system-ui, sans-serif`;
-      ctx.fillStyle = "#ffffff";
-      ctx.shadowColor = "rgba(0,0,0,0.85)";
-      ctx.shadowBlur = 15;
-
-      const words = headline.split(" ");
-      let line = "";
-      let curY = hookStartY;
-      const maxW = width - 160;
-
-      for (let n = 0; n < words.length; n++) {
-        const testLine = line + words[n] + " ";
-        const metrics = ctx.measureText(testLine);
-        if (metrics.width > maxW && n > 0) {
-          ctx.fillText(line.trim(), width / 2, curY);
-          line = words[n] + " ";
-          curY += height > 1400 ? 75 : 62;
-        } else {
-          line = testLine;
-        }
-      }
-      ctx.fillText(line.trim(), width / 2, curY);
-      ctx.shadowBlur = 0;
-
-      // 5. Card with Key Points
-      const cardStartY = curY + 60;
-      const cardW = width - 160;
-      const cardH = editableKeyPoints.length * 85 + 40;
-
-      ctx.save();
-      ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
-      ctx.strokeStyle = "rgba(56, 189, 248, 0.4)";
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.roundRect((width - cardW) / 2, cardStartY, cardW, cardH, 24);
-      ctx.fill();
-      ctx.stroke();
-
-      editableKeyPoints.forEach((point, idx) => {
-        const rowY = cardStartY + 55 + idx * 85;
-        ctx.beginPath();
-        ctx.arc((width + cardW) / 2 - 50, rowY - 8, 10, 0, Math.PI * 2);
-        ctx.fillStyle = "#38bdf8";
-        ctx.fill();
-
-        ctx.font = "bold 26px 'Segoe UI', system-ui, sans-serif";
-        ctx.fillStyle = "#f8fafc";
-        ctx.textAlign = "right";
-        ctx.fillText(point, (width + cardW) / 2 - 75, rowY);
-      });
-      ctx.restore();
-
-      // 6. Branches
-      const branchesY = height > 1400 ? height - 320 : height - 260;
-      ctx.textAlign = "center";
-      ctx.font = "bold 24px 'Segoe UI', system-ui, sans-serif";
-      ctx.fillStyle = "#38bdf8";
-      ctx.fillText("📍 موقع التدريب:", width / 2, branchesY);
-
-      ctx.font = "600 22px 'Segoe UI', system-ui, sans-serif";
-      ctx.fillStyle = "#e2e8f0";
-      ctx.fillText(BRAND.locations.join("  •  "), width / 2, branchesY + 38);
-
-      // 7. WhatsApp CTA Pill
-      const ctaY = height - 150;
-      const ctaW = width - 180;
-      const ctaH = 90;
-
-      ctx.save();
-      const ctaGrad = ctx.createLinearGradient((width - ctaW) / 2, 0, (width + ctaW) / 2, 0);
-      ctaGrad.addColorStop(0, "#059669");
-      ctaGrad.addColorStop(1, "#10b981");
-      ctx.fillStyle = ctaGrad;
-      ctx.shadowColor = "rgba(16, 185, 129, 0.5)";
-      ctx.shadowBlur = 20;
-      ctx.beginPath();
-      ctx.roundRect((width - ctaW) / 2, ctaY, ctaW, ctaH, 45);
-      ctx.fill();
-
-      ctx.textAlign = "center";
-      ctx.font = "bold 28px 'Segoe UI', system-ui, sans-serif";
-      ctx.fillStyle = "#ffffff";
-      ctx.shadowBlur = 0;
-      ctx.fillText(`📱 احجز تقييمك المجاني: ${BRAND.whatsapp}`, width / 2, ctaY + 55);
-      ctx.restore();
+      const canvas = preview.current;
+      if (!canvas) throw new Error("Poster preview unavailable");
 
       canvas.toBlob(async (blob) => {
         if (!blob) {
@@ -330,7 +297,7 @@ Policy: Do not add prices, unsupported claims, or extra contact details.`;
             🏊‍♂️ {isAr ? "استوديو البوستر الرسمي للأكاديمية" : "Official Branded Poster Studio"} ({ratio})
           </strong>
           <p style={{ margin: 0, fontSize: "0.8rem", color: "#94a3b8" }}>
-            {isAr ? "بوستر فوري عالي الدقة (1080px) مع شعار Relax Fix وفروع أبوظبي ورقم الواتساب" : "Instant 1080px HD poster with Relax Fix logo, branches & WhatsApp"}
+            {isAr ? "بوستر فوري عالي الدقة (1080px) مع شعار Relax Fix وموقع المسبح وبيانات التواصل" : "Instant 1080px HD poster with Relax Fix logo, pool location & booking details"}
           </p>
         </div>
         <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
@@ -364,6 +331,19 @@ Policy: Do not add prices, unsupported claims, or extra contact details.`;
         </div>
       </div>
 
+      <fieldset style={{ margin: "0 0 1rem", padding: "0.6rem", border: "1px solid #475569", borderRadius: 8 }}>
+        <legend>{isAr ? "نمط البوستر" : "Poster style"}</legend>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+          {posterStyles.map(option => (
+            <button key={option.id} type="button" aria-pressed={option.id === style.id} onClick={() => setStyle(option)}
+              style={{ background: option.paper, color: option.ink, border: `2px solid ${option.accent}`, borderRadius: 8, padding: "0.45rem 0.75rem", cursor: "pointer" }}>
+              {option.id === style.id && <Check size={14} aria-hidden="true" />} {isAr ? option.ar : option.en}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+      <canvas ref={preview} role="img" aria-label={isAr ? `معاينة البوستر: ${style.ar}` : `Poster preview: ${style.en}`}
+        style={{ display: "block", margin: "0 auto 1rem", maxWidth: "100%", maxHeight: 420, width: "auto", height: "auto" }} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0.6rem", marginBottom: "0.8rem" }}>
         <label style={{ display: "grid", gap: "0.3rem", color: "#cbd5e1", fontSize: "0.8rem" }}>
           {isAr ? "عنوان التصميم" : "Design headline"}

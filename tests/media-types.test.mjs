@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   canUseInMarketingBatch,
+  isNewMediaAssetForContentItem,
   derivePublishability,
   displayMediaWorkflowStatus,
   isMarketingEligibleCategory,
@@ -40,6 +41,14 @@ test("marketing batch use requires ready status, eligible category, consent, and
   assert.equal(canUseInMarketingBatch({ ...base, consentStatus: "consent_confirmed" }), true);
   assert.equal(canUseInMarketingBatch({ ...base, consentStatus: "pending" }), false);
   assert.equal(canUseInMarketingBatch({ ...base, consentStatus: "consent_confirmed", mediaStatus: "pending" }), false);
+});
+
+test("new content items can only use unlinked media created after the content item", () => {
+  const itemCreatedAt = "2026-11-18T10:00:00.000Z";
+  assert.equal(isNewMediaAssetForContentItem({ contentItemId: null, createdAt: "2026-11-18T10:00:01.000Z" }, itemCreatedAt), true);
+  assert.equal(isNewMediaAssetForContentItem({ contentItemId: null, createdAt: "2026-11-18T09:59:59.000Z" }, itemCreatedAt), false);
+  assert.equal(isNewMediaAssetForContentItem({ contentItemId: "older-item", createdAt: "2026-11-18T10:00:01.000Z" }, itemCreatedAt), false);
+  assert.equal(isNewMediaAssetForContentItem({ contentItemId: null, createdAt: "invalid" }, itemCreatedAt), false);
 });
 
 test("normalizeMediaCategory defaults to unclassified", () => {

@@ -1,20 +1,18 @@
 # Command Center Hub
 
-## MANDATORY AGENT STARTUP
+## Repository guidance
 
-Before any task on this repository, read, in order: [`MASTER_PROJECT_HANDOFF.md`](MASTER_PROJECT_HANDOFF.md), [`OWNER_WORKING_PROFILE.md`](OWNER_WORKING_PROFILE.md), [`OWNER_PROTECTION_AND_BUDGET_POLICY.md`](OWNER_PROTECTION_AND_BUDGET_POLICY.md), and [`PROJECT_HANDOFF.md`](PROJECT_HANDOFF.md). See [`AGENTS.md`](AGENTS.md) for the full execution rules.
+Read [`AGENTS.md`](AGENTS.md) for the repository rules. [`MASTER_PROJECT_HANDOFF.md`](MASTER_PROJECT_HANDOFF.md) is the only current project-state handoff. Consult technical documentation only when it is relevant to the task; documents in [`docs/archive/`](docs/archive/) are historical.
 
 Private internal operations application for RelaxFix UAE. This repository is independent from the public Relax Fix UAE website and must never be used to modify or deploy that site.
 
-## Current capabilities
+## Application overview
 
 - Staff authentication through Supabase Auth plus one active `staff_profiles` record.
 - Operational dashboards for Command Center, AI Inbox, CRM, automation status, Content Studio, Bookings, Media Library, Analytics, and Integrations.
 - Controlled writes only through approved RPCs for booking status, CRM workflow, conversation mode, and content review/scheduling transitions.
 - Explicit confirmation, UI RBAC, duplicate-write locking, safe session expiry, and RPC-side audit logging.
-- No real outbound messaging or direct publishing interface.
-
-The authoritative current status and next action are in [PROJECT_HANDOFF.md](PROJECT_HANDOFF.md).
+The authoritative verified status and next safe action are in [MASTER_PROJECT_HANDOFF.md](MASTER_PROJECT_HANDOFF.md).
 
 ## Local verification
 
@@ -54,12 +52,12 @@ The browser must not write directly to tables. Do not add migrations, RLS/policy
 
 ## Documentation map
 
-- [Current handoff](PROJECT_HANDOFF.md)
+- [Current project state](MASTER_PROJECT_HANDOFF.md)
+- [Repository rules](AGENTS.md)
 - [Final audit](docs/FINAL_AUDIT.md)
 - [Final security review](docs/FINAL_SECURITY_REVIEW.md)
 - [Performance review](docs/PERFORMANCE_REVIEW.md)
-- [Documentation review](docs/DOCUMENTATION_REVIEW.md)
-- [Standalone architecture and rollback](docs/STANDALONE_MIGRATION_HANDOFF.md)
-- Feature evidence: [AI Inbox](docs/AI_INBOX_HANDOFF.md), [Bookings](docs/BOOKINGS_OPERATIONS_HANDOFF.md), [Content Studio](docs/CONTENT_STUDIO_HANDOFF.md), [Media Library](docs/MEDIA_LIBRARY_HANDOFF.md), [Analytics](docs/ANALYTICS_HANDOFF.md), [Integrations](docs/INTEGRATIONS_HANDOFF.md), and [System Polish](docs/SYSTEM_POLISH_HANDOFF.md)
+- [Historical archive](docs/archive/)
+- [Audited baseline manifest](AUDITED_BASELINE_CONTENT_MANIFEST.md)
 
-`BASELINE_GOVERNANCE.md` and `AUDITED_BASELINE_CONTENT_MANIFEST.md` are retained as historical provenance records. They are not the current implementation plan.
+Archived handoffs, rules, plans, and status reports are preserved for history only. They are not the current project state or operating rules.

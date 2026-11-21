@@ -53,6 +53,19 @@ test("batch review panel integrates direct library picker and safe upload regist
   assert.match(panel, /الرفع لا يثبت الموافقة/);
 });
 
+test("media changes warn before cancelling scheduled content and do not upload against published items", () => {
+  assert.match(panel, /function confirmScheduledMediaChange\(item: ContentBatchItem\)/);
+  assert.equal((panel.match(/confirmScheduledMediaChange\(item\)/g) ?? []).length, 4);
+  assert.match(panel, /function scheduledMediaChangeWarning\(\)/);
+  assert.match(panel, /This cancels scheduling and returns the content to review/);
+  assert.match(panel, /item\.status !== "published" \? \(file\) => handleUploadMedia/);
+});
+
+test("new content items show only newly uploaded and unlinked media", () => {
+  assert.match(panel, /mediaAssets\.filter\(\(asset\) => isNewMediaAssetForContentItem\(asset, item\.createdAt\)\)/);
+  assert.match(panel, /Old designs are not reused/);
+});
+
 test("Coach Brain research prompt enforces evidence-based pedagogy and a concise 3-part response", async () => {
   const coachBrain = await readFile(new URL("../supabase/functions/coach-brain-research/index.ts", import.meta.url), "utf8");
   assert.match(coachBrain, /## 1\. الخلاصة والرأي الموصى به/);

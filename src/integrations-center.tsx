@@ -16,7 +16,7 @@ const KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VI
 const Item = z.object({ id: z.string().uuid(), provider: z.string(), connectionMethod: z.enum(["oauth", "api_key", "manual"]), status: z.enum(["not_connected", "pending", "connected", "needs_test", "error", "disabled"]), displayName: z.string(), accountLabel: z.string().nullable().optional(), secretHint: z.string().nullable().optional(), lastTestedAt: z.string().nullable().optional(), lastErrorCode: z.string().nullable().optional(), updatedAt: z.string() }).passthrough();
 const Payload = z.object({ success: z.boolean(), items: z.array(Item).optional(), generatedAt: z.string().optional(), code: z.string().optional(), status: z.string().optional() }).passthrough();
 const definitions: Record<string, { icon: string; description: Record<Language, string>; method: "oauth" | "api_key" | "manual" }> = {
-  meta_whatsapp: { icon: "WA", method: "oauth", description: { ar: "رسائل العملاء وعمليات الاستلام عبر Meta WhatsApp المعتمد.", en: "Customer messages and intake through Meta WhatsApp." } },
+  meta_whatsapp: { icon: "WA", method: "oauth", description: { ar: "يتحقق الفحص من هوية رقم واتساب لدى Meta.", en: "This check verifies the WhatsApp phone number with Meta." } },
   instagram: { icon: "IG", method: "oauth", description: { ar: "ربط حساب Instagram Business للنشر المعتمد.", en: "Connect an Instagram Business account for publishing." } },
   facebook: { icon: "FB", method: "oauth", description: { ar: "ربط صفحة Facebook لنشر المحتوى وإدارته.", en: "Connect a Facebook Page for content management." } },
   telegram: { icon: "TG", method: "manual", description: { ar: "تنبيهات الموظفين الداخلية (اختياري). محادثات العملاء تعمل عبر WhatsApp.", en: "Internal staff alerts (optional). Customer chats run via WhatsApp." } },
@@ -38,7 +38,6 @@ const capabilityNames: Record<string, Record<Language, string>> = {
   buffer: { ar: "الجدولة الخارجية", en: "External scheduling" },
   tiktok: { ar: "نشر TikTok", en: "TikTok publishing" },
   telegram: { ar: "تنبيهات الموظفين", en: "Staff notifications" },
-  meta_whatsapp: { ar: "رسائل WhatsApp عبر Meta", en: "Meta WhatsApp messaging" },
   google_calendar: { ar: "قراءة تقويم Google", en: "Google Calendar access" },
   ai_provider: { ar: "مزود الذكاء الاصطناعي", en: "AI provider" },
 };
@@ -46,6 +45,12 @@ function externallyVerified(item: z.infer<typeof Item>): boolean {
   const metadata = item.metadata;
   return Boolean(metadata && typeof metadata === "object" && !Array.isArray(metadata)
     && (metadata as Record<string, unknown>).verifiedExternally === true);
+}
+function whatsAppDisplayStatus(item: z.infer<typeof Item>, failedCheckVersion: string | null): z.infer<typeof Item>["status"] {
+  if (item.status !== "connected") return item.status;
+  if (failedCheckVersion === item.updatedAt) return "error";
+  if (!item.lastTestedAt || !Number.isFinite(Date.parse(item.lastTestedAt)) || !externallyVerified(item)) return "needs_test";
+  return "connected";
 }
 function capabilityState(status: z.infer<typeof Item>["status"]): CapabilityState {
   if (status === "not_connected") return "NOT_CONFIGURED";
@@ -64,7 +69,16 @@ function capabilityDetail(language: Language, state: CapabilityState, provider: 
 }
 function rpcHeaders(session: Session) { return { apikey: KEY, Authorization: `Bearer ${session.accessToken}`, "Content-Type": "application/json", Accept: "application/json" }; }
 async function rpc(session: Session, name: string, body: Record<string, unknown> = {}) { const response = await fetch(`${URL}/rest/v1/rpc/${name}`, { method: "POST", headers: rpcHeaders(session), body: JSON.stringify(body), cache: "no-store" }); if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED"); if (!response.ok) throw new Error(`RPC_FAILED_${response.status}`); return Payload.parse(await response.json()); }
-function message(language: Language, code?: string) { const map: Record<string, Record<Language, string>> = { SECRET_TOO_SHORT: { ar: "القيمة قصيرة جدًا. استخدم قيمة صالحة.", en: "The value is too short. Enter a valid credential." }, CREDENTIAL_REQUIRED: { ar: "أدخل قيمة الربط أولًا.", en: "Enter the connection value first." }, STAFF_ACCESS_DENIED: { ar: "ليس لديك صلاحية إدارة التكاملات.", en: "You do not have integration-management access." }, CONNECTION_CONFIGURED: { ar: "تم اختبار الإعداد بنجاح. لم يتم استدعاء مزود خارجي بعد.", en: "Configuration passed the local safety test. No external provider was called." } }; return (code && map[code]?.[language]) || (language === "ar" ? `لم يكتمل الإجراء: ${code ?? "خطأ غير معروف"}` : `Action not completed: ${code ?? "Unknown error"}`); }
+function message(language: Language, code?: string) {
+  const map: Record<string, Record<Language, string>> = {
+    SECRET_TOO_SHORT: { ar: "القيمة قصيرة جدًا. استخدم قيمة صالحة.", en: "The value is too short. Enter a valid credential." },
+    CREDENTIAL_REQUIRED: { ar: "أدخل قيمة الربط أولًا.", en: "Enter the connection value first." },
+    STAFF_ACCESS_DENIED: { ar: "ليس لديك صلاحية إدارة التكاملات.", en: "You do not have integration-management access." },
+    INTEGRATION_SAVED: { ar: "تم حفظ بيانات الربط. يمكنك الآن فحص الإعداد.", en: "Connection details saved. You can now test the configuration." },
+    CONNECTION_CONFIGURED: { ar: "تم اختبار الإعداد بنجاح. لم يتم استدعاء مزود خارجي بعد.", en: "Configuration passed the local safety test. No external provider was called." },
+  };
+  return (code && map[code]?.[language]) || (language === "ar" ? `لم يكتمل الإجراء: ${code ?? "خطأ غير معروف"}` : `Action not completed: ${code ?? "Unknown error"}`);
+}
 
 export default function IntegrationsCenter({ value, session, onChanged, onSessionExpired }: { value: JsonValue; session: Session; onChanged: () => void; onSessionExpired: () => void }) {
   const { language } = useLanguage();
@@ -74,6 +88,7 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
   const [account, setAccount] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  const [failedWhatsAppCheckVersion, setFailedWhatsAppCheckVersion] = useState<string | null>(null);
   const items = parsed.success ? (parsed.data.items ?? []) : [];
   const canWrite = ["super_admin", "admin", "content_manager"].includes(session.role);
   async function action(name: string, body: Record<string, unknown>) { setBusy(name); setNotice(""); try { const result = await rpc(session, name, body); if (!result.success) throw new Error(result.code ?? "ACTION_REJECTED"); setNotice(message(language, result.code)); setSelected(null); setSecret(""); setAccount(""); onChanged(); } catch (cause) { if (cause instanceof Error && cause.message === "SESSION_EXPIRED") { onSessionExpired(); return; } setNotice(message(language, cause instanceof Error ? cause.message : "ACTION_FAILED")); } finally { setBusy(null); } }
@@ -115,7 +130,7 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
       }
       if (provider === "instagram" || provider === "meta_whatsapp") {
         const current = items.find((item) => item.provider === provider);
-        if (provider === "instagram" && current?.status === "not_connected") {
+        if (provider === "instagram" && (current?.status === "not_connected" || current?.status === "disabled")) {
           const response = await fetch(`${URL}/functions/v1/facebook-oauth`, {
             method: "POST",
             headers: rpcHeaders(session),
@@ -137,7 +152,11 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
         const result = await response.json().catch(() => ({}));
         if (response.status === 401 || response.status === 403) throw new Error("SESSION_EXPIRED");
         if (!response.ok || !result.success) throw new Error(String(result.code ?? "META_EXTERNAL_TEST_FAILED"));
-        setNotice(language === "ar" ? `تم التحقق من ${result.accountLabel ?? "Meta"} خارجيًا وربطه بحالة المركز.` : `Meta connection verified externally: ${result.accountLabel ?? "connected"}.`);
+        if (provider === "meta_whatsapp") {
+          setFailedWhatsAppCheckVersion(null);
+        } else {
+          setNotice(language === "ar" ? `تم التحقق من ${result.accountLabel ?? "Meta"} خارجيًا وربطه بحالة المركز.` : `Meta connection verified externally: ${result.accountLabel ?? "connected"}.`);
+        }
         onChanged();
         return;
       }
@@ -157,6 +176,9 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
         setNotice(language === "ar" ? googleCalendarConnectErrorMessage(code) : `Google Calendar OAuth could not start (${code}).`);
       } else if (provider === "facebook" || provider === "instagram") {
         setNotice(metaOAuthErrorMessage(provider, code, language));
+      } else if (provider === "meta_whatsapp") {
+        setFailedWhatsAppCheckVersion(items.find((item) => item.provider === provider)?.updatedAt ?? null);
+        setNotice(language === "ar" ? "تعذّر فحص هوية رقم واتساب لدى Meta." : "The WhatsApp phone number check with Meta failed.");
       } else {
         setNotice(canvaConnectErrorMessage(code, language));
       }
@@ -167,7 +189,38 @@ export default function IntegrationsCenter({ value, session, onChanged, onSessio
   return <div className="integration-center">
     <div className="integration-intro"><div><p className="eyebrow">{language === "ar" ? "مركز الاتصالات" : "CONNECTION CENTER"}</p><h2>{language === "ar" ? "اربط الخدمات من داخل التطبيق" : "Connect services inside the app"}</h2><p>{language === "ar" ? "القيم السرية تُحفظ في الخادم ولا تظهر كاملة للواجهة. زر الاختبار الحالي يتحقق من الإعداد فقط، ولا ينفذ نشرًا أو رسالة خارجية." : "Secrets are stored server-side and never returned in full. The current test validates configuration only; it does not publish or send externally."}</p></div><span className="integration-safety">{language === "ar" ? "محمية + سجل تدقيق" : "Protected + audited"}</span></div>
     {notice && <div className="integration-notice" role="status" aria-live="polite">{notice}</div>}
-    <div className="integration-grid">{items.map((item) => { const definition = definitions[item.provider] ?? { icon: "?", method: "manual" as const, description: { ar: "تكامل إضافي.", en: "Additional integration." } }; const verified = Boolean(item.lastTestedAt && externallyVerified(item)); const status = verified ? (language === "ar" ? "تم التحقق من الاتصال الخارجي" : "External connection verified") : (statusLabels[language][item.status] ?? item.status); const state = capabilityState(item.status); return <article className="integration-card" key={item.provider}><header><span className="integration-icon">{definition.icon}</span><div><h3>{item.displayName}</h3><p>{definition.description[language]}</p></div><span className={`integration-status status-${item.status}`}>{status}</span></header><div className={`integration-capability capability-${state.toLowerCase()}`}><strong>{capabilityLabels[language][state]}</strong><span>{capabilityDetail(language, state, item.provider)}</span></div><dl><div><dt>{language === "ar" ? "طريقة الربط" : "Method"}</dt><dd>{item.provider === "instagram" || item.provider === "meta_whatsapp" ? "Meta server connection" : item.connectionMethod === "api_key" ? "API Key" : item.connectionMethod === "oauth" ? "OAuth" : language === "ar" ? "إعداد داخلي" : "Internal setup"}</dd></div><div><dt>{language === "ar" ? "الحساب" : "Account"}</dt><dd>{item.accountLabel || (language === "ar" ? "غير محدد" : "Not set")}</dd></div><div><dt>{language === "ar" ? "القيمة" : "Credential"}</dt><dd>{item.secretHint || "—"}</dd></div></dl><footer>{canWrite && ["not_connected", "disabled", "pending"].includes(item.status) && <><button type="button" disabled={busy === item.provider} onClick={() => item.connectionMethod === "oauth" ? void connectOAuth(item.provider) : open(item.provider)}>{busy === item.provider ? (language === "ar" ? "جاري الربط" : "Connecting") : language === "ar" ? (item.status === "disabled" ? "إعادة الربط" : item.provider === "instagram" || item.provider === "meta_whatsapp" ? "فحص وربط" : item.connectionMethod === "oauth" ? "اتصال آمن" : "إعداد") : (item.status === "disabled" ? "Reconnect" : item.provider === "instagram" || item.provider === "meta_whatsapp" ? "Verify & connect" : item.connectionMethod === "oauth" ? "Secure connect" : "Setup")}</button>{item.provider === "canva" && <a className="secondary" href={CANVA_OPEN_URL} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none", padding: "6px 12px", borderRadius: "6px", fontSize: "0.85rem" }}>{language === "ar" ? "فتح Canva يدوياً" : "Open Canva"}</a>}</>}{canWrite && ["connected", "needs_test", "error"].includes(item.status) && <><button type="button" disabled={busy === item.provider} onClick={() => ((item.provider === "facebook" || item.provider === "instagram" || item.provider === "meta_whatsapp") ? void connectOAuth(item.provider) : void action("test_staff_integration", { p_provider: item.provider }))}>{item.provider === "facebook" || item.provider === "instagram" || item.provider === "meta_whatsapp" ? (language === "ar" ? "فحص الاتصال الخارجي" : "Verify external connection") : (language === "ar" ? "اختبار الإعداد المحلي" : "Test local configuration")}</button><button type="button" className="secondary" onClick={() => open(item.provider)}>{language === "ar" ? "تعديل" : "Edit"}</button><button type="button" className="danger" onClick={() => { if (window.confirm(language === "ar" ? "سيتم حذف سر الربط وتعطيل التكامل. هل تتابع؟" : "The stored credential will be removed and the integration disabled. Continue?")) void action("disconnect_staff_integration", { p_provider: item.provider }); }}>{language === "ar" ? "تعطيل" : "Disable"}</button></>}</footer></article>; })}</div>
-    {selected && items.find((item) => item.provider === selected)?.connectionMethod !== "oauth" && <div className="integration-modal" role="dialog" aria-modal="true" aria-labelledby="integration-dialog-title"><div className="integration-modal-card"><header><div><p className="eyebrow">{language === "ar" ? "إعداد آمن" : "SECURE SETUP"}</p><h2 id="integration-dialog-title">{items.find((item) => item.provider === selected)?.displayName}</h2></div><button type="button" className="modal-close" onClick={() => setSelected(null)}>×</button></header><p>{selected === "ai_provider" ? (language === "ar" ? "محرك Gemini مهيأ مركزياً في الخادم لتشغيل Coach Brain ومصنع المحتوى. إدخال مفتاح هنا اختياري لمزود بديل فقط." : "Gemini AI is centrally configured server-side for Coach Brain and Factory. Entering a key here is optional for alternative providers.") : (language === "ar" ? "أدخل القيمة من مزود الخدمة. لن تظهر القيمة بعد الحفظ، وسيظهر آخر أربعة رموز فقط." : "Enter the provider value. It will not be shown after saving; only the last four characters are displayed.")}</p><label>{language === "ar" ? "القيمة السرية / Token" : "Secret value / Token"}<input type="password" autoComplete="off" value={secret} onChange={(event) => setSecret(event.target.value)} placeholder={language === "ar" ? "أدخل القيمة هنا" : "Enter value here"} /></label><label>{language === "ar" ? "اسم الحساب (اختياري)" : "Account label (optional)"}<input value={account} onChange={(event) => setAccount(event.target.value)} placeholder={language === "ar" ? "مثال: Relax Fix UAE" : "e.g. Relax Fix UAE"} /></label><div className="integration-modal-actions"><button type="button" className="secondary" onClick={() => setSelected(null)}>{language === "ar" ? "إلغاء" : "Cancel"}</button><button type="button" disabled={!secret.trim() || busy === selected} onClick={() => void action("connect_staff_integration", { p_provider: selected, p_connection_method: definitions[selected]?.method ?? "manual", p_secret: secret, p_account_label: account })}>{busy === selected ? (language === "ar" ? "جاري الحفظ" : "Saving") : (language === "ar" ? "حفظ الاعتماد" : "Save credential")}</button></div><small>{language === "ar" ? "لا تدخل بيانات تسجيل الدخول أو أسرار مزود الخدمة في هذه الواجهة. OAuth يتم من خلال صفحة المزود عندما يكون الربط مهيأ." : "Do not enter provider login credentials or OAuth secrets here. OAuth runs on the provider page when the connection is configured."}</small></div></div>}
+    <div className="integration-grid">{items.map((item) => {
+      const definition = definitions[item.provider] ?? { icon: "?", method: "manual" as const, description: { ar: "تكامل إضافي.", en: "Additional integration." } };
+      const isWhatsApp = item.provider === "meta_whatsapp";
+      const displayStatus = isWhatsApp ? whatsAppDisplayStatus(item, failedWhatsAppCheckVersion) : item.status;
+      const phoneVerified = isWhatsApp && displayStatus === "connected";
+      let status = statusLabels[language][displayStatus] ?? displayStatus;
+      if (phoneVerified) {
+        status = language === "ar" ? "تم التحقق من رقم واتساب" : "WhatsApp phone number verified";
+      } else if (!isWhatsApp && item.lastTestedAt && externallyVerified(item)) {
+        status = language === "ar" ? "تم التحقق من الاتصال الخارجي" : "External connection verified";
+      }
+      const state = capabilityState(item.status);
+      return <article className="integration-card" key={item.provider}>
+        <header>
+          <span className="integration-icon">{definition.icon}</span>
+          <div><h3>{item.displayName}</h3><p>{definition.description[language]}</p></div>
+          <span className={`integration-status status-${displayStatus}`}>{status}</span>
+        </header>
+        <div className={`integration-capability capability-${isWhatsApp ? "limited" : state.toLowerCase()}`}>
+          <strong>{isWhatsApp ? (language === "ar" ? "استقبال الرسائل" : "Incoming messages") : capabilityLabels[language][state]}</strong>
+          <span>{isWhatsApp
+            ? (language === "ar" ? "استقبال الرسائل عبر n8n مستقل عن فحص الرقم." : "Incoming messages use a separate n8n workflow independent of the number check.")
+            : capabilityDetail(language, state, item.provider)}</span>
+        </div>
+        <dl>
+          {phoneVerified && item.lastTestedAt && (
+            <div>
+              <dt>{language === "ar" ? "وقت التحقق (دبي)" : "Verified at (Dubai)"}</dt>
+              <dd><time dateTime={item.lastTestedAt}>{new Date(item.lastTestedAt).toLocaleString(language === "ar" ? "ar-AE" : "en-AE", { timeZone: "Asia/Dubai", dateStyle: "medium", timeStyle: "short" })}</time></dd>
+            </div>
+          )}
+          <div><dt>{language === "ar" ? "طريقة الربط" : "Method"}</dt><dd>{item.provider === "instagram" || item.provider === "meta_whatsapp" ? "Meta server connection" : item.connectionMethod === "api_key" ? "API Key" : item.connectionMethod === "oauth" ? "OAuth" : language === "ar" ? "إعداد داخلي" : "Internal setup"}</dd></div><div><dt>{language === "ar" ? "الحساب" : "Account"}</dt><dd>{item.accountLabel || (language === "ar" ? "غير محدد" : "Not set")}</dd></div><div><dt>{language === "ar" ? "القيمة" : "Credential"}</dt><dd>{item.secretHint || "—"}</dd></div></dl><footer>{canWrite && ["not_connected", "disabled", "pending"].includes(item.status) && <><button type="button" disabled={busy === item.provider} onClick={() => item.connectionMethod === "oauth" ? void connectOAuth(item.provider) : open(item.provider)}>{busy === item.provider ? (language === "ar" ? "جاري الربط" : "Connecting") : language === "ar" ? (item.status === "disabled" ? "إعادة الربط" : item.provider === "instagram" || item.provider === "meta_whatsapp" ? "فحص وربط" : item.connectionMethod === "oauth" ? "اتصال آمن" : "إعداد") : (item.status === "disabled" ? "Reconnect" : item.provider === "instagram" || item.provider === "meta_whatsapp" ? "Verify & connect" : item.connectionMethod === "oauth" ? "Secure connect" : "Setup")}</button>{item.provider === "canva" && <a className="secondary" href={CANVA_OPEN_URL} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none", padding: "6px 12px", borderRadius: "6px", fontSize: "0.85rem" }}>{language === "ar" ? "فتح Canva يدوياً" : "Open Canva"}</a>}</>}{canWrite && ["connected", "needs_test", "error"].includes(item.status) && <><button type="button" disabled={busy === item.provider} onClick={() => ((item.provider === "facebook" || item.provider === "instagram" || item.provider === "meta_whatsapp") ? void connectOAuth(item.provider) : void action("test_staff_integration", { p_provider: item.provider }))}>{item.provider === "facebook" || item.provider === "instagram" || item.provider === "meta_whatsapp" ? (language === "ar" ? "فحص الاتصال الخارجي" : "Verify external connection") : (language === "ar" ? "اختبار الإعداد المحلي" : "Test local configuration")}</button>{item.connectionMethod !== "oauth" && <button type="button" className="secondary" onClick={() => open(item.provider)}>{language === "ar" ? "تعديل" : "Edit"}</button>}<button type="button" className="danger" onClick={() => { if (window.confirm(language === "ar" ? "سيتم حذف سر الربط وتعطيل التكامل. هل تتابع؟" : "The stored credential will be removed and the integration disabled. Continue?")) void action("disconnect_staff_integration", { p_provider: item.provider }); }}>{language === "ar" ? "تعطيل" : "Disable"}</button></>}</footer></article>; })}</div>
+    {selected && items.find((item) => item.provider === selected)?.connectionMethod !== "oauth" && <div className="integration-modal" role="dialog" aria-modal="true" aria-labelledby="integration-dialog-title"><div className="integration-modal-card"><header><div><p className="eyebrow">{language === "ar" ? "إعداد آمن" : "SECURE SETUP"}</p><h2 id="integration-dialog-title">{items.find((item) => item.provider === selected)?.displayName}</h2></div><button type="button" className="modal-close" onClick={() => setSelected(null)}>×</button></header><p>{language === "ar" ? "أدخل القيمة من مزود الخدمة. لن تظهر القيمة بعد الحفظ، وسيظهر آخر أربعة رموز فقط." : "Enter the provider value. It will not be shown after saving; only the last four characters are displayed."}</p><label>{language === "ar" ? "القيمة السرية / Token" : "Secret value / Token"}<input type="password" autoComplete="off" value={secret} onChange={(event) => setSecret(event.target.value)} placeholder={language === "ar" ? "أدخل القيمة هنا" : "Enter value here"} /></label><label>{language === "ar" ? "اسم الحساب (اختياري)" : "Account label (optional)"}<input value={account} onChange={(event) => setAccount(event.target.value)} placeholder={language === "ar" ? "مثال: Relax Fix UAE" : "e.g. Relax Fix UAE"} /></label><div className="integration-modal-actions"><button type="button" className="secondary" onClick={() => setSelected(null)}>{language === "ar" ? "إلغاء" : "Cancel"}</button><button type="button" disabled={!secret.trim() || busy === selected} onClick={() => void action("connect_staff_integration", { p_provider: selected, p_connection_method: definitions[selected]?.method ?? "manual", p_secret: secret, p_account_label: account })}>{busy === selected ? (language === "ar" ? "جاري الحفظ" : "Saving") : (language === "ar" ? "حفظ الاعتماد" : "Save credential")}</button></div><small>{language === "ar" ? "لا تدخل بيانات تسجيل الدخول أو أسرار مزود الخدمة في هذه الواجهة. OAuth يتم من خلال صفحة المزود عندما يكون الربط مهيأ." : "Do not enter provider login credentials or OAuth secrets here. OAuth runs on the provider page when the connection is configured."}</small></div></div>}
   </div>;
 }

@@ -116,6 +116,75 @@ test("Factory passes the owner's selected provider to batch generation", async (
   }
 });
 
+test("Factory saves a local batch without calling an AI provider when no-API mode is selected", async () => {
+  const providerCalls = [];
+  const rpcCalls = [];
+  const confirmations = [];
+  const notices = [];
+  const localItems = [{ plannedFor: "2026-11-18T08:00:00.000Z", topic: "Local academy template" }];
+  const localConfirm = "No API confirmation";
+  const localSuccess = "Local batch {batchId}";
+  const sandbox = {
+    canWrite: true,
+    panelBusy: false,
+    session: { accessToken: "local-test-only" },
+    planWindowDays: 10,
+    planFocus: "varied",
+    coachBrainContext: null,
+    BRAND: {},
+    PLATFORM_GUIDANCE: {},
+    strategySummary: {},
+    insights: [],
+    COACH_AYMAN_PROVIDER_ID: "test-provider",
+    copy: {
+      generateConfirm: "API confirmation",
+      generateLocalConfirm: localConfirm,
+      generateLocalSuccess: localSuccess,
+      generateError: "Failed",
+    },
+    window: { confirm: (message) => { confirmations.push(message); return true; } },
+    crypto: { randomUUID: () => "local-no-api-nonce" },
+    async generateCoachAymanBatchWithProvider(...args) { providerCalls.push(args); },
+    async callRpc(_session, name, body) {
+      rpcCalls.push(name);
+      if (name === "get_staff_media_assets") return [];
+      if (name === "get_staff_knowledge_management") return null;
+      if (name === "create_staff_generated_content_batch") {
+        assert.deepEqual(JSON.parse(JSON.stringify(body.p_items)), localItems);
+        return { success: true, batchId: "local-batch" };
+      }
+      throw new Error(`Unexpected RPC: ${name}`);
+    },
+    parseMediaAssetRecords: (value) => value,
+    parseCoachKnowledgeContext: () => ({ entries: [], researchContext: null }),
+    buildCoachAyman30DayBatchWithMedia: async () => localItems,
+    fitBatchToPlanWindow: (items) => items,
+    mergeValidatedGeminiCreativeFields: async () => null,
+    clearCoachBrainFactoryHandoff() {},
+    setGenerating() {},
+    setGenerateNotice(value) { notices.push(value); },
+    setSelectedBatchId() {},
+    setMediaAssets() {},
+    onBatchCreated() {},
+    onSessionExpired() { assert.fail("no external session should be used"); },
+  };
+  const handler = runInNewContext(
+    `${functionsFrom(hub, ["generateCoachAymanBatch"])}\ngenerateCoachAymanBatch;`,
+    sandbox,
+  );
+
+  await handler({ useApi: false });
+
+  assert.deepEqual(confirmations, [localConfirm]);
+  assert.deepEqual(providerCalls, []);
+  assert.deepEqual(rpcCalls, [
+    "get_staff_media_assets",
+    "get_staff_knowledge_management",
+    "create_staff_generated_content_batch",
+  ]);
+  assert.equal(notices.at(-1), "Local batch local-batch");
+});
+
 test("OpenAI status verifies authentication and configured model without generation or secret disclosure", async (t) => {
   const executable = functionsFrom(edge, ["asObject", "credentialStatus", "verifyGeminiCredential", "verifyOpenAICredential", "generationStatus"]);
   const cases = [

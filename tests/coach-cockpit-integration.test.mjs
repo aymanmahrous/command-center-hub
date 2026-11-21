@@ -28,7 +28,8 @@ test("ControlTowerV2 exposes honest channel navigation shortcuts without fake ha
   assert.match(view, /AI requests may use provider quota/);
   assert.match(view, /النشر يحتاج موافقتك الصريحة/);
   assert.match(view, /Open shared inbox/);
-  assert.match(view, /Check status/);
+  assert.match(view, /onClick=\{\(\) => onNavigate\("inbox"\)\}[^>]*>[\s\S]*?Open shared inbox[^<]*<\/small>[\s\S]*?<\/button>\s*<button[^>]*onClick=\{\(\) => onNavigate\("connections"\)\}>\s*\{language === "ar" \? "عرض حالة ربط واتساب" : "View WhatsApp connection status"/);
+  assert.doesNotMatch(view, /تحقق مطلوب|Check status|get_staff_integrations|meta-provider-status/);
   assert.match(view, /Prepare a design brief/);
   assert.match(view, /Manual workflow/);
   assert.match(view, /Research & planning assistant/);

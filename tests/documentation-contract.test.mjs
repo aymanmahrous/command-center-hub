@@ -7,32 +7,28 @@ import { fileURLToPath } from "node:url";
 const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
 const readRepositoryFile = (path) => readFile(resolve(repositoryRoot, path), "utf8");
 
-test("current documentation supersedes historical stage state", async () => {
-  const [readme, handoff, aiInbox, bookings, standalone, connectivity, governance, manifest] = await Promise.all([
+test("canonical repository rules and current state use the archive", async () => {
+  const [readme, rules, handoff] = await Promise.all([
     readRepositoryFile("README.md"),
-    readRepositoryFile("PROJECT_HANDOFF.md"),
-    readRepositoryFile("docs/AI_INBOX_HANDOFF.md"),
-    readRepositoryFile("docs/BOOKINGS_OPERATIONS_HANDOFF.md"),
-    readRepositoryFile("docs/STANDALONE_MIGRATION_HANDOFF.md"),
-    readRepositoryFile("docs/CONNECTIVITY_DECISION.md"),
-    readRepositoryFile("BASELINE_GOVERNANCE.md"),
-    readRepositoryFile("AUDITED_BASELINE_CONTENT_MANIFEST.md"),
+    readRepositoryFile("AGENTS.md"),
+    readRepositoryFile("MASTER_PROJECT_HANDOFF.md"),
   ]);
 
-  assert.match(readme, /VITE_SUPABASE_PUBLISHABLE_KEY/);
-  assert.match(readme, /update_staff_lead_workflow/);
-  assert.match(readme, /npm ci --ignore-scripts/);
-  assert.doesNotMatch(readme, /Application source candidates are not transferred/);
-  assert.match(handoff, /Documentation Review/);
-  assert.match(aiInbox, /Merge: completed/);
-  assert.doesNotMatch(aiInbox, /Merge: blocked/);
-  assert.match(bookings, /passed on PR #10/);
-  assert.doesNotMatch(bookings, /CI: pending/);
-  assert.match(standalone, /VITE_SUPABASE_PUBLISHABLE_KEY/);
-  assert.doesNotMatch(standalone, /All other sections remain read-only/);
-  assert.doesNotMatch(connectivity, /committed browser-safe defaults/);
-  assert.match(governance, /Historical provenance record/);
-  assert.match(manifest, /Historical provenance record/);
+  assert.match(readme, /AGENTS\.md/);
+  assert.match(readme, /MASTER_PROJECT_HANDOFF\.md/);
+  assert.match(readme, /docs\/archive\//);
+  assert.match(rules, /قواعد العمل الوحيدة/);
+  assert.match(rules, /MASTER_PROJECT_HANDOFF\.md/);
+  assert.match(handoff, /الحالة الحالية المثبتة/);
+  assert.match(handoff, /غير مثبت/);
+  assert.match(handoff, /الخطوة الآمنة التالية/);
+
+  const archiveEntries = await readdir(resolve(repositoryRoot, "docs/archive"), { withFileTypes: true });
+  for (const directory of ["rules", "handoffs", "plans"]) {
+    assert.ok(archiveEntries.some((entry) => entry.isDirectory() && entry.name === directory), `missing docs/archive/${directory}`);
+  }
+  await access(resolve(repositoryRoot, "docs/archive/handoffs/MASTER_PROJECT_HANDOFF.pre-consolidation-2026-11-18.md"));
+  await access(resolve(repositoryRoot, "docs/archive/rules/clinerules.pre-consolidation-2026-11-18.txt"));
 });
 
 test("all relative Markdown links resolve inside the repository", async () => {

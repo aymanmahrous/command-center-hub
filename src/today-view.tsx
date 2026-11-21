@@ -186,10 +186,12 @@ function quickActionIcon(section: NavigateSection) {
 
 export default function TodayOperationsView({
   session,
+  reloadKey,
   onNavigate,
   onSessionExpired,
 }: {
   session: TodaySession;
+  reloadKey: number;
   onNavigate: (section: NavigateSection) => void;
   onSessionExpired: () => void;
 }) {
@@ -252,7 +254,7 @@ export default function TodayOperationsView({
       setRefreshing(false);
     });
     return () => controller.abort();
-  }, [copy.loadError, onSessionExpired, refreshToken, session]);
+  }, [copy.loadError, onSessionExpired, refreshToken, reloadKey, session]);
 
   const now = useMemo(() => new Date(), [status]);
   const nowMs = now.getTime();
