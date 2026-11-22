@@ -12,10 +12,6 @@
   border-inline-end: 1px solid #26374e;
   color: #e5edf7;
 }
-.app-shell .side-brand {
-  border-color: #26374e;
-  background: rgba(9, 19, 33, .72);
-}
 .app-shell .side-brand strong { color: #f8fafc; }
 .app-shell .side-brand span,
 .app-shell .side-brand small { color: #94a3b8; }
@@ -54,6 +50,12 @@
 .app-shell .panel h2,
 .app-shell .panel h3,
 .app-shell .panel strong { color: #f8fafc; }
+.panel :is(.inbox-workspace-head h3, .conversation-list strong, .conversation-panel h3),
+.inbox-layout, .inbox-action-bar button { color: #0f172a; }
+.inbox-action-bar button:disabled { background: #e2e8f0; color: #475569; }
+.inbox-layout { max-height: 80dvh; grid-template-rows: minmax(0, 1fr); }
+.inbox-layout, .conversation-panel, .message-stream { min-height: 0 !important; }
+.panel .conversation-panel > header { display: flex; }
 .app-shell .panel p,
 .app-shell .muted,
 .app-shell .panel small,

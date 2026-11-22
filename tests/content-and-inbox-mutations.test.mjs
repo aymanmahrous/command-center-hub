@@ -200,6 +200,8 @@ test("All opens on the latest update and keeps the owner's selection after a ref
   assert.equal(refreshed.rows.find(row => row.props.className === "selected").key, older.id);
   refreshed.controls.find(button => button.props.children[0] === "يحتاج قرارك").props.onClick();
   assert.deepEqual(render().rows.map(row => row.key), [older.id]);
+  refreshed.controls.find(button => button.props.children[0] === "يتولاه AI").props.onClick();
+  assert.deepEqual(render().rows.map(row => row.key), [value[0].id, newer.id]);
 });
 
 function inboxFixture() {

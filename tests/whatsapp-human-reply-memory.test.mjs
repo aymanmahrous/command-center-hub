@@ -144,8 +144,8 @@ test("inbox mode change and dashboard refresh keep panel mounted", () => {
 });
 
 test("Owner Inbox exposes the decision and AI-handling filters", () => {
-  assert.match(app, /setInboxFilter\("attention"\)/);
-  assert.match(app, /setInboxFilter\("ai_active"\)/);
+  assert.match(app, /filterButton\("attention"/);
+  assert.match(app, /filterButton\("ai_active"/);
 });
 
 test("existing concierge behavior still works for pricing guardrails", () => {

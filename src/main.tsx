@@ -400,9 +400,11 @@ const conversationModeLabels: Record<Language, Record<ConversationMode, string>>
 
 type InboxConversation = z.infer<typeof ConversationSchema>;
 
-function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: JsonValue; session: Session; onChanged: () => void; onSessionExpired: () => void }) {
-  useEffect(() => { void import("./ai-inbox.css"); }, []);
+const StyledInbox = lazy(() => import("./ai-inbox.css").then(() => ({ default: AIInboxView })));
+
+function AIInboxView({ value, session, onSessionExpired }: { value: JsonValue; session: Session; onSessionExpired: () => void }) {
   const { language, t } = useLanguage();
+  const arabic = language === "ar";
   const copy = t("inbox");
   const modeLabels = conversationModeLabels[language];
   const parsed = useMemo(() => z.array(ConversationSchema).safeParse(value), [value]);
@@ -426,6 +428,14 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
     ? parsed.data.map((conversation) => ({ ...conversation, ...conversationPatches[conversation.id] }))
     : [];
   const selected = conversations.find((conversation) => conversation.id === selectedId) ?? null;
+  const messageStream = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const stream = messageStream.current;
+    if (messageStatus === "ready" && stream?.clientHeight) {
+      stream.scrollTop = stream.scrollHeight;
+      stream.parentElement?.scrollIntoView({ block: "nearest" });
+    }
+  }, [messages, messageStatus, mobileListOpen, selected?.mode]);
   const needsDecision = (conversation: InboxConversation) => conversation.needsAttention || conversation.humanRequired || conversation.mode === "human_required" || conversation.mode === "human_takeover";
   const visibleConversations = conversations.filter((conversation) => {
     if (inboxFilter === "all") return true;
@@ -463,7 +473,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
 
   async function changeMode(conversation: z.infer<typeof ConversationSchema>, next: ConversationMode) {
     if (!canWriteMode || busyId || conversation.mode === next) return;
-    const confirmMessage = language === "ar"
+    const confirmMessage = arabic
       ? `تأكيد تغيير وضع محادثة ${conversation.leadName} من «${modeLabels[conversation.mode]}» إلى «${modeLabels[next]}»؟ سيتم تسجيل العملية في Audit Log.`
       : `Change ${conversation.leadName}'s mode from "${modeLabels[conversation.mode]}" to "${modeLabels[next]}"? Recorded in the Audit Log.`;
     if (!window.confirm(confirmMessage)) return;
@@ -474,7 +484,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
         ...current,
         [conversation.id]: { ...current[conversation.id], mode: next },
       }));
-      setNotice(language === "ar" ? "تم تحديث وضع المحادثة وتسجيل العملية بنجاح." : "Mode updated and recorded.");
+      setNotice(arabic ? "تم تحديث وضع المحادثة وتسجيل العملية بنجاح." : "Mode updated and recorded.");
     } catch (cause) {
       handleInboxError(cause);
     } finally { setBusyId(null); }
@@ -482,7 +492,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
 
   async function handleTakeOver(conversation: InboxConversation) {
     if (!canSendReply || busyId) return;
-    const confirmMessage = language === "ar"
+    const confirmMessage = arabic
       ? `تأكيد استلام محادثة ${conversation.leadName} يدويًا؟ سيتوقف AI عن الرد حتى تعيده.`
       : `Take over ${conversation.leadName}'s conversation? AI replies pause until you return control.`;
     if (!window.confirm(confirmMessage)) return;
@@ -501,7 +511,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
 
   async function handleReturnToAi(conversation: InboxConversation) {
     if (!canSendReply || busyId) return;
-    const confirmMessage = language === "ar"
+    const confirmMessage = arabic
       ? `تأكيد إعادة محادثة ${conversation.leadName} إلى AI؟`
       : `Return ${conversation.leadName}'s conversation to AI?`;
     if (!window.confirm(confirmMessage)) return;
@@ -546,9 +556,13 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
     } finally { setBusyId(null); }
   }
 
+  function filterButton(filter: typeof inboxFilter, label: string, count: number) {
+    return <button type="button" className={inboxFilter === filter ? "active" : ""} onClick={() => setInboxFilter(filter)}>{label} <b>{count}</b></button>;
+  }
+
   function handleInboxError(cause: unknown) {
     const code = cause instanceof Error ? cause.message : "UPDATE_FAILED";
-    const messagesByCode: Record<string, string> = language === "ar" ? {
+    const messagesByCode: Record<string, string> = arabic ? {
       INVALID_MODE: "وضع المحادثة المطلوب غير مسموح.",
       NOT_FOUND: "المحادثة لم تعد موجودة.",
       STAFF_ACCESS_DENIED: "ليست لديك صلاحية تنفيذ هذا التغيير.",
@@ -566,16 +580,24 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
       SEND_FAILED: "The message could not be sent safely.",
     };
     if (code === "SESSION_EXPIRED") { onSessionExpired(); return; }
-    setNotice(messagesByCode[code] ?? (language === "ar" ? "تعذر التحديث بأمان؛ لم يتم اعتماد أي تغيير غير مؤكد." : "Update failed safely; no change was made."));
+    setNotice(messagesByCode[code] ?? (arabic ? "تعذر التحديث بأمان؛ لم يتم اعتماد أي تغيير غير مؤكد." : "Update failed safely; no change was made."));
   }
 
   return <>
     <div className="write-banner"><strong>{copy.writeBannerTitle}</strong><span>{copy.writeBannerSubtitle}</span></div>
     {notice && <div className="notice-box" aria-live="polite">{notice}</div>}
-    <div className="inbox-workspace-head"><div><span className="inbox-eyebrow">{language === "ar" ? "صندوق المالك" : "OWNER INBOX"}</span><h3>{language === "ar" ? "الكل حسب آخر تحديث" : "All conversations, newest first"}</h3></div><div className="inbox-filters" role="group" aria-label={language === "ar" ? "تصفية المحادثات" : "Conversation filters"}><button type="button" className={inboxFilter === "all" ? "active" : ""} onClick={() => setInboxFilter("all")}>{language === "ar" ? "الكل" : "All"} <b>{conversations.length}</b></button><button type="button" className={inboxFilter === "attention" ? "active" : ""} onClick={() => setInboxFilter("attention")}>{language === "ar" ? "يحتاج قرارك" : "Needs your decision"} <b>{attentionCount}</b></button><button type="button" className={inboxFilter === "ai_active" ? "active" : ""} onClick={() => setInboxFilter("ai_active")}>{language === "ar" ? "يتولاه AI" : "AI handling"} <b>{aiActiveUnreadCount}</b></button><button type="button" className={inboxFilter === "unread" ? "active" : ""} onClick={() => setInboxFilter("unread")}>{language === "ar" ? "غير مقروء" : "Unread"} <b>{unreadCount}</b></button></div></div>
+    <div className="inbox-workspace-head">
+      <div><span className="inbox-eyebrow">{arabic ? "صندوق المالك" : "OWNER INBOX"}</span><h3>{arabic ? "الكل حسب آخر تحديث" : "All conversations, newest first"}</h3></div>
+      <div className="inbox-filters" role="group" aria-label={arabic ? "تصفية المحادثات" : "Conversation filters"}>
+        {filterButton("all", arabic ? "الكل" : "All", conversations.length)}
+        {filterButton("attention", arabic ? "يحتاج قرارك" : "Needs your decision", attentionCount)}
+        {filterButton("ai_active", arabic ? "يتولاه AI" : "AI handling", aiActiveUnreadCount)}
+        {filterButton("unread", arabic ? "غير مقروء" : "Unread", unreadCount)}
+      </div>
+    </div>
     <div className={`inbox-layout ${mobileListOpen ? "mobile-list-open" : "mobile-conversation-open"}`}>
       <div className="conversation-list" aria-label={copy.listAriaLabel}>
-        {visibleConversations.length === 0 && <p className="inbox-filter-empty">{language === "ar" ? "لا توجد محادثات في هذا التصنيف." : "No conversations in this filter."}</p>}
+        {visibleConversations.length === 0 && <p className="inbox-filter-empty">{arabic ? "لا توجد محادثات في هذا التصنيف." : "No conversations in this filter."}</p>}
         {visibleConversations.map((conversation) => <button type="button" key={conversation.id} className={selectedId === conversation.id ? "selected" : ""} onClick={() => { selectConversation(conversation.id); setMobileListOpen(false); setNotice(""); setReplyBody(""); }}>
           <span><strong>{conversation.leadName}</strong><span className="conversation-badges">{conversation.unread > 0 && <b className="unread-count">{conversation.unread}</b>}{needsDecision(conversation) && <b className="attention-badge" title={copy.needsAttention}>{copy.attentionBadge}</b>}</span></span>
           <small>{conversation.lastMessage || copy.noMessages}</small>
@@ -584,7 +606,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
       </div>
       <section className="conversation-panel">
         <header>
-          <div><button type="button" className="inbox-mobile-back" onClick={() => setMobileListOpen(true)}>{language === "ar" ? "← كل المحادثات" : "← All conversations"}</button><h3>{selected?.leadName ?? copy.selectConversation}</h3>{selected && <p>Score {selected.leadScore}/100 · {selected.intent}{selected.handoffReason ? ` · ${selected.handoffReason}` : ""}</p>}</div>
+          <div><button type="button" className="inbox-mobile-back" onClick={() => setMobileListOpen(true)}>{arabic ? "← كل المحادثات" : "← All conversations"}</button><h3>{selected?.leadName ?? copy.selectConversation}</h3>{selected && <p>Score {selected.leadScore}/100 · {selected.intent}{selected.handoffReason ? ` · ${selected.handoffReason}` : ""}</p>}</div>
           {selected && <label>{copy.modeLabel}<select value={selected.mode} disabled={!canWriteMode || busyId !== null} onChange={(event) => void changeMode(selected, event.target.value as ConversationMode)}>{(Object.keys(modeLabels) as ConversationMode[]).map((mode) => <option key={mode} value={mode}>{modeLabels[mode]}</option>)}</select></label>}
         </header>
         {selected && canSendReply && <div className="inbox-action-bar">
@@ -592,16 +614,16 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
           <button type="button" className="secondary" disabled={busyId !== null || selected.mode === "ai_active"} onClick={() => void handleReturnToAi(selected)}>{copy.returnToAiButton}</button>
         </div>}
         {(selected?.humanRequired || selected?.needsAttention) && <div className="human-alert">{selected.handoffReason ? `${copy.humanRequiredAlert} (${selected.handoffReason})` : copy.humanRequiredAlert}</div>}
-        <div className="message-stream">
+        <div className="message-stream" ref={messageStream}>
           {messageStatus === "loading" && <p className="muted">{copy.loadingMessages}</p>}
           {messageStatus === "error" && <div className="error-box">{copy.loadMessagesError}</div>}
           {messageStatus === "ready" && messages.length === 0 && <p className="muted">{copy.noMessagesInConversation}</p>}
           {messages.map((message) => <article key={message.id} className={`message-bubble ${message.direction === "outbound" ? "outbound" : "inbound"}${message.authorType === "staff" ? " staff-reply" : ""}${message.authorType === "ai_draft" ? " ai-draft" : ""}`}>
-            <p>{message.body}</p><small>{message.authorType === "ai_draft" ? (language === "ar" ? "مسودة لم تُرسل" : "Unsent draft") : message.authorType}{message.safetyClassification ? ` · ${message.safetyClassification}` : ""} · {new Date(message.createdAt).toLocaleString(language === "ar" ? "ar-AE" : "en-AE")}</small>
+            <p>{message.body}</p><small>{message.authorType === "ai_draft" ? (arabic ? "مسودة لم تُرسل" : "Unsent draft") : message.authorType}{message.safetyClassification ? ` · ${message.safetyClassification}` : ""} · {new Date(message.createdAt).toLocaleString(arabic ? "ar-AE" : "en-AE")}</small>
           </article>)}
         </div>
         {selected && canSendReply && selected.channel === "whatsapp" && selected.mode === "human_takeover" && <form className="inbox-compose" onSubmit={(event) => { event.preventDefault(); void handleSendReply(selected); }}>
-          <label htmlFor="inbox-reply">{copy.replyLabel}<textarea id="inbox-reply" rows={3} value={replyBody} disabled={busyId === selected.id} onChange={(event) => setReplyBody(event.target.value)} placeholder={copy.replyPlaceholder} /></label>
+          <label htmlFor="inbox-reply">{copy.replyLabel}<textarea id="inbox-reply" rows={2} value={replyBody} disabled={busyId === selected.id} onChange={(event) => setReplyBody(event.target.value)} placeholder={copy.replyPlaceholder} /></label>
           <button type="submit" disabled={busyId !== null || !replyBody.trim()}>{busyId === selected.id ? copy.sendingReply : copy.sendButton}</button>
         </form>}
         {!canSendReply && canWriteMode && <p className="read-only-note">{copy.replyReadOnlyNote}</p>}
@@ -1388,7 +1410,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
           active === "today" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><TodayView session={session} reloadKey={reloadKey} onNavigate={go} onSessionExpired={onLogout} /></Suspense> :
           active === "planner" ? <BookingView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
           active === "crm" ? <CRMView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
-          active === "inbox" ? <AIInboxView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} /> :
+          active === "inbox" ? <Suspense><StyledInbox value={data} session={session} onSessionExpired={onLogout} /></Suspense> :
           active === "content" ? <ContentStudioView value={data} session={session} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} onOpenMedia={() => go("media")} onOpenBrain={() => go("brain")} /> :
           active === "media" ? <Suspense fallback={<p className="muted" role="status">{t("common").loading}</p>}><MediaLibraryView value={data} session={session} canWrite={["super_admin", "admin", "content_manager"].includes(session.role)} onChanged={() => setReloadKey((value) => value + 1)} onSessionExpired={onLogout} onNavigate={(section) => { if (sections.some(([id]) => id === section)) go(section as SectionId); }} /></Suspense> :
           active === "archive" ? <Suspense><M /></Suspense> :
