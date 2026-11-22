@@ -17,7 +17,7 @@ test("poster creation saves to the media library and links the resulting asset t
   assert.match(studio, /Key points \(one per line\)/);
   assert.match(studio, /value=\{ratio\} onChange=\{\(event\) => setRatio/);
   assert.match(studio, /ratio === "4:5" \? 1350/);
-  assert.match(panel, /onSaveDesign=\{session && canWrite && item\.status !== "published" \? \(file\) => handleUploadMedia\(item, file\) : undefined\}/);
+  assert.match(panel, /onSaveDesign=\{session && canWrite && item\.status !== "published" && presenceByItem\[item.id\] \? \(file\) => handleUploadMedia\(item, file\) : undefined\}/);
   assert.match(panel, /register_staff_media_upload/);
   assert.match(panel, /await linkMediaToItem\(item\.id, newAssetId\)/);
 });

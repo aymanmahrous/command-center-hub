@@ -64,8 +64,8 @@ async function requestPublishJob(session: { accessToken: string }, contentItemId
 }
 
 const PUBLISHING_FREEZE_COPY = {
-  ar: "النشر المباشر مجمّد حاليًا بقرار المالك. لن يُرسل أي محتوى إلى منصة خارجية حتى يصدر تفويض جديد.",
-  en: "Live publishing is currently frozen by the owner. No content will be sent to an external platform until new authorization is granted.",
+  ar: "أوقف التجميد طلب النشر لهذا المنشور.",
+  en: "The publishing freeze blocked this post’s publish request.",
 } as const;
 
 const UNSUPPORTED_PLATFORM_COPY = {
@@ -129,6 +129,23 @@ const REQUEST_PUBLISH_COPY = {
   },
 } as const;
 
+type CanvaNotice = { summary: string; details: string[] };
+
+export function CanvaStatusNotice({ notice, language }: { notice: CanvaNotice; language: "ar" | "en" }) {
+  return (
+    <div className="factory-canva-notice">
+      <span role="status">{notice.summary}</span>
+      <details>
+        <summary>{language === "ar" ? "تفاصيل Canva" : "Canva details"}</summary>
+        <ul lang="en" dir="ltr">{notice.details.map((detail, index) => <li key={index}>{detail}</li>)}</ul>
+      </details>
+    </div>
+  );
+}
+
+type DesignMethod = "" | "personal" | "upload" | "poster" | "automatic";
+type ScheduleDraft = { original: string | null; value: string };
+
 type ContentBatchReviewPanelProps = {
   items: ContentBatchItem[];
   batch: ContentBatch;
@@ -146,7 +163,7 @@ type ContentBatchReviewPanelProps = {
   onOpenConnections?: () => void;
   workspaceMode?: "designs" | "reels" | "campaigns" | "review";
   designCapabilityState?: CapabilityState;
-  designCapabilityDetail?: string;
+  canvaStatusNotice?: CanvaNotice;
   videoCapabilityState?: CapabilityState;
 };
 
@@ -177,7 +194,7 @@ export function ContentBatchReviewPanel({
   onOpenConnections,
   workspaceMode = "review",
   designCapabilityState = "NOT_CONFIGURED",
-  designCapabilityDetail,
+  canvaStatusNotice,
   videoCapabilityState = "NOT_CONFIGURED",
 }: ContentBatchReviewPanelProps) {
   const { language, t } = useLanguage();
@@ -190,10 +207,10 @@ export function ContentBatchReviewPanel({
   const [changeTargetId, setChangeTargetId] = useState<string | null>(null);
   const [editTargetId, setEditTargetId] = useState<string | null>(null);
   const [changeKind, setChangeKind] = useState<ChangeRequestKind>("caption");
-  const [posterItemId, setPosterItemId] = useState<string | null>(null);
+  const [designMethods, setDesignMethods] = useState<Record<string, DesignMethod>>({});
   const [changeNote, setChangeNote] = useState("");
   const [designBusyId, setDesignBusyId] = useState<string | null>(null);
-  const [designNotice, setDesignNotice] = useState("");
+  const [designNotice, setDesignNotice] = useState<string | CanvaNotice>("");
   const [designProviderByItem, setDesignProviderByItem] = useState<Record<string, string>>({});
   const [publishBusyId, setPublishBusyId] = useState<string | null>(null);
   const [publishNotice, setPublishNotice] = useState("");
@@ -205,12 +222,11 @@ export function ContentBatchReviewPanel({
   const [videoBusyId, setVideoBusyId] = useState<string | null>(null);
   const [videoNotice, setVideoNotice] = useState("");
   const [itemFilter, setItemFilter] = useState<"all" | "needs_review" | "approved" | "scheduled" | "published" | "failed">("all");
-  const [replacingMediaItemId, setReplacingMediaItemId] = useState<string | null>(null);
   const [selectedAssetByItem, setSelectedAssetByItem] = useState<Record<string, string>>({});
   const [mediaActionBusyId, setMediaActionBusyId] = useState<string | null>(null);
   const [presenceByItem, setPresenceByItem] = useState<Record<string, string>>({});
   const [mediaErrors, setMediaErrors] = useState<Record<string, string>>({});
-  const [scheduleTimes, setScheduleTimes] = useState<Record<string, string>>({});
+  const [scheduleTimes, setScheduleTimes] = useState<Record<string, ScheduleDraft>>({});
   const requestPublishCopy = REQUEST_PUBLISH_COPY[language];
 
   const summary = useMemo(() => summarizeBatch(batch.items), [batch.items]);
@@ -245,8 +261,19 @@ export function ContentBatchReviewPanel({
     await onApproveAll(approveCandidates);
   }
 
+  function selectDesignMethod(itemId: string, method: DesignMethod) {
+    setDesignMethods((current) => ({ ...current, [itemId]: method }));
+    setPresenceByItem((current) => ({ ...current, [itemId]: "" }));
+  }
+
+  function scheduleForItem(item: ContentBatchItem) {
+    const draft = scheduleTimes[item.id];
+    if (!draft || draft.original !== item.scheduledFor || draft.value === formatLocalDateTimeInput(item.scheduledFor)) return item.scheduledFor;
+    return draft.value || null;
+  }
+
   function confirmApproval(item: ContentBatchItem) {
-    const selectedTime = scheduleTimes[item.id] ?? item.scheduledFor;
+    const selectedTime = scheduleForItem(item);
     const time = selectedTime ? new Date(selectedTime) : null;
     if (!time || !(time.getTime() > Date.now())) return;
     const topic = item.topic || copy.untitled;
@@ -272,8 +299,8 @@ export function ContentBatchReviewPanel({
 
   async function submitEdit(item: ContentBatchItem, form: HTMLFormElement) {
     const data = new FormData(form);
-    const localDate = String(data.get("scheduledFor") ?? "").trim();
-    const scheduledFor = localDate ? new Date(localDate).toISOString() : null;
+    const selectedTime = scheduleForItem(item);
+    const scheduledFor = selectedTime && selectedTime !== item.scheduledFor ? new Date(selectedTime).toISOString() : selectedTime;
     await onEditItem?.(item, String(data.get("visualPrompt") ?? "").trim(), scheduledFor, () => setEditTargetId(null));
   }
 
@@ -288,7 +315,7 @@ export function ContentBatchReviewPanel({
       { key: "auto" as const, label: language === "ar" ? "تلقائي — أوصي بالأفضل" : "Auto — recommend best", available: true, detail: language === "ar" ? "يختار المسار الأفضل حسب ما هو متصل ومتحقق" : "Chooses the best verified connected path" },
       { key: "canva" as const, label: "Canva", available: !isVideo && designCapabilityState === "AVAILABLE", detail: designCapabilityState === "AVAILABLE"
           ? (language === "ar" ? "Canva متصل وجاهز لتصميم صورة / Carousel" : "Canva is connected and ready for image / carousel design")
-          : designCapabilityDetail ?? (language === "ar" ? "Canva غير جاهز للتصميم حاليًا" : "Canva is not ready for design yet") },
+          : canvaStatusNotice?.summary ?? (language === "ar" ? "Canva غير جاهز للتصميم حاليًا" : "Canva is not ready for design yet") },
       { key: "gemini" as const, label: "Gemini Image", available: !isVideo, detail: language === "ar" ? "توليد صورة عبر Gemini مع تأكيد التكلفة" : "Gemini image generation; confirm cost first" },
       { key: "chatgpt" as const, label: "ChatGPT", available: false, detail: language === "ar" ? "توليد بصري — غير موصول داخل المصنع حاليًا" : "Visual generation — not wired into Factory yet" },
       { key: "runway" as const, label: "Runway", available: isVideo && videoCapabilityState === "AVAILABLE", detail: language === "ar" ? "توليد فيديو" : "Video generation" },
@@ -321,8 +348,8 @@ export function ContentBatchReviewPanel({
           onOpenConnections?.();
           return;
         }
-        setDesignNotice(provider === "canva" && designCapabilityDetail
-          ? designCapabilityDetail
+        setDesignNotice(provider === "canva" && canvaStatusNotice
+          ? canvaStatusNotice.summary
           : language === "ar"
             ? "هذا المزود غير جاهز حاليًا. لم يتم تشغيل أي عملية."
             : "This provider is not ready right now. No operation was started.");
@@ -341,7 +368,7 @@ export function ContentBatchReviewPanel({
         setDesignNotice(language === "ar"
           ? "تم توليد الصورة وحفظها وربطها بالمحتوى. الأصل الآن للمراجعة قبل أي نشر."
           : "Image generated, stored, and linked to the content. The asset is in review before any publishing.");
-        setReplacingMediaItemId(null);
+        selectDesignMethod(item.id, "");
         onMediaLinked?.();
         return;
       }
@@ -358,7 +385,7 @@ export function ContentBatchReviewPanel({
         : language === "ar"
           ? "تم إنشاء التصميم، لكن الصورة لم تتغير تلقائيًا. اربط صورة من المكتبة واستخدم قالب Canva بحقل صورة قابل للتعبئة."
           : "Canva design created, but the main image was not replaced automatically. Link a Media Library image and use a template with an autofillable image field.");
-      setReplacingMediaItemId(null);
+      selectDesignMethod(item.id, "");
       onMediaLinked?.();
     } catch (cause) {
       if (cause instanceof Error && cause.message === "SESSION_EXPIRED") throw cause;
@@ -367,7 +394,10 @@ export function ContentBatchReviewPanel({
         const { geminiImageDesignErrorMessage } = await import("./gemini-image-design-adapter");
         setDesignNotice(geminiImageDesignErrorMessage(code, language));
       } else {
-        setDesignNotice(canvaDesignErrorMessage(code));
+        setDesignNotice({
+          summary: language === "ar" ? "تعذّر إنشاء التصميم في Canva" : "Canva could not create this design",
+          details: [canvaDesignErrorMessage(code)],
+        });
       }
     } finally {
       setDesignBusyId(null);
@@ -454,7 +484,7 @@ export function ContentBatchReviewPanel({
     try {
       await linkMediaToItem(item.id, assetId);
       setDesignNotice(language === "ar" ? "تم ربط الأصل من المكتبة بنجاح وهو الآن قيد المراجعة." : "Media asset linked successfully and is now in review.");
-      setReplacingMediaItemId(null);
+      selectDesignMethod(item.id, "");
       onMediaLinked?.();
     } catch (cause) {
       if (cause instanceof Error && cause.message === "SESSION_EXPIRED") onSessionExpired?.();
@@ -504,9 +534,9 @@ export function ContentBatchReviewPanel({
       setDesignNotice(language === "ar"
         ? "رُبط التصميم بالمنشور. اختر موعدًا مستقبليًا على البطاقة قبل الاعتماد والجدولة."
         : "Design linked. Choose a future time on the card before approving and scheduling.");
-      setReplacingMediaItemId(null);
+      if (designMethods[item.id] === "upload") selectDesignMethod(item.id, "");
       setItemFilter("all");
-      setScheduleTimes((current) => ({ ...current, [item.id]: "" }));
+      setScheduleTimes((current) => ({ ...current, [item.id]: { original: item.scheduledFor, value: "" } }));
       onMediaLinked?.(true);
     } catch (cause) {
       if (cause instanceof Error && cause.message === "SESSION_EXPIRED") onSessionExpired?.();
@@ -592,7 +622,7 @@ export function ContentBatchReviewPanel({
       await linkMediaToItem(item.id, mediaAssetId);
       setVideoNotice(language === "ar" ? "تم إنشاء الفيديو وحفظه وربطه بالمحتوى. عاد للمراجعة قبل أي نشر." : "Video generated, stored, and linked to the content. It is back in review before any publish.");
       setVideoTargetId(null);
-      setReplacingMediaItemId(null);
+      selectDesignMethod(item.id, "");
       onMediaLinked?.();
     } catch (cause) {
       if (cause instanceof Error && cause.message === "SESSION_EXPIRED") onSessionExpired?.();
@@ -654,8 +684,8 @@ export function ContentBatchReviewPanel({
       </header>
 
       <div className="publish-pipeline-panel" role="status">
-        <strong>{language === "ar" ? "النشر الحي مجمّد بقرار المالك" : "Live publishing is frozen by owner decision"}</strong>
-        <p className="publish-ready-note">{PUBLISHING_FREEZE_COPY[language]}</p>
+        <strong>{language === "ar" ? "بحسب آخر قرار للمالك، النشر المباشر مجمّد." : "The owner’s latest decision freezes direct publishing."}</strong>
+        <p className="publish-ready-note">{language === "ar" ? "يمكنك تجهيز المنشور ومراجعته هنا." : "You can prepare and review the post here."}</p>
       </div>
 
       <h3 id="batch-summary-heading">{language === "ar" ? "هذه الدفعة فقط" : "This batch only"}</h3>
@@ -687,7 +717,9 @@ export function ContentBatchReviewPanel({
           {busy ? t("common").saving : copy.approveAllButton}
         </button>}
       </div>
-      {designNotice && <p className="content-batch-design-notice" role="status">{designNotice}</p>}
+      {designNotice && (typeof designNotice === "string"
+        ? <p className="content-batch-design-notice" role="status">{designNotice}</p>
+        : <CanvaStatusNotice notice={designNotice} language={language} />)}
       {publishNotice && <p className="content-batch-design-notice" role="status">{publishNotice}</p>}
       {videoNotice && <p className="content-batch-design-notice" role="status">{videoNotice}</p>}
 
@@ -741,10 +773,23 @@ export function ContentBatchReviewPanel({
           const linkedMediaAssetId = typeof item.mediaAssetId === "string" ? item.mediaAssetId : "";
           const linkedMediaAsset = assetById.get(linkedMediaAssetId);
           const mediaReadyForPublish = Boolean(linkedMediaAsset && canUseInMarketingBatch(linkedMediaAsset));
-          const canRegenerateDesign = Boolean(linkedMediaAsset && !canUseInMarketingBatch(linkedMediaAsset));
           const showingEditForm = editTargetId === item.id;
-          const scheduledTime = scheduleTimes[item.id] ?? item.scheduledFor;
+          const canChangeMedia = Boolean(session) && item.status !== "published";
+          const chosenMethod = designMethods[item.id] ?? "";
+          const designMethod = !canChangeMedia && (chosenMethod === "upload" || chosenMethod === "automatic") ? "" : chosenMethod;
+          const canSetSchedule = (canApproveStatus && canApproveByRole) || (onEditItem && item.status !== "published");
+          const scheduledTime = scheduleForItem(item);
           const futureTime = Boolean(scheduledTime && new Date(scheduledTime).getTime() > Date.now());
+          const personPresence = (
+            <label>{language === "ar" ? "من يظهر في التصميم؟" : "Who appears in the design?"}
+              <select value={presenceByItem[item.id] ?? ""} disabled={itemLocked || Boolean(mediaActionBusyId)}
+                onChange={(event) => setPresenceByItem({ ...presenceByItem, [item.id]: event.target.value })}>
+                <option value="">{language === "ar" ? "اختر حالة الأشخاص" : "Select person presence"}</option>
+                <option value="none">{language === "ar" ? "لا يظهر أشخاص حقيقيون" : "No real people appear"}</option>
+                <option value="consented">{language === "ar" ? "توجد موافقة نشر لكل من يظهر" : "Everyone shown has given permission to publish"}</option>
+              </select>
+            </label>
+          );
           return (
             <article className="content-batch-item" key={item.id}>
               <header>
@@ -771,7 +816,6 @@ export function ContentBatchReviewPanel({
                   {item.mediaSource === "pending" ? ` · ${copy.mediaFallbackPending}` : ""}
                 </p>
               )}
-              <p className="item-meta">{copy.scheduledFor}: {formatWhen(language, item.scheduledFor)}</p>
               <div className="publish-pipeline-panel" aria-label={publishingCopy.pipelineAria}>
                 <p className="item-meta">
                   {publishingCopy.pipelineLabel}: {pipelineStageLabels[pipelineStage] ?? pipelineStage}
@@ -799,8 +843,21 @@ export function ContentBatchReviewPanel({
                 )}
                 </div>
               </details>
-              <footer>
-                <div className="content-design-provider-picker" role="group" aria-label={language === "ar" ? "تصميم يدوي بدون API" : "Manual design without API"}>
+              <div className="factory-design-method">
+                  <label>{language === "ar" ? "طريقة التصميم" : "Design method"}
+                    <select value={designMethod}
+                      disabled={mediaActionBusyId === item.id || designBusyId === item.id || videoBusyId === item.id}
+                      onChange={(event) => selectDesignMethod(item.id, event.target.value as DesignMethod)}>
+                      <option value="">{item.mediaAssetId && canChangeMedia
+                        ? (language === "ar" ? "استبدال الصورة / تغيير التصميم" : "Replace photo / change design")
+                        : (language === "ar" ? "اختر طريقة التصميم" : "Choose a design method")}</option>
+                      <option value="personal">{language === "ar" ? "حسابك الشخصي" : "Personal account"}</option>
+                      {canChangeMedia && <option value="upload">{language === "ar" ? "رفع من الجهاز أو المكتبة" : "Upload or choose from library"}</option>}
+                      <option value="poster">{language === "ar" ? "بوستر محلي" : "Local poster"}</option>
+                      {canChangeMedia && <option value="automatic">{language === "ar" ? "توليد تلقائي" : "Automatic generation"}</option>}
+                    </select>
+                  </label>
+                {designMethod === "personal" && <div className="content-design-provider-picker" role="group" aria-label={language === "ar" ? "تصميم يدوي بدون API" : "Manual design without API"}>
                   <details><summary>{language === "ar" ? "برومبت التصميم" : "Design prompt"}</summary><textarea readOnly rows={4} value={designPrompt} onFocus={(event) => event.currentTarget.select()} /></details>
                   {manualDesignSites.map(([site, url]) => (
                     <button key={site} type="button" className="secondary" disabled={!designPrompt.trim()} onClick={async () => {
@@ -814,22 +871,8 @@ export function ContentBatchReviewPanel({
                     }}>{language === "ar" ? "نسخ البرومبت وفتح " : "Copy prompt and open "}{site}</button>
                   ))}
                   <small>{language === "ar" ? "صمّم خارجيًا ثم اربط الأصل أو ارفعه بالخيارات الموجودة؛ تبقى الموافقات وأقفال النشر مطلوبة." : "Design externally, then link or upload using the existing controls; approval and publishing locks still apply."}</small>
-                </div>
-                {session && Boolean(item.mediaAssetId) && item.status !== "published" && (
-                  <div className="content-media-replace-toggle">
-                    <button
-                      type="button"
-                      className="secondary"
-                      disabled={itemLocked}
-                      onClick={() => setReplacingMediaItemId((current) => current === item.id ? null : item.id)}
-                    >
-                      {replacingMediaItemId === item.id
-                        ? (language === "ar" ? "✕ إخفاء خيارات الوسائط" : "✕ Hide media options")
-                        : (language === "ar" ? "🔄 استبدال الصورة / تغيير التصميم" : "🔄 Replace photo / change design")}
-                    </button>
-                  </div>
-                )}
-                {session && (!item.mediaAssetId || replacingMediaItemId === item.id || posterItemId === item.id) && item.status !== "published" && (
+                </div>}
+                {designMethod === "upload" && canChangeMedia && (
                   <div className="content-media-source-selector" role="group" aria-label={language === "ar" ? "ربط أصل أو رفعه" : "Link or upload asset"}>
                     <div className="content-media-source-header">
                       <strong>{language === "ar" ? "📁 اختر من أصول المكتبة أو ارفع صورة" : "📁 Choose Library Asset or Upload"}</strong>
@@ -864,14 +907,7 @@ export function ContentBatchReviewPanel({
                         </button>
                       </div>
                     )}
-                    <label>{language === "ar" ? "قبل الرفع لنشاط السباحة، من يظهر في التصميم؟" : "Before uploading this swimming business design, who appears in it?"}
-                      <select value={presenceByItem[item.id] ?? ""} disabled={itemLocked || Boolean(mediaActionBusyId)}
-                        onChange={(event) => setPresenceByItem({ ...presenceByItem, [item.id]: event.target.value })}>
-                        <option value="">{language === "ar" ? "اختر حالة الأشخاص" : "Select person presence"}</option>
-                        <option value="none">{language === "ar" ? "لا يظهر أشخاص حقيقيون" : "No real people appear"}</option>
-                        <option value="consented">{language === "ar" ? "توجد موافقة نشر لكل من يظهر" : "Everyone shown has given permission to publish"}</option>
-                      </select>
-                    </label>
+                    {personPresence}
                     <label className="secondary-button-label">
                       <span>{mediaActionBusyId === item.id ? (language === "ar" ? "جاري الرفع للمكتبة…" : "Uploading…") : (language === "ar" ? "📤 رفع صورة/فيديو للمكتبة" : "📤 Upload to Media Library")}</span>
                       <input
@@ -888,18 +924,20 @@ export function ContentBatchReviewPanel({
                     </label>
                   </div>
                 )}
-                {session && (!item.mediaAssetId || replacingMediaItemId === item.id || canRegenerateDesign) && item.status !== "published" && (
+                {designMethod === "poster" && (
+                  <div className="content-design-provider-picker">
+                    {canChangeMedia && canWrite && personPresence}
+                    <Suspense fallback={<p role="status">{language === "ar" ? "جارٍ تحميل استوديو البوستر…" : "Loading poster studio…"}</p>}>
+                      <BrandedPosterStudio item={item} language={language} onClose={() => selectDesignMethod(item.id, "")}
+                        onSaveDesign={session && canWrite && item.status !== "published" && presenceByItem[item.id] ? (file) => handleUploadMedia(item, file) : undefined} />
+                    </Suspense>
+                  </div>
+                )}
+                {designMethod === "automatic" && canChangeMedia && (
                   <div className="content-design-provider-picker" role="group" aria-label={language === "ar" ? "اختيار مزود التصميم" : "Design provider selection"}>
-                    <strong>{language === "ar" ? "التصميم" : "Design"}</strong>
-                    <small>
-                      {language === "ar"
-                        ? `اقتراح النظام: ${availableDesignProviders(item).find((provider) => provider.key === recommendedDesignProvider(item))?.label ?? "يدوي"}`
-                        : `System recommendation: ${availableDesignProviders(item).find((provider) => provider.key === recommendedDesignProvider(item))?.label ?? "Manual"}`}
-                    </small>
                     <label>
-                      <span className="sr-only">{language === "ar" ? "مزود التصميم" : "Design provider"}</span>
+                      {language === "ar" ? "مزود التصميم" : "Design provider"}
                       <select
-                        aria-label={language === "ar" ? "اختر مزود التصميم" : "Choose design provider"}
                         value={selectedDesignProvider(item)}
                         onChange={(event) => setDesignProviderByItem((current) => ({ ...current, [item.id]: event.target.value }))}
                         disabled={itemLocked || designBusyId === item.id}
@@ -911,9 +949,10 @@ export function ContentBatchReviewPanel({
                         ))}
                       </select>
                     </label>
-                    {designCapabilityDetail && designCapabilityState !== "AVAILABLE" && (
-                      <small role="status" aria-live="polite">{designCapabilityDetail}</small>
-                    )}
+                    <small>{language === "ar" ? "المقترح لهذا المنشور: " : "Suggested for this post: "}
+                      <bdi>{availableDesignProviders(item).find((provider) => provider.key === recommendedDesignProvider(item))?.label}</bdi>
+                    </small>
+                    {canvaStatusNotice && <CanvaStatusNotice notice={canvaStatusNotice} language={language} />}
                     {designCapabilityState === "NOT_CONFIGURED" && onOpenConnections && (
                       <button
                         type="button"
@@ -940,7 +979,7 @@ export function ContentBatchReviewPanel({
                     </button>
                   </div>
                 )}
-                {session && /reel|video/i.test(String(item.contentType)) && (!item.mediaAssetId || replacingMediaItemId === item.id) && item.status !== "published" && (
+                {designMethod === "automatic" && canChangeMedia && /reel|video/i.test(String(item.contentType)) && (
                   <div className="content-design-provider-picker" role="group" aria-label={language === "ar" ? "إنشاء فيديو" : "Create video"}>
                     <strong>{language === "ar" ? "فيديو Reel" : "Reel video"}</strong>
                     <small>{language === "ar" ? "Veo · عمودي 9:16 · الصوت مدمج" : "Veo · 9:16 portrait · audio included"}</small>
@@ -972,17 +1011,21 @@ export function ContentBatchReviewPanel({
                     )}
                   </div>
                 )}
+              </div>
+              <footer>
+                {canSetSchedule ? (
+                  <label className="factory-schedule-field">{language === "ar" ? "موعد النشر" : "Publish time"}
+                    <input type="datetime-local" value={formatLocalDateTimeInput(scheduledTime)} disabled={itemLocked}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setScheduleTimes((current) => ({ ...current, [item.id]: { original: item.scheduledFor, value } }));
+                      }} />
+                  </label>
+                ) : <p className="item-meta">{copy.scheduledFor}: {formatWhen(language, item.scheduledFor)}</p>}
                 {canApproveStatus && canApproveByRole && (
-                  <>
-                    {(!item.scheduledFor || !(Date.parse(item.scheduledFor) > Date.now()) || scheduleTimes[item.id] !== undefined) &&
-                      <label>{language === "ar" ? "اختر موعدًا مستقبليًا للاعتماد والجدولة" : "Choose a future time to approve and schedule"}
-                        <input type="datetime-local" value={scheduleTimes[item.id] ?? ""} disabled={itemLocked}
-                          onChange={(event) => setScheduleTimes({ ...scheduleTimes, [item.id]: event.target.value })} />
-                      </label>}
-                    <button type="button" disabled={itemLocked || !futureTime || Boolean(mediaActionBusyId)} title={itemDisabledReason} onClick={() => confirmApproval(item)}>
-                      {language === "ar" ? "اعتماد وجدولة" : "Approve and schedule"}
-                    </button>
-                  </>
+                  <button type="button" disabled={itemLocked || !futureTime || Boolean(mediaActionBusyId)} title={itemDisabledReason} onClick={() => confirmApproval(item)}>
+                    {language === "ar" ? "اعتماد وجدولة" : "Approve and schedule"}
+                  </button>
                 )}
                 {canRequestChanges && (
                   <button
@@ -999,14 +1042,6 @@ export function ContentBatchReviewPanel({
                     {copy.requestChangesButton}
                   </button>
                 )}
-                <button
-                    type="button"
-                    className="secondary"
-                    onClick={() => setPosterItemId(posterItemId === item.id ? null : item.id)}
-                    title={language === "ar" ? "استوديو البوستر الرسمي وتحميل صورة PNG" : "Branded Poster Studio & download PNG"}
-                  >
-                    🎨 {language === "ar" ? "بوستر رسمي PNG" : "Branded Poster PNG"}
-                  </button>
                 {onEditItem && item.status !== "published" && (
                   <button
                     type="button"
@@ -1050,17 +1085,6 @@ export function ContentBatchReviewPanel({
                 </div>
               )}
               {itemDisabledReason && <small className="item-action-disabled-reason">{itemDisabledReason}</small>}
-              {posterItemId === item.id && (
-                <Suspense
-                  fallback={
-                    <p className="muted" role="status">
-                      {language === "ar" ? "جاري تحميل استوديو البوستر..." : "Loading Poster Studio..."}
-                    </p>
-                  }
-                >
-                  <BrandedPosterStudio item={item} language={language} onClose={() => setPosterItemId(null)} onSaveDesign={session && canWrite && item.status !== "published" ? (file) => handleUploadMedia(item, file) : undefined} />
-                </Suspense>
-              )}
               {showingForm && (
                 <form
                   className="change-request-form"
@@ -1098,7 +1122,6 @@ export function ContentBatchReviewPanel({
                     void submitEdit(item, event.currentTarget);
                   }}
                 >
-                  <label>{language === "ar" ? "موعد النشر" : "Publish time"}<input name="scheduledFor" type="datetime-local" defaultValue={formatLocalDateTimeInput(item.scheduledFor)} disabled={!canWrite || item.status === "published"} /></label>
                   <label>{language === "ar" ? "طلب التصميم" : "Design request"}<textarea name="visualPrompt" defaultValue={String(item.visualPrompt ?? "")} maxLength={2000} rows={3} disabled={!canWrite || item.status === "published"} /></label>
                   <button type="submit" disabled={itemLocked}>{language === "ar" ? "حفظ" : "Save"}</button>
                 </form>

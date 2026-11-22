@@ -5,6 +5,7 @@ import { runInNewContext } from "node:vm";
 import ts from "typescript";
 import { z } from "zod";
 import * as contentGrowth from "../src/content-growth.ts";
+import { formatLocalDateTimeInput } from "../src/date-utils.ts";
 
 // Run the actual UI handlers with local state and controlled RPC promises.
 function loadHandlers(file, names, context) {
@@ -45,8 +46,9 @@ test("atomic approval shows success and undo only for a confirmed success respon
   for (const success of [false, true]) {
     const { state, handlers } = contentFixture(true, () => ({ success, code: "INVALID_SCHEDULE_TIME" }));
     const time = new Date(Date.now() + 86400000).toISOString();
-    const approval = (confirm, selectedTime = time) => loadHandlers(panel, ["confirmApproval", "formatWhen"], {
-      scheduleTimes: { post: selectedTime }, window: { confirm: () => confirm }, language: "en", onApproveItem: handlers.approveBatchItem,
+    const approval = (confirm, selectedTime = time) => loadHandlers(panel, ["confirmApproval", "scheduleForItem", "formatWhen"], {
+      scheduleTimes: { post: { original: null, value: selectedTime } }, formatLocalDateTimeInput,
+      window: { confirm: () => confirm }, language: "en", onApproveItem: handlers.approveBatchItem,
     }).confirmApproval(item);
     await approval(true, "");
     await approval(true, "2000-01-01");
@@ -73,7 +75,7 @@ test("Factory confirms the actual file and person consent before preparing and l
       mediaActionBusyId: null, presenceByItem: { post: presence }, SUPABASE_URL: "", SUPABASE_PUBLIC_KEY: "",
       window: { confirm: message => { prompts.push(message); return scheduled ? prompts.length === 1 : confirm; } },
       setMediaErrors: update => { errors = update(errors); }, setMediaActionBusyId() {}, setDesignNotice() {},
-      setScheduleTimes() {}, setPresenceByItem() {}, setReplacingMediaItemId() {}, setItemFilter() {},
+      setScheduleTimes() {}, setPresenceByItem() {}, designMethods: { post: "upload" }, selectDesignMethod() {}, setItemFilter() {},
       onMediaLinked: showCard => refresh.push(showCard),
       uploadStaffMediaFile: async () => { calls.push(["upload"]); return { assetType: "image", storagePath: "local/swim.png", fileName: file.name }; },
       fetch: async (url, options) => {
@@ -130,8 +132,9 @@ for (const form of ["edit", "change request"]) {
         success: outcome !== "failed write" && !(outcome === "failed transition" && rpc === "transition_staff_content_item"),
       }));
       const draft = { target: item.id, note: "Change the design", kind: "design" };
-      const values = new Map([["visualPrompt", draft.note], ["scheduledFor", "2030-01-02T12:00"]]);
-      const forms = loadHandlers(panel, ["submitEdit", "submitChangeRequest"], {
+      const values = new Map([["visualPrompt", draft.note]]);
+      const forms = loadHandlers(panel, ["submitEdit", "submitChangeRequest", "scheduleForItem"], {
+        scheduleTimes: { post: { original: null, value: "2030-01-02T12:00" } }, formatLocalDateTimeInput,
         language: "en", window: { confirm: () => outcome !== "cancel" },
         FormData: Map, onEditItem: handlers.editBatchItem, onRequestChanges: handlers.requestBatchChanges,
         changeNote: draft.note, changeKind: draft.kind,

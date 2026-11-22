@@ -160,6 +160,52 @@
   min-width: 120px;
 }
 
+.factory-design-method {
+  flex-basis: 100%;
+  min-width: 0;
+}
+
+.factory-design-method,
+.factory-design-method > label,
+.factory-design-method .content-design-provider-picker,
+.factory-design-method label:has(select),
+.factory-schedule-field,
+.factory-canva-notice {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.factory-design-method .content-design-provider-picker {
+  padding: 0.75rem;
+  border: 1px solid #334155;
+  border-radius: 12px;
+}
+
+.factory-design-method select,
+.factory-schedule-field input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.5rem;
+  color: #f8fafc;
+  background: #0f172a;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  font: inherit;
+}
+
+.factory-schedule-field {
+  flex-basis: 100%;
+}
+
+.factory-canva-notice details {
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.factory-canva-notice summary {
+  cursor: pointer;
+}
+
 .batch-status-needs_review { border-color: #f59e0b; color: #fcd34d; }
 .batch-status-approved { border-color: #10b981; color: #6ee7b7; }
 .batch-status-scheduled { border-color: #38bdf8; color: #7dd3fc; }

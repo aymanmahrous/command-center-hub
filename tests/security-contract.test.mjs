@@ -166,10 +166,10 @@ test("Content Factory explains the owner publishing freeze and unsupported platf
   assert.match(batchReviewPanel, /OWNER_PUBLISHING_FROZEN:\s*PUBLISHING_FREEZE_COPY/);
   assert.match(batchReviewPanel, /UNSUPPORTED_PLATFORM:\s*UNSUPPORTED_PLATFORM_COPY/);
   assert.match(batchReviewPanel, /PLATFORM_NOT_SUPPORTED:\s*UNSUPPORTED_PLATFORM_COPY/);
-  assert.match(batchReviewPanel, /النشر الحي مجمّد بقرار المالك/);
-  assert.match(batchReviewPanel, /Live publishing is frozen by owner decision/);
-  assert.match(batchReviewPanel, /لن يُرسل أي محتوى إلى منصة خارجية/);
-  assert.match(batchReviewPanel, /No content will be sent to an external platform/);
+  assert.match(batchReviewPanel, /بحسب آخر قرار للمالك، النشر المباشر مجمّد/);
+  assert.match(batchReviewPanel, /The owner’s latest decision freezes direct publishing/);
+  assert.match(batchReviewPanel, /أوقف التجميد طلب النشر لهذا المنشور/);
+  assert.match(batchReviewPanel, /The publishing freeze blocked this post’s publish request/);
 });
 
 test("Media Library uses staff RPCs and blocks direct table mutation", () => {

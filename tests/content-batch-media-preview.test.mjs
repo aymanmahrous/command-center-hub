@@ -60,7 +60,7 @@ test("media changes warn before cancelling scheduled content and do not upload a
   assert.equal((panel.match(/confirmScheduledMediaChange\(item\)/g) ?? []).length, 4);
   assert.match(panel, /function scheduledMediaChangeWarning\(\)/);
   assert.match(panel, /This cancels scheduling and returns the content to review/);
-  assert.match(panel, /item\.status !== "published" \? \(file\) => handleUploadMedia/);
+  assert.match(panel, /item\.status !== "published" && presenceByItem\[item.id\] \? \(file\) => handleUploadMedia/);
 });
 
 test("new content items show only newly uploaded and unlinked media", () => {
@@ -80,7 +80,7 @@ test("Coach Brain research prompt enforces evidence-based pedagogy and a concise
 });
 
 test("batch review panel retains all batch items including scheduled and published, and supports media replacement", () => {
-  assert.match(panel, /content-media-replace-toggle/);
+  assert.match(panel, /item\.mediaAssetId && canChangeMedia/);
   assert.match(panel, /استبدال الصورة \/ تغيير التصميم/);
   assert.match(panel, /"published"/);
   assert.match(panel, /"منشور"/);

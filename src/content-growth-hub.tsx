@@ -20,7 +20,7 @@ import {
   buildStrategySummary,
   buildPerformanceInsights,
 } from "./content-strategy";
-import { ContentBatchReviewPanel } from "./content-batch-review-panel";
+import { CanvaStatusNotice, ContentBatchReviewPanel } from "./content-batch-review-panel";
 import { fetchCanvaDesignStatus } from "./canva-design-adapter";
 import { assessCanvaReadiness, formatCanvaDiagnosticDetails, type CanvaStatusDiagnostic } from "./canva-readiness";
 import { clearCoachBrainFactoryHandoff, readCoachBrainFactoryHandoff } from "./coach-brain-factory-handoff";
@@ -174,10 +174,23 @@ export default function ContentGrowthHub({
   const batches = useMemo(() => groupContentBatches(items), [items]);
   const primaryBatch = useMemo(() => selectPrimaryBatch(batches), [batches]);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
+  const [showAllBatches, setShowAllBatches] = useState(false);
   const selectedBatch = useMemo(() => {
     if (selectedBatchId) return batches.find((batch) => batch.batchId === selectedBatchId) ?? primaryBatch;
     return primaryBatch;
   }, [batches, primaryBatch, selectedBatchId]);
+  const batchChoices = useMemo(() => {
+    const active: typeof batches = [];
+    const completed: typeof batches = [];
+    // groupContentBatches already orders the batches from newest to oldest.
+    for (const batch of batches) {
+      if (batch === selectedBatch) continue;
+      const hasWork = batch.items.some((item) => ["draft", "generated", "needs_review", "approved", "scheduled", "failed"].includes(item.status));
+      (hasWork ? active : completed).push(batch);
+    }
+    const prioritized = selectedBatch ? [selectedBatch, ...active] : active;
+    return showAllBatches ? [...prioritized, ...completed] : prioritized.slice(0, 3);
+  }, [batches, selectedBatch, showAllBatches]);
   const pipeline = useMemo(() => summarizePipeline(items), [items]);
   const dayNine = useMemo(() => buildDayNineReminder(items), [items]);
   const batchReady = useMemo(() => buildNextBatchReadyNotice(items), [items]);
@@ -207,10 +220,17 @@ export default function ContentGrowthHub({
   const canvaIntegration = staffIntegrations.find((integration) => integration.provider === "canva");
   const canvaReadiness = assessCanvaReadiness(canvaIntegration?.status, canvaDesignStatus);
   const canvaCapabilityState = canvaReadiness.capabilityState;
-  const canvaDiagnosticDetails = formatCanvaDiagnosticDetails(canvaDesignStatus);
-  const canvaStatusNotice = canvaIntegration || canvaDesignStatus
-    ? `${language === "ar" ? "اتصال Canva" : "Canva connection"}: ${canvaReadiness.connectionLabel} · ${language === "ar" ? "جاهزية التصميم" : "Design readiness"}: ${canvaReadiness.readinessLabel}. ${canvaReadiness.detail}${canvaDiagnosticDetails.length ? ` · ${canvaDiagnosticDetails.join(" · ")}` : ""}`
-    : null;
+  const canvaStatusNotice = canvaIntegration || canvaDesignStatus ? {
+    summary: {
+      READY: language === "ar" ? "Canva جاهز للتصميم" : "Canva is ready for design",
+      CHECKING: language === "ar" ? "جارٍ التحقق من جاهزية Canva" : "Checking Canva design readiness",
+      CHECK_FAILED: language === "ar" ? "تعذّر التحقق من جاهزية Canva" : "Canva readiness could not be verified",
+      NOT_CONNECTED: language === "ar" ? "Canva غير متصل" : "Canva is not connected",
+      CONNECTION_MISMATCH: language === "ar" ? "اتصال Canva يحتاج إلى مراجعة" : "The Canva connection needs attention",
+      CONNECTED_NOT_READY: language === "ar" ? "Canva متصل ويحتاج إلى إعداد للتصميم" : "Canva is connected and needs design setup",
+    }[canvaReadiness.readinessState],
+    details: [canvaReadiness.connectionLabel, canvaReadiness.readinessLabel, canvaReadiness.detail, ...formatCanvaDiagnosticDetails(canvaDesignStatus)],
+  } : undefined;
   const videoCapabilityState = integrations.find((integration) => integration.key === "runway")?.capabilityState ?? "NOT_CONFIGURED";
   const PLAN_WINDOW_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
   const [planWindowDays, setPlanWindowDays] = useState<number>(() => {
@@ -547,7 +567,7 @@ export default function ContentGrowthHub({
       </div>}
       {mediaLinkNotice && <div className="notice-box" role="status" aria-live="polite">{mediaLinkNotice}</div>}
 
-      {canvaStatusNotice && <div className="notice-box" role="status" aria-live="polite">{canvaStatusNotice}</div>}
+      {canvaStatusNotice && <div className="notice-box"><CanvaStatusNotice notice={canvaStatusNotice} language={language} /></div>}
       {generateNotice && <div className="notice-box" aria-live="polite">{typeof generateNotice === "string" ? generateNotice
         : generateNotice.template.replace(/(?:Batch ID: )?\{batchId\}/, batchName(language,
           batches.find((batch) => batch.batchId === generateNotice.batchId)?.createdAt ?? generateNotice.createdAt))}</div>}
@@ -741,7 +761,7 @@ export default function ContentGrowthHub({
             value={selectedBatch?.batchId ?? ""}
             onChange={(event) => setSelectedBatchId(event.target.value)}
           >
-            {batches.map((batch) => {
+            {batchChoices.map((batch) => {
               const needsReview = batch.items.filter((item) => ["draft", "generated", "needs_review"].includes(item.status)).length;
               const approved = batch.items.filter((item) => item.status === "approved").length;
               return (
@@ -751,6 +771,13 @@ export default function ContentGrowthHub({
               );
             })}
           </select>
+          {(showAllBatches || batchChoices.length < batches.length) && (
+            <button type="button" aria-controls="factory-batch-select" aria-expanded={showAllBatches} onClick={() => setShowAllBatches(!showAllBatches)}>
+              {showAllBatches
+                ? (language === "ar" ? "عرض القائمة المختصرة" : "Show shortlist")
+                : (language === "ar" ? `عرض كل الدفعات (${batches.length})` : `Show all batches (${batches.length})`)}
+            </button>
+          )}
         </div>
       )}
 
@@ -760,7 +787,7 @@ export default function ContentGrowthHub({
             batch={selectedBatch}
             workspaceMode={activeFactoryTab === "designs" || activeFactoryTab === "reels" || activeFactoryTab === "campaigns" || activeFactoryTab === "review" ? activeFactoryTab : "review"}
             designCapabilityState={canvaCapabilityState}
-            designCapabilityDetail={canvaReadiness.detail}
+            canvaStatusNotice={canvaStatusNotice}
             videoCapabilityState={videoCapabilityState}
             canWrite={canWrite}
           busy={panelBusy}
