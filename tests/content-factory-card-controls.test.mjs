@@ -13,6 +13,7 @@ import * as publishing from "../src/content-publishing.ts";
 import * as publishingCopy from "../src/content-publishing-copy.ts";
 import * as canva from "../src/canva-readiness.ts";
 import * as dates from "../src/date-utils.ts";
+import * as media from "../src/media-types.ts";
 
 function compile(fileName) {
   const source = readFileSync(new URL("../src/" + fileName, import.meta.url), "utf8");
@@ -24,11 +25,27 @@ const panelCode = compile("content-batch-review-panel.tsx");
 const hubCode = compile("content-growth-hub.tsx");
 
 // Run the actual card and switcher controls with isolated hook state. Network requests can only reach test doubles.
-function mount(screen, props, { confirm = () => true, canvaStatus } = {}) {
+function mount(screen, props, { confirm = () => true, canvaStatus, mediaAssets = [], document } = {}) {
   const state = [], effects = [];
+  const frames = new Map();
+  let frameId = 0;
   let cursor = 0;
+  function queueEffect(effect, dependencies) {
+    const index = cursor++;
+    const previous = state[index];
+    if (previous && dependencies?.every((value, i) => Object.is(value, previous.dependencies[i]))) return;
+    effects.push(() => {
+      previous?.cleanup?.();
+      state[index] = { dependencies, cleanup: effect() };
+    });
+  }
   const hooks = {
-    ...react, useMemo: read => read(), useRef: current => ({ current }), useEffect: effect => effects.push(effect),
+    ...react, useMemo: read => read(), useCallback: callback => callback,
+    useRef(current) {
+      const index = cursor++;
+      return state[index] ??= { current };
+    },
+    useEffect: queueEffect, useLayoutEffect: queueEffect,
     useState(initial) {
       const index = cursor++;
       if (index >= state.length) state[index] = typeof initial === "function" ? initial() : initial;
@@ -41,13 +58,16 @@ function mount(screen, props, { confirm = () => true, canvaStatus } = {}) {
     "./content-publishing": publishing, "./content-publishing-copy": publishingCopy, "./date-utils": dates,
     "./canva-readiness": canva, "./coach-brain-factory-handoff": { readCoachBrainFactoryHandoff: () => null },
     "./canva-design-adapter": { fetchCanvaDesignStatus: async () => canvaStatus },
-    "./media-library-controls": { parseMediaAssetRecords: () => [] },
+    "./media-library-controls": { parseMediaAssetRecords: value => value },
+    "./media-types": media,
   };
   const context = {
     require: key => modules[key] ?? {}, window: { location: { search: "" }, confirm }, URLSearchParams, AbortController,
+    document, requestAnimationFrame: callback => { frames.set(++frameId, callback); return frameId; },
+    cancelAnimationFrame: id => frames.delete(id),
     FormData: Map, fetch: async url => {
       const responses = { get_staff_integrations: { items: [{ provider: "canva", status: "connected" }] },
-        get_staff_content_automation_status: {}, get_staff_media_assets: [] };
+        get_staff_content_automation_status: {}, get_staff_media_assets: mediaAssets };
       const name = url.split("/").at(-1);
       assert.ok(Object.hasOwn(responses, name), "unexpected request: " + name);
       return { ok: true, json: async () => responses[name] };
@@ -63,8 +83,9 @@ function mount(screen, props, { confirm = () => true, canvaStatus } = {}) {
     renderComponent = hub.default;
   }
   return {
-    render() { cursor = 0; effects.length = 0; return renderComponent(props); },
+    render(nextProps = props) { props = nextProps; cursor = 0; effects.length = 0; return renderComponent(props); },
     async loadStatus() { for (const effect of effects) effect(); await new Promise(resolve => setImmediate(resolve)); },
+    paint() { const callbacks = [...frames.values()]; frames.clear(); callbacks.forEach(callback => callback()); },
     panel,
   };
 }
@@ -167,6 +188,132 @@ test("batch switcher pins the selection, prioritizes latest pending work and pre
   button(view.render(), "عرض القائمة المختصرة").props.onClick();
   assert.equal(picker().props.value, "b4");
   assert.deepEqual(choices(), ["b4", "b3", "b2"]);
+});
+
+const filterButton = (tree, label) => one(tree, node => node.type === "button" && node.props.children?.[0] === label);
+const cards = tree => nodes(tree, node => node.props.className === "content-batch-item");
+const panelIn = (hub, tree) => one(tree, node => node.type === hub.panel.ContentBatchReviewPanel).props;
+const savedTime = "2095-01-01T12:30:00.000Z";
+
+test("confirmed scheduling waits for the refreshed post and focuses its card in the scheduled filter", async () => {
+  const requested = { ...post, status: "needs_review", scheduledFor: savedTime };
+  const other = { ...post, id: "other", status: "scheduled" };
+  const tabs = [], requests = [], focus = [];
+  let finish;
+  const props = { ...base, items: [requested, other], activeTab: "review", onTabChange: tab => tabs.push(tab),
+    onApproveItem: item => { requests.push(item); return new Promise(resolve => { finish = resolve; }); } };
+  const hub = mount("hub", props);
+  const panel = mount("panel", panelIn(hub, hub.render()), { document: {
+    getElementById(id) {
+      assert.ok(cards(panel.render()).some(card => card.props.id === id));
+      return { focus: () => focus.push(id), scrollIntoView: () => focus.push(id) };
+    },
+  } });
+  filterButton(panel.render(), "للمراجعة").props.onClick();
+  const action = button(panel.render(), "اعتماد وجدولة").props.onClick();
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].id, requested.id);
+  finish();
+  await action;
+  hub.render();
+  await hub.loadStatus();
+  assert.deepEqual(tabs, []);
+  assert.equal(panelIn(hub, hub.render()).workspaceMode, "review");
+
+  const refreshed = { ...requested, status: "scheduled", scheduledFor: "2095-01-01T16:30:00+04:00" };
+  hub.render({ ...props, items: [other, refreshed] });
+  await hub.loadStatus();
+  const updatedPanel = panelIn(hub, hub.render());
+  assert.equal(updatedPanel.workspaceMode, "campaigns");
+  assert.deepEqual(tabs, ["campaigns"]);
+  panel.render(updatedPanel);
+  await panel.loadStatus();
+  const tree = panel.render();
+  panel.paint();
+  assert.equal(filterButton(tree, "مجدول").props.className, "active");
+  const notice = node => node.props.role === "status" && node.props.children === "حُفظ موعد المنشور";
+  assert.equal(nodes(cards(tree).find(card => card.key === requested.id), notice).length, 1);
+  assert.equal(nodes(cards(tree).find(card => card.key === other.id), notice).length, 0);
+  assert.deepEqual(focus, ["factory-post-p1", "factory-post-p1"]);
+  await hub.loadStatus();
+  assert.deepEqual(tabs, ["campaigns"]);
+});
+
+test("a rejected request, unchanged row, different post or different saved time leaves review open", async () => {
+  const requested = { ...post, status: "needs_review", scheduledFor: savedTime };
+  for (const outcome of ["rejected", "unchanged", "other post", "different time"]) {
+    const tabs = [];
+    const props = { ...base, activeTab: "review", items: [requested], onTabChange: tab => tabs.push(tab),
+      onApproveItem: async () => { if (outcome === "rejected") throw new Error("rejected"); } };
+    const hub = mount("hub", props);
+    await panelIn(hub, hub.render()).onApproveItem(requested);
+    const updated = { ...requested, status: "scheduled" };
+    if (outcome === "unchanged") updated.status = "needs_review";
+    if (outcome === "other post") updated.id = "another";
+    if (outcome === "different time") updated.scheduledFor = "2095-01-02T12:30:00Z";
+    hub.render({ ...props, items: [updated] });
+    await hub.loadStatus();
+    const shown = panelIn(hub, hub.render());
+    assert.equal(shown.workspaceMode, "review", outcome);
+    assert.equal(shown.cardTarget, null, outcome);
+    assert.deepEqual(tabs, [], outcome);
+  }
+});
+
+test("the batch picker and summary precede reconciled totals and the review filter matches the batch count", () => {
+  const statuses = ["draft", "generated", "needs_review", "approved", "idea", "cancelled", "published"];
+  const items = statuses.map((status, index) => ({ ...post, id: status, status, batchId: index < 4 ? "b1" : "b2" }));
+  const hub = mount("hub", { ...base, activeTab: "review", items });
+  const tree = hub.render();
+  const expectedIds = ["factory-batch-select", "batch-summary-heading", "content-pipeline-heading"];
+  assert.deepEqual(nodes(tree, node => expectedIds.includes(node.props.id)).map(node => node.props.id), expectedIds);
+  const stats = label => Object.fromEntries(nodes(one(tree, node => node.type === "div" && node.props["aria-labelledby"] === label),
+    node => node.type === "article").map(node => node.props.children.map(child => child.props.children)));
+  const totals = stats("content-pipeline-heading");
+  assert.equal(totals["أفكار وملغاة"], 2);
+  assert.equal(totals["مسجّل كمنشور"], 1);
+  const totalLabel = ar.contentGrowth.totalItems;
+  assert.equal(totals[totalLabel], items.length);
+  assert.equal(Object.entries(totals).filter(([label]) => label !== totalLabel).reduce((sum, [, n]) => sum + n, 0), totals[totalLabel]);
+  const reviewCount = stats("batch-summary-heading")[ar.contentBatch.needsReview];
+  const panel = mount("panel", panelIn(hub, tree));
+  const filter = filterButton(panel.render(), "للمراجعة");
+  assert.equal(filter.props.children.at(-1).props.children, reviewCount);
+  filter.props.onClick();
+  assert.deepEqual(cards(panel.render()).map(card => card.key), ["draft", "generated", "needs_review"]);
+  assert.equal(cards(panel.render()).length, reviewCount);
+});
+
+test("step five opens the eligible post in its own batch without requesting publication", async () => {
+  const approved = { ...post, status: "approved", mediaAssetId: "ready" };
+  const items = [
+    { ...approved, id: "no-media", mediaAssetId: null },
+    { ...approved, id: "published", providerExternalId: "already" },
+    { ...approved, id: "unclear", receipts: [{ platform: "instagram", status: "ambiguous" }] },
+    { ...approved, id: "retry", receipts: [{ platform: "instagram", status: "failed" }] },
+    { ...approved, id: "unsupported", platform: "tiktok" },
+    { ...approved, id: "target", topic: "المنشور المؤهل", batchId: "another", platform: "facebook" },
+  ];
+  const mediaAssets = [{ id: "ready", category: "other_business", mediaStatus: "ready", publishabilityStatus: "ready_for_review" }];
+  const hub = mount("hub", { ...base, items, activeTab: "overview" }, { mediaAssets });
+  const link = node => node.type === "button" && node.props.children?.[0] === "فتح بطاقة المنشور لعرض «نشر الآن»";
+  assert.equal(nodes(hub.render(), link).length, 0);
+  await hub.loadStatus();
+  const overview = hub.render();
+  assert.equal(cards(overview).length, 0);
+  const open = one(overview, link);
+  assert.ok(open.props.children.includes("المنشور المؤهل"));
+  open.props.onClick();
+  const destination = panelIn(hub, hub.render());
+  assert.equal(destination.batch.batchId, "another");
+  assert.equal(destination.workspaceMode, "campaigns");
+  const panel = mount("panel", destination);
+  panel.render();
+  await panel.loadStatus();
+  const tree = panel.render();
+  assert.equal(filterButton(tree, "معتمد").props.className, "active");
+  assert.equal(destination.cardTarget.id, "target");
+  assert.equal(button(one(tree, node => node.key === "target"), "نشر الآن").props.disabled, false);
 });
 
 test("hub and automatic design show the Arabic readiness summary with English diagnostics closed", async () => {

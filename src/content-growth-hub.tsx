@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { groupContentBatches, selectPrimaryBatch, buildNextBatchReadyNotice, type ContentBatchItem } from "./content-batch";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { groupContentBatches, selectPrimaryBatch, buildNextBatchReadyNotice, buildDayNineReminder, canApproveContentItem, type ContentBatchItem } from "./content-batch";
 import { COACH_AYMAN_PROVIDER_ID, contentFingerprint, parseCoachKnowledgeContext, validateCoachAymanBatch, type CoachBrainFactoryContext, type GeneratedBatchItem } from "./content-batch-generator";
 import { attachMediaToCoachAymanBatch, buildCoachAyman30DayBatchWithMedia } from "./media-batch-link";
 import { fetchGeminiBatchGenerationStatus, generateCoachAymanBatchWithProvider, type BatchAiProvider, type GeminiBatchPromptContext } from "./gemini-batch-adapter";
 import { parseMediaAssetRecords } from "./media-library-controls";
+import { canUseInMarketingBatch } from "./media-types";
 import {
   displayCapabilityState,
   readIntegrationStatuses,
@@ -12,7 +13,6 @@ import {
 } from "./content-growth";
 import { AUTHORIZED_INSTAGRAM_PUBLISH_ITEM_ID, buildFacebookPublishAudit, summarizeLivePublishingReadiness } from "./content-publishing";
 import { readPublishingCopy } from "./content-publishing-copy";
-import { buildDayNineReminder } from "./content-batch";
 import {
   BRAND,
   DEFAULT_BATCH_MIX,
@@ -20,7 +20,7 @@ import {
   buildStrategySummary,
   buildPerformanceInsights,
 } from "./content-strategy";
-import { CanvaStatusNotice, ContentBatchReviewPanel } from "./content-batch-review-panel";
+import { CanvaStatusNotice, ContentBatchReviewPanel, offersPublishNow, type FactoryCardTarget } from "./content-batch-review-panel";
 import { fetchCanvaDesignStatus } from "./canva-design-adapter";
 import { assessCanvaReadiness, formatCanvaDiagnosticDetails, type CanvaStatusDiagnostic } from "./canva-readiness";
 import { clearCoachBrainFactoryHandoff, readCoachBrainFactoryHandoff } from "./coach-brain-factory-handoff";
@@ -32,6 +32,7 @@ const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\
 const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
 
 type GrowthSession = { accessToken: string; role: string };
+type ScheduleAttempt = { item: ContentBatchItem; previousItems: ContentBatchItem[]; completed: boolean };
 
 function batchName(language: "ar" | "en", createdAt: string) {
   const date = new Date(createdAt);
@@ -169,6 +170,7 @@ export default function ContentGrowthHub({
 }: ContentGrowthHubProps) {
   const { language, t } = useLanguage();
   const copy = t("contentGrowth");
+  const batchCopy = t("contentBatch");
   const publishCopyFacebook = readPublishingCopy(language, "facebook");
   const publishCopyInstagram = readPublishingCopy(language, "instagram");
   const batches = useMemo(() => groupContentBatches(items), [items]);
@@ -241,8 +243,12 @@ export default function ContentGrowthHub({
   const [planExecution] = useState(() => handoffParams.get("planExecution") || storedCoachBrainHandoff?.planExecution || "best");
 
   const [activeFactoryTab, setActiveFactoryTab] = useState<"overview" | "strategy" | "factory" | "content" | "designs" | "reels" | "campaigns" | "review" | "connections">(activeTab || (mediaFactoryHandoff ? "content" : "overview"));
+  const [pendingSchedule, setPendingSchedule] = useState<ScheduleAttempt | null>(null);
+  const [cardTarget, setCardTarget] = useState<FactoryCardTarget | null>(null);
   useEffect(() => {
     if (activeTab && activeTab !== activeFactoryTab) {
+      setPendingSchedule(null);
+      setCardTarget(null);
       setActiveFactoryTab(activeTab);
     }
   }, [activeTab]);
@@ -256,6 +262,9 @@ export default function ContentGrowthHub({
     }
   }, [activeTab]);
   function selectFactoryTab(tab: typeof activeFactoryTab) {
+    reviewAutoOpened.current = true;
+    setPendingSchedule(null);
+    setCardTarget(null);
     setActiveFactoryTab(tab);
     onTabChange?.(tab);
     const targetId = tab === "content" ? "content-control-room" : ["designs", "reels", "campaigns", "review"].includes(tab) ? "content-review" : `content-${tab}`;
@@ -263,6 +272,49 @@ export default function ContentGrowthHub({
       document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
     }));
   }
+  const openFactoryCard = useCallback((batchId: string, target: FactoryCardTarget) => {
+    setSelectedBatchId(batchId);
+    setCardTarget(target);
+    setActiveFactoryTab("campaigns");
+    onTabChange?.("campaigns");
+  }, [onTabChange]);
+
+  async function approveForSchedule(item: ContentBatchItem) {
+    const attempt = { item, previousItems: items, completed: false };
+    setCardTarget(null);
+    setPendingSchedule(attempt);
+    try {
+      await onApproveItem(item);
+      setPendingSchedule(current => current === attempt ? { ...attempt, completed: true } : current);
+    } catch {
+      setPendingSchedule(current => current === attempt ? null : current);
+    }
+  }
+
+  useEffect(() => {
+    // The approval callback also resolves on handled errors. Verify the refreshed row.
+    if (!pendingSchedule?.completed || items === pendingSchedule.previousItems) return;
+    setPendingSchedule(null);
+    const requested = pendingSchedule.item;
+    const batch = batches.find(batch => batch.items.some(item =>
+      item.id === requested.id && item.status === "scheduled" && item.scheduledFor && requested.scheduledFor
+      && Date.parse(item.scheduledFor) === Date.parse(requested.scheduledFor)
+    ));
+    if (batch) openFactoryCard(batch.batchId, { id: requested.id, status: "scheduled" });
+  }, [pendingSchedule, items, batches, openFactoryCard]);
+
+  const publishCard = useMemo(() => {
+    if (activeFactoryTab !== "overview" || !canWrite) return null;
+    const readyAssets = new Set(mediaAssets.filter(canUseInMarketingBatch).map(asset => asset.id));
+    const candidates = selectedBatch ? [selectedBatch, ...batches.filter(batch => batch !== selectedBatch)] : batches;
+    for (const batch of candidates) {
+      const item = batch.items.find(item => offersPublishNow(item)
+        && ["facebook", "instagram"].includes(item.platform.toLowerCase())
+        && typeof item.mediaAssetId === "string" && readyAssets.has(item.mediaAssetId));
+      if (item) return { item, batchId: batch.batchId };
+    }
+    return null;
+  }, [activeFactoryTab, canWrite, mediaAssets, selectedBatch, batches]);
   const showReviewWorkspace = ["designs", "reels", "campaigns", "review"].includes(activeFactoryTab);
   const factoryStages = [
     ["factory", language === "ar" ? "١. التوليد والخطة" : "1. Generate & Plan"],
@@ -343,6 +395,7 @@ export default function ContentGrowthHub({
   }, [activeFactoryTab, primaryBatch]);
 
   const batchItems = selectedBatch?.items ?? [];
+  const batchSummary = selectedBatch && summarizePipeline(batchItems);
   const mediaLinkCandidates = useMemo(() => batchItems.filter((item) => ["draft", "generated", "needs_review", "approved"].includes(item.status) && !item.mediaAssetId), [batchItems]);
   const strategySummary = useMemo(() => buildStrategySummary(batchItems), [batchItems]);
   const panelBusy = busy || generating || checkingProvider;
@@ -612,6 +665,13 @@ export default function ContentGrowthHub({
           <article><span>{copy.failed}</span><strong>{instagramPublishing.failedCount}</strong></article>
         </div>
         <p className="live-publish-next-step" role="status">{instagramNextStepCopy}</p>
+        {publishCard ? (
+          <button type="button" className="secondary" disabled={panelBusy}
+            onClick={() => openFactoryCard(publishCard.batchId, { id: publishCard.item.id, status: "approved" })}>
+            {language === "ar" ? "فتح بطاقة المنشور لعرض «نشر الآن»" : "Open post to view Publish now"}
+            {" · "}{publishCard.item.topic || batchCopy.untitled} · {publishCard.item.platform}
+          </button>
+        ) : <p className="batch-meta">{language === "ar" ? "يظهر رابط البطاقة هنا عند توفّر منشور معتمد مؤهل للنشر بوسائط جاهزة." : "A card link appears here when an approved post has ready media and is eligible to publish."}</p>}
         {instagramPublishing.authorizedItem && (
           <div className="authorized-post-banner" role="status">
             <strong>{publishCopyInstagram.authorizedPostTitle}</strong>
@@ -667,21 +727,6 @@ export default function ContentGrowthHub({
         <p className="batch-meta" role="status">{generating ? copy.generateStateBusy : selectedBatch ? copy.generateStateReady : copy.generateStateIdle}</p>
         {selectedBatch && <button type="button" className="secondary" onClick={() => selectFactoryTab("review")}>{copy.openBatchReview}</button>}
         <p className="batch-meta">{copy.generateMixNote}</p>
-      </section>}
-
-      {showReviewWorkspace && <section id="content-review" className="content-growth-section" aria-labelledby="content-pipeline-heading">
-        <header>
-          <p>{copy.pipelineEyebrow}</p>
-          <h3 id="content-pipeline-heading">{language === "ar" ? "إجمالي كل الدفعات" : "All batches combined"}</h3>
-        </header>
-        <div className="content-pipeline-grid" aria-labelledby="content-pipeline-heading">
-          <article><span>{copy.needsReview}</span><strong>{pipeline.needsReview}</strong></article>
-          <article><span>{copy.approved}</span><strong>{pipeline.approved}</strong></article>
-          <article><span>{copy.scheduled}</span><strong>{pipeline.scheduled}</strong></article>
-          <article><span>{copy.published}</span><strong>{pipeline.published}</strong></article>
-          <article><span>{copy.failed}</span><strong>{pipeline.failed}</strong></article>
-          <article><span>{copy.totalItems}</span><strong>{pipeline.total}</strong></article>
-        </div>
       </section>}
 
       {activeFactoryTab === "connections" && <section id="content-connections" className="content-growth-section" aria-labelledby="integration-status-heading">
@@ -751,40 +796,71 @@ export default function ContentGrowthHub({
         </ul>
       </section>}
 
-      {showReviewWorkspace && batches.length > 1 && (
-        <div className="batch-switcher" aria-label={copy.batchSwitcherAria}>
-          <label htmlFor="factory-batch-select">
-            {language === "ar" ? "الدفعة التي تعمل عليها الآن" : "Current batch"}
-          </label>
-          <select
-            id="factory-batch-select"
-            value={selectedBatch?.batchId ?? ""}
-            onChange={(event) => setSelectedBatchId(event.target.value)}
-          >
-            {batchChoices.map((batch) => {
-              const needsReview = batch.items.filter((item) => ["draft", "generated", "needs_review"].includes(item.status)).length;
-              const approved = batch.items.filter((item) => item.status === "approved").length;
-              return (
-                <option key={batch.batchId} value={batch.batchId}>
-                  {batchName(language, batch.createdAt)} · {batch.items.length} {language === "ar" ? "عنصر" : "items"} · {needsReview} {language === "ar" ? "مراجعة" : "to review"} · {approved} {language === "ar" ? "معتمد" : "approved"}
-                </option>
-              );
-            })}
-          </select>
-          {(showAllBatches || batchChoices.length < batches.length) && (
-            <button type="button" aria-controls="factory-batch-select" aria-expanded={showAllBatches} onClick={() => setShowAllBatches(!showAllBatches)}>
-              {showAllBatches
-                ? (language === "ar" ? "عرض القائمة المختصرة" : "Show shortlist")
-                : (language === "ar" ? `عرض كل الدفعات (${batches.length})` : `Show all batches (${batches.length})`)}
-            </button>
-          )}
+      {showReviewWorkspace && <section id="content-review" className="content-growth-section" aria-labelledby="content-pipeline-heading">
+        {batches.length > 1 && (
+          <div className="batch-switcher" aria-label={copy.batchSwitcherAria}>
+            <label htmlFor="factory-batch-select">
+              {language === "ar" ? "الدفعة التي تعمل عليها الآن" : "Current batch"}
+            </label>
+            <select
+              id="factory-batch-select"
+              value={selectedBatch?.batchId ?? ""}
+              onChange={(event) => {
+                setPendingSchedule(null);
+                setCardTarget(null);
+                setSelectedBatchId(event.target.value);
+              }}
+            >
+              {batchChoices.map((batch) => {
+                const needsReview = batch.items.filter(canApproveContentItem).length;
+                const approved = batch.items.filter((item) => item.status === "approved").length;
+                return (
+                  <option key={batch.batchId} value={batch.batchId}>
+                    {batchName(language, batch.createdAt)} · {batch.items.length} {language === "ar" ? "عنصر" : "items"} · {needsReview} {language === "ar" ? "مراجعة" : "to review"} · {approved} {language === "ar" ? "معتمد" : "approved"}
+                  </option>
+                );
+              })}
+            </select>
+            {(showAllBatches || batchChoices.length < batches.length) && (
+              <button type="button" aria-controls="factory-batch-select" aria-expanded={showAllBatches} onClick={() => setShowAllBatches(!showAllBatches)}>
+                {showAllBatches
+                  ? (language === "ar" ? "عرض القائمة المختصرة" : "Show shortlist")
+                  : (language === "ar" ? `عرض كل الدفعات (${batches.length})` : `Show all batches (${batches.length})`)}
+              </button>
+            )}
+          </div>
+        )}
+
+        {batchSummary && <>
+          <h3 id="batch-summary-heading">{language === "ar" ? "هذه الدفعة فقط" : "This batch only"}</h3>
+          <div className="content-batch-summary" aria-labelledby="batch-summary-heading">
+            <article><span>{batchCopy.needsReview}</span><strong>{batchSummary.needsReview}</strong></article>
+            <article><span>{batchCopy.approved}</span><strong>{batchSummary.approved}</strong></article>
+            <article><span>{batchCopy.scheduled}</span><strong>{batchSummary.scheduled}</strong></article>
+            <article><span>{batchCopy.published}</span><strong>{batchSummary.published}</strong></article>
+            <article><span>{batchCopy.failed}</span><strong>{batchSummary.failed}</strong></article>
+          </div>
+        </>}
+        <header>
+          <p>{copy.pipelineEyebrow}</p>
+          <h3 id="content-pipeline-heading">{language === "ar" ? "إجمالي كل الدفعات" : "All batches combined"}</h3>
+        </header>
+        <div className="content-pipeline-grid" aria-labelledby="content-pipeline-heading">
+          <article><span>{copy.needsReview}</span><strong>{pipeline.needsReview}</strong></article>
+          <article><span>{copy.approved}</span><strong>{pipeline.approved}</strong></article>
+          <article><span>{copy.scheduled}</span><strong>{pipeline.scheduled}</strong></article>
+          <article><span>{language === "ar" ? "مسجّل كمنشور" : "Recorded as published"}</span><strong>{pipeline.published}</strong></article>
+          <article><span>{copy.failed}</span><strong>{pipeline.failed}</strong></article>
+          <article><span>{language === "ar" ? "أفكار وملغاة" : "Ideas and cancelled"}</span><strong>{pipeline.other}</strong></article>
+          <article><span>{copy.totalItems}</span><strong>{pipeline.total}</strong></article>
         </div>
-      )}
+      </section>}
 
       {showReviewWorkspace && selectedBatch && (
           <ContentBatchReviewPanel
             items={batchItems}
             batch={selectedBatch}
+            cardTarget={cardTarget}
             workspaceMode={activeFactoryTab === "designs" || activeFactoryTab === "reels" || activeFactoryTab === "campaigns" || activeFactoryTab === "review" ? activeFactoryTab : "review"}
             designCapabilityState={canvaCapabilityState}
             canvaStatusNotice={canvaStatusNotice}
@@ -803,7 +879,7 @@ export default function ContentGrowthHub({
               .catch(() => undefined);
             onBatchCreated?.();
           }}
-          onApproveItem={onApproveItem}
+          onApproveItem={approveForSchedule}
           onEditItem={onEditItem}
           onRequestChanges={onRequestChanges}
           onApproveAll={onApproveAll}

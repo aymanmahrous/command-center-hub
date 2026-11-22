@@ -1,9 +1,9 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useLayoutEffect, useMemo, useState } from "react";
 import {
   approveAllCandidates,
   approveAllWouldChange,
   overallBatchStatus,
-  summarizeBatch,
+  canApproveContentItem,
   type ContentBatch,
   type ContentBatchItem,
 } from "./content-batch";
@@ -106,6 +106,11 @@ function canShowPublishAction(item: ContentBatchItem): boolean {
     || (item.status === "failed" && receipt?.status.toLowerCase() === "failed" && !receipt.externalPostId?.trim());
 }
 
+export function offersPublishNow(item: ContentBatchItem): boolean {
+  return item.status === "approved" && canShowPublishAction(item)
+    && latestReceiptForPlatform(item, item.platform)?.status.toLowerCase() !== "failed";
+}
+
 const REQUEST_PUBLISH_COPY = {
   en: {
     button: "Publish Now",
@@ -145,10 +150,18 @@ export function CanvaStatusNotice({ notice, language }: { notice: CanvaNotice; l
 
 type DesignMethod = "" | "personal" | "upload" | "poster" | "automatic";
 type ScheduleDraft = { original: string | null; value: string };
+export type FactoryCardTarget = { id: string; status: "scheduled" | "approved" };
+type ItemFilter = "all" | "needs_review" | "approved" | "scheduled" | "published" | "failed";
+
+function matchesFilter(item: ContentBatchItem, filter: ItemFilter) {
+  if (filter === "needs_review") return canApproveContentItem(item);
+  return filter === "all" || item.status === filter;
+}
 
 type ContentBatchReviewPanelProps = {
   items: ContentBatchItem[];
   batch: ContentBatch;
+  cardTarget?: FactoryCardTarget | null;
   canWrite: boolean;
   busy: boolean;
   session?: { accessToken: string; role?: string };
@@ -180,6 +193,7 @@ function formatWhen(language: "ar" | "en", value: string | null) {
 export function ContentBatchReviewPanel({
   items,
   batch,
+  cardTarget,
   canWrite,
   busy,
   session,
@@ -221,7 +235,17 @@ export function ContentBatchReviewPanel({
   const [videoEstimate, setVideoEstimate] = useState<{ costUsd: number; model: string } | null>(null);
   const [videoBusyId, setVideoBusyId] = useState<string | null>(null);
   const [videoNotice, setVideoNotice] = useState("");
-  const [itemFilter, setItemFilter] = useState<"all" | "needs_review" | "approved" | "scheduled" | "published" | "failed">("all");
+  const [itemFilter, setItemFilter] = useState<ItemFilter>("all");
+  useLayoutEffect(() => {
+    if (!cardTarget) return;
+    setItemFilter(cardTarget.status);
+    const frame = requestAnimationFrame(() => {
+      const card = document.getElementById(`factory-post-${cardTarget.id}`);
+      card?.focus({ preventScroll: true });
+      card?.scrollIntoView({ block: "center" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [cardTarget]);
   const [selectedAssetByItem, setSelectedAssetByItem] = useState<Record<string, string>>({});
   const [mediaActionBusyId, setMediaActionBusyId] = useState<string | null>(null);
   const [presenceByItem, setPresenceByItem] = useState<Record<string, string>>({});
@@ -229,7 +253,6 @@ export function ContentBatchReviewPanel({
   const [scheduleTimes, setScheduleTimes] = useState<Record<string, ScheduleDraft>>({});
   const requestPublishCopy = REQUEST_PUBLISH_COPY[language];
 
-  const summary = useMemo(() => summarizeBatch(batch.items), [batch.items]);
   const batchStatus = overallBatchStatus(batch.items);
   const approveCandidates = approveAllCandidates(batch.items);
   const canApproveByRole = session?.role === "super_admin";
@@ -241,7 +264,7 @@ export function ContentBatchReviewPanel({
     if (workspaceMode === "campaigns") return items.filter((item) => ["approved", "scheduled", "published", "failed"].includes(item.status));
     return items;
   }, [items, workspaceMode]);
-  const visibleItems = itemFilter === "all" ? workspaceItems : workspaceItems.filter((item) => item.status === itemFilter);
+  const visibleItems = workspaceItems.filter((item) => matchesFilter(item, itemFilter));
   const previewLabels = {
     designPreview: copy.designPreview,
     designPending: copy.designPending,
@@ -688,15 +711,6 @@ export function ContentBatchReviewPanel({
         <p className="publish-ready-note">{language === "ar" ? "يمكنك تجهيز المنشور ومراجعته هنا." : "You can prepare and review the post here."}</p>
       </div>
 
-      <h3 id="batch-summary-heading">{language === "ar" ? "هذه الدفعة فقط" : "This batch only"}</h3>
-      <div className="content-batch-summary" aria-labelledby="batch-summary-heading">
-        <article><span>{copy.needsReview}</span><strong>{summary.needsReview}</strong></article>
-        <article><span>{copy.approved}</span><strong>{summary.approved}</strong></article>
-        <article><span>{copy.scheduled}</span><strong>{summary.scheduled}</strong></article>
-        <article><span>{copy.published}</span><strong>{summary.published}</strong></article>
-        <article><span>{copy.failed}</span><strong>{summary.failed}</strong></article>
-      </div>
-
       {workspaceMode === "reels" && (
         <div className="content-batch-design-notice" role="status">
           {language === "ar"
@@ -730,7 +744,7 @@ export function ContentBatchReviewPanel({
         </div>
         <div className="content-review-filters" role="group" aria-label={language === "ar" ? "تصفية حالات المحتوى" : "Content status filters"}>
           {(["all", "needs_review", "approved", "scheduled", "published", "failed"] as const).map((filter) => {
-            const count = filter === "all" ? workspaceItems.length : workspaceItems.filter((item) => item.status === filter).length;
+            const count = workspaceItems.filter((item) => matchesFilter(item, filter)).length;
             const label = filter === "all"
               ? (language === "ar" ? "الكل" : "All")
               : filter === "needs_review"
@@ -758,7 +772,7 @@ export function ContentBatchReviewPanel({
       {visibleItems.length === 0 ? <p className="content-review-empty">{language === "ar" ? "لا توجد عناصر في هذه الحالة." : "No items match this status."}</p> : <div className="content-batch-grid">
         {visibleItems.map((item) => {
           const designPrompt = buildManualDesignPrompt(String(item.visualPrompt || item.caption || item.topic || ""));
-          const canApproveStatus = ["draft", "generated", "needs_review"].includes(item.status);
+          const canApproveStatus = canApproveContentItem(item);
           const canRequestChanges = ["draft", "generated", "approved", "scheduled", "failed"].includes(item.status);
           const itemLocked = busy || !canWrite;
           const pillar = readContentPillar(item);
@@ -791,7 +805,10 @@ export function ContentBatchReviewPanel({
             </label>
           );
           return (
-            <article className="content-batch-item" key={item.id}>
+            <article className="content-batch-item" key={item.id} id={`factory-post-${item.id}`} tabIndex={-1}>
+              {cardTarget?.id === item.id && cardTarget.status === "scheduled" && item.status === "scheduled" && (
+                <p role="status">{language === "ar" ? "حُفظ موعد المنشور" : "Post schedule saved"}</p>
+              )}
               <header>
                 <div>
                   <span className="item-meta">

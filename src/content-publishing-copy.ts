@@ -66,13 +66,13 @@ const FACEBOOK_COPY: PublishingCopy = {
 const INSTAGRAM_COPY: PublishingCopy = {
   ...FACEBOOK_COPY,
   livePublishTitle: "Publishing readiness (Instagram)",
-  livePublishBody: "Approve one Instagram test post here. Live posting runs securely inside the app through the Meta Graph API.",
-  livePublishNextN8n: "Next: click Publish now for the approved Instagram post.",
+  livePublishBody: "Track Instagram readiness and receipts here. The publish control is on the approved post’s card.",
+  livePublishNextN8n: "Direct publishing is subject to the owner’s publishing freeze.",
   livePublishNextContinue: "Next: generate the 10-day batch, then review Instagram items.",
   authorizedPostTitle: "Authorized Instagram test post",
-  authorizedPostPending: "Approved — ready for in-app publish.",
+  authorizedPostPending: "Awaiting a confirmed publication.",
   authorizedPostLive: "Live on Instagram.",
-  instagramPickAuthorized: "Pick one Instagram item in the batch below, approve it, then click Publish now for that post only.",
+  instagramPickAuthorized: "Select one Instagram post for review in its batch.",
 };
 
 const COPY: Record<Language, Record<PublishChannel, PublishingCopy>> = {
@@ -118,13 +118,13 @@ const COPY: Record<Language, Record<PublishChannel, PublishingCopy>> = {
     instagram: {
       ...INSTAGRAM_COPY,
       livePublishTitle: "جاهزية النشر (Instagram)",
-      livePublishBody: "اعتمد منشور Instagram تجريبي واحد هنا. النشر الحي يتم بأمان من داخل التطبيق عبر Meta Graph API.",
-      livePublishNextN8n: "التالي: اضغط نشر الآن للمنشور المعتمد.",
+      livePublishBody: "تابع هنا جاهزية Instagram وإيصالات النشر. زر النشر موجود في بطاقة المنشور المعتمد.",
+      livePublishNextN8n: "يخضع النشر المباشر لقرار المالك بتجميد النشر.",
       livePublishNextContinue: "التالي: إنشاء دفعة 10 أيام ثم مراجعة عناصر Instagram.",
       authorizedPostTitle: "منشور Instagram التجريبي",
-      authorizedPostPending: "معتمد — جاهز للنشر من داخل التطبيق.",
+      authorizedPostPending: "بانتظار تأكيد النشر.",
       authorizedPostLive: "منشور حي على Instagram.",
-      instagramPickAuthorized: "اختر عنصر Instagram واحد من الدفعة أدناه، اعتمده، ثم اضغط نشر الآن لذلك المنشور فقط.",
+      instagramPickAuthorized: "اختر منشور Instagram واحدًا للمراجعة داخل دفعته.",
       pipelineStages: FACEBOOK_COPY.pipelineStages,
     },
   },
