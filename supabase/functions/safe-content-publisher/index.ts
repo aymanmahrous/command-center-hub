@@ -1,11 +1,8 @@
 // supabase/functions/safe-content-publisher/index.ts
 //
 // Publishes ONE approved content_items row to Meta (Facebook Page and/or
-// Instagram Business Account) via the Graph API, then records the outcome
-// through `record_staff_content_publish_result` — called with the CALLING
-// STAFF MEMBER'S OWN JWT, never service-role — so the write still goes
-// through an RPC and lands in the Audit Log, same contract as every other
-// mutation in this app.
+// Instagram Business Account) via the Graph API. For a manual request the
+// authenticated staff identity is recorded with the outcome of its reservation.
 //
 // v1 scope only: immediate "Publish now" for content_items.status ===
 // 'approved'. No scheduling here. No Instagram cron/poller.
@@ -99,7 +96,7 @@ async function readPublishJob(jobId: string, contentItemId: string, platform: st
   return job;
 }
 
-async function callServiceRpc(functionName: string, body: Record<string, unknown>) {
+async function callServiceRpc<T = Record<string, unknown>>(functionName: string, body: Record<string, unknown>) {
   const response = await fetch(SUPABASE_URL + "/rest/v1/rpc/" + functionName, {
     method: "POST",
     headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: "Bearer " + SUPABASE_SERVICE_ROLE_KEY, "Content-Type": "application/json" },
@@ -107,7 +104,7 @@ async function callServiceRpc(functionName: string, body: Record<string, unknown
   });
   const data = await response.json().catch(() => null);
   if (!response.ok) throw new Error("RPC_" + functionName + "_FAILED");
-  return data as Record<string, unknown>;
+  return data as T;
 }
 
 async function claimPublicationReceipt(contentItemId: string, platform: string) {
@@ -213,7 +210,21 @@ async function publishAutomation(req: Request): Promise<Response> {
   return new Response(JSON.stringify({ success: true, providerExternalId: publishResult.providerExternalId, platform, jobId }), { status: 200, headers: JSON_HEADERS });
 }
 
- type PublishOutcome = { success: boolean; providerExternalId?: string; errorCode?: string };
+type PublishOutcome = { success: boolean; providerExternalId?: string; errorCode?: string; rejected?: boolean };
+
+function metaFailure(response: Response, data: Record<string, unknown> | null, errorCode: string): PublishOutcome {
+  const error = data?.error as { code?: unknown; is_transient?: boolean } | undefined;
+  const rejected = response.status >= 400 && response.status < 500 && response.status !== 408
+    && typeof error?.code === "number" && error.is_transient !== true;
+  return { success: false, errorCode, rejected };
+}
+
+function manualReviewRequired(code: string, status: number, providerExternalId?: string) {
+  return new Response(JSON.stringify({
+    success: false, code, ambiguous: true, manualReviewRequired: true,
+    nextAction: "RECONCILE_WITH_META_PAGE", providerExternalId,
+  }), { status, headers: JSON_HEADERS });
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
@@ -240,6 +251,7 @@ Deno.serve(async (req) => {
   if (!OWNER_PUBLISHING_LIVE_AUTHORIZED) return fail("OWNER_PUBLISHING_FROZEN", 423);
   const item = await readContentItem(contentItemId, staffJwt, false);
   if (!item) return fail("NOT_FOUND", 404);
+  if (item.status === "published" || item.provider_external_id?.trim()) return fail("CONTENT_ALREADY_PUBLISHED", 409);
   if (item.status !== "approved") return fail("INVALID_TRANSITION", 409);
   const platform = String(item.platform ?? "").toLowerCase();
   if (platform !== "facebook" && platform !== "instagram") return fail("UNSUPPORTED_PLATFORM", 400);
@@ -252,18 +264,53 @@ Deno.serve(async (req) => {
   const media = await resolveSignedMediaUrl(item.media_asset_id, contentItemId, staffJwt, false);
   if (!media) return fail("MEDIA_MISSING", 422);
   if (media.approvalError) return fail(media.approvalError, 422);
+  if (!Deno.env.get("META_APP_SECRET")) return fail("META_NOT_CONFIGURED", 500);
   const caption = [item.hook, item.caption, item.cta, formatHashtags(item.hashtags)].filter(Boolean).join("\n\n").slice(0, 5000);
-  let publishResult: PublishOutcome;
+  let reservation: Record<string, unknown>;
   try {
-    publishResult = platform === "facebook"
-      ? await publishToFacebook(caption, media?.url ?? null, pageId, accessToken, media?.assetType)
-      : await publishToInstagram(caption, media?.url ?? null, instagramAccountId, accessToken, media?.assetType);
-  } catch { publishResult = { success: false, errorCode: "META_API_ERROR" }; }
-  const recordResponse = await fetch(`${SUPABASE_URL}/rest/v1/rpc/record_staff_content_publish_result`, { method: "POST", headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${staffJwt}`, "Content-Type": "application/json" }, body: JSON.stringify({ p_content_item_id: contentItemId, p_success: publishResult.success, p_provider_external_id: publishResult.providerExternalId ?? null, p_platform: platform, p_error_code: publishResult.errorCode ?? null }) });
-  const recorded = recordResponse.ok ? ((await recordResponse.json()) as { success: boolean }) : { success: false };
-  if (!publishResult.success) { console.error("safe-content-publisher: Meta publish failed", { contentItemId, platform, errorCode: publishResult.errorCode }); return fail(publishResult.errorCode ?? "META_API_ERROR", 502); }
-  if (!recorded.success) return fail("RECORD_FAILED", 500);
-  return new Response(JSON.stringify({ success: true, providerExternalId: publishResult.providerExternalId, platform }), { status: 200, headers: JSON_HEADERS });
+    reservation = await callServiceRpc("reserve_manual_meta_publication", {
+      p_content_item_id: contentItemId, p_platform: platform, p_media_asset_id: item.media_asset_id,
+    });
+  } catch {
+    return manualReviewRequired("RECEIPT_RESERVATION_UNCONFIRMED", 503);
+  }
+  if (reservation?.created !== true || typeof reservation.receiptId !== "string" || !reservation.receiptId.trim()) {
+    if (reservation?.code === "CONTENT_NOT_READY" || reservation?.code === "ACTIVE_AUTHORIZATION_EXISTS") {
+      return fail(reservation.code, 409);
+    }
+    return manualReviewRequired("MANUAL_PUBLICATION_ALREADY_RESERVED", 409);
+  }
+
+  let providerExternalId: string | undefined;
+  let uncertainReason = "META_RESPONSE_UNCONFIRMED";
+  try {
+    const result = platform === "facebook"
+      ? await publishToFacebook(caption, media.url, pageId, accessToken, media.assetType)
+      : await publishToInstagram(caption, media.url, instagramAccountId, accessToken, media.assetType);
+    providerExternalId = result.providerExternalId;
+    if ((result.success && providerExternalId) || result.rejected) {
+      uncertainReason = "RECEIPT_COMPLETE_FAILED";
+      const recorded = await callServiceRpc<boolean>("finish_manual_meta_publication", {
+        p_content_item_id: contentItemId, p_platform: platform, p_receipt_id: reservation.receiptId,
+        p_staff_id: user.id, p_external_post_id: providerExternalId ?? null, p_error_code: result.errorCode ?? null,
+      });
+      if (recorded === true) {
+        if (!result.success) {
+          console.error("safe-content-publisher: Meta publish failed", { contentItemId, platform, errorCode: result.errorCode });
+          return fail(result.errorCode ?? "META_API_ERROR", 502);
+        }
+        return new Response(JSON.stringify({ success: true, providerExternalId, platform }), { status: 200, headers: JSON_HEADERS });
+      }
+    }
+  } catch {
+    // Meta or the final transaction may have succeeded before its response was lost.
+  }
+  try {
+    await markPublicationReceiptAmbiguous(contentItemId, platform, uncertainReason);
+  } catch {
+    // A committed reservation still blocks another send if this update is unavailable.
+  }
+  return manualReviewRequired("RECORD_FAILED", 504, providerExternalId);
 });
 
 async function resolveSignedMediaUrl(
@@ -333,7 +380,7 @@ async function publishToFacebook(
     });
     const response = await fetch(`https://graph.facebook.com/${META_GRAPH_VERSION}/${pageId}/videos`, { method: "POST", body: params });
     const data = await response.json().catch(() => null) as Record<string, unknown> | null;
-    if (!response.ok || data?.error || !data?.id) return { success: false, errorCode: "META_VIDEO_API_ERROR" };
+    if (!response.ok || data?.error || !data?.id) return metaFailure(response, data, "META_VIDEO_API_ERROR");
     return { success: true, providerExternalId: String(data.id) };
   }
   const params = new URLSearchParams({
@@ -345,7 +392,7 @@ async function publishToFacebook(
   });
   const response = await fetch(`https://graph.facebook.com/${META_GRAPH_VERSION}/${pageId}/photos`, { method: "POST", body: params });
   const data = await response.json().catch(() => null) as Record<string, unknown> | null;
-  if (!response.ok || data?.error) return { success: false, errorCode: "META_API_ERROR" };
+  if (!response.ok || data?.error) return metaFailure(response, data, "META_API_ERROR");
   const externalPostId = confirmedExternalPostId(data);
   if (!externalPostId) return { success: false, errorCode: "META_CONFIRMATION_MISSING" };
   return { success: true, providerExternalId: externalPostId };
@@ -372,7 +419,7 @@ async function publishToInstagram(
     });
     const createResponse = await fetch(`https://graph.facebook.com/${META_GRAPH_VERSION}/${accountId}/media`, { method: "POST", body: createParams });
     const created = await createResponse.json().catch(() => null) as Record<string, unknown> | null;
-    if (!createResponse.ok || created?.error || !created?.id) return { success: false, errorCode: "META_REEL_CREATE_FAILED" };
+    if (!createResponse.ok || created?.error || !created?.id) return metaFailure(createResponse, created, "META_REEL_CREATE_FAILED");
     const containerId = String(created.id);
     const maxAttempts = 36;
     for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
@@ -382,7 +429,7 @@ async function publishToInstagram(
       const statusData = await statusResponse.json().catch(() => null) as Record<string, unknown> | null;
       if (!statusResponse.ok || statusData?.error) return { success: false, errorCode: "META_REEL_STATUS_FAILED" };
       const statusCode = String(statusData?.status_code ?? "").toUpperCase();
-      if (statusCode === "ERROR" || statusCode === "EXPIRED") return { success: false, errorCode: "META_REEL_PROCESSING_FAILED" };
+      if (statusCode === "ERROR" || statusCode === "EXPIRED") return { success: false, errorCode: "META_REEL_PROCESSING_FAILED", rejected: true };
       if (statusCode === "FINISHED") break;
       if (attempt === maxAttempts - 1) return { success: false, errorCode: "META_REEL_PROCESSING_TIMEOUT" };
       await new Promise((resolve) => setTimeout(resolve, 10_000));
@@ -394,7 +441,7 @@ async function publishToInstagram(
     });
     const publishResponse = await fetch(`https://graph.facebook.com/${META_GRAPH_VERSION}/${accountId}/media_publish`, { method: "POST", body: publishParams });
     const published = await publishResponse.json().catch(() => null) as Record<string, unknown> | null;
-    if (!publishResponse.ok || published?.error || !published?.id) return { success: false, errorCode: "META_REEL_PUBLISH_FAILED" };
+    if (!publishResponse.ok || published?.error || !published?.id) return metaFailure(publishResponse, published, "META_REEL_PUBLISH_FAILED");
     return { success: true, providerExternalId: String(published.id) };
   }
   const createParams = new URLSearchParams({
@@ -405,10 +452,10 @@ async function publishToInstagram(
   });
   const createResponse = await fetch(`https://graph.facebook.com/${META_GRAPH_VERSION}/${accountId}/media`, { method: "POST", body: createParams });
   const created = await createResponse.json().catch(() => null) as Record<string, unknown> | null;
-  if (!createResponse.ok || created?.error || !created?.id) return { success: false, errorCode: "META_API_ERROR" };
+  if (!createResponse.ok || created?.error || !created?.id) return metaFailure(createResponse, created, "META_API_ERROR");
   const publishParams = new URLSearchParams({ access_token: accessToken, appsecret_proof: proof, creation_id: String(created.id) });
   const publishResponse = await fetch(`https://graph.facebook.com/${META_GRAPH_VERSION}/${accountId}/media_publish`, { method: "POST", body: publishParams });
   const published = await publishResponse.json().catch(() => null) as Record<string, unknown> | null;
-  if (!publishResponse.ok || published?.error || !published?.id) return { success: false, errorCode: "META_API_ERROR" };
+  if (!publishResponse.ok || published?.error || !published?.id) return metaFailure(publishResponse, published, "META_API_ERROR");
   return { success: true, providerExternalId: String(published.id) };
 }
