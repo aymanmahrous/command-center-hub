@@ -68,7 +68,7 @@ export const ar: Dictionary = {
   },
   inbox: {
     writeBannerTitle: "تحكم مضبوط في المحادثات",
-    writeBannerSubtitle: "RPC + WhatsApp Cloud API · RBAC + تأكيد + Audit Log",
+    writeBannerSubtitle: "استلم المحادثة للرد يدويًا",
     listAriaLabel: "قائمة المحادثات",
     noMessages: "لا توجد رسائل",
     selectConversation: "اختر محادثة",
@@ -91,7 +91,7 @@ export const ar: Dictionary = {
     takeOverSuccess: "تم استلام المحادثة. AI متوقف مؤقتًا.",
     returnToAiSuccess: "تمت إعادة المحادثة إلى AI.",
     sendSuccess: "تم إرسال رد WhatsApp وتسجيله.",
-    sendDryRunSuccess: "تم تسجيل الرد بأمان (تجربة جافة — لم تُرسل رسالة حقيقية).",
+    sendDryRunSuccess: "وضع التجربة الآمن. سُجّل الرد ولم يُرسل.",
     needsAttention: "تحتاج انتباهًا بشريًا",
     attentionBadge: "انتباه",
   },

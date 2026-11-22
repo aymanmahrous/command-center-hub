@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
+import * as React from "react";
 import ts from "typescript";
 import { z } from "zod";
 import * as contentGrowth from "../src/content-growth.ts";
 import { formatLocalDateTimeInput } from "../src/date-utils.ts";
+import { ar } from "../src/i18n/ar.ts";
 
 // Run the actual UI handlers with local state and controlled RPC promises.
 function loadHandlers(file, names, context) {
@@ -19,7 +21,7 @@ function loadHandlers(file, names, context) {
   visit(source);
   assert.equal(declarations.length, names.length);
   const { outputText } = ts.transpileModule(declarations.join("\n"), {
-    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React },
   });
   return runInNewContext(outputText + "\n({" + names.join(",") + "})", { Error, ...context });
 }
@@ -155,6 +157,50 @@ for (const form of ["edit", "change request"]) {
     }
   });
 }
+
+test("All opens on the latest update and keeps the owner's selection after a refresh", () => {
+  const state = [], effects = [];
+  let cursor = 0;
+  const { AIInboxView } = loadHandlers(main, ["ConversationSchema", "conversationModeLabels", "AIInboxView"], {
+    React, z, AbortController, require: () => ({}), getConversationMessages: async () => [],
+    useLanguage: () => ({ language: "ar", t: key => ar[key] }),
+    useMemo: read => read(), useRef: current => ({ current }), useEffect: effect => effects.push(effect),
+    useState(initial) {
+      const index = cursor++;
+      if (!(index in state)) state[index] = initial;
+      return [state[index], next => { state[index] = next; }];
+    },
+  });
+  const older = {
+    id: "10000000-0000-4000-8000-000000000001", leadId: "20000000-0000-4000-8000-000000000001",
+    leadName: "Older", channel: "whatsapp", mode: "human_takeover", unread: 5, humanRequired: true,
+    lastMessage: "", leadScore: 0, intent: "", updatedAt: "2026-11-22T09:00:00+04:00",
+  };
+  const newer = { ...older, id: "10000000-0000-4000-8000-000000000002", leadName: "Newer",
+    mode: "ai_active", unread: 1, humanRequired: false, updatedAt: "2026-11-22T06:00:00Z" };
+  let value = [older, newer];
+  function buttons(node) {
+    if (Array.isArray(node)) return node.flatMap(buttons);
+    if (!node?.props) return [];
+    return node.type === "button" ? [node] : buttons(node.props.children);
+  }
+  function render() {
+    cursor = 0;
+    const controls = buttons(AIInboxView({ value, session: { role: "coach" } }));
+    effects.splice(0).forEach(effect => effect());
+    return { controls, rows: controls.filter(button => button.key !== null) };
+  }
+  assert.deepEqual(render().rows.map(row => row.key), [newer.id, older.id]);
+  const { rows } = render();
+  assert.equal(rows[0].props.className, "selected");
+  rows[1].props.onClick();
+  value = [{ ...newer, id: "10000000-0000-4000-8000-000000000003", updatedAt: "2026-11-23T06:00:00Z" }, older, newer];
+  render();
+  const refreshed = render();
+  assert.equal(refreshed.rows.find(row => row.props.className === "selected").key, older.id);
+  refreshed.controls.find(button => button.props.children[0] === "يحتاج قرارك").props.onClick();
+  assert.deepEqual(render().rows.map(row => row.key), [older.id]);
+});
 
 function inboxFixture() {
   const state = { reply: "Reply A", messages: ["old A"], status: "ready", patches: {}, errors: [] };

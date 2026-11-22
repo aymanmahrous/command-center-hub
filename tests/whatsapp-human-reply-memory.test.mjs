@@ -143,11 +143,9 @@ test("inbox mode change and dashboard refresh keep panel mounted", () => {
   assert.match(app, /if \(!backgroundRefresh\) \{\s*setStatus\("loading"\)/);
 });
 
-test("Owner Inbox prioritizes decisions and exposes AI-handling filter", () => {
-  assert.match(app, /const priorityScore = \(conversation: InboxConversation\)/);
-  assert.match(app, /prioritizedConversations = \[\.\.\.conversations\]\.sort/);
-  assert.match(app, /inboxFilter === "ai_active"/);
-  assert.match(app, /Needs your decision|يحتاج قرارك/);
+test("Owner Inbox exposes the decision and AI-handling filters", () => {
+  assert.match(app, /setInboxFilter\("attention"\)/);
+  assert.match(app, /setInboxFilter\("ai_active"\)/);
 });
 
 test("existing concierge behavior still works for pricing guardrails", () => {

@@ -426,18 +426,22 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
     ? parsed.data.map((conversation) => ({ ...conversation, ...conversationPatches[conversation.id] }))
     : [];
   const selected = conversations.find((conversation) => conversation.id === selectedId) ?? null;
-  const priorityScore = (conversation: InboxConversation) => (conversation.needsAttention || conversation.humanRequired || conversation.mode === "human_required" || conversation.mode === "human_takeover" ? 3 : conversation.unread > 0 ? 2 : conversation.mode === "ai_active" ? 1 : 0);
-  const prioritizedConversations = [...conversations].sort((left, right) => priorityScore(right) - priorityScore(left));
-  const visibleConversations = prioritizedConversations.filter((conversation) => inboxFilter === "all" || (inboxFilter === "attention" ? priorityScore(conversation) === 3 : inboxFilter === "unread" ? conversation.unread > 0 : conversation.mode === "ai_active" && conversation.unread > 0));
-  const attentionCount = conversations.filter((conversation) => conversation.needsAttention || conversation.humanRequired || conversation.mode === "human_required" || conversation.mode === "human_takeover").length;
+  const needsDecision = (conversation: InboxConversation) => conversation.needsAttention || conversation.humanRequired || conversation.mode === "human_required" || conversation.mode === "human_takeover";
+  const visibleConversations = conversations.filter((conversation) => {
+    if (inboxFilter === "all") return true;
+    if (inboxFilter === "attention") return needsDecision(conversation);
+    return conversation.unread > 0 && (inboxFilter === "unread" || conversation.mode === "ai_active");
+  }).sort((left, right) => inboxFilter === "all"
+    ? Date.parse(right.updatedAt) - Date.parse(left.updatedAt)
+    : Number(needsDecision(right)) - Number(needsDecision(left)));
+  const attentionCount = conversations.filter(needsDecision).length;
   const unreadCount = conversations.reduce((total, conversation) => total + conversation.unread, 0);
   const aiActiveUnreadCount = conversations.filter((conversation) => conversation.mode === "ai_active" && conversation.unread > 0).length;
 
+  const firstVisibleId = visibleConversations[0]?.id ?? null;
   useEffect(() => {
-    if (!parsed.success) return;
-    const firstActionable = conversations.find((conversation) => conversation.needsAttention || conversation.humanRequired || conversation.mode === "human_required" || conversation.mode === "human_takeover") ?? conversations[0];
-    if (!selected) selectConversation(firstActionable?.id ?? null);
-  }, [conversations, parsed.success, selectedId]);
+    if (parsed.success && !selected) selectConversation(firstVisibleId);
+  }, [parsed.success, selected, firstVisibleId]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -568,12 +572,12 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
   return <>
     <div className="write-banner"><strong>{copy.writeBannerTitle}</strong><span>{copy.writeBannerSubtitle}</span></div>
     {notice && <div className="notice-box" aria-live="polite">{notice}</div>}
-    <div className="inbox-workspace-head"><div><span className="inbox-eyebrow">{language === "ar" ? "صندوق المالك" : "OWNER INBOX"}</span><h3>{language === "ar" ? "ما يحتاج قرارك أولًا" : "Your decisions first"}</h3><p>{language === "ar" ? "رتّب النظام المحادثات حسب حاجتها لتدخلك، بينما تبقى المحادثات التي يتولاها AI في الخلفية." : "The system prioritizes conversations that need your decision while AI-managed conversations stay in the background."}</p></div><div className="inbox-filters" role="group" aria-label={language === "ar" ? "تصفية المحادثات" : "Conversation filters"}><button type="button" className={inboxFilter === "all" ? "active" : ""} onClick={() => setInboxFilter("all")}>{language === "ar" ? "الكل" : "All"} <b>{conversations.length}</b></button><button type="button" className={inboxFilter === "attention" ? "active" : ""} onClick={() => setInboxFilter("attention")}>{language === "ar" ? "يحتاج قرارك" : "Needs your decision"} <b>{attentionCount}</b></button><button type="button" className={inboxFilter === "ai_active" ? "active" : ""} onClick={() => setInboxFilter("ai_active")}>{language === "ar" ? "يتولاه AI" : "AI handling"} <b>{aiActiveUnreadCount}</b></button><button type="button" className={inboxFilter === "unread" ? "active" : ""} onClick={() => setInboxFilter("unread")}>{language === "ar" ? "غير مقروء" : "Unread"} <b>{unreadCount}</b></button></div></div>
+    <div className="inbox-workspace-head"><div><span className="inbox-eyebrow">{language === "ar" ? "صندوق المالك" : "OWNER INBOX"}</span><h3>{language === "ar" ? "الكل حسب آخر تحديث" : "All conversations, newest first"}</h3></div><div className="inbox-filters" role="group" aria-label={language === "ar" ? "تصفية المحادثات" : "Conversation filters"}><button type="button" className={inboxFilter === "all" ? "active" : ""} onClick={() => setInboxFilter("all")}>{language === "ar" ? "الكل" : "All"} <b>{conversations.length}</b></button><button type="button" className={inboxFilter === "attention" ? "active" : ""} onClick={() => setInboxFilter("attention")}>{language === "ar" ? "يحتاج قرارك" : "Needs your decision"} <b>{attentionCount}</b></button><button type="button" className={inboxFilter === "ai_active" ? "active" : ""} onClick={() => setInboxFilter("ai_active")}>{language === "ar" ? "يتولاه AI" : "AI handling"} <b>{aiActiveUnreadCount}</b></button><button type="button" className={inboxFilter === "unread" ? "active" : ""} onClick={() => setInboxFilter("unread")}>{language === "ar" ? "غير مقروء" : "Unread"} <b>{unreadCount}</b></button></div></div>
     <div className={`inbox-layout ${mobileListOpen ? "mobile-list-open" : "mobile-conversation-open"}`}>
       <div className="conversation-list" aria-label={copy.listAriaLabel}>
         {visibleConversations.length === 0 && <p className="inbox-filter-empty">{language === "ar" ? "لا توجد محادثات في هذا التصنيف." : "No conversations in this filter."}</p>}
         {visibleConversations.map((conversation) => <button type="button" key={conversation.id} className={selectedId === conversation.id ? "selected" : ""} onClick={() => { selectConversation(conversation.id); setMobileListOpen(false); setNotice(""); setReplyBody(""); }}>
-          <span><strong>{conversation.leadName}</strong><span className="conversation-badges">{conversation.unread > 0 && <b className="unread-count">{conversation.unread}</b>}{(conversation.needsAttention || conversation.humanRequired || conversation.mode === "human_required" || conversation.mode === "human_takeover") && <b className="attention-badge" title={copy.needsAttention}>{copy.attentionBadge}</b>}</span></span>
+          <span><strong>{conversation.leadName}</strong><span className="conversation-badges">{conversation.unread > 0 && <b className="unread-count">{conversation.unread}</b>}{needsDecision(conversation) && <b className="attention-badge" title={copy.needsAttention}>{copy.attentionBadge}</b>}</span></span>
           <small>{conversation.lastMessage || copy.noMessages}</small>
           <em>{conversation.channel} · {modeLabels[conversation.mode]}</em>
         </button>)}
@@ -593,7 +597,7 @@ function AIInboxView({ value, session, onChanged, onSessionExpired }: { value: J
           {messageStatus === "error" && <div className="error-box">{copy.loadMessagesError}</div>}
           {messageStatus === "ready" && messages.length === 0 && <p className="muted">{copy.noMessagesInConversation}</p>}
           {messages.map((message) => <article key={message.id} className={`message-bubble ${message.direction === "outbound" ? "outbound" : "inbound"}${message.authorType === "staff" ? " staff-reply" : ""}${message.authorType === "ai_draft" ? " ai-draft" : ""}`}>
-            <p>{message.body}</p><small>{message.authorType}{message.safetyClassification ? ` · ${message.safetyClassification}` : ""} · {new Date(message.createdAt).toLocaleString(language === "ar" ? "ar-AE" : "en-AE")}</small>
+            <p>{message.body}</p><small>{message.authorType === "ai_draft" ? (language === "ar" ? "مسودة لم تُرسل" : "Unsent draft") : message.authorType}{message.safetyClassification ? ` · ${message.safetyClassification}` : ""} · {new Date(message.createdAt).toLocaleString(language === "ar" ? "ar-AE" : "en-AE")}</small>
           </article>)}
         </div>
         {selected && canSendReply && selected.channel === "whatsapp" && selected.mode === "human_takeover" && <form className="inbox-compose" onSubmit={(event) => { event.preventDefault(); void handleSendReply(selected); }}>
