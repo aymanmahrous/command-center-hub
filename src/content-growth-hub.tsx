@@ -20,7 +20,7 @@ import {
   buildStrategySummary,
   buildPerformanceInsights,
 } from "./content-strategy";
-import { CanvaStatusNotice, ContentBatchReviewPanel, offersPublishNow, type FactoryCardTarget } from "./content-batch-review-panel";
+import { CanvaStatusNotice, ContentBatchReviewPanel, matchesSavedSchedule, offersPublishNow, type FactoryCardTarget, type ScheduleResult } from "./content-batch-review-panel";
 import { fetchCanvaDesignStatus } from "./canva-design-adapter";
 import { assessCanvaReadiness, formatCanvaDiagnosticDetails, type CanvaStatusDiagnostic } from "./canva-readiness";
 import { clearCoachBrainFactoryHandoff, readCoachBrainFactoryHandoff } from "./coach-brain-factory-handoff";
@@ -32,7 +32,7 @@ const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").trim().replace(/\
 const SUPABASE_PUBLIC_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
 
 type GrowthSession = { accessToken: string; role: string };
-type ScheduleAttempt = { item: ContentBatchItem; previousItems: ContentBatchItem[]; completed: boolean };
+type ScheduleAttempt = { scheduledFor: string | null; result?: ScheduleResult };
 
 function batchName(language: "ar" | "en", createdAt: string) {
   const date = new Date(createdAt);
@@ -120,7 +120,7 @@ type ContentGrowthHubProps = {
   canWrite: boolean;
   busy: boolean;
   activeTab?: "overview" | "strategy" | "factory" | "content" | "designs" | "reels" | "campaigns" | "review" | "connections";
-  onApproveItem: (item: ContentBatchItem) => Promise<void>;
+  onApproveItem: (item: ContentBatchItem, acceptedMessage: string) => Promise<ScheduleResult>;
   onEditItem?: (item: ContentBatchItem, visualPrompt: string, scheduledFor: string | null) => Promise<void>;
   onRequestChanges: (item: ContentBatchItem, kind: ChangeRequestKind, note: string) => Promise<void>;
   onApproveAll: (items: ContentBatchItem[]) => Promise<void>;
@@ -243,11 +243,12 @@ export default function ContentGrowthHub({
   const [planExecution] = useState(() => handoffParams.get("planExecution") || storedCoachBrainHandoff?.planExecution || "best");
 
   const [activeFactoryTab, setActiveFactoryTab] = useState<"overview" | "strategy" | "factory" | "content" | "designs" | "reels" | "campaigns" | "review" | "connections">(activeTab || (mediaFactoryHandoff ? "content" : "overview"));
-  const [pendingSchedule, setPendingSchedule] = useState<ScheduleAttempt | null>(null);
+  const [scheduleAttempts, setScheduleAttempts] = useState<Record<string, ScheduleAttempt>>({});
+  const scheduleFocusId = useRef<string | null>(null);
   const [cardTarget, setCardTarget] = useState<FactoryCardTarget | null>(null);
   useEffect(() => {
     if (activeTab && activeTab !== activeFactoryTab) {
-      setPendingSchedule(null);
+      scheduleFocusId.current = null;
       setCardTarget(null);
       setActiveFactoryTab(activeTab);
     }
@@ -263,7 +264,7 @@ export default function ContentGrowthHub({
   }, [activeTab]);
   function selectFactoryTab(tab: typeof activeFactoryTab) {
     reviewAutoOpened.current = true;
-    setPendingSchedule(null);
+    scheduleFocusId.current = null;
     setCardTarget(null);
     setActiveFactoryTab(tab);
     onTabChange?.(tab);
@@ -280,28 +281,49 @@ export default function ContentGrowthHub({
   }, [onTabChange]);
 
   async function approveForSchedule(item: ContentBatchItem) {
-    const attempt = { item, previousItems: items, completed: false };
+    const attempt = { scheduledFor: item.scheduledFor };
+    scheduleFocusId.current = item.id;
     setCardTarget(null);
-    setPendingSchedule(attempt);
+    setScheduleAttempts(current => ({ ...current, [item.id]: attempt }));
+    let result: ScheduleResult;
     try {
-      await onApproveItem(item);
-      setPendingSchedule(current => current === attempt ? { ...attempt, completed: true } : current);
+      result = await onApproveItem(item, language === "ar" ? "قُبل طلب الجدولة." : "Scheduling request accepted.");
+      if (result.itemId !== item.id) throw new Error("ITEM_MISMATCH");
+      if (!result.ok) {
+        const reasons: Record<string, string> = {
+          BUSY: batchCopy.actionDisabledBusy,
+          APPROVE_AND_SCHEDULE_FAILED: language === "ar" ? "تعذّر اعتماد المنشور وجدولته. لم يحدّد الخادم سبب الرفض." : "Approval and scheduling failed. The server did not provide a specific reason.",
+          MEDIA_ASSET_REQUIRED_FOR_PUBLISH: language === "ar" ? "اربط صورة أو فيديو بالمنشور أولًا." : "Link an image or video to the post first.",
+          MEDIA_ASSET_MISSING_OR_UNLINKED: language === "ar" ? "تحقّق من حفظ الصورة أو الفيديو وربطه بهذا المنشور." : "Check that the image or video is saved and linked to this post.",
+          MEDIA_NOT_APPROVED_FOR_PUBLISH: language === "ar" ? "لم تستوفِ الوسائط المرتبطة شروط اعتماد النشر." : "The linked media does not meet the publishing approval requirements.",
+        };
+        result = { ...result, message: reasons[result.code] ?? result.message };
+      }
     } catch {
-      setPendingSchedule(current => current === attempt ? null : current);
+      result = { itemId: item.id, ok: false, code: "UPDATE_FAILED", message: language === "ar" ? "تعذّر التحقق من نتيجة طلب الجدولة." : "Could not verify the scheduling request." };
     }
+    setScheduleAttempts(current => current[item.id] === attempt ? { ...current, [item.id]: { ...attempt, result } } : current);
+    return result;
   }
 
   useEffect(() => {
-    // The approval callback also resolves on handled errors. Verify the refreshed row.
-    if (!pendingSchedule?.completed || items === pendingSchedule.previousItems) return;
-    setPendingSchedule(null);
-    const requested = pendingSchedule.item;
-    const batch = batches.find(batch => batch.items.some(item =>
-      item.id === requested.id && item.status === "scheduled" && item.scheduledFor && requested.scheduledFor
-      && Date.parse(item.scheduledFor) === Date.parse(requested.scheduledFor)
-    ));
-    if (batch) openFactoryCard(batch.batchId, { id: requested.id, status: "scheduled" });
-  }, [pendingSchedule, items, batches, openFactoryCard]);
+    for (const [id, attempt] of Object.entries(scheduleAttempts)) {
+      const { result, scheduledFor } = attempt;
+      if (!result?.ok || result.itemId !== id || !scheduledFor) continue;
+      const batch = batches.find(batch => batch.items.some(item => item.id === id && matchesSavedSchedule(item, scheduledFor)));
+      if (!batch) continue;
+      setScheduleAttempts(current => {
+        if (current[id] !== attempt) return current;
+        const next = { ...current };
+        delete next[id];
+        return next;
+      });
+      if (scheduleFocusId.current === id) {
+        scheduleFocusId.current = null;
+        openFactoryCard(batch.batchId, { id, status: "scheduled", scheduledFor });
+      }
+    }
+  }, [scheduleAttempts, batches, openFactoryCard]);
 
   const publishCard = useMemo(() => {
     if (activeFactoryTab !== "overview" || !canWrite) return null;
@@ -806,7 +828,7 @@ export default function ContentGrowthHub({
               id="factory-batch-select"
               value={selectedBatch?.batchId ?? ""}
               onChange={(event) => {
-                setPendingSchedule(null);
+                scheduleFocusId.current = null;
                 setCardTarget(null);
                 setSelectedBatchId(event.target.value);
               }}
@@ -861,6 +883,8 @@ export default function ContentGrowthHub({
             items={batchItems}
             batch={selectedBatch}
             cardTarget={cardTarget}
+            scheduleAttempts={scheduleAttempts}
+            onRefreshStatus={onBatchCreated}
             workspaceMode={activeFactoryTab === "designs" || activeFactoryTab === "reels" || activeFactoryTab === "campaigns" || activeFactoryTab === "review" ? activeFactoryTab : "review"}
             designCapabilityState={canvaCapabilityState}
             canvaStatusNotice={canvaStatusNotice}

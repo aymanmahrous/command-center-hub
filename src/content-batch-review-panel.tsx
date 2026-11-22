@@ -150,7 +150,12 @@ export function CanvaStatusNotice({ notice, language }: { notice: CanvaNotice; l
 
 type DesignMethod = "" | "personal" | "upload" | "poster" | "automatic";
 type ScheduleDraft = { original: string | null; value: string };
-export type FactoryCardTarget = { id: string; status: "scheduled" | "approved" };
+export type FactoryCardTarget = { id: string; status: "scheduled"; scheduledFor: string } | { id: string; status: "approved" };
+export type ScheduleResult = { itemId: string; ok: boolean; code: string; message: string };
+
+export function matchesSavedSchedule(item: ContentBatchItem, scheduledFor: string) {
+  return item.status === "scheduled" && !!item.scheduledFor && Date.parse(item.scheduledFor) === Date.parse(scheduledFor);
+}
 type ItemFilter = "all" | "needs_review" | "approved" | "scheduled" | "published" | "failed";
 
 function matchesFilter(item: ContentBatchItem, filter: ItemFilter) {
@@ -162,12 +167,14 @@ type ContentBatchReviewPanelProps = {
   items: ContentBatchItem[];
   batch: ContentBatch;
   cardTarget?: FactoryCardTarget | null;
+  scheduleAttempts?: Readonly<Record<string, { result?: ScheduleResult }>>;
+  onRefreshStatus?: () => void;
   canWrite: boolean;
   busy: boolean;
   session?: { accessToken: string; role?: string };
   mediaAssets?: MediaAssetRecord[];
   onMediaLinked?: (showReviewCard?: boolean) => void;
-  onApproveItem: (item: ContentBatchItem) => Promise<void>;
+  onApproveItem: (item: ContentBatchItem) => Promise<ScheduleResult>;
   onEditItem?: (item: ContentBatchItem, visualPrompt: string, scheduledFor: string | null, onSaved: () => void) => Promise<void>;
   onRequestChanges: (item: ContentBatchItem, kind: ChangeRequestKind, note: string, onSaved: () => void) => Promise<void>;
   onApproveAll: (items: ContentBatchItem[]) => Promise<void>;
@@ -194,6 +201,8 @@ export function ContentBatchReviewPanel({
   items,
   batch,
   cardTarget,
+  scheduleAttempts,
+  onRefreshStatus,
   canWrite,
   busy,
   session,
@@ -793,6 +802,9 @@ export function ContentBatchReviewPanel({
           const designMethod = !canChangeMedia && (chosenMethod === "upload" || chosenMethod === "automatic") ? "" : chosenMethod;
           const canSetSchedule = (canApproveStatus && canApproveByRole) || (onEditItem && item.status !== "published");
           const scheduledTime = scheduleForItem(item);
+          const attempt = scheduleAttempts?.[item.id];
+          const result = attempt?.result;
+          const awaitingSchedule = !!attempt && result?.ok !== false;
           const futureTime = Boolean(scheduledTime && new Date(scheduledTime).getTime() > Date.now());
           const personPresence = (
             <label>{language === "ar" ? "من يظهر في التصميم؟" : "Who appears in the design?"}
@@ -806,7 +818,7 @@ export function ContentBatchReviewPanel({
           );
           return (
             <article className="content-batch-item" key={item.id} id={`factory-post-${item.id}`} tabIndex={-1}>
-              {cardTarget?.id === item.id && cardTarget.status === "scheduled" && item.status === "scheduled" && (
+              {cardTarget?.id === item.id && cardTarget.status === "scheduled" && matchesSavedSchedule(item, cardTarget.scheduledFor) && (
                 <p role="status">{language === "ar" ? "حُفظ موعد المنشور" : "Post schedule saved"}</p>
               )}
               <header>
@@ -1032,7 +1044,7 @@ export function ContentBatchReviewPanel({
               <footer>
                 {canSetSchedule ? (
                   <label className="factory-schedule-field">{language === "ar" ? "موعد النشر" : "Publish time"}
-                    <input type="datetime-local" value={formatLocalDateTimeInput(scheduledTime)} disabled={itemLocked}
+                    <input type="datetime-local" value={formatLocalDateTimeInput(scheduledTime)} disabled={itemLocked || awaitingSchedule}
                       onChange={(event) => {
                         const value = event.target.value;
                         setScheduleTimes((current) => ({ ...current, [item.id]: { original: item.scheduledFor, value } }));
@@ -1040,10 +1052,16 @@ export function ContentBatchReviewPanel({
                   </label>
                 ) : <p className="item-meta">{copy.scheduledFor}: {formatWhen(language, item.scheduledFor)}</p>}
                 {canApproveStatus && canApproveByRole && (
-                  <button type="button" disabled={itemLocked || !futureTime || Boolean(mediaActionBusyId)} title={itemDisabledReason} onClick={() => confirmApproval(item)}>
+                  <button type="button" disabled={itemLocked || awaitingSchedule || !futureTime || Boolean(mediaActionBusyId)} title={itemDisabledReason} onClick={() => confirmApproval(item)}>
                     {language === "ar" ? "اعتماد وجدولة" : "Approve and schedule"}
                   </button>
                 )}
+                {result && (result.ok ? <>
+                  <p role="status">{language === "ar" ? "قُبل الطلب، جارٍ التحقق من الموعد" : "Request accepted, checking the schedule"}</p>
+                  <button type="button" className="secondary" onClick={onRefreshStatus}>
+                    {language === "ar" ? "تحديث الحالة" : "Refresh status"}
+                  </button>
+                </> : <p className="error-box" role="alert">{result.message}</p>)}
                 {canRequestChanges && (
                   <button
                     type="button"

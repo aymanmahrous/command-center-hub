@@ -45,22 +45,24 @@ function contentFixture(confirm, response) {
 }
 
 test("atomic approval shows success and undo only for a confirmed success response", async () => {
+  const acceptedMessage = "Request accepted, checking the schedule";
   for (const success of [false, true]) {
     const { state, handlers } = contentFixture(true, () => ({ success, code: "INVALID_SCHEDULE_TIME" }));
     const time = new Date(Date.now() + 86400000).toISOString();
     const approval = (confirm, selectedTime = time) => loadHandlers(panel, ["confirmApproval", "scheduleForItem", "formatWhen"], {
       scheduleTimes: { post: { original: null, value: selectedTime } }, formatLocalDateTimeInput,
-      window: { confirm: () => confirm }, language: "en", onApproveItem: handlers.approveBatchItem,
+      window: { confirm: () => confirm }, language: "en", onApproveItem: post => handlers.approveBatchItem(post, acceptedMessage),
     }).confirmApproval(item);
     await approval(true, "");
     await approval(true, "2000-01-01");
     await approval(false);
     assert.equal(state.calls.length, 0);
-    await approval(true);
+    const result = await approval(true);
     assert.equal(state.calls[0].rpc, "approve_and_schedule_staff_content_item");
     assert.equal(state.calls[0].body.p_scheduled_for, time);
     assert.equal(state.changes, Number(success));
-    assert.equal(state.notice, success ? "Item approved and scheduled." : "Scheduled time must be in the future.");
+    assert.equal(state.notice, success ? acceptedMessage : "Scheduled time must be in the future.");
+    assert.deepEqual({ ...result }, { itemId: item.id, ok: success, code: success ? "ACCEPTED" : "INVALID_SCHEDULE_TIME", message: state.notice });
     if (success) assert.equal(state.undo.action, "unschedule");
     else assert.equal(state.undo, null);
   }

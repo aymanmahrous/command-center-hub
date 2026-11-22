@@ -753,14 +753,16 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
   if (!parsed.success) return <div className="error-box">{copy.invalidFormat}</div>;
 
   async function runMutation(itemId: string, operation: () => Promise<unknown>, successMessage: string, undo?: { action: "return_to_review" | "unschedule"; label: string }) {
-    if (!canWrite || busyId || batchBusy) return;
+    if (!canWrite) return "STAFF_ACCESS_DENIED";
+    if (busyId || batchBusy) return "BUSY";
     setBusyId(itemId); setNotice("");
     if (undo) setUndoAction(null);
-    try { await operation(); setUndoAction(undo ? { itemId, ...undo } : null); setNotice(successMessage); onChanged(); return true; }
+    try { await operation(); setUndoAction(undo ? { itemId, ...undo } : null); setNotice(successMessage); onChanged(); }
     catch (cause) {
-      const code = cause instanceof Error ? cause.message : "UPDATE_FAILED";
-      if (code === "SESSION_EXPIRED") { onSessionExpired(); return; }
-      setNotice(contentErrorMessage(language, code));
+      const code = (cause instanceof Error && cause.message) || "UPDATE_FAILED";
+      if (code === "SESSION_EXPIRED") onSessionExpired();
+      else setNotice(contentErrorMessage(language, code));
+      return code;
     } finally { setBusyId(null); }
   }
 
@@ -811,28 +813,27 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
     await runMutation(item.id, () => transitionContentItem(session, item.id, action, scheduledFor), language === "ar" ? `تم تنفيذ «${contentActionLabels[action]}» وتسجيل العملية بنجاح.` : `"${contentActionLabelsEn[action]}" completed and recorded.`, undo);
   }
 
-  async function approveBatchItem(item: ContentBatchItem) {
-    if (!canWrite || !canApprove || busyId || batchBusy || item.status === "approved") return;
-    if (!canApproveContentItem(item)) return;
-    await runMutation(
+  async function approveBatchItem(item: ContentBatchItem, acceptedMessage: string) {
+    const code = !canApprove ? "STAFF_ACCESS_DENIED" : !canApproveContentItem(item) ? "INVALID_TRANSITION" : await runMutation(
       item.id,
       () => mutateContent(session, "approve_and_schedule_staff_content_item", {
         p_content_item_id: item.id,
         p_scheduled_for: item.scheduledFor,
       }),
-      language === "ar" ? "تم اعتماد المحتوى وجدولته." : "Item approved and scheduled.",
+      acceptedMessage,
       { action: "unschedule", label: language === "ar" ? "إلغاء الجدولة" : "Undo scheduling" },
     );
+    return { itemId: item.id, ok: !code, code: code ?? "ACCEPTED", message: code ? contentErrorMessage(language, code) : acceptedMessage };
   }
 
   async function requestBatchChanges(item: ContentBatchItem, kind: ChangeRequestKind, note: string, onSaved?: () => void) {
     if (!canWrite || busyId || batchBusy || item.status === "needs_review") return;
-    const saved = await runMutation(item.id, async () => {
+    const error = await runMutation(item.id, async () => {
       const { appendChangeRequest, buildChangeRequestNote } = await import("./content-growth");
       await updateBatchPrompt(item, appendChangeRequest(String(item.visualPrompt ?? ""), buildChangeRequestNote(kind, note)));
       await transitionContentItem(session, item.id, "return_to_review");
     }, language === "ar" ? "تم إرسال طلب التعديل وإعادة العنصر للمراجعة." : "Change request sent and item returned to review.");
-    if (saved) onSaved?.();
+    if (!error) onSaved?.();
   }
 
   function updateBatchPrompt(item: ContentBatchItem, visualPrompt: string) {
@@ -852,7 +853,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
     }
     const confirmMessage = language === "ar" ? "تأكيد التعديل؟" : "Confirm edit?";
     if (!window.confirm(confirmMessage)) return;
-    const saved = await runMutation(item.id, async () => {
+    const error = await runMutation(item.id, async () => {
       if (contentChanged) await updateBatchPrompt(item, visualPrompt);
       if (scheduleChanged) {
         if (scheduledFor) await transitionContentItem(session, item.id, "schedule", scheduledFor);
@@ -863,7 +864,7 @@ function ContentStudioView({ value, session, onChanged, onSessionExpired, onOpen
       : contentChanged
         ? (language === "ar" ? "تم حفظ طلب التصميم." : "Design request saved.")
         : (language === "ar" ? "تم تحديث الموعد." : "Time updated."));
-    if (saved) onSaved?.();
+    if (!error) onSaved?.();
   }
 
   async function approveAllBatch(candidates: ContentBatchItem[]) {

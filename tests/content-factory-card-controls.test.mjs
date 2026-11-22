@@ -199,9 +199,14 @@ test("confirmed scheduling waits for the refreshed post and focuses its card in 
   const requested = { ...post, status: "needs_review", scheduledFor: savedTime };
   const other = { ...post, id: "other", status: "scheduled" };
   const tabs = [], requests = [], focus = [];
+  let refreshes = 0;
   let finish;
   const props = { ...base, items: [requested, other], activeTab: "review", onTabChange: tab => tabs.push(tab),
-    onApproveItem: item => { requests.push(item); return new Promise(resolve => { finish = resolve; }); } };
+    onBatchCreated: () => { refreshes++; },
+    onApproveItem: (item, message) => {
+      requests.push(item);
+      return new Promise(resolve => { finish = () => resolve({ itemId: item.id, ok: true, code: "ACCEPTED", message }); });
+    } };
   const hub = mount("hub", props);
   const panel = mount("panel", panelIn(hub, hub.render()), { document: {
     getElementById(id) {
@@ -220,6 +225,20 @@ test("confirmed scheduling waits for the refreshed post and focuses its card in 
   assert.deepEqual(tabs, []);
   assert.equal(panelIn(hub, hub.render()).workspaceMode, "review");
 
+  // A successful read can still return the old row. Keep the read-only refresh available.
+  hub.render({ ...props, items: [{ ...requested }, other] });
+  await hub.loadStatus();
+  const pendingTree = panel.render(panelIn(hub, hub.render()));
+  const pending = cards(pendingTree).find(card => card.key === requested.id);
+  const verify = "قُبل الطلب، جارٍ التحقق من الموعد";
+  assert.equal(one(pending, node => node.props.role === "status" && node.props.children === verify).props.children, verify);
+  assert.equal(button(pending, "اعتماد وجدولة").props.disabled, true);
+  assert.equal(nodes(pendingTree, node => node.props.children === "حُفظ موعد المنشور").length, 0);
+  button(pending, "تحديث الحالة").props.onClick();
+  assert.equal(refreshes, 1);
+  assert.equal(requests.length, 1);
+  assert.deepEqual(tabs, []);
+
   const refreshed = { ...requested, status: "scheduled", scheduledFor: "2095-01-01T16:30:00+04:00" };
   hub.render({ ...props, items: [other, refreshed] });
   await hub.loadStatus();
@@ -234,6 +253,7 @@ test("confirmed scheduling waits for the refreshed post and focuses its card in 
   const notice = node => node.props.role === "status" && node.props.children === "حُفظ موعد المنشور";
   assert.equal(nodes(cards(tree).find(card => card.key === requested.id), notice).length, 1);
   assert.equal(nodes(cards(tree).find(card => card.key === other.id), notice).length, 0);
+  assert.equal(nodes(tree, node => node.props.children === "تحديث الحالة").length, 0);
   assert.deepEqual(focus, ["factory-post-p1", "factory-post-p1"]);
   await hub.loadStatus();
   assert.deepEqual(tabs, ["campaigns"]);
@@ -244,7 +264,10 @@ test("a rejected request, unchanged row, different post or different saved time 
   for (const outcome of ["rejected", "unchanged", "other post", "different time"]) {
     const tabs = [];
     const props = { ...base, activeTab: "review", items: [requested], onTabChange: tab => tabs.push(tab),
-      onApproveItem: async () => { if (outcome === "rejected") throw new Error("rejected"); } };
+      onApproveItem: async (item, message) => {
+        if (outcome === "rejected") throw new Error("rejected");
+        return { itemId: item.id, ok: true, code: "ACCEPTED", message };
+      } };
     const hub = mount("hub", props);
     await panelIn(hub, hub.render()).onApproveItem(requested);
     const updated = { ...requested, status: "scheduled" };
@@ -257,6 +280,28 @@ test("a rejected request, unchanged row, different post or different saved time 
     assert.equal(shown.workspaceMode, "review", outcome);
     assert.equal(shown.cardTarget, null, outcome);
     assert.deepEqual(tabs, [], outcome);
+  }
+});
+
+test("a scheduling refusal is shown next to the approval button on the requested card only", async () => {
+  const requested = { ...post, status: "needs_review", scheduledFor: savedTime };
+  const other = { ...requested, id: "other" };
+  for (const [code, message, expected] of [
+    ["INVALID_SCHEDULE_TIME", "وقت الجدولة يجب أن يكون في المستقبل.", "وقت الجدولة يجب أن يكون في المستقبل."],
+    ["APPROVE_AND_SCHEDULE_FAILED", "تعذر تنفيذ التغيير بأمان.", "تعذّر اعتماد المنشور وجدولته. لم يحدّد الخادم سبب الرفض."],
+  ]) {
+    const hub = mount("hub", { ...base, items: [requested, other], activeTab: "review",
+      onApproveItem: async item => ({ itemId: item.id, ok: false, code, message }) });
+    const panel = mount("panel", panelIn(hub, hub.render()));
+    const target = tree => one(tree, node => node.key === requested.id);
+    await button(target(panel.render()), "اعتماد وجدولة").props.onClick();
+    const tree = panel.render(panelIn(hub, hub.render()));
+    const footer = one(target(tree), node => node.type === "footer");
+    assert.equal(button(footer, "اعتماد وجدولة").props.disabled, false);
+    assert.equal(one(footer, node => node.props.role === "alert").props.children, expected);
+    assert.equal(nodes(one(tree, node => node.key === other.id), node => node.props.role === "alert").length, 0);
+    assert.equal(nodes(tree, node => node.props.children === "تحديث الحالة").length, 0);
+    assert.equal(nodes(tree, node => node.props.children === "حُفظ موعد المنشور").length, 0);
   }
 });
 
