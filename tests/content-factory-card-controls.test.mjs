@@ -283,13 +283,18 @@ test("a rejected request, unchanged row, different post or different saved time 
   }
 });
 
-test("a scheduling refusal is shown next to the approval button on the requested card only", async () => {
+test("a scheduling refusal is shown next to the approval button on the requested card only", async t => {
   const requested = { ...post, status: "needs_review", scheduledFor: savedTime };
   const other = { ...requested, id: "other" };
-  for (const [code, message, expected] of [
+  const refusals = [
     ["INVALID_SCHEDULE_TIME", "وقت الجدولة يجب أن يكون في المستقبل.", "وقت الجدولة يجب أن يكون في المستقبل."],
     ["APPROVE_AND_SCHEDULE_FAILED", "تعذر تنفيذ التغيير بأمان.", "تعذّر اعتماد المنشور وجدولته. لم يحدّد الخادم سبب الرفض."],
-  ]) {
+    ["INVALID_TRANSITION", "تعذر تنفيذ التغيير.", "حالة المنشور الحالية لا تسمح باعتماده وجدولته. حدّث الصفحة للتحقق من حالته."],
+    ["MEDIA_ASSET_REQUIRED_FOR_PUBLISH", "تعذر تنفيذ التغيير.", "اربط بهذا المنشور ملفًا محفوظًا لصورة أو فيديو."],
+    ["MEDIA_ASSET_MISSING_OR_UNLINKED", "تعذر تنفيذ التغيير.", "تأكّد من حفظ ملف الصورة أو الفيديو، ثم أعد ربطه بهذا المنشور."],
+    ["MEDIA_NOT_APPROVED_FOR_PUBLISH", "تعذر تنفيذ التغيير.", "راجع الصورة أو الفيديو واعتمده، ووثّق موافقة الأشخاص عند الحاجة."],
+  ];
+  for (const [code, message, expected] of refusals) await t.test(code, async () => {
     const hub = mount("hub", { ...base, items: [requested, other], activeTab: "review",
       onApproveItem: async item => ({ itemId: item.id, ok: false, code, message }) });
     const panel = mount("panel", panelIn(hub, hub.render()));
@@ -302,7 +307,7 @@ test("a scheduling refusal is shown next to the approval button on the requested
     assert.equal(nodes(one(tree, node => node.key === other.id), node => node.props.role === "alert").length, 0);
     assert.equal(nodes(tree, node => node.props.children === "تحديث الحالة").length, 0);
     assert.equal(nodes(tree, node => node.props.children === "حُفظ موعد المنشور").length, 0);
-  }
+  });
 });
 
 test("the batch picker and summary precede reconciled totals and the review filter matches the batch count", () => {

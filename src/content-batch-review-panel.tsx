@@ -153,6 +153,13 @@ type ScheduleDraft = { original: string | null; value: string };
 export type FactoryCardTarget = { id: string; status: "scheduled"; scheduledFor: string } | { id: string; status: "approved" };
 export type ScheduleResult = { itemId: string; ok: boolean; code: string; message: string };
 
+const scheduleRefusalsAr = new Map([
+  ["MEDIA_ASSET_REQUIRED_FOR_PUBLISH", "اربط بهذا المنشور ملفًا محفوظًا لصورة أو فيديو."],
+  ["MEDIA_ASSET_MISSING_OR_UNLINKED", "تأكّد من حفظ ملف الصورة أو الفيديو، ثم أعد ربطه بهذا المنشور."],
+  ["MEDIA_NOT_APPROVED_FOR_PUBLISH", "راجع الصورة أو الفيديو واعتمده، ووثّق موافقة الأشخاص عند الحاجة."],
+  ["INVALID_TRANSITION", "حالة المنشور الحالية لا تسمح باعتماده وجدولته. حدّث الصفحة للتحقق من حالته."],
+]);
+
 export function matchesSavedSchedule(item: ContentBatchItem, scheduledFor: string) {
   return item.status === "scheduled" && !!item.scheduledFor && Date.parse(item.scheduledFor) === Date.parse(scheduledFor);
 }
@@ -1061,7 +1068,9 @@ export function ContentBatchReviewPanel({
                   <button type="button" className="secondary" onClick={onRefreshStatus}>
                     {language === "ar" ? "تحديث الحالة" : "Refresh status"}
                   </button>
-                </> : <p className="error-box" role="alert">{result.message}</p>)}
+                </> : <p className="error-box" role="alert">
+                  {language === "ar" ? scheduleRefusalsAr.get(result.code) ?? result.message : result.message}
+                </p>)}
                 {canRequestChanges && (
                   <button
                     type="button"

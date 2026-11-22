@@ -160,6 +160,11 @@
   min-width: 120px;
 }
 
+.content-batch-item footer > p.error-box {
+  color: #64152b;
+  background: #fff1f2;
+}
+
 .factory-design-method {
   flex-basis: 100%;
   min-width: 0;
