@@ -154,6 +154,8 @@ export type FactoryCardTarget = { id: string; status: "scheduled"; scheduledFor:
 export type ScheduleResult = { itemId: string; ok: boolean; code: string; message: string };
 
 const scheduleRefusalsAr = new Map([
+  ["SCHEDULE_PUBLISH_JOB_NOT_FOUND", "تعذّر تجهيز مهمة النشر للموعد المختار. لم يُحفظ الموعد."],
+  ["PLATFORM_NOT_SUPPORTED", "الجدولة متاحة لمنشورات فيسبوك وإنستغرام فقط."],
   ["MEDIA_ASSET_REQUIRED_FOR_PUBLISH", "اربط بهذا المنشور ملفًا محفوظًا لصورة أو فيديو."],
   ["MEDIA_ASSET_MISSING_OR_UNLINKED", "تأكّد من حفظ ملف الصورة أو الفيديو، ثم أعد ربطه بهذا المنشور."],
   ["MEDIA_NOT_APPROVED_FOR_PUBLISH", "راجع الصورة أو الفيديو واعتمده، ووثّق موافقة الأشخاص عند الحاجة."],

@@ -287,6 +287,8 @@ test("a scheduling refusal is shown next to the approval button on the requested
   const requested = { ...post, status: "needs_review", scheduledFor: savedTime };
   const other = { ...requested, id: "other" };
   const refusals = [
+    ["SCHEDULE_PUBLISH_JOB_NOT_FOUND", "تعذر تنفيذ التغيير.", "تعذّر تجهيز مهمة النشر للموعد المختار. لم يُحفظ الموعد."],
+    ["PLATFORM_NOT_SUPPORTED", "تعذر تنفيذ التغيير.", "الجدولة متاحة لمنشورات فيسبوك وإنستغرام فقط."],
     ["INVALID_SCHEDULE_TIME", "وقت الجدولة يجب أن يكون في المستقبل.", "وقت الجدولة يجب أن يكون في المستقبل."],
     ["APPROVE_AND_SCHEDULE_FAILED", "تعذر تنفيذ التغيير بأمان.", "تعذّر اعتماد المنشور وجدولته. لم يحدّد الخادم سبب الرفض."],
     ["INVALID_TRANSITION", "تعذر تنفيذ التغيير.", "حالة المنشور الحالية لا تسمح باعتماده وجدولته. حدّث الصفحة للتحقق من حالته."],

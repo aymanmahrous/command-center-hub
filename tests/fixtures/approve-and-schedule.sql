@@ -11,7 +11,8 @@ $$;
 CREATE TYPE content_status AS ENUM ('idea','draft','generated','needs_review','approved','scheduled','published','failed','cancelled');
 CREATE TABLE content_items (
   id uuid PRIMARY KEY, platform text, status content_status, media_asset_id uuid,
-  scheduled_for timestamptz, published_at timestamptz, updated_at timestamptz
+  scheduled_for timestamptz, published_at timestamptz, updated_at timestamptz,
+  planned_for timestamptz DEFAULT '2020-01-01 UTC', provider_external_id text
 );
 CREATE TABLE audit_logs (actor_id uuid, actor_type text, action text, entity_type text, entity_id uuid, detail jsonb);
 CREATE TABLE media_assets (
@@ -19,9 +20,10 @@ CREATE TABLE media_assets (
   source text, category text, media_status text, publishability_status text, consent_status text
 );
 CREATE TABLE background_jobs (
-  id uuid PRIMARY KEY, job_type text, status text, next_retry_at timestamptz, created_at timestamptz,
-  updated_at timestamptz, payload jsonb
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), job_type text, status text, next_retry_at timestamptz,
+  created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now(), payload jsonb NOT NULL
 );
+CREATE TABLE content_publication_receipts (content_item_id uuid, platform text, status text);
 GRANT SELECT ON content_items, background_jobs TO authenticated;
 GRANT UPDATE (payload, updated_at) ON background_jobs TO authenticated;
 
@@ -31,13 +33,3 @@ INSERT INTO media_assets
 SELECT media_asset_id, id, 'fixture/image.png', 'image', '{"reviewStatus":"approved"}', 'uploaded',
        'swimming_business', 'ready', 'ready_for_review', 'consent_confirmed'
 FROM content_items;
-
--- Job 2 wins the timestamp tie with 1. All subsequent rows must stay untouched.
-INSERT INTO background_jobs
-SELECT lpad(n::text,32,'0')::uuid,
-       CASE WHEN n=4 THEN 'other' ELSE 'publish_content' END,
-       CASE WHEN n=5 THEN 'completed' ELSE 'queued' END,
-       timestamptz '2095-08-10 12:30 UTC' + CASE WHEN n=6 THEN interval '1 hour' ELSE interval '0' END,
-       timestamptz '2020-01-01 UTC' + CASE WHEN n=3 THEN interval '-1 hour' ELSE interval '0' END,
-       NULL, jsonb_build_object('contentItemId', CASE WHEN n=7 THEN NULL ELSE id END, 'original', n)
-FROM content_items CROSS JOIN generate_series(1,7) AS n;
