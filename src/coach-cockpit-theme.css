@@ -1,33 +1,4 @@
-/* New Coach-inspired cockpit theme, scoped to the authenticated app shell. */
-.app-shell {
-  min-height: 100vh;
-  color: #e5edf7;
-  background:
-    radial-gradient(58rem 36rem at 90% -12%, rgba(34, 211, 238, .10), transparent 60%),
-    radial-gradient(46rem 28rem at -12% 110%, rgba(52, 211, 153, .07), transparent 60%),
-    #07111f;
-}
-.app-shell > aside {
-  background: linear-gradient(180deg, #0d1726 0%, #08111e 100%);
-  border-inline-end: 1px solid #26374e;
-  color: #e5edf7;
-}
-.app-shell .side-brand strong { color: #f8fafc; }
-.app-shell .side-brand span,
-.app-shell .side-brand small { color: #94a3b8; }
-.app-shell > aside nav button {
-  color: #a9b7c9;
-  transition: background-color .16s ease, color .16s ease, border-color .16s ease;
-}
-.app-shell > aside nav button:hover,
-.app-shell > aside nav button.active {
-  background: #142a40;
-  color: #67e8f9;
-}
-.app-shell .workspace { background: transparent; color: #e5edf7; }
-.app-shell .workspace h1,
-.app-shell .workspace h2,
-.app-shell .workspace h3 { color: #f8fafc; }
+.app-shell .workspace h1 { color: #f8fafc; font-size: clamp(1.55rem, 3vw, 2.45rem); }
 .app-shell .workspace .eyebrow,
 .app-shell .nav-group-label { color: #67e8f9; }
 .app-shell .owner-header {
@@ -39,17 +10,13 @@
   background: rgba(11, 20, 34, .88);
   color: #a9b7c9;
 }
-.app-shell .panel,
-.app-shell .panel.owner-panel {
+.app-shell .panel {
   color: #e5edf7;
   border: 1px solid #22364d;
   border-radius: 18px;
   background: linear-gradient(180deg, rgba(16, 27, 43, .98), rgba(13, 23, 38, .98));
   box-shadow: 0 18px 55px rgba(2, 8, 23, .22);
 }
-.app-shell .panel h2,
-.app-shell .panel h3,
-.app-shell .panel strong { color: #f8fafc; }
 .panel :is(.inbox-workspace-head h3, .conversation-list strong, .conversation-panel h3),
 .inbox-layout, .inbox-action-bar button { color: #0f172a; }
 .inbox-action-bar button:disabled { background: #e2e8f0; color: #475569; }
@@ -84,12 +51,6 @@
 }
 .app-shell .panel input::placeholder,
 .app-shell .panel textarea::placeholder { color: #718198; }
-.app-shell .panel input:focus-visible,
-.app-shell .panel select:focus-visible,
-.app-shell .panel textarea:focus-visible {
-  outline: 2px solid #22d3ee;
-  outline-offset: 2px;
-}
 .app-shell .refresh,
 .app-shell .more-panel button {
   border: 1px solid #334155;
@@ -108,8 +69,6 @@
   background: #0b2430;
   color: #a5f3fc;
 }
-.app-shell .write-banner strong,
-.app-shell .write-banner span { color: inherit; }
 .app-shell .notice-box {
   border-color: #155e75;
   background: #0b2430;
@@ -121,15 +80,9 @@
   color: #cbd5e1;
 }
 .app-shell .language-switcher.on-dark { border: 1px solid #26374e; }
-.app-shell .owner-mobile-nav {
-  border-color: #26374e;
-  background: rgba(7, 15, 27, .96);
-  backdrop-filter: blur(16px);
-}
 @media (max-width: 780px) {
   .app-shell .workspace { padding-inline: 12px; }
-  .app-shell .panel,
-  .app-shell .panel.owner-panel { border-radius: 14px; }
+  .app-shell .panel { border-radius: 14px; }
   .app-shell .owner-header { gap: 10px; }
   .app-shell .owner-status-strip { flex-wrap: wrap; gap: 8px; }
 }
@@ -149,7 +102,6 @@
 .app-shell .side-brand strong { font-family:"Orbitron","IBM Plex Sans Arabic",sans-serif; font-size:12px; letter-spacing:.02em; }
 .app-shell .side-brand span { color:#67e8f9; font-size:11px; }
 .app-shell .side-brand small { color:#94a3b8; font-size:10px; }
-.app-shell .language-switcher { white-space:nowrap; }
 .app-shell > aside > nav { display:block; min-width:0; overflow:visible; }
 .app-shell > aside > nav .nav-group { display:flex; align-items:center; gap:5px; margin:0; min-width:0; }
 .app-shell > aside > nav .nav-group-label { display:none; }
@@ -157,6 +109,7 @@
   display:inline-flex; align-items:center; justify-content:center; gap:7px; flex:0 0 auto;
   padding:10px 12px; min-height:40px; border:1px solid transparent; border-radius:12px;
   background:transparent; color:#a9b7c9; font-size:13px; font-weight:700; white-space:nowrap;
+  transition:background-color .16s ease,color .16s ease,border-color .16s ease;
 }
 .app-shell > aside > nav button:hover { color:#f8fafc; background:#10243a; border-color:#26374e; }
 .app-shell > aside > nav button.active {
@@ -165,7 +118,6 @@
 }
 .app-shell > aside > .logout { display:none; }
 .app-shell .workspace { min-width:0; width:100%; max-width:1680px; margin-inline:auto; padding:clamp(18px,3vw,42px); background:transparent; }
-.app-shell .owner-header h1 { font-size:clamp(1.55rem,3vw,2.45rem); }
 .app-shell .panel.owner-panel { margin-top:18px; padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; }
 .app-shell .owner-mobile-nav { display:none; }
 @media (max-width:1100px) {
@@ -190,5 +142,4 @@
   .app-shell .owner-header { align-items:flex-start; }
   .app-shell .owner-header h1 { font-size:clamp(1.4rem,6vw,1.9rem); }
   .app-shell .owner-status-strip { gap:8px; padding:10px; }
-  .app-shell .owner-mobile-nav { display:none; }
 }
