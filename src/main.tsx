@@ -626,6 +626,7 @@ function AIInboxView({ value, session, onSessionExpired }: { value: JsonValue; s
           <label htmlFor="inbox-reply">{copy.replyLabel}<textarea id="inbox-reply" rows={2} value={replyBody} disabled={busyId === selected.id} onChange={(event) => setReplyBody(event.target.value)} placeholder={copy.replyPlaceholder} /></label>
           <button type="submit" disabled={busyId !== null || !replyBody.trim()}>{busyId === selected.id ? copy.sendingReply : copy.sendButton}</button>
         </form>}
+        {selected && canSendReply && selected.channel === "whatsapp" && selected.mode !== "human_takeover" && <p className="read-only-note">{copy.takeOverHint}</p>}
         {!canSendReply && canWriteMode && <p className="read-only-note">{copy.replyReadOnlyNote}</p>}
         {!canWriteMode && !canSendReply && <p className="read-only-note">{copy.readOnlyNote}</p>}
         {busyId === selected?.id && <p className="muted">{copy.savingChange}</p>}
@@ -1073,6 +1074,10 @@ function RadarView({ value, session, onChanged, onSessionExpired }: { value: Jso
 
   async function changeStatus(opportunity: z.infer<typeof RadarOpportunitySchema>, next: RadarStatus) {
     if (!canWrite || busyId || opportunity.status === next) return;
+    const confirmMessage = language === "ar"
+      ? `تأكيد تغيير حالة الفرصة من «${radarStatusLabels[language][opportunity.status]}» إلى «${radarStatusLabels[language][next]}»؟ سيتم تسجيل العملية في Audit Log.`
+      : `Change this opportunity's status from "${radarStatusLabels.en[opportunity.status]}" to "${radarStatusLabels.en[next]}"? Recorded in the Audit Log.`;
+    if (!window.confirm(confirmMessage)) return;
     setBusyId(opportunity.id); setNotice("");
     try {
       await setRadarOpportunityStatus(session, opportunity.id, next);
@@ -1253,6 +1258,12 @@ function BookingView({ value, session, onChanged, onSessionExpired }: { value: J
   </>;
 }
 
+// Display-only role labels; the programmatic session.role value stays untouched in all permission logic.
+const roleDisplayLabels: Record<Language, Record<string, string>> = {
+  ar: { super_admin: "المالك", admin: "مدير", reception: "استقبال", coach: "مدرب", content_manager: "مدير محتوى" },
+  en: { super_admin: "Owner", admin: "Admin", reception: "Reception", coach: "Coach", content_manager: "Content manager" },
+};
+
 function Dashboard({ session, onLogout }: { session: Session; onLogout: () => void }) {
   const { language, t } = useLanguage();
   const nav = t("nav");
@@ -1326,7 +1337,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     return () => controller.abort();
   }, [current, dashboardCopy.loadError, onLogout, reloadKey, session]);
 
-  const modeLabel = ["planner", "crm", "inbox", "content", "media"].includes(active)
+  const modeLabel = ["planner", "crm", "inbox", "content", "media", "connections", "integrations", "radar", "workspace"].includes(active)
     ? dashboardCopy.controlledWrite
     : dashboardCopy.readOnly;
 
@@ -1369,7 +1380,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
       <div className="side-brand">
         <strong>Command Center Hub</strong>
         <span>{language === "ar" ? "مركز تشغيل السباحة" : "Swimming Academy OS"}</span>
-        <small>{session.displayName} · {session.role}</small>
+        <small>{session.displayName} · {roleDisplayLabels[language][session.role] ?? session.role}</small>
       </div>
       <LanguageSwitcher onDark />
         <nav aria-label="وحدات Command Center">
